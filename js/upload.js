@@ -249,10 +249,12 @@ async function analyzeCV(cvData, jobDesc) {
 
     const result = await response.json();
 
-    // Save results to sessionStorage for hasil.html
+    // Save scoring results and server-side key for hasil.html
+    // Store cv_text_key (not raw CV bytes) so payment.js can reference
+    // the server-side KV entry — no sensitive file data in sessionStorage
     sessionStorage.setItem('gaslamar_scoring', JSON.stringify(result));
-    sessionStorage.setItem('gaslamar_cv', cvData);
-    sessionStorage.setItem('gaslamar_jd', jobDesc);
+    sessionStorage.setItem('gaslamar_cv_key', result.cv_text_key || '');
+    sessionStorage.removeItem('gaslamar_cv'); // clear any stale raw CV data
 
     // Redirect to scoring page
     setLoadingText('Menyiapkan hasil analisis...');

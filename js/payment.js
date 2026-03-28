@@ -46,10 +46,9 @@ function selectTier(tier) {
 async function proceedToPayment() {
   if (!selectedTier || paymentInProgress) return;
 
-  const cvData = sessionStorage.getItem('gaslamar_cv');
-  const jobDesc = sessionStorage.getItem('gaslamar_jd');
+  const cvTextKey = sessionStorage.getItem('gaslamar_cv_key');
 
-  if (!cvData || !jobDesc) {
+  if (!cvTextKey) {
     alert('Data CV tidak ditemukan. Mohon upload CV kamu kembali.');
     window.location.href = 'upload.html';
     return;
@@ -71,8 +70,7 @@ async function proceedToPayment() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         tier: selectedTier,
-        cv: cvData,
-        job_desc: jobDesc
+        cv_text_key: cvTextKey
       }),
       signal: controller.signal
     });

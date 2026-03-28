@@ -155,7 +155,8 @@ async function fetchAndGenerateCV(sessionId) {
   }
 }
 
-async function generateCVContent(sessionId, cvData, jobDesc, tier) {
+async function generateCVContent(sessionId, _cvData, _jobDesc, tier) {
+  // Note: cv data and job_desc come from KV server-side — not sent from browser
   const isBilingual = tier !== 'coba';
 
   const controller = new AbortController();
@@ -168,12 +169,7 @@ async function generateCVContent(sessionId, cvData, jobDesc, tier) {
     const res = await fetch(`${WORKER_URL}/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        session_id: sessionId,
-        cv: cvData,
-        job_desc: jobDesc,
-        tier: tier
-      }),
+      body: JSON.stringify({ session_id: sessionId }),
       signal: controller.signal
     });
 

@@ -37,7 +37,7 @@ function getCorsHeaders(request, env) {
     ? ALLOWED_ORIGINS
     : [...ALLOWED_ORIGINS, ...DEV_ORIGINS];
 
-  const allowedOrigin = allowed.includes(origin) ? origin : allowed[0];
+  const allowedOrigin = allowed.includes(origin) ? origin : 'null';
 
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
@@ -394,8 +394,14 @@ async function verifyMayarWebhook(request, env) {
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
 
-  // Timing-safe comparison
-  const valid = signature.toLowerCase() === expected.toLowerCase();
+  // Constant-time comparison to prevent timing attacks
+  const sigLower = signature.toLowerCase();
+  if (sigLower.length !== expected.length) return { valid: false, body };
+  const sigBytes = new TextEncoder().encode(sigLower);
+  const expBytes = new TextEncoder().encode(expected);
+  let diff = 0;
+  for (let i = 0; i < expBytes.length; i++) diff |= sigBytes[i] ^ expBytes[i];
+  const valid = diff === 0;
   return { valid, body };
 }
 
@@ -471,14 +477,17 @@ async function handleAnalyze(request, env) {
     return jsonResponse({ message: extraction.error }, 422, request, env);
   }
 
-  // Run scoring
+  // Run scoring and store extracted text under a short-lived key
+  // so /create-payment can reuse it without re-extracting the file
   try {
     const scoring = await analyzeCV(extraction.text, job_desc, env);
-    // Store extracted text for later use (short TTL)
-    const tempKey = `cvtext_${crypto.randomUUID()}`;
-    await env.GASLAMAR_SESSIONS.put(tempKey, extraction.text, { expirationTtl: 3600 });
+    const cvTextKey = `cvtext_${crypto.randomUUID()}`;
+    await env.GASLAMAR_SESSIONS.put(cvTextKey, JSON.stringify({
+      text: extraction.text,
+      job_desc: job_desc.slice(0, 3000)
+    }), { expirationTtl: 3600 });
 
-    return jsonResponse({ ...scoring, cv_text_key: tempKey }, 200, request, env);
+    return jsonResponse({ ...scoring, cv_text_key: cvTextKey }, 200, request, env);
   } catch (e) {
     return jsonResponse({ message: e.message || 'Analisis gagal. Coba lagi.' }, 500, request, env);
   }
@@ -500,9 +509,9 @@ async function handleCreatePayment(request, env) {
     return jsonResponse({ message: 'Request body tidak valid' }, 400, request, env);
   }
 
-  const { tier, cv, job_desc } = body;
+  const { tier, cv_text_key } = body;
 
-  if (!tier || !cv || !job_desc) {
+  if (!tier || !cv_text_key) {
     return jsonResponse({ message: 'Data tidak lengkap' }, 400, request, env);
   }
 
@@ -510,17 +519,16 @@ async function handleCreatePayment(request, env) {
     return jsonResponse({ message: 'Tier tidak valid' }, 400, request, env);
   }
 
-  // Validate file
-  const validation = validateFileData(cv);
-  if (!validation.valid) {
-    return jsonResponse({ message: validation.error }, 400, request, env);
+  // Look up extracted CV text from KV (set by /analyze) — never re-extract
+  if (!cv_text_key.startsWith('cvtext_')) {
+    return jsonResponse({ message: 'cv_text_key tidak valid' }, 400, request, env);
   }
-
-  // Extract CV text
-  const extraction = await extractCVText(cv, env);
-  if (!extraction.success) {
-    return jsonResponse({ message: extraction.error }, 422, request, env);
+  const stored = await env.GASLAMAR_SESSIONS.get(cv_text_key, { type: 'json' });
+  if (!stored || !stored.text) {
+    return jsonResponse({ message: 'Sesi analisis kedaluwarsa. Ulangi upload CV.' }, 400, request, env);
   }
+  // Consume key — one-time use
+  await env.GASLAMAR_SESSIONS.delete(cv_text_key);
 
   // Create session
   const sessionId = `sess_${crypto.randomUUID()}`;
@@ -529,10 +537,10 @@ async function handleCreatePayment(request, env) {
     // Create Mayar invoice
     const { invoice_id, invoice_url } = await createMayarInvoice(sessionId, tier, env);
 
-    // Store session in KV
+    // Store session in KV using pre-extracted text from /analyze
     await createSession(env, sessionId, {
-      cv_text: extraction.text,
-      job_desc: job_desc.slice(0, 3000),
+      cv_text: stored.text,
+      job_desc: stored.job_desc,
       tier,
       status: 'pending',
       mayar_invoice_id: invoice_id,
@@ -649,6 +657,14 @@ async function handleGetSession(request, env) {
 }
 
 async function handleGenerate(request, env) {
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+
+  // Rate limit: 5 req/min per IP
+  const allowed = await checkRateLimit(env, ip, 'generate', 5);
+  if (!allowed) {
+    return jsonResponse({ message: 'Terlalu banyak permintaan. Coba lagi dalam 1 menit.' }, 429, request, env);
+  }
+
   let body;
   try {
     body = await request.json();
@@ -656,21 +672,36 @@ async function handleGenerate(request, env) {
     return jsonResponse({ message: 'Request body tidak valid' }, 400, request, env);
   }
 
-  const { session_id, cv, job_desc, tier } = body;
+  const { session_id } = body;
 
-  if (!session_id || !cv || !job_desc || !tier) {
-    return jsonResponse({ message: 'Data tidak lengkap' }, 400, request, env);
+  if (!session_id || !session_id.startsWith('sess_')) {
+    return jsonResponse({ message: 'Session ID tidak valid' }, 400, request, env);
+  }
+
+  // Verify session exists and has status 'generating' (set by /get-session)
+  // All CV data comes from KV — browser cannot inject arbitrary content
+  const session = await getSession(env, session_id);
+  if (!session) {
+    return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa' }, 404, request, env);
+  }
+  if (session.status !== 'generating') {
+    return jsonResponse({ message: 'Sesi tidak valid atau pembayaran belum dikonfirmasi' }, 403, request, env);
+  }
+
+  const { cv_text, job_desc, tier } = session;
+  if (!cv_text || !job_desc || !tier) {
+    return jsonResponse({ message: 'Data sesi tidak lengkap' }, 400, request, env);
   }
 
   const isBilingual = tier !== 'coba';
 
   try {
-    // Generate Indonesian CV
-    const cvId = await tailorCVID(cv, job_desc, env);
+    // Generate from KV data only — never from request body
+    const cvId = await tailorCVID(cv_text, job_desc, env);
 
     let cvEn = null;
     if (isBilingual) {
-      cvEn = await tailorCVEN(cv, job_desc, env);
+      cvEn = await tailorCVEN(cv_text, job_desc, env);
     }
 
     // Delete session — one-time use
@@ -678,7 +709,7 @@ async function handleGenerate(request, env) {
 
     return jsonResponse({ cv_id: cvId, cv_en: cvEn }, 200, request, env);
   } catch (e) {
-    // On failure, reset session status back to 'paid' so user can retry
+    // On failure, reset to 'paid' so user can retry
     await updateSession(env, session_id, { status: 'paid' }).catch(() => {});
     return jsonResponse({ message: e.message || 'Generate CV gagal. Coba lagi.' }, 500, request, env);
   }
@@ -726,7 +757,7 @@ export default {
       }
 
       if (pathname === '/health') {
-        return jsonResponse({ status: 'ok', env: env.ENVIRONMENT || 'sandbox' }, 200, request, env);
+        return jsonResponse({ status: 'ok' }, 200, request, env);
       }
 
       return jsonResponse({ message: 'Not found' }, 404, request, env);
