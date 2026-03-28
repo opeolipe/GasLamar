@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40" fill="none">
+  <rect x="0" y="8" width="24" height="24" rx="6" fill="#1B4FE8"/>
+  <path d="M6 20h12M12 14v12" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+  <text x="32" y="28" font-family="Plus Jakarta Sans, sans-serif" font-weight="700" font-size="20" fill="#1B4FE8">GasLamar</text>
+</svg>

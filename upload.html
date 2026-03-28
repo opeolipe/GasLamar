@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Upload CV — GasLamar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/style.css" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { primary: '#1B4FE8', accent: '#22C55E', warning: '#F59E0B', danger: '#EF4444' },
+          fontFamily: { heading: ['"Plus Jakarta Sans"', 'sans-serif'], body: ['Inter', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-[#F9FAFB] text-[#1F2937] font-body min-h-screen">
+
+  <!-- Navbar -->
+  <nav class="bg-white border-b border-gray-100">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2">
+        <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v12M2 8h12" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>
+        </div>
+        <span class="font-heading font-bold text-xl text-primary">GasLamar</span>
+      </a>
+      <!-- Progress steps -->
+      <div class="hidden sm:flex items-center gap-2 text-sm">
+        <span class="flex items-center gap-1.5 text-primary font-semibold">
+          <span class="w-6 h-6 bg-primary text-white rounded-full flex items-center justify-center text-xs font-bold">1</span>
+          Upload
+        </span>
+        <span class="text-gray-300">→</span>
+        <span class="flex items-center gap-1.5 text-gray-400">
+          <span class="w-6 h-6 bg-gray-200 text-gray-400 rounded-full flex items-center justify-center text-xs font-bold">2</span>
+          Hasil
+        </span>
+        <span class="text-gray-300">→</span>
+        <span class="flex items-center gap-1.5 text-gray-400">
+          <span class="w-6 h-6 bg-gray-200 text-gray-400 rounded-full flex items-center justify-center text-xs font-bold">3</span>
+          Download
+        </span>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-4xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+    <div class="text-center mb-10">
+      <h1 class="font-heading font-extrabold text-3xl sm:text-4xl text-[#1F2937] mb-3">Analisis CV Kamu</h1>
+      <p class="text-gray-500 text-lg">Upload CV dan job description — skor match langsung keluar</p>
+    </div>
+
+    <form id="upload-form" class="space-y-6">
+
+      <!-- CV Upload -->
+      <div class="bg-white rounded-2xl border border-gray-200 p-6">
+        <label class="block font-semibold text-[#1F2937] mb-4 text-lg">
+          1. Upload CV Kamu
+          <span class="text-sm font-normal text-gray-400 ml-2">PDF atau DOCX, maks 5MB</span>
+        </label>
+
+        <div id="drop-zone"
+          class="border-2 border-dashed border-gray-200 rounded-xl p-10 text-center cursor-pointer hover:border-primary hover:bg-blue-50/30 transition-all"
+          onclick="document.getElementById('cv-file').click()"
+          ondragover="handleDragOver(event)"
+          ondragleave="handleDragLeave(event)"
+          ondrop="handleDrop(event)">
+
+          <div id="drop-idle">
+            <div class="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                <path d="M14 18V6M9 11l5-5 5 5" stroke="#1B4FE8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M4 20v2a2 2 0 002 2h16a2 2 0 002-2v-2" stroke="#1B4FE8" stroke-width="2.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <p class="font-semibold text-[#1F2937] mb-1">Drag & drop CV di sini</p>
+            <p class="text-sm text-gray-400">atau klik untuk pilih file</p>
+          </div>
+
+          <div id="drop-preview" class="hidden">
+            <div class="flex items-center justify-center gap-3">
+              <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <rect x="4" y="2" width="16" height="20" rx="2" stroke="#1B4FE8" stroke-width="2"/>
+                  <path d="M8 10h8M8 14h5" stroke="#1B4FE8" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <div class="text-left">
+                <p id="file-name" class="font-semibold text-[#1F2937] text-sm"></p>
+                <p id="file-size" class="text-xs text-gray-400"></p>
+              </div>
+              <button type="button" onclick="removeFile()" class="ml-2 text-gray-400 hover:text-danger transition-colors">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <input type="file" id="cv-file" class="hidden" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onchange="handleFileSelect(event)" />
+
+        <div id="file-error" class="hidden mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-danger text-sm"></div>
+      </div>
+
+      <!-- Job Description -->
+      <div class="bg-white rounded-2xl border border-gray-200 p-6">
+        <label class="block font-semibold text-[#1F2937] mb-1 text-lg">
+          2. Job Description / Lowongan
+        </label>
+        <p class="text-sm text-gray-400 mb-4">Paste bagian Requirements dan Responsibilities (maks 3.000 karakter)</p>
+
+        <textarea
+          id="job-desc"
+          rows="8"
+          maxlength="3000"
+          placeholder="Contoh:
+Posisi: Product Manager
+Perusahaan: PT Maju Bersama
+
+Requirements:
+- Min. S1 semua jurusan
+- 3+ tahun pengalaman sebagai Product Manager
+- Familiar dengan Agile/Scrum
+- Kemampuan analisis data (SQL, Excel)
+..."
+          class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-[#1F2937] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+          oninput="updateCharCount()"
+        ></textarea>
+        <div class="flex items-center justify-between mt-2">
+          <p id="char-warning" class="text-xs text-gray-400 hidden text-warning">Mendekati batas karakter</p>
+          <p class="text-xs text-gray-400 ml-auto"><span id="char-count">0</span>/3.000</p>
+        </div>
+
+        <div id="jd-error" class="hidden mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-danger text-sm"></div>
+      </div>
+
+      <!-- CV Text minimum warning -->
+      <div id="cv-text-warning" class="hidden p-4 bg-yellow-50 border border-yellow-200 rounded-xl text-sm text-yellow-800">
+        <strong>Peringatan:</strong> CV kamu tidak bisa dibaca. Pastikan CV dalam format teks, bukan hasil scan atau foto.
+      </div>
+
+      <!-- Submit -->
+      <button
+        type="submit"
+        id="submit-btn"
+        class="w-full bg-primary text-white font-bold text-lg py-4 rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+      >
+        Analisis CV Saya →
+      </button>
+
+      <!-- Loading state -->
+      <div id="loading-state" class="hidden text-center py-6">
+        <div class="inline-flex items-center gap-3 bg-white rounded-2xl border border-gray-100 px-8 py-5">
+          <div class="spinner w-6 h-6 border-3 border-primary border-t-transparent rounded-full"></div>
+          <div class="text-left">
+            <p class="font-semibold text-[#1F2937]" id="loading-text">Membaca CV kamu...</p>
+            <p class="text-sm text-gray-400">Mohon tunggu sebentar</p>
+          </div>
+        </div>
+      </div>
+
+    </form>
+  </main>
+
+  <script src="js/upload.js"></script>
+</body>
+</html>

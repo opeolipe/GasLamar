@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Download CV — GasLamar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/style.css" />
+  <!-- docx.js for DOCX generation -->
+  <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js"></script>
+  <!-- jsPDF for PDF generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { primary: '#1B4FE8', accent: '#22C55E', warning: '#F59E0B', danger: '#EF4444' },
+          fontFamily: { heading: ['"Plus Jakarta Sans"', 'sans-serif'], body: ['Inter', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-[#F9FAFB] text-[#1F2937] font-body min-h-screen">
+
+  <!-- Navbar -->
+  <nav class="bg-white border-b border-gray-100">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2">
+        <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v12M2 8h12" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>
+        </div>
+        <span class="font-heading font-bold text-xl text-primary">GasLamar</span>
+      </a>
+      <div class="hidden sm:flex items-center gap-2 text-sm">
+        <span class="flex items-center gap-1.5 text-accent font-semibold">
+          <span class="w-6 h-6 bg-accent text-white rounded-full flex items-center justify-center text-xs">✓</span>
+          Upload
+        </span>
+        <span class="text-gray-300">→</span>
+        <span class="flex items-center gap-1.5 text-accent font-semibold">
+          <span class="w-6 h-6 bg-accent text-white rounded-full flex items-center justify-center text-xs">✓</span>
+          Hasil
+        </span>
+        <span class="text-gray-300">→</span>
+        <span class="flex items-center gap-1.5 text-primary font-semibold">
+          <span class="w-6 h-6 bg-primary text-white rounded-full flex items-center justify-center text-xs font-bold">3</span>
+          Download
+        </span>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-4xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+
+    <!-- Waiting for payment state -->
+    <div id="waiting-payment" class="hidden text-center py-16">
+      <div class="bg-white rounded-2xl border border-gray-100 p-10 max-w-md mx-auto">
+        <div class="spinner w-12 h-12 border-3 border-primary border-t-transparent rounded-full mx-auto mb-5"></div>
+        <h2 class="font-heading font-bold text-xl mb-2">Menunggu Konfirmasi Pembayaran</h2>
+        <p class="text-gray-500 text-sm mb-2">Biasanya 1–2 menit setelah pembayaran berhasil</p>
+        <p class="text-xs text-gray-400" id="poll-count-text"></p>
+        <div class="mt-6 space-y-3">
+          <button onclick="restartPolling()" id="check-btn" class="hidden w-full bg-primary text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition-colors text-sm">
+            Cek Ulang Status Pembayaran
+          </button>
+          <a href="mailto:support@gaslamar.com" id="contact-btn" class="hidden block text-center text-sm text-gray-400 hover:text-primary transition-colors">
+            Sudah lebih dari 5 menit? Hubungi Kami
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Session expired / error state -->
+    <div id="session-error" class="hidden text-center py-16">
+      <div class="bg-white rounded-2xl border border-red-200 p-10 max-w-md mx-auto">
+        <div class="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M12 8v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#EF4444" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
+        <h2 class="font-heading font-bold text-xl mb-2" id="error-title">Sesi Kedaluwarsa</h2>
+        <p class="text-gray-500 text-sm mb-6" id="session-error-msg">Sesi kamu sudah kedaluwarsa. Mulai ulang dari awal.</p>
+        <a href="upload.html" class="inline-block bg-primary text-white font-bold px-6 py-3 rounded-xl hover:bg-blue-700 transition-colors">
+          Mulai Ulang
+        </a>
+      </div>
+    </div>
+
+    <!-- Generating CV state -->
+    <div id="generating-cv" class="hidden text-center py-16">
+      <div class="bg-white rounded-2xl border border-gray-100 p-10 max-w-md mx-auto">
+        <div class="spinner w-12 h-12 border-3 border-primary border-t-transparent rounded-full mx-auto mb-5"></div>
+        <h2 class="font-heading font-bold text-xl mb-2">AI Sedang Menulis CV Kamu</h2>
+        <p class="text-gray-500 text-sm" id="generating-text">Tailoring CV untuk posisi yang kamu lamar...</p>
+        <div class="mt-4 w-full bg-gray-100 rounded-full h-2">
+          <div id="progress-bar" class="bg-primary h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Download ready state -->
+    <div id="download-ready" class="hidden space-y-6">
+
+      <!-- Success header -->
+      <div class="bg-white rounded-2xl border border-gray-100 p-6 sm:p-8 text-center">
+        <div class="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#22C55E" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <h1 class="font-heading font-extrabold text-2xl sm:text-3xl text-[#1F2937] mb-2">CV Kamu Sudah Siap!</h1>
+        <p class="text-gray-500">Klik tombol di bawah untuk download file CV kamu</p>
+      </div>
+
+      <!-- Download buttons -->
+      <div class="bg-white rounded-2xl border border-gray-100 p-6">
+        <h2 class="font-heading font-bold text-lg mb-5">Download File CV</h2>
+
+        <!-- Bahasa Indonesia -->
+        <div class="mb-6">
+          <p class="text-sm font-semibold text-gray-500 mb-3 flex items-center gap-2">
+            <span class="w-6 h-6 bg-red-50 rounded-lg flex items-center justify-center text-xs font-bold text-red-600">ID</span>
+            Bahasa Indonesia
+          </p>
+          <div class="grid sm:grid-cols-2 gap-3">
+            <button onclick="downloadFile('id', 'docx')" id="btn-id-docx"
+              class="flex items-center gap-3 border border-gray-200 rounded-xl p-4 hover:border-primary hover:bg-blue-50/30 transition-all text-left group">
+              <div class="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="4" y="2" width="16" height="20" rx="2" stroke="#1B4FE8" stroke-width="2"/><path d="M8 10h8M8 14h5" stroke="#1B4FE8" stroke-width="1.5" stroke-linecap="round"/></svg>
+              </div>
+              <div>
+                <p class="font-semibold text-sm text-[#1F2937]">CV Indonesia — DOCX</p>
+                <p class="text-xs text-gray-400">Untuk diedit di Word</p>
+              </div>
+            </button>
+            <button onclick="downloadFile('id', 'pdf')" id="btn-id-pdf"
+              class="flex items-center gap-3 border border-gray-200 rounded-xl p-4 hover:border-primary hover:bg-blue-50/30 transition-all text-left group">
+              <div class="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-red-100 transition-colors">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="4" y="2" width="16" height="20" rx="2" stroke="#EF4444" stroke-width="2"/><path d="M8 8h8M8 12h8M8 16h5" stroke="#EF4444" stroke-width="1.5" stroke-linecap="round"/></svg>
+              </div>
+              <div>
+                <p class="font-semibold text-sm text-[#1F2937]">CV Indonesia — PDF</p>
+                <p class="text-xs text-gray-400">Siap dikirim ke HRD</p>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Bahasa Inggris (bilingual tiers only) -->
+        <div id="en-section" class="hidden">
+          <p class="text-sm font-semibold text-gray-500 mb-3 flex items-center gap-2">
+            <span class="w-6 h-6 bg-blue-50 rounded-lg flex items-center justify-center text-xs font-bold text-blue-600">EN</span>
+            Bahasa Inggris
+          </p>
+          <div class="grid sm:grid-cols-2 gap-3">
+            <button onclick="downloadFile('en', 'docx')" id="btn-en-docx"
+              class="flex items-center gap-3 border border-gray-200 rounded-xl p-4 hover:border-primary hover:bg-blue-50/30 transition-all text-left group">
+              <div class="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="4" y="2" width="16" height="20" rx="2" stroke="#1B4FE8" stroke-width="2"/><path d="M8 10h8M8 14h5" stroke="#1B4FE8" stroke-width="1.5" stroke-linecap="round"/></svg>
+              </div>
+              <div>
+                <p class="font-semibold text-sm text-[#1F2937]">CV English — DOCX</p>
+                <p class="text-xs text-gray-400">Untuk diedit di Word</p>
+              </div>
+            </button>
+            <button onclick="downloadFile('en', 'pdf')" id="btn-en-pdf"
+              class="flex items-center gap-3 border border-gray-200 rounded-xl p-4 hover:border-primary hover:bg-blue-50/30 transition-all text-left group">
+              <div class="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-red-100 transition-colors">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="4" y="2" width="16" height="20" rx="2" stroke="#EF4444" stroke-width="2"/><path d="M8 8h8M8 12h8M8 16h5" stroke="#EF4444" stroke-width="1.5" stroke-linecap="round"/></svg>
+              </div>
+              <div>
+                <p class="font-semibold text-sm text-[#1F2937]">CV English — PDF</p>
+                <p class="text-xs text-gray-400">For international applications</p>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mobile fallback — plain text -->
+      <div id="mobile-fallback" class="hidden bg-yellow-50 border border-yellow-200 rounded-2xl p-5">
+        <p class="text-sm font-semibold text-yellow-800 mb-2">Tidak bisa download? Salin teks CV di bawah ini</p>
+        <div class="grid sm:grid-cols-2 gap-3">
+          <div>
+            <p class="text-xs font-semibold text-gray-500 mb-1">Bahasa Indonesia</p>
+            <textarea id="cv-text-id" readonly rows="8"
+              class="w-full bg-white border border-yellow-200 rounded-xl px-3 py-2 text-xs text-gray-600 resize-none focus:outline-none"></textarea>
+            <button onclick="copyText('cv-text-id')" class="text-xs text-primary font-semibold mt-1 hover:underline">Salin</button>
+          </div>
+          <div id="en-fallback" class="hidden">
+            <p class="text-xs font-semibold text-gray-500 mb-1">English</p>
+            <textarea id="cv-text-en" readonly rows="8"
+              class="w-full bg-white border border-yellow-200 rounded-xl px-3 py-2 text-xs text-gray-600 resize-none focus:outline-none"></textarea>
+            <button onclick="copyText('cv-text-en')" class="text-xs text-primary font-semibold mt-1 hover:underline">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tips -->
+      <div class="bg-blue-50 rounded-2xl p-5 border border-blue-100">
+        <h3 class="font-semibold text-primary mb-3 text-sm">Tips Submit CV</h3>
+        <ul class="space-y-2 text-sm text-gray-600">
+          <li class="flex items-start gap-2"><span class="text-accent font-bold mt-0.5">✓</span> Kirim PDF ke HRD via email — lebih rapi dari DOCX</li>
+          <li class="flex items-start gap-2"><span class="text-accent font-bold mt-0.5">✓</span> Gunakan format nama file: "Nama-Posisi-Perusahaan.pdf"</li>
+          <li class="flex items-start gap-2"><span class="text-accent font-bold mt-0.5">✓</span> Cek sekali lagi nama, no. HP, dan email sebelum kirim</li>
+          <li class="flex items-start gap-2"><span class="text-accent font-bold mt-0.5">✓</span> CV Bahasa Inggris untuk loker MNC dan remote job internasional</li>
+        </ul>
+      </div>
+
+      <!-- CTA: tailoring for another job -->
+      <div class="text-center pb-4">
+        <p class="text-gray-500 text-sm mb-3">Melamar ke tempat lain juga?</p>
+        <a href="upload.html" class="inline-block bg-primary text-white font-bold px-8 py-3 rounded-xl hover:bg-blue-700 transition-colors">
+          Tailoring CV untuk Loker Lain →
+        </a>
+      </div>
+
+    </div>
+  </main>
+
+  <script src="js/download.js"></script>
+</body>
+</html>

@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GasLamar — Lamar Lebih Banyak. Diterima Lebih Cepat.</title>
+  <meta name="description" content="AI CV tailoring + scoring untuk pencari kerja Indonesia. Upload CV, lihat skor match vs job description, download CV bilingual dalam 2 menit." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/style.css" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#1B4FE8',
+            accent: '#22C55E',
+            warning: '#F59E0B',
+            danger: '#EF4444',
+          },
+          fontFamily: {
+            heading: ['"Plus Jakarta Sans"', 'sans-serif'],
+            body: ['Inter', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-[#F9FAFB] text-[#1F2937] font-body">
+
+  <!-- Navbar -->
+  <nav class="bg-white border-b border-gray-100 sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2">
+        <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M8 2v12M2 8h12" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="font-heading font-700 text-xl text-primary">GasLamar</span>
+      </a>
+      <a href="upload.html" class="bg-primary text-white font-semibold px-5 py-2 rounded-xl text-sm hover:bg-blue-700 transition-colors">
+        Cek CV Saya
+      </a>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24 text-center">
+    <div class="inline-flex items-center gap-2 bg-blue-50 text-primary font-semibold text-sm px-4 py-2 rounded-full mb-6">
+      <span class="w-2 h-2 bg-accent rounded-full animate-pulse"></span>
+      Sudah 1.200+ CV dianalisis minggu ini
+    </div>
+    <h1 class="font-heading font-extrabold text-4xl sm:text-5xl lg:text-6xl text-[#1F2937] leading-tight mb-6">
+      Lamar Lebih Banyak.<br class="hidden sm:block" />
+      <span class="text-primary">Diterima Lebih Cepat.</span>
+    </h1>
+    <p class="text-lg sm:text-xl text-gray-500 max-w-2xl mx-auto mb-10 leading-relaxed">
+      Upload CV kamu, lihat langsung skor match vs job description,<br class="hidden sm:block" />
+      dan download CV tailored bilingual dalam <strong class="text-[#1F2937]">2 menit</strong> — tanpa daftar akun.
+    </p>
+    <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+      <a href="upload.html" class="w-full sm:w-auto bg-primary text-white font-bold text-lg px-8 py-4 rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 hover:shadow-blue-300 hover:-translate-y-0.5">
+        Cek CV Saya Sekarang →
+      </a>
+      <p class="text-sm text-gray-400">Mulai dari Rp 29.000 · Tidak perlu daftar</p>
+    </div>
+
+    <!-- Social proof stats -->
+    <div class="mt-16 grid grid-cols-3 gap-6 max-w-lg mx-auto">
+      <div class="text-center">
+        <p class="font-heading font-bold text-3xl text-primary">1.200+</p>
+        <p class="text-sm text-gray-500 mt-1">CV dianalisis</p>
+      </div>
+      <div class="text-center border-x border-gray-100">
+        <p class="font-heading font-bold text-3xl text-primary">94%</p>
+        <p class="text-sm text-gray-500 mt-1">skor meningkat</p>
+      </div>
+      <div class="text-center">
+        <p class="font-heading font-bold text-3xl text-primary">2 mnt</p>
+        <p class="text-sm text-gray-500 mt-1">rata-rata selesai</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Cara Kerja -->
+  <section class="bg-white py-16 sm:py-20">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6">
+      <div class="text-center mb-12">
+        <h2 class="font-heading font-bold text-3xl sm:text-4xl text-[#1F2937] mb-4">Cara Kerja GasLamar</h2>
+        <p class="text-gray-500 text-lg">Tiga langkah simpel, CV langsung siap kirim</p>
+      </div>
+      <div class="grid sm:grid-cols-3 gap-8">
+        <div class="text-center p-6">
+          <div class="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-5">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+              <path d="M14 4v14M9 13l5 5 5-5" stroke="#1B4FE8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M4 20v2a2 2 0 002 2h16a2 2 0 002-2v-2" stroke="#1B4FE8" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center font-bold text-sm mx-auto mb-4">1</div>
+          <h3 class="font-heading font-bold text-lg mb-2">Upload CV &amp; Loker</h3>
+          <p class="text-gray-500 text-sm leading-relaxed">Upload CV kamu (PDF/DOCX) dan paste job description dari loker yang kamu inginkan</p>
+        </div>
+        <div class="text-center p-6">
+          <div class="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-5">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+              <circle cx="14" cy="14" r="10" stroke="#22C55E" stroke-width="2.5"/>
+              <path d="M14 8v6l4 2" stroke="#22C55E" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center font-bold text-sm mx-auto mb-4">2</div>
+          <h3 class="font-heading font-bold text-lg mb-2">Lihat Skor &amp; Gap</h3>
+          <p class="text-gray-500 text-sm leading-relaxed">AI langsung analisis dan kasih skor 0–100 plus gap analysis konkret — apa yang kurang dari requirements</p>
+        </div>
+        <div class="text-center p-6">
+          <div class="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-5">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+              <rect x="4" y="4" width="20" height="24" rx="3" stroke="#1B4FE8" stroke-width="2.5"/>
+              <path d="M9 12h10M9 17h7" stroke="#1B4FE8" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center font-bold text-sm mx-auto mb-4">3</div>
+          <h3 class="font-heading font-bold text-lg mb-2">Download CV Jadi</h3>
+          <p class="text-gray-500 text-sm leading-relaxed">Bayar, dan CV tailored bilingual (ID + EN) langsung bisa download dalam DOCX &amp; PDF</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Fitur Unggulan -->
+  <section class="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-20">
+    <div class="text-center mb-12">
+      <h2 class="font-heading font-bold text-3xl sm:text-4xl text-[#1F2937] mb-4">Beda dari yang Lain</h2>
+      <p class="text-gray-500 text-lg">GasLamar satu-satunya yang combine semua ini</p>
+    </div>
+    <div class="grid sm:grid-cols-3 gap-6">
+      <div class="bg-white rounded-2xl p-6 border border-gray-100 hover:border-primary/30 hover:shadow-md transition-all">
+        <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mb-4">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke="#1B4FE8" stroke-width="2" stroke-linecap="round"/>
+            <path d="M9 12l2 2 4-4" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h3 class="font-heading font-bold text-lg mb-2">Job-Specific Scoring</h3>
+        <p class="text-gray-500 text-sm leading-relaxed">CV kamu dianalisis langsung vs job description spesifik — bukan generic scoring yang sama untuk semua loker</p>
+      </div>
+      <div class="bg-white rounded-2xl p-6 border border-gray-100 hover:border-primary/30 hover:shadow-md transition-all">
+        <div class="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center mb-4">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="#22C55E" stroke-width="2"/>
+            <path d="M8 12h8M12 8v8" stroke="#22C55E" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <h3 class="font-heading font-bold text-lg mb-2">Bilingual Sekaligus</h3>
+        <p class="text-gray-500 text-sm leading-relaxed">Output CV Bahasa Indonesia + Inggris dalam satu flow — cocok untuk MNC, tech company, dan remote job</p>
+      </div>
+      <div class="bg-white rounded-2xl p-6 border border-gray-100 hover:border-primary/30 hover:shadow-md transition-all">
+        <div class="w-12 h-12 bg-yellow-50 rounded-xl flex items-center justify-center mb-4">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="#F59E0B" stroke-width="2"/>
+            <path d="M12 6v6l4 2" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <h3 class="font-heading font-bold text-lg mb-2">2 Menit Langsung Jadi</h3>
+        <p class="text-gray-500 text-sm leading-relaxed">Tidak perlu daftar akun, tidak perlu tunggu review manual — CV tailored langsung bisa download</p>
+      </div>
+    </div>
+
+    <!-- Comparison table -->
+    <div class="mt-12 bg-white rounded-2xl border border-gray-100 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-gray-50 border-b border-gray-100">
+              <th class="text-left px-6 py-4 font-semibold text-gray-600">Fitur</th>
+              <th class="px-4 py-4 font-bold text-primary text-center">GasLamar</th>
+              <th class="px-4 py-4 font-medium text-gray-400 text-center">Kompetitor</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            <tr>
+              <td class="px-6 py-3 text-gray-600">Job-specific tailoring</td>
+              <td class="px-4 py-3 text-center text-accent font-bold">✓</td>
+              <td class="px-4 py-3 text-center text-gray-300">✗</td>
+            </tr>
+            <tr>
+              <td class="px-6 py-3 text-gray-600">CV bilingual (ID + EN)</td>
+              <td class="px-4 py-3 text-center text-accent font-bold">✓</td>
+              <td class="px-4 py-3 text-center text-gray-300">✗</td>
+            </tr>
+            <tr>
+              <td class="px-6 py-3 text-gray-600">Skor match + gap analysis</td>
+              <td class="px-4 py-3 text-center text-accent font-bold">✓</td>
+              <td class="px-4 py-3 text-center text-gray-300">✗</td>
+            </tr>
+            <tr>
+              <td class="px-6 py-3 text-gray-600">Tidak perlu daftar akun</td>
+              <td class="px-4 py-3 text-center text-accent font-bold">✓</td>
+              <td class="px-4 py-3 text-center text-gray-300">✗</td>
+            </tr>
+            <tr>
+              <td class="px-6 py-3 text-gray-600">Selesai &lt; 2 menit</td>
+              <td class="px-4 py-3 text-center text-accent font-bold">✓</td>
+              <td class="px-4 py-3 text-center text-gray-300">✗</td>
+            </tr>
+            <tr class="bg-blue-50/50">
+              <td class="px-6 py-3 font-semibold text-[#1F2937]">Harga mulai dari</td>
+              <td class="px-4 py-3 text-center font-bold text-primary">Rp 29.000</td>
+              <td class="px-4 py-3 text-center text-gray-500">Rp 50.000+</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section id="harga" class="bg-white py-16 sm:py-20">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6">
+      <div class="text-center mb-12">
+        <h2 class="font-heading font-bold text-3xl sm:text-4xl text-[#1F2937] mb-4">Pilih Paket</h2>
+        <p class="text-gray-500 text-lg">Bayar per kebutuhan, tidak ada langganan</p>
+      </div>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+
+        <!-- Coba Dulu -->
+        <div class="bg-[#F9FAFB] rounded-2xl p-6 border border-gray-200 flex flex-col">
+          <div class="mb-4">
+            <p class="font-heading font-bold text-lg text-[#1F2937]">Coba Dulu</p>
+            <p class="text-3xl font-extrabold text-[#1F2937] mt-2">Rp 29.000</p>
+            <p class="text-sm text-gray-500 mt-1">1 CV</p>
+          </div>
+          <ul class="space-y-2 flex-1 mb-6">
+            <li class="flex items-start gap-2 text-sm text-gray-600"><span class="text-accent font-bold mt-0.5">✓</span> CV tailored Bahasa Indonesia</li>
+            <li class="flex items-start gap-2 text-sm text-gray-600"><span class="text-accent font-bold mt-0.5">✓</span> Skor match + gap analysis</li>
+            <li class="flex items-start gap-2 text-sm text-gray-600"><span class="text-accent font-bold mt-0.5">✓</span> Download DOCX + PDF</li>
+            <li class="flex items-start gap-2 text-sm text-gray-300"><span class="mt-0.5">–</span> Bahasa Inggris</li>
+          </ul>
+          <a href="upload.html?tier=coba" class="block text-center bg-white border-2 border-primary text-primary font-bold py-3 rounded-xl hover:bg-blue-50 transition-colors text-sm">
+            Mulai Sekarang
+          </a>
+        </div>
+
+        <!-- Single -->
+        <div class="bg-[#F9FAFB] rounded-2xl p-6 border border-gray-200 flex flex-col">
+          <div class="mb-4">
+            <p class="font-heading font-bold text-lg text-[#1F2937]">Single</p>
+            <p class="text-3xl font-extrabold text-[#1F2937] mt-2">Rp 59.000</p>
+            <p class="text-sm text-gray-500 mt-1">1 CV bilingual</p>
+          </div>
+          <ul class="space-y-2 flex-1 mb-6">
+            <li class="flex items-start gap-2 text-sm text-gray-600"><span class="text-accent font-bold mt-0.5">✓</span> CV tailored Bahasa Indonesia</li>
+            <li class="flex items-start gap-2 text-sm text-gray-600"><span class="text-accent font-bold mt-0.5">✓</span> CV tailored Bahasa Inggris</li>
+            <li class="flex items-start gap-2 text-sm text-gray-600"><span class="text-accent font-bold mt-0.5">✓</span> Skor match + gap analysis</li>
+            <li class="flex items-start gap-2 text-sm text-gray-600"><span class="text-accent font-bold mt-0.5">✓</span> DOCX + PDF (4 file)</li>
+          </ul>
+          <a href="upload.html?tier=single" class="block text-center bg-white border-2 border-primary text-primary font-bold py-3 rounded-xl hover:bg-blue-50 transition-colors text-sm">
+            Pilih Paket
+          </a>
+        </div>
+
+        <!-- 3-Pack (Most Popular) -->
+        <div class="bg-primary rounded-2xl p-6 border-2 border-primary flex flex-col relative">
+          <div class="absolute -top-3 left-1/2 -translate-x-1/2">
+            <span class="bg-accent text-white text-xs font-bold px-3 py-1 rounded-full">Paling Populer</span>
+          </div>
+          <div class="mb-4">
+            <p class="font-heading font-bold text-lg text-white">3-Pack</p>
+            <p class="text-3xl font-extrabold text-white mt-2">Rp 149.000</p>
+            <p class="text-sm text-blue-200 mt-1">3 CV bilingual</p>
+          </div>
+          <ul class="space-y-2 flex-1 mb-6">
+            <li class="flex items-start gap-2 text-sm text-blue-100"><span class="text-accent font-bold mt-0.5">✓</span> 3 CV tailored (ID + EN)</li>
+            <li class="flex items-start gap-2 text-sm text-blue-100"><span class="text-accent font-bold mt-0.5">✓</span> Skor match + gap analysis</li>
+            <li class="flex items-start gap-2 text-sm text-blue-100"><span class="text-accent font-bold mt-0.5">✓</span> DOCX + PDF per CV (4 file)</li>
+            <li class="flex items-start gap-2 text-sm text-blue-100"><span class="text-accent font-bold mt-0.5">✓</span> Hemat Rp 28.000 vs Single</li>
+          </ul>
+          <a href="upload.html?tier=3pack" class="block text-center bg-white text-primary font-bold py-3 rounded-xl hover:bg-blue-50 transition-colors text-sm">
+            Pilih Paket
+          </a>
+        </div>
+
+        <!-- Job Hunt Pack -->
+        <div class="bg-[#F9FAFB] rounded-2xl p-6 border border-gray-200 flex flex-col">
+          <div class="mb-4">
+            <p class="font-heading font-bold text-lg text-[#1F2937]">Job Hunt Pack</p>
+            <p class="text-3xl font-extrabold text-[#1F2937] mt-2">Rp 299.000</p>
+            <p class="text-sm text-gray-500 mt-1">10 CV bilingual</p>
+          </div>
+          <ul class="space-y-2 flex-1 mb-6">
+            <li class="flex items-start gap-2 text-sm text-gray-600"><span class="text-accent font-bold mt-0.5">✓</span> 10 CV tailored (ID + EN)</li>
+            <li class="flex items-start gap-2 text-sm text-gray-600"><span class="text-accent font-bold mt-0.5">✓</span> Skor match + gap analysis</li>
+            <li class="flex items-start gap-2 text-sm text-gray-600"><span class="text-accent font-bold mt-0.5">✓</span> DOCX + PDF per CV (4 file)</li>
+            <li class="flex items-start gap-2 text-sm text-gray-600"><span class="text-accent font-bold mt-0.5">✓</span> Hemat Rp 291.000 vs Single</li>
+          </ul>
+          <a href="upload.html?tier=jobhunt" class="block text-center bg-white border-2 border-primary text-primary font-bold py-3 rounded-xl hover:bg-blue-50 transition-colors text-sm">
+            Pilih Paket
+          </a>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Testimoni -->
+  <section class="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-20">
+    <div class="text-center mb-12">
+      <h2 class="font-heading font-bold text-3xl sm:text-4xl text-[#1F2937] mb-4">Kata Mereka</h2>
+      <p class="text-gray-500">Pencari kerja yang sudah pakai GasLamar</p>
+    </div>
+    <div class="grid sm:grid-cols-3 gap-6">
+      <div class="bg-white rounded-2xl p-6 border border-gray-100">
+        <div class="flex gap-1 mb-4">
+          <span class="text-warning">★★★★★</span>
+        </div>
+        <p class="text-gray-600 text-sm leading-relaxed mb-4">"Skor CV saya naik dari 52 ke 87 setelah pakai GasLamar. Langsung dapat callback dari Tokopedia minggu berikutnya!"</p>
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center font-bold text-primary text-sm">A</div>
+          <div>
+            <p class="font-semibold text-sm">Adi S.</p>
+            <p class="text-xs text-gray-400">Marketing Manager, Jakarta</p>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white rounded-2xl p-6 border border-gray-100">
+        <div class="flex gap-1 mb-4">
+          <span class="text-warning">★★★★★</span>
+        </div>
+        <p class="text-gray-600 text-sm leading-relaxed mb-4">"Praktis banget! Upload CV, bayar, 2 menit kemudian CV bilingual sudah siap. Gap analysis-nya juga sangat detail dan actionable."</p>
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 bg-green-100 rounded-full flex items-center justify-center font-bold text-accent text-sm">R</div>
+          <div>
+            <p class="font-semibold text-sm">Rina K.</p>
+            <p class="text-xs text-gray-400">Software Engineer, Bandung</p>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white rounded-2xl p-6 border border-gray-100">
+        <div class="flex gap-1 mb-4">
+          <span class="text-warning">★★★★★</span>
+        </div>
+        <p class="text-gray-600 text-sm leading-relaxed mb-4">"Pakai Job Hunt Pack untuk lamar 10 perusahaan sekaligus. Worth it banget, CV-nya langsung terasa lebih profesional dan relevan."</p>
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 bg-yellow-100 rounded-full flex items-center justify-center font-bold text-warning text-sm">D</div>
+          <div>
+            <p class="font-semibold text-sm">Dito M.</p>
+            <p class="text-xs text-gray-400">Finance Analyst, Surabaya</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="bg-white py-16 sm:py-20">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6">
+      <div class="text-center mb-12">
+        <h2 class="font-heading font-bold text-3xl sm:text-4xl text-[#1F2937] mb-4">Pertanyaan Umum</h2>
+      </div>
+      <div class="space-y-4" id="faq">
+
+        <div class="bg-[#F9FAFB] rounded-2xl border border-gray-100 overflow-hidden">
+          <button class="faq-toggle w-full text-left px-6 py-5 flex items-center justify-between font-semibold text-[#1F2937]" onclick="toggleFaq(this)">
+            Apakah CV saya aman?
+            <svg class="faq-icon w-5 h-5 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div class="faq-content hidden px-6 pb-5 text-gray-500 text-sm leading-relaxed">
+            Data CV kamu hanya disimpan sementara (30 menit) selama proses berlangsung dan langsung dihapus setelah kamu download. Kami tidak menyimpan data CV kamu secara permanen.
+          </div>
+        </div>
+
+        <div class="bg-[#F9FAFB] rounded-2xl border border-gray-100 overflow-hidden">
+          <button class="faq-toggle w-full text-left px-6 py-5 flex items-center justify-between font-semibold text-[#1F2937]" onclick="toggleFaq(this)">
+            Format CV apa yang didukung?
+            <svg class="faq-icon w-5 h-5 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div class="faq-content hidden px-6 pb-5 text-gray-500 text-sm leading-relaxed">
+            GasLamar menerima CV dalam format PDF dan DOCX (Word). Pastikan CV kamu adalah file teks — bukan hasil scan atau foto — agar bisa dibaca dengan akurat.
+          </div>
+        </div>
+
+        <div class="bg-[#F9FAFB] rounded-2xl border border-gray-100 overflow-hidden">
+          <button class="faq-toggle w-full text-left px-6 py-5 flex items-center justify-between font-semibold text-[#1F2937]" onclick="toggleFaq(this)">
+            Apakah fakta di CV saya akan diubah?
+            <svg class="faq-icon w-5 h-5 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div class="faq-content hidden px-6 pb-5 text-gray-500 text-sm leading-relaxed">
+            Tidak. GasLamar hanya mereframe dan highlight pengalaman yang paling relevan untuk posisi yang kamu lamar. Semua fakta, perusahaan, jabatan, dan tanggal tetap sama persis.
+          </div>
+        </div>
+
+        <div class="bg-[#F9FAFB] rounded-2xl border border-gray-100 overflow-hidden">
+          <button class="faq-toggle w-full text-left px-6 py-5 flex items-center justify-between font-semibold text-[#1F2937]" onclick="toggleFaq(this)">
+            Metode pembayaran apa yang tersedia?
+            <svg class="faq-icon w-5 h-5 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div class="faq-content hidden px-6 pb-5 text-gray-500 text-sm leading-relaxed">
+            Pembayaran via Virtual Account (semua bank), QRIS, GoPay, OVO, Dana, dan kartu kredit/debit. Diproses melalui Mayar yang terpercaya.
+          </div>
+        </div>
+
+        <div class="bg-[#F9FAFB] rounded-2xl border border-gray-100 overflow-hidden">
+          <button class="faq-toggle w-full text-left px-6 py-5 flex items-center justify-between font-semibold text-[#1F2937]" onclick="toggleFaq(this)">
+            Apa itu paket 3-Pack dan Job Hunt Pack?
+            <svg class="faq-icon w-5 h-5 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div class="faq-content hidden px-6 pb-5 text-gray-500 text-sm leading-relaxed">
+            Paket multi-CV memungkinkan kamu tailoring CV untuk beberapa posisi berbeda dengan harga lebih hemat. Setiap CV dianalisis dan disesuaikan dengan job description masing-masing loker.
+          </div>
+        </div>
+
+        <div class="bg-[#F9FAFB] rounded-2xl border border-gray-100 overflow-hidden">
+          <button class="faq-toggle w-full text-left px-6 py-5 flex items-center justify-between font-semibold text-[#1F2937]" onclick="toggleFaq(this)">
+            Bagaimana jika tidak bisa download setelah bayar?
+            <svg class="faq-icon w-5 h-5 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div class="faq-content hidden px-6 pb-5 text-gray-500 text-sm leading-relaxed">
+            Sistem akan otomatis menunggu konfirmasi pembayaran (biasanya 1–2 menit). Jika masih bermasalah, hubungi kami di support@gaslamar.com dengan bukti pembayaran dan kami bantu dalam 24 jam.
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Bottom -->
+  <section class="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-20 text-center">
+    <div class="bg-primary rounded-3xl p-10 sm:p-16">
+      <h2 class="font-heading font-extrabold text-3xl sm:text-4xl text-white mb-4">Siap Lamar Loker Impian?</h2>
+      <p class="text-blue-200 text-lg mb-8">Upload CV kamu sekarang dan lihat langsung skor matchnya</p>
+      <a href="upload.html" class="inline-block bg-white text-primary font-bold text-lg px-10 py-4 rounded-2xl hover:bg-blue-50 transition-all shadow-lg hover:-translate-y-0.5">
+        Mulai Gratis Sekarang →
+      </a>
+      <p class="text-blue-300 text-sm mt-4">Analisis instan · Tidak perlu daftar · Mulai Rp 29.000</p>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="bg-white border-t border-gray-100 py-10">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-2">
+        <div class="w-7 h-7 bg-primary rounded-lg flex items-center justify-center">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M8 2v12M2 8h12" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="font-heading font-bold text-primary">GasLamar</span>
+      </div>
+      <p class="text-sm text-gray-400">© 2026 GasLamar. Lamar lebih banyak, diterima lebih cepat.</p>
+      <div class="flex gap-4 text-sm text-gray-400">
+        <a href="#" class="hover:text-primary transition-colors">Privasi</a>
+        <a href="#" class="hover:text-primary transition-colors">Syarat</a>
+        <a href="mailto:support@gaslamar.com" class="hover:text-primary transition-colors">Kontak</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    function toggleFaq(btn) {
+      const content = btn.nextElementSibling;
+      const icon = btn.querySelector('.faq-icon');
+      content.classList.toggle('hidden');
+      icon.classList.toggle('rotate-180');
+    }
+  </script>
+</body>
+</html>

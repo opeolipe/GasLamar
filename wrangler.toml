@@ -1,0 +1,23 @@
+name = "gaslamar-worker"
+main = "worker/worker.js"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ENVIRONMENT = "sandbox"
+
+[[kv_namespaces]]
+binding = "GASLAMAR_SESSIONS"
+id = "YOUR_KV_NAMESPACE_ID"
+preview_id = "YOUR_KV_PREVIEW_NAMESPACE_ID"
+
+# Production environment overrides
+[env.production]
+[env.production.vars]
+ENVIRONMENT = "production"
+
+# Secrets (set via: wrangler secret put ANTHROPIC_API_KEY)
+# - ANTHROPIC_API_KEY
+# - MAYAR_API_KEY
+# - MAYAR_API_KEY_SANDBOX
+# - MAYAR_WEBHOOK_SECRET

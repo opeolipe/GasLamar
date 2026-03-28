@@ -1,0 +1,479 @@
+/**
+ * download.js — GasLamar
+ * Handles: session polling, CV generation via Worker, DOCX + PDF generation client-side
+ */
+
+const WORKER_URL = 'https://gaslamar-worker.gaslamar.workers.dev';
+const POLL_INTERVAL = 3000;  // 3 seconds
+const MAX_POLLS = 10;
+
+let pollCount = 0;
+let pollTimer = null;
+let cvDataCache = null; // { cv_id: string, cv_en: string, tier: string }
+
+// ---- Init ----
+
+(function init() {
+  // Get session from URL or localStorage fallback
+  const params = new URLSearchParams(location.search);
+  const sessionId = params.get('session') || localStorage.getItem('gaslamar_session');
+
+  if (!sessionId) {
+    showSessionError('Sesi tidak ditemukan', 'Link download tidak valid. Coba lagi dari awal.');
+    return;
+  }
+
+  // Start polling for payment confirmation
+  showState('waiting-payment');
+  startPolling(sessionId);
+})();
+
+// ---- Polling ----
+
+function startPolling(sessionId) {
+  pollCount = 0;
+  poll(sessionId);
+}
+
+function restartPolling() {
+  const params = new URLSearchParams(location.search);
+  const sessionId = params.get('session') || localStorage.getItem('gaslamar_session');
+  if (!sessionId) {
+    showSessionError('Sesi tidak ditemukan', 'Link download tidak valid.');
+    return;
+  }
+  document.getElementById('check-btn').classList.add('hidden');
+  document.getElementById('contact-btn').classList.add('hidden');
+  startPolling(sessionId);
+}
+
+async function poll(sessionId) {
+  pollCount++;
+  updatePollUI();
+
+  try {
+    const res = await fetch(`${WORKER_URL}/check-session?session=${encodeURIComponent(sessionId)}`);
+
+    if (res.status === 404) {
+      showSessionError('Sesi Kedaluwarsa', 'Sesi kamu sudah kedaluwarsa (30 menit). Mulai ulang dari awal.');
+      return;
+    }
+
+    if (!res.ok) {
+      scheduleNextPoll(sessionId);
+      return;
+    }
+
+    const { status } = await res.json();
+
+    if (status === 'paid' || status === 'generating') {
+      // Payment confirmed! Fetch CV data and generate
+      clearTimeout(pollTimer);
+      await fetchAndGenerateCV(sessionId);
+    } else if (status === 'pending') {
+      if (pollCount >= MAX_POLLS) {
+        // Stopped polling — show manual check buttons
+        document.getElementById('check-btn').classList.remove('hidden');
+        document.getElementById('poll-count-text').textContent = 'Klik tombol di bawah untuk cek ulang.';
+        setTimeout(() => {
+          document.getElementById('contact-btn').classList.remove('hidden');
+        }, 300000); // Show contact after 5 minutes
+      } else {
+        scheduleNextPoll(sessionId);
+      }
+    } else {
+      scheduleNextPoll(sessionId);
+    }
+  } catch (err) {
+    if (pollCount < MAX_POLLS) {
+      scheduleNextPoll(sessionId);
+    }
+  }
+}
+
+function scheduleNextPoll(sessionId) {
+  pollTimer = setTimeout(() => poll(sessionId), POLL_INTERVAL);
+}
+
+function updatePollUI() {
+  const el = document.getElementById('poll-count-text');
+  if (el) {
+    el.textContent = `Memeriksa status... (${pollCount}/${MAX_POLLS})`;
+  }
+}
+
+// ---- Fetch Session & Generate CV ----
+
+async function fetchAndGenerateCV(sessionId) {
+  showState('generating-cv');
+  setProgress(10);
+  setGeneratingText('Mengambil data CV...');
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25000);
+
+  try {
+    const res = await fetch(`${WORKER_URL}/get-session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId }),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeout);
+
+    if (res.status === 403) {
+      showSessionError('Akses Ditolak', 'Pembayaran belum dikonfirmasi atau sesi tidak valid.');
+      return;
+    }
+
+    if (res.status === 404) {
+      showSessionError('Sesi Kedaluwarsa', 'Sesi kamu sudah kedaluwarsa. Mulai ulang dari awal.');
+      return;
+    }
+
+    if (!res.ok) {
+      throw new Error(`Server error: ${res.status}`);
+    }
+
+    const sessionData = await res.json();
+    const { cv, job_desc, tier } = sessionData;
+
+    setProgress(25);
+    setGeneratingText('AI sedang menulis CV Bahasa Indonesia...');
+
+    // Generate CV via Worker
+    await generateCVContent(sessionId, cv, job_desc, tier);
+
+  } catch (err) {
+    clearTimeout(timeout);
+    if (err.name === 'AbortError') {
+      showSessionError('Timeout', 'Koneksi timeout. Coba refresh halaman ini.');
+    } else {
+      showSessionError('Terjadi Kesalahan', err.message || 'Gagal memproses CV. Coba refresh halaman.');
+    }
+  }
+}
+
+async function generateCVContent(sessionId, cvData, jobDesc, tier) {
+  const isBilingual = tier !== 'coba';
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000); // 60s for generation
+
+  try {
+    setProgress(40);
+    setGeneratingText('AI sedang menulis CV kamu...');
+
+    const res = await fetch(`${WORKER_URL}/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: sessionId,
+        cv: cvData,
+        job_desc: jobDesc,
+        tier: tier
+      }),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeout);
+
+    if (!res.ok) {
+      throw new Error(`Gagal generate CV: ${res.status}`);
+    }
+
+    setProgress(75);
+    setGeneratingText('Menyiapkan file download...');
+
+    const { cv_id, cv_en } = await res.json();
+
+    // Cache for retries
+    cvDataCache = { cv_id, cv_en, tier };
+
+    // Clear session from localStorage (one-time use)
+    localStorage.removeItem('gaslamar_session');
+    localStorage.removeItem('gaslamar_tier');
+
+    setProgress(90);
+    setGeneratingText('Hampir selesai...');
+
+    // Show download UI
+    setTimeout(() => {
+      setProgress(100);
+      showDownloadReady(cv_id, cv_en, tier, isBilingual);
+    }, 500);
+
+  } catch (err) {
+    clearTimeout(timeout);
+    if (err.name === 'AbortError') {
+      showSessionError('Timeout', 'Generate CV timeout. Refresh halaman untuk coba lagi.');
+    } else {
+      throw err;
+    }
+  }
+}
+
+// ---- Download Actions ----
+
+function downloadFile(lang, format) {
+  if (!cvDataCache) return;
+
+  const { cv_id, cv_en, tier } = cvDataCache;
+  const cvText = lang === 'id' ? cv_id : cv_en;
+
+  if (!cvText) {
+    alert(lang === 'en' ? 'CV English tidak tersedia di paket ini.' : 'CV tidak tersedia.');
+    return;
+  }
+
+  if (format === 'docx') {
+    generateDOCX(cvText, lang, tier);
+  } else if (format === 'pdf') {
+    generatePDF(cvText, lang, tier);
+  }
+}
+
+// ---- DOCX Generation ----
+
+function generateDOCX(cvText, lang, tier) {
+  try {
+    const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } = docx;
+
+    const lines = cvText.split('\n');
+    const children = [];
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        children.push(new Paragraph({ spacing: { after: 100 } }));
+        continue;
+      }
+
+      // Detect section headings (ALL CAPS or ends with ':')
+      const isSectionHead = /^[A-Z\u00C0-\u017E\s]{4,}$/.test(trimmed) ||
+                            (trimmed.endsWith(':') && trimmed.length < 40);
+      // Detect bullet points
+      const isBullet = trimmed.startsWith('•') || trimmed.startsWith('-') || trimmed.startsWith('·');
+
+      if (isSectionHead) {
+        children.push(new Paragraph({
+          text: trimmed.replace(/:$/, ''),
+          heading: HeadingLevel.HEADING_2,
+          spacing: { before: 240, after: 80 },
+          border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: 'CCCCCC' } }
+        }));
+      } else if (isBullet) {
+        children.push(new Paragraph({
+          children: [new TextRun({
+            text: trimmed.replace(/^[•\-·]\s*/, ''),
+            size: 22,
+            font: 'Calibri'
+          })],
+          bullet: { level: 0 },
+          spacing: { after: 40 }
+        }));
+      } else {
+        children.push(new Paragraph({
+          children: [new TextRun({
+            text: trimmed,
+            size: 22,
+            font: 'Calibri'
+          })],
+          spacing: { after: 60 }
+        }));
+      }
+    }
+
+    const doc = new Document({
+      sections: [{
+        properties: {
+          page: {
+            margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } // 2.54cm
+          }
+        },
+        children
+      }]
+    });
+
+    Packer.toBlob(doc).then(blob => {
+      const langLabel = lang === 'id' ? 'Indonesia' : 'English';
+      triggerDownload(blob, `CV-${langLabel}-GasLamar.docx`, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    });
+
+  } catch (err) {
+    console.error('DOCX generation error:', err);
+    showMobileFallback();
+    alert('Tidak bisa generate DOCX. Gunakan tombol salin teks di bawah.');
+  }
+}
+
+// ---- PDF Generation ----
+
+function generatePDF(cvText, lang, tier) {
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const marginX = 20;
+    const marginY = 20;
+    const contentWidth = pageWidth - marginX * 2;
+    let y = marginY;
+
+    const lines = cvText.split('\n');
+
+    doc.setFont('helvetica');
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+
+      if (!trimmed) {
+        y += 4;
+        continue;
+      }
+
+      // Detect section headings
+      const isSectionHead = /^[A-Z\u00C0-\u017E\s]{4,}$/.test(trimmed) ||
+                            (trimmed.endsWith(':') && trimmed.length < 40);
+      const isBullet = trimmed.startsWith('•') || trimmed.startsWith('-') || trimmed.startsWith('·');
+
+      if (y > pageHeight - marginY) {
+        doc.addPage();
+        y = marginY;
+      }
+
+      if (isSectionHead) {
+        y += 4;
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        const headText = trimmed.replace(/:$/, '').toUpperCase();
+        doc.text(headText, marginX, y);
+
+        // Underline
+        const textWidth = doc.getTextWidth(headText);
+        y += 1;
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.3);
+        doc.line(marginX, y, marginX + contentWidth, y);
+        y += 5;
+        doc.setDrawColor(0);
+
+      } else if (isBullet) {
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        const bulletText = trimmed.replace(/^[•\-·]\s*/, '');
+        const wrappedLines = doc.splitTextToSize('• ' + bulletText, contentWidth - 5);
+        wrappedLines.forEach(l => {
+          if (y > pageHeight - marginY) { doc.addPage(); y = marginY; }
+          doc.text(l, marginX + 3, y);
+          y += 5;
+        });
+
+      } else {
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        const wrappedLines = doc.splitTextToSize(trimmed, contentWidth);
+        wrappedLines.forEach(l => {
+          if (y > pageHeight - marginY) { doc.addPage(); y = marginY; }
+          doc.text(l, marginX, y);
+          y += 5;
+        });
+      }
+    }
+
+    const langLabel = lang === 'id' ? 'Indonesia' : 'English';
+    doc.save(`CV-${langLabel}-GasLamar.pdf`);
+
+  } catch (err) {
+    console.error('PDF generation error:', err);
+    showMobileFallback();
+    // Try triggering mobile fallback
+    alert('Tidak bisa generate PDF. Gunakan tombol salin teks di bawah.');
+  }
+}
+
+// ---- UI Helpers ----
+
+function showState(id) {
+  ['waiting-payment', 'session-error', 'generating-cv', 'download-ready'].forEach(s => {
+    const el = document.getElementById(s);
+    if (el) el.classList.add('hidden');
+  });
+  const target = document.getElementById(id);
+  if (target) target.classList.remove('hidden');
+}
+
+function showSessionError(title, message) {
+  showState('session-error');
+  document.getElementById('error-title').textContent = title;
+  document.getElementById('session-error-msg').textContent = message;
+}
+
+function setProgress(pct) {
+  const bar = document.getElementById('progress-bar');
+  if (bar) bar.style.width = pct + '%';
+}
+
+function setGeneratingText(text) {
+  const el = document.getElementById('generating-text');
+  if (el) el.textContent = text;
+}
+
+function showDownloadReady(cvId, cvEn, tier, isBilingual) {
+  showState('download-ready');
+
+  // Show EN section for bilingual tiers
+  if (isBilingual && cvEn) {
+    document.getElementById('en-section').classList.remove('hidden');
+  }
+
+  // Set plain text for mobile fallback
+  document.getElementById('cv-text-id').value = cvId || '';
+  if (cvEn) {
+    document.getElementById('cv-text-en').value = cvEn;
+  }
+
+  // Detect if mobile (for fallback hint)
+  const isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator.userAgent);
+  if (isMobile) {
+    document.getElementById('mobile-fallback').classList.remove('mobile-download-show');
+    // Show after small delay so DOCX/PDF buttons appear first
+    setTimeout(() => {
+      document.getElementById('mobile-fallback').classList.add('mobile-download-show');
+      document.getElementById('mobile-fallback').classList.remove('hidden');
+      if (isBilingual && cvEn) {
+        document.getElementById('en-fallback').classList.remove('hidden');
+      }
+    }, 2000);
+  }
+}
+
+function showMobileFallback() {
+  if (!cvDataCache) return;
+  document.getElementById('mobile-fallback').classList.remove('hidden');
+  document.getElementById('cv-text-id').value = cvDataCache.cv_id || '';
+  if (cvDataCache.cv_en) {
+    document.getElementById('cv-text-en').value = cvDataCache.cv_en;
+    document.getElementById('en-fallback').classList.remove('hidden');
+  }
+}
+
+function copyText(textareaId) {
+  const el = document.getElementById(textareaId);
+  if (!el) return;
+  el.select();
+  document.execCommand('copy');
+  // Brief visual feedback
+  const btn = el.nextElementSibling;
+  if (btn) {
+    const original = btn.textContent;
+    btn.textContent = 'Tersalin!';
+    setTimeout(() => btn.textContent = original, 2000);
+  }
+}

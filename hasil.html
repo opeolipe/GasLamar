@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hasil Analisis CV — GasLamar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/style.css" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { primary: '#1B4FE8', accent: '#22C55E', warning: '#F59E0B', danger: '#EF4444' },
+          fontFamily: { heading: ['"Plus Jakarta Sans"', 'sans-serif'], body: ['Inter', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-[#F9FAFB] text-[#1F2937] font-body min-h-screen">
+
+  <!-- Navbar -->
+  <nav class="bg-white border-b border-gray-100">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2">
+        <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v12M2 8h12" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>
+        </div>
+        <span class="font-heading font-bold text-xl text-primary">GasLamar</span>
+      </a>
+      <div class="hidden sm:flex items-center gap-2 text-sm">
+        <span class="flex items-center gap-1.5 text-accent font-semibold">
+          <span class="w-6 h-6 bg-accent text-white rounded-full flex items-center justify-center text-xs">✓</span>
+          Upload
+        </span>
+        <span class="text-gray-300">→</span>
+        <span class="flex items-center gap-1.5 text-primary font-semibold">
+          <span class="w-6 h-6 bg-primary text-white rounded-full flex items-center justify-center text-xs font-bold">2</span>
+          Hasil
+        </span>
+        <span class="text-gray-300">→</span>
+        <span class="flex items-center gap-1.5 text-gray-400">
+          <span class="w-6 h-6 bg-gray-200 text-gray-400 rounded-full flex items-center justify-center text-xs font-bold">3</span>
+          Download
+        </span>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-4xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+
+    <!-- Loading state -->
+    <div id="results-loading" class="text-center py-20">
+      <div class="inline-flex items-center gap-3 bg-white rounded-2xl border border-gray-100 px-8 py-6">
+        <div class="spinner w-8 h-8 border-3 border-primary border-t-transparent rounded-full"></div>
+        <div class="text-left">
+          <p class="font-semibold text-[#1F2937] text-lg">AI sedang menganalisis CV kamu...</p>
+          <p class="text-sm text-gray-400">Biasanya 10–15 detik</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error state -->
+    <div id="results-error" class="hidden text-center py-20">
+      <div class="bg-white rounded-2xl border border-red-200 p-10 max-w-md mx-auto">
+        <div class="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M12 8v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#EF4444" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
+        <h2 class="font-heading font-bold text-xl mb-2">Analisis Gagal</h2>
+        <p class="text-gray-500 text-sm mb-6" id="error-message">Terjadi kesalahan. Coba lagi.</p>
+        <a href="upload.html" class="inline-block bg-primary text-white font-bold px-6 py-3 rounded-xl hover:bg-blue-700 transition-colors">
+          Coba Lagi
+        </a>
+      </div>
+    </div>
+
+    <!-- Results content -->
+    <div id="results-content" class="hidden space-y-6">
+
+      <!-- Score Card -->
+      <div class="bg-white rounded-2xl border border-gray-100 p-6 sm:p-8">
+        <div class="flex flex-col sm:flex-row items-center gap-6">
+          <!-- Score circle -->
+          <div class="relative w-32 h-32 flex-shrink-0">
+            <svg viewBox="0 0 120 120" class="w-full h-full -rotate-90">
+              <circle cx="60" cy="60" r="52" fill="none" stroke="#F3F4F6" stroke-width="12"/>
+              <circle id="score-ring" cx="60" cy="60" r="52" fill="none" stroke="#1B4FE8" stroke-width="12"
+                stroke-dasharray="327" stroke-dashoffset="327" stroke-linecap="round"
+                class="transition-all duration-1000"/>
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <span id="score-number" class="font-heading font-extrabold text-3xl text-[#1F2937]">0</span>
+              <span class="text-xs text-gray-400 font-medium">/ 100</span>
+            </div>
+          </div>
+
+          <div class="flex-1 text-center sm:text-left">
+            <div id="score-badge" class="inline-block px-4 py-1.5 rounded-full text-sm font-bold mb-3"></div>
+            <h1 class="font-heading font-bold text-2xl sm:text-3xl text-[#1F2937] mb-2">Skor Match CV Kamu</h1>
+            <p id="score-reason" class="text-gray-500 leading-relaxed"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Kekuatan -->
+      <div id="strengths-section" class="hidden bg-white rounded-2xl border border-gray-100 p-6">
+        <h2 class="font-heading font-bold text-lg text-[#1F2937] mb-4 flex items-center gap-2">
+          <span class="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center text-accent">✓</span>
+          Kekuatan CV Kamu
+        </h2>
+        <ul id="strengths-list" class="space-y-2"></ul>
+      </div>
+
+      <!-- Gap Analysis -->
+      <div id="gap-section" class="hidden bg-white rounded-2xl border border-gray-100 p-6">
+        <h2 class="font-heading font-bold text-lg text-[#1F2937] mb-4 flex items-center gap-2">
+          <span class="w-8 h-8 bg-red-50 rounded-lg flex items-center justify-center text-danger">!</span>
+          Gap dari Job Requirements
+        </h2>
+        <ul id="gap-list" class="space-y-2"></ul>
+      </div>
+
+      <!-- Rekomendasi -->
+      <div id="reco-section" class="hidden bg-white rounded-2xl border border-gray-100 p-6">
+        <h2 class="font-heading font-bold text-lg text-[#1F2937] mb-4 flex items-center gap-2">
+          <span class="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-primary">→</span>
+          Rekomendasi untuk CV Kamu
+        </h2>
+        <ul id="reco-list" class="space-y-2"></ul>
+      </div>
+
+      <!-- CTA — Perbaiki CV -->
+      <div class="bg-gradient-to-br from-primary to-blue-700 rounded-2xl p-6 sm:p-8 text-white">
+        <h2 class="font-heading font-bold text-2xl sm:text-3xl mb-2">Perbaiki CV Kamu Sekarang</h2>
+        <p class="text-blue-200 text-sm mb-6">CV tailored + bilingual (ID + EN) siap download dalam 2 menit</p>
+
+        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+
+          <!-- Coba Dulu -->
+          <button onclick="selectTier('coba')" data-tier="coba"
+            class="tier-card bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl p-4 text-left transition-all cursor-pointer">
+            <p class="font-bold text-sm mb-1">Coba Dulu</p>
+            <p class="text-2xl font-extrabold">Rp 29k</p>
+            <p class="text-blue-200 text-xs mt-1">1 CV · Bahasa Indonesia</p>
+          </button>
+
+          <!-- Single -->
+          <button onclick="selectTier('single')" data-tier="single"
+            class="tier-card bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl p-4 text-left transition-all cursor-pointer">
+            <p class="font-bold text-sm mb-1">Single</p>
+            <p class="text-2xl font-extrabold">Rp 59k</p>
+            <p class="text-blue-200 text-xs mt-1">1 CV · Bilingual ID + EN</p>
+          </button>
+
+          <!-- 3-Pack -->
+          <button onclick="selectTier('3pack')" data-tier="3pack"
+            class="tier-card bg-white/20 hover:bg-white/30 border-2 border-accent rounded-xl p-4 text-left transition-all cursor-pointer relative">
+            <span class="absolute -top-2 -right-2 bg-accent text-white text-[10px] font-bold px-2 py-0.5 rounded-full">Populer</span>
+            <p class="font-bold text-sm mb-1">3-Pack</p>
+            <p class="text-2xl font-extrabold">Rp 149k</p>
+            <p class="text-blue-200 text-xs mt-1">3 CV · Bilingual ID + EN</p>
+          </button>
+
+          <!-- Job Hunt Pack -->
+          <button onclick="selectTier('jobhunt')" data-tier="jobhunt"
+            class="tier-card bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl p-4 text-left transition-all cursor-pointer">
+            <p class="font-bold text-sm mb-1">Job Hunt Pack</p>
+            <p class="text-2xl font-extrabold">Rp 299k</p>
+            <p class="text-blue-200 text-xs mt-1">10 CV · Bilingual ID + EN</p>
+          </button>
+        </div>
+
+        <div id="cta-area">
+          <button id="pay-btn" onclick="proceedToPayment()"
+            class="w-full bg-white text-primary font-bold text-lg py-4 rounded-xl hover:bg-blue-50 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled>
+            Pilih Paket Dulu →
+          </button>
+        </div>
+
+        <p class="text-blue-300 text-xs text-center mt-3">Pembayaran aman via Mayar · VA, QRIS, e-wallet</p>
+      </div>
+
+      <!-- Restart -->
+      <div class="text-center">
+        <a href="upload.html" class="text-sm text-gray-400 hover:text-primary transition-colors">← Upload CV lain</a>
+      </div>
+
+    </div>
+  </main>
+
+  <script src="js/scoring.js"></script>
+  <script src="js/payment.js"></script>
+</body>
+</html>
