@@ -53,6 +53,10 @@ async function proceedToPayment() {
     return;
   }
 
+  // Optional: pick up email entered in the capture form on this page
+  const emailInput = document.getElementById('email-input');
+  const capturedEmail = emailInput && emailInput.value.trim() || null;
+
   // Prevent double payment
   paymentInProgress = true;
   const btn = document.getElementById('pay-btn');
@@ -69,7 +73,8 @@ async function proceedToPayment() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         tier: selectedTier,
-        cv_text_key: cvTextKey
+        cv_text_key: cvTextKey,
+        ...(capturedEmail ? { email: capturedEmail } : {}),
       }),
       signal: controller.signal
     });

@@ -506,7 +506,13 @@ async function handleCreatePayment(request, env) {
     return jsonResponse({ message: 'Request body tidak valid' }, 400, request, env);
   }
 
-  const { tier, cv_text_key } = body;
+  const { tier, cv_text_key, email: rawEmail } = body;
+
+  // Optional email — basic validation, silently ignore if malformed
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const sessionEmail = (rawEmail && typeof rawEmail === 'string' && emailRegex.test(rawEmail) && rawEmail.length <= 254)
+    ? rawEmail.toLowerCase().trim()
+    : null;
 
   if (!tier || !cv_text_key) {
     return jsonResponse({ message: 'Data tidak lengkap' }, 400, request, env);
@@ -544,7 +550,8 @@ async function handleCreatePayment(request, env) {
       mayar_invoice_id: invoice_id,
       credits_remaining: credits,
       total_credits: credits,
-      ip
+      ip,
+      ...(sessionEmail ? { email: sessionEmail } : {}),
     });
 
     return jsonResponse({ session_id: sessionId, invoice_url }, 200, request, env);
