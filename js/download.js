@@ -230,52 +230,58 @@ function downloadFile(lang, format) {
   }
 }
 
+// ---- Line Parsing ----
+
+/**
+ * Parse CV text into an array of typed line objects.
+ * Single source of truth for section-head and bullet detection —
+ * used by both generateDOCX and generatePDF so format changes stay in sync.
+ *
+ * @param {string} cvText
+ * @returns {{ type: 'heading'|'bullet'|'text'|'blank', content: string }[]}
+ */
+function parseLines(cvText) {
+  return cvText.split('\n').map(line => {
+    const trimmed = line.trim();
+    if (!trimmed) return { type: 'blank', content: '' };
+
+    const isSectionHead = /^[A-Z\u00C0-\u017E\s]{4,}$/.test(trimmed) ||
+                          (trimmed.endsWith(':') && trimmed.length < 40);
+    const isBullet = trimmed.startsWith('•') || trimmed.startsWith('-') || trimmed.startsWith('·');
+
+    if (isSectionHead) return { type: 'heading', content: trimmed.replace(/:$/, '') };
+    if (isBullet)      return { type: 'bullet',  content: trimmed.replace(/^[•\-·]\s*/, '') };
+    return { type: 'text', content: trimmed };
+  });
+}
+
 // ---- DOCX Generation ----
 
 function generateDOCX(cvText, lang, tier) {
   try {
     const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } = docx;
 
-    const lines = cvText.split('\n');
+    const parsed = parseLines(cvText);
     const children = [];
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed) {
+    for (const { type, content } of parsed) {
+      if (type === 'blank') {
         children.push(new Paragraph({ spacing: { after: 100 } }));
-        continue;
-      }
-
-      // Detect section headings (ALL CAPS or ends with ':')
-      const isSectionHead = /^[A-Z\u00C0-\u017E\s]{4,}$/.test(trimmed) ||
-                            (trimmed.endsWith(':') && trimmed.length < 40);
-      // Detect bullet points
-      const isBullet = trimmed.startsWith('•') || trimmed.startsWith('-') || trimmed.startsWith('·');
-
-      if (isSectionHead) {
+      } else if (type === 'heading') {
         children.push(new Paragraph({
-          text: trimmed.replace(/:$/, ''),
+          text: content,
           heading: HeadingLevel.HEADING_2,
           spacing: { before: 240, after: 80 },
           border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: 'CCCCCC' } }
         }));
-      } else if (isBullet) {
+      } else if (type === 'bullet') {
         children.push(new Paragraph({
-          children: [new TextRun({
-            text: trimmed.replace(/^[•\-·]\s*/, ''),
-            size: 22,
-            font: 'Calibri'
-          })],
+          children: [new TextRun({ text: content, size: 22, font: 'Calibri' })],
           bullet: { level: 0 },
           spacing: { after: 40 }
         }));
       } else {
         children.push(new Paragraph({
-          children: [new TextRun({
-            text: trimmed,
-            size: 22,
-            font: 'Calibri'
-          })],
+          children: [new TextRun({ text: content, size: 22, font: 'Calibri' })],
           spacing: { after: 60 }
         }));
       }
@@ -322,37 +328,26 @@ function generatePDF(cvText, lang, tier) {
     const contentWidth = pageWidth - marginX * 2;
     let y = marginY;
 
-    const lines = cvText.split('\n');
-
+    const parsed = parseLines(cvText);
     doc.setFont('helvetica');
 
-    for (const line of lines) {
-      const trimmed = line.trim();
-
-      if (!trimmed) {
+    for (const { type, content } of parsed) {
+      if (type === 'blank') {
         y += 4;
         continue;
       }
-
-      // Detect section headings
-      const isSectionHead = /^[A-Z\u00C0-\u017E\s]{4,}$/.test(trimmed) ||
-                            (trimmed.endsWith(':') && trimmed.length < 40);
-      const isBullet = trimmed.startsWith('•') || trimmed.startsWith('-') || trimmed.startsWith('·');
 
       if (y > pageHeight - marginY) {
         doc.addPage();
         y = marginY;
       }
 
-      if (isSectionHead) {
+      if (type === 'heading') {
         y += 4;
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
-        const headText = trimmed.replace(/:$/, '').toUpperCase();
+        const headText = content.toUpperCase();
         doc.text(headText, marginX, y);
-
-        // Underline
-        const textWidth = doc.getTextWidth(headText);
         y += 1;
         doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.3);
@@ -360,11 +355,10 @@ function generatePDF(cvText, lang, tier) {
         y += 5;
         doc.setDrawColor(0);
 
-      } else if (isBullet) {
+      } else if (type === 'bullet') {
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        const bulletText = trimmed.replace(/^[•\-·]\s*/, '');
-        const wrappedLines = doc.splitTextToSize('• ' + bulletText, contentWidth - 5);
+        const wrappedLines = doc.splitTextToSize('• ' + content, contentWidth - 5);
         wrappedLines.forEach(l => {
           if (y > pageHeight - marginY) { doc.addPage(); y = marginY; }
           doc.text(l, marginX + 3, y);
@@ -374,7 +368,7 @@ function generatePDF(cvText, lang, tier) {
       } else {
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        const wrappedLines = doc.splitTextToSize(trimmed, contentWidth);
+        const wrappedLines = doc.splitTextToSize(content, contentWidth);
         wrappedLines.forEach(l => {
           if (y > pageHeight - marginY) { doc.addPage(); y = marginY; }
           doc.text(l, marginX, y);
