@@ -3,3 +3,4 @@ js/vendor/
 css/tailwind.css
 .wrangler/
 dist/
+.gstack/
