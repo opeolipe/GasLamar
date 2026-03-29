@@ -30,6 +30,8 @@
   renderStrengths(scoring.kekuatan || []);
   renderGaps(scoring.gap || []);
   renderRecommendations(scoring.rekomendasi || []);
+  setupShareButton(scoring.skor || 0);
+  setupTierRecommendation(scoring.skor || 0);
 })();
 
 function renderScore(scoring) {
@@ -114,6 +116,63 @@ function renderRecommendations(recos) {
   ).join('');
 }
 
+function setupShareButton(score) {
+  const btn = document.getElementById('share-btn');
+  if (!btn) return;
+
+  btn.addEventListener('click', async () => {
+    const shareText = `Skor CV gue ${score}/100 di GasLamar — AI langsung tunjukin gap-nya vs job description. Coba cek CV kamu juga 👇`;
+    const shareUrl = 'https://gaslamar.com';
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'GasLamar — Cek Skor CV Kamu', text: shareText, url: shareUrl });
+        return;
+      } catch (e) {
+        if (e.name === 'AbortError') return; // user cancelled
+      }
+    }
+
+    // Fallback: copy to clipboard
+    try {
+      await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
+      const orig = btn.innerHTML;
+      btn.innerHTML = '<span>Tersalin!</span>';
+      btn.classList.add('bg-accent', 'border-accent');
+      setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('bg-accent', 'border-accent'); }, 2000);
+    } catch (e) {
+      // Last fallback: Twitter intent
+      window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText + '\n' + shareUrl)}`, '_blank', 'noopener,noreferrer');
+    }
+  });
+}
+
+function setupTierRecommendation(score) {
+  const el = document.getElementById('tier-recommendation');
+  if (!el) return;
+
+  let msg, tier;
+  if (score < 50) {
+    msg = 'Skor kamu di bawah 50 — ada banyak gap yang perlu diperbaiki. <strong>3-Pack lebih hemat</strong> kalau kamu lagi aktif apply ke banyak loker.';
+    tier = '3pack';
+  } else if (score < 75) {
+    msg = 'CV kamu lumayan tapi masih bisa ditingkatkan. <strong>Single</strong> cukup kalau kamu fokus ke satu posisi.';
+    tier = 'single';
+  } else {
+    msg = 'CV kamu sudah cukup kuat! <strong>Single</strong> cukup untuk tailoring ke posisi ini.';
+    tier = 'single';
+  }
+
+  el.innerHTML = `
+    <div class="flex items-start gap-3">
+      <span class="text-lg flex-shrink-0">💡</span>
+      <p class="text-sm text-blue-900">${msg}
+        <button onclick="selectTier('${tier}')" class="ml-1 underline font-semibold hover:no-underline">Pilih sekarang →</button>
+      </p>
+    </div>`;
+  el.classList.remove('hidden');
+}
+
 function showError(message) {
   document.getElementById('results-loading').classList.add('hidden');
   document.getElementById('results-error').classList.remove('hidden');
@@ -130,6 +189,46 @@ function animateCounter(el, start, end, duration) {
     if (progress < 1) requestAnimationFrame(update);
   }
   requestAnimationFrame(update);
+}
+
+async function submitEmail() {
+  const input = document.getElementById('email-input');
+  const btn = document.getElementById('email-submit-btn');
+  const status = document.getElementById('email-status');
+  if (!input || !btn) return;
+
+  const email = input.value.trim();
+  if (!email) { input.focus(); return; }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    if (status) { status.textContent = 'Format email tidak valid.'; status.className = 'text-xs text-red-600 mt-1'; }
+    return;
+  }
+
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '...';
+
+  try {
+    const res = await fetch(`${WORKER_URL}/submit-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    if (res.ok) {
+      const form = document.getElementById('email-capture-form');
+      if (form) {
+        form.innerHTML = '<p class="text-sm text-accent font-semibold">✓ Email tersimpan — kami akan kabari kamu soal fitur baru!</p>';
+      }
+    } else {
+      throw new Error('Server error');
+    }
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = orig;
+    if (status) { status.textContent = 'Gagal menyimpan. Coba lagi.'; status.className = 'text-xs text-red-600 mt-1'; }
+  }
 }
 
 function escapeHtml(str) {

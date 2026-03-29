@@ -6,22 +6,17 @@
   <title>Download CV — GasLamar</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- css/tailwind.css is generated at build time — run `npm run vendor` locally -->
+  <link rel="stylesheet" href="css/tailwind.css" />
   <link rel="stylesheet" href="css/style.css" />
+  <!-- Twitter/X Pixel — replace YOUR_TWITTER_PIXEL_ID with your pixel ID -->
+  <script>!function(e,t,n,s,u,a){e.twq||(s=e.twq=function(){s.exe?s.exe.apply(s,arguments):s.queue.push(arguments)},s.version='1.1',s.queue=[],u=t.createElement(n),u.async=!0,u.src='https://static.ads-twitter.com/uwt.js',a=t.getElementsByTagName(n)[0],a.parentNode.insertBefore(u,a))}(window,document,'script');twq('config','YOUR_TWITTER_PIXEL_ID');</script>
+  <!-- Cloudflare Web Analytics — replace YOUR_CF_ANALYTICS_TOKEN with your token -->
+  <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "YOUR_CF_ANALYTICS_TOKEN"}'></script>
   <!-- docx.js and jsPDF served locally — eliminates CDN supply-chain risk -->
   <!-- Run `npm install && npm run vendor` before deploying to generate js/vendor/ -->
   <script src="js/vendor/docx.js"></script>
   <script src="js/vendor/jspdf.umd.min.js"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: { primary: '#1B4FE8', accent: '#22C55E', warning: '#F59E0B', danger: '#EF4444' },
-          fontFamily: { heading: ['"Plus Jakarta Sans"', 'sans-serif'], body: ['Inter', 'sans-serif'] }
-        }
-      }
-    }
-  </script>
 </head>
 <body class="bg-[#F9FAFB] text-[#1F2937] font-body min-h-screen">
 
@@ -206,7 +201,26 @@
         </ul>
       </div>
 
-      <!-- CTA: tailoring for another job -->
+      <!-- Multi-credit: generate for new job (3-Pack / JobHunt only) -->
+      <div id="multi-credit-section" class="hidden bg-white rounded-2xl border border-accent/30 p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center flex-shrink-0">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#22C55E" stroke-width="2.5" stroke-linecap="round"/></svg>
+          </div>
+          <div>
+            <p class="font-heading font-bold text-[#1F2937]">Kamu masih punya <span id="credits-remaining-count">0</span> kredit tersisa</p>
+            <p class="text-sm text-gray-500">Tempel job description loker berikutnya — CV akan di-tailoring ulang dari CV aslimu</p>
+          </div>
+        </div>
+        <textarea id="new-job-desc" rows="5" placeholder="Paste job description loker berikutnya di sini..."
+          class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 resize-none focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 mb-3"></textarea>
+        <button id="new-job-btn" onclick="generateForNewJob()"
+          class="w-full bg-accent text-white font-bold py-3 rounded-xl hover:bg-green-600 transition-colors">
+          Generate CV untuk Loker Ini →
+        </button>
+      </div>
+
+      <!-- CTA: tailoring for another job (shown when no credits remain) -->
       <div class="text-center pb-4">
         <p class="text-gray-500 text-sm mb-3">Melamar ke tempat lain juga?</p>
         <a href="upload.html" class="inline-block bg-primary text-white font-bold px-8 py-3 rounded-xl hover:bg-blue-700 transition-colors">

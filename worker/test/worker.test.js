@@ -551,3 +551,88 @@ describe('404 for unknown routes', () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe('POST /submit-email', () => {
+  // Use unique IPs to avoid sharing rate-limit slots with other suites
+  const EMAIL_IP = '10.2.0.1';
+
+  it('accepts a valid email → 200', async () => {
+    const res = await post('/submit-email', { email: 'budi@example.com' }, {}, EMAIL_IP);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+  });
+
+  it('rejects missing email → 400', async () => {
+    // Body-validation errors bypass rate limiter, so any IP works
+    const res = await post('/submit-email', {}, {}, '10.2.0.2');
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects invalid email format → 400', async () => {
+    const res = await post('/submit-email', { email: 'not-an-email' }, {}, '10.2.0.3');
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects email over 254 chars → 400', async () => {
+    // 255-char string that looks like an email so regex passes but length check rejects it
+    const longLocal = 'a'.repeat(243); // 243 + '@b.co' = 248... need > 254
+    const longEmail = 'a'.repeat(248) + '@x.co'; // 253 — still valid. Use 250+@x.co = 255
+    const res = await post('/submit-email', { email: 'a'.repeat(245) + '@valid.com' }, {}, '10.2.0.4');
+    // 245 + '@valid.com'(10) = 255 > 254
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /get-session — returns credits_remaining', () => {
+  it('includes credits_remaining and total_credits in response', async () => {
+    const sessionId = `sess_${crypto.randomUUID()}`;
+    await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
+      cv_text: 'Budi CV text',
+      job_desc: JOB_DESC,
+      tier: '3pack',
+      status: 'paid',
+      credits_remaining: 3,
+      total_credits: 3,
+      created_at: Date.now(),
+    }), { expirationTtl: 1800 });
+
+    const res = await post('/get-session', { session_id: sessionId });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.credits_remaining).toBe(3);
+    expect(body.total_credits).toBe(3);
+    expect(body.tier).toBe('3pack');
+  });
+
+  it('falls back to credits_remaining=1 for legacy sessions without the field', async () => {
+    const sessionId = `sess_${crypto.randomUUID()}`;
+    // Seed without credits fields (legacy)
+    await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
+      cv_text: 'Budi CV text',
+      job_desc: JOB_DESC,
+      tier: 'single',
+      status: 'paid',
+      created_at: Date.now(),
+    }), { expirationTtl: 1800 });
+
+    const res = await post('/get-session', { session_id: sessionId });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.credits_remaining).toBe(1);
+    expect(body.total_credits).toBe(1);
+  });
+});
+
+describe('POST /generate — job_desc override validation', () => {
+  it('rejects job_desc over 3000 chars → 400', async () => {
+    const sessionId = await seedSession('generating', 'single');
+    const res = await post('/generate', {
+      session_id: sessionId,
+      job_desc: 'x'.repeat(3001),
+    }, {}, '10.1.0.1');
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/terlalu panjang/i);
+  });
+});

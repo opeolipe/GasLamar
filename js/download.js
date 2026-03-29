@@ -10,6 +10,7 @@ const MAX_POLLS = 10;
 let pollCount = 0;
 let pollTimer = null;
 let cvDataCache = null; // { cv_id: string, cv_en: string, tier: string }
+let sessionIdCache = null; // retained for multi-credit re-use
 
 // ---- Init ----
 
@@ -23,6 +24,7 @@ let cvDataCache = null; // { cv_id: string, cv_en: string, tier: string }
     return;
   }
 
+  sessionIdCache = sessionId;
   // Start polling for payment confirmation
   showState('waiting-payment');
   startPolling(sessionId);
@@ -155,8 +157,8 @@ async function fetchAndGenerateCV(sessionId) {
   }
 }
 
-async function generateCVContent(sessionId, tier) {
-  // CV data and job_desc are read from KV server-side — browser only sends session_id
+async function generateCVContent(sessionId, tier, newJobDesc) {
+  // CV data is read from KV server-side — browser only sends session_id (and optional new job_desc)
   const isBilingual = tier !== 'coba';
 
   const controller = new AbortController();
@@ -166,10 +168,13 @@ async function generateCVContent(sessionId, tier) {
     setProgress(40);
     setGeneratingText('AI sedang menulis CV kamu...');
 
+    const reqBody = { session_id: sessionId };
+    if (newJobDesc) reqBody.job_desc = newJobDesc;
+
     const res = await fetch(`${WORKER_URL}/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id: sessionId }),
+      body: JSON.stringify(reqBody),
       signal: controller.signal
     });
 
@@ -182,14 +187,16 @@ async function generateCVContent(sessionId, tier) {
     setProgress(75);
     setGeneratingText('Menyiapkan file download...');
 
-    const { cv_id, cv_en } = await res.json();
+    const { cv_id, cv_en, credits_remaining } = await res.json();
 
     // Cache for retries
     cvDataCache = { cv_id, cv_en, tier };
 
-    // Clear session from localStorage (one-time use)
-    localStorage.removeItem('gaslamar_session');
-    localStorage.removeItem('gaslamar_tier');
+    // Only clear localStorage when all credits are used up
+    if (!credits_remaining || credits_remaining <= 0) {
+      localStorage.removeItem('gaslamar_session');
+      localStorage.removeItem('gaslamar_tier');
+    }
 
     setProgress(90);
     setGeneratingText('Hampir selesai...');
@@ -197,7 +204,7 @@ async function generateCVContent(sessionId, tier) {
     // Show download UI
     setTimeout(() => {
       setProgress(100);
-      showDownloadReady(cv_id, cv_en, tier, isBilingual);
+      showDownloadReady(cv_id, cv_en, tier, isBilingual, credits_remaining || 0);
     }, 500);
 
   } catch (err) {
@@ -415,7 +422,7 @@ function setGeneratingText(text) {
   if (el) el.textContent = text;
 }
 
-function showDownloadReady(cvId, cvEn, tier, isBilingual) {
+function showDownloadReady(cvId, cvEn, tier, isBilingual, creditsRemaining) {
   showState('download-ready');
 
   // Show EN section for bilingual tiers
@@ -427,6 +434,14 @@ function showDownloadReady(cvId, cvEn, tier, isBilingual) {
   document.getElementById('cv-text-id').value = cvId || '';
   if (cvEn) {
     document.getElementById('cv-text-en').value = cvEn;
+  }
+
+  // Show multi-credit UI when credits remain
+  const multiSection = document.getElementById('multi-credit-section');
+  const creditsEl = document.getElementById('credits-remaining-count');
+  if (multiSection && creditsRemaining > 0) {
+    if (creditsEl) creditsEl.textContent = creditsRemaining;
+    multiSection.classList.remove('hidden');
   }
 
   // Detect if mobile (for fallback hint)
@@ -441,6 +456,58 @@ function showDownloadReady(cvId, cvEn, tier, isBilingual) {
         document.getElementById('en-fallback').classList.remove('hidden');
       }
     }, 2000);
+  }
+}
+
+// ---- Multi-credit: generate for a new job ----
+
+async function generateForNewJob() {
+  const textarea = document.getElementById('new-job-desc');
+  const btn = document.getElementById('new-job-btn');
+  if (!textarea || !btn || !sessionIdCache) return;
+
+  const newJobDesc = textarea.value.trim();
+  if (!newJobDesc) {
+    textarea.focus();
+    return;
+  }
+  if (newJobDesc.length > 3000) {
+    alert('Job description terlalu panjang (maks 3.000 karakter).');
+    return;
+  }
+
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Menghubungi server...';
+
+  try {
+    // Step 1: call /get-session to unlock 'generating' status
+    const gsRes = await fetch(`${WORKER_URL}/get-session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionIdCache })
+    });
+
+    if (!gsRes.ok) {
+      const err = await gsRes.json().catch(() => ({}));
+      throw new Error(err.message || `Server error: ${gsRes.status}`);
+    }
+
+    const { tier } = await gsRes.json();
+
+    // Step 2: hide multi-credit section, show generating state
+    document.getElementById('multi-credit-section').classList.add('hidden');
+    showState('generating-cv');
+    setProgress(10);
+    setGeneratingText('AI sedang menulis CV untuk loker baru...');
+
+    // Step 3: call /generate with new job_desc
+    await generateCVContent(sessionIdCache, tier, newJobDesc);
+
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = originalText;
+    alert(err.message || 'Terjadi kesalahan. Coba lagi.');
   }
 }
 

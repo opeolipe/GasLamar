@@ -6,18 +6,13 @@
   <title>Hasil Analisis CV — GasLamar</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- css/tailwind.css is generated at build time — run `npm run vendor` locally -->
+  <link rel="stylesheet" href="css/tailwind.css" />
   <link rel="stylesheet" href="css/style.css" />
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: { primary: '#1B4FE8', accent: '#22C55E', warning: '#F59E0B', danger: '#EF4444' },
-          fontFamily: { heading: ['"Plus Jakarta Sans"', 'sans-serif'], body: ['Inter', 'sans-serif'] }
-        }
-      }
-    }
-  </script>
+  <!-- Twitter/X Pixel — replace YOUR_TWITTER_PIXEL_ID with your pixel ID -->
+  <script>!function(e,t,n,s,u,a){e.twq||(s=e.twq=function(){s.exe?s.exe.apply(s,arguments):s.queue.push(arguments)},s.version='1.1',s.queue=[],u=t.createElement(n),u.async=!0,u.src='https://static.ads-twitter.com/uwt.js',a=t.getElementsByTagName(n)[0],a.parentNode.insertBefore(u,a))}(window,document,'script');twq('config','YOUR_TWITTER_PIXEL_ID');</script>
+  <!-- Cloudflare Web Analytics — replace YOUR_CF_ANALYTICS_TOKEN with your token -->
+  <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "YOUR_CF_ANALYTICS_TOKEN"}'></script>
 </head>
 <body class="bg-[#F9FAFB] text-[#1F2937] font-body min-h-screen">
 
@@ -99,7 +94,13 @@
           <div class="flex-1 text-center sm:text-left">
             <div id="score-badge" class="inline-block px-4 py-1.5 rounded-full text-sm font-bold mb-3"></div>
             <h1 class="font-heading font-bold text-2xl sm:text-3xl text-[#1F2937] mb-2">Skor Match CV Kamu</h1>
-            <p id="score-reason" class="text-gray-500 leading-relaxed"></p>
+            <p id="score-reason" class="text-gray-500 leading-relaxed mb-4"></p>
+            <!-- Share button -->
+            <button id="share-btn"
+              class="inline-flex items-center gap-2 border border-gray-200 text-gray-600 text-sm font-semibold px-4 py-2 rounded-xl hover:border-primary hover:text-primary transition-colors">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>Bagikan Skor</span>
+            </button>
           </div>
         </div>
       </div>
@@ -131,10 +132,28 @@
         <ul id="reco-list" class="space-y-2"></ul>
       </div>
 
+      <!-- Email capture -->
+      <div class="bg-white rounded-2xl border border-gray-100 p-6">
+        <p class="font-semibold text-[#1F2937] mb-1">Dapat update CV tips gratis?</p>
+        <p class="text-sm text-gray-500 mb-4">Masukkan email kamu — kami kirim tips ATS + info fitur baru. Tidak ada spam.</p>
+        <div id="email-capture-form" class="flex gap-2">
+          <input id="email-input" type="email" placeholder="nama@email.com"
+            class="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
+          <button id="email-submit-btn" onclick="submitEmail()"
+            class="bg-primary text-white font-semibold px-5 py-2.5 rounded-xl text-sm hover:bg-blue-700 transition-colors whitespace-nowrap">
+            Kirim
+          </button>
+        </div>
+        <p id="email-status" class="text-xs text-gray-400 mt-1"></p>
+      </div>
+
       <!-- CTA — Perbaiki CV -->
       <div class="bg-gradient-to-br from-primary to-blue-700 rounded-2xl p-6 sm:p-8 text-white">
         <h2 class="font-heading font-bold text-2xl sm:text-3xl mb-2">Perbaiki CV Kamu Sekarang</h2>
-        <p class="text-blue-200 text-sm mb-6">CV tailored + bilingual (ID + EN) siap download dalam 2 menit</p>
+        <p class="text-blue-200 text-sm mb-4">CV tailored + bilingual (ID + EN) siap download dalam 2 menit</p>
+
+        <!-- Tier recommendation (inserted by scoring.js based on score) -->
+        <div id="tier-recommendation" class="hidden bg-blue-900/40 border border-blue-400/30 rounded-xl px-4 py-3 mb-4 text-blue-100"></div>
 
         <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
 

@@ -78,7 +78,13 @@ async function proceedToPayment() {
 
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
-      throw new Error(err.message || `Server error: ${response.status}`);
+      const errMsg = err.message || `Server error: ${response.status}`;
+      // Session expiry gets a friendlier re-upload prompt
+      if (response.status === 400 && errMsg.includes('kedaluwarsa')) {
+        showExpiryError();
+        return;
+      }
+      throw new Error(errMsg);
     }
 
     const { session_id, invoice_url } = await response.json();
@@ -120,5 +126,26 @@ function showPaymentError(message) {
   errDiv.id = 'payment-error';
   errDiv.className = 'mt-3 p-3 bg-red-100 border border-red-300 rounded-xl text-red-800 text-sm text-center';
   errDiv.textContent = message;
+  ctaArea.after(errDiv);
+}
+
+function showExpiryError() {
+  paymentInProgress = false;
+  const btn = document.getElementById('pay-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sesi kedaluwarsa'; }
+
+  const ctaArea = document.getElementById('cta-area');
+  const existing = document.getElementById('payment-error');
+  if (existing) existing.remove();
+
+  const errDiv = document.createElement('div');
+  errDiv.id = 'payment-error';
+  errDiv.className = 'mt-4 p-4 bg-yellow-50 border border-yellow-300 rounded-xl text-center';
+  errDiv.innerHTML = `
+    <p class="text-yellow-800 font-semibold text-sm mb-2">Sesi analisis sudah kedaluwarsa (30 menit)</p>
+    <p class="text-yellow-700 text-xs mb-3">Upload ulang CV kamu untuk melanjutkan.</p>
+    <a href="upload.html" class="inline-block bg-primary text-white font-bold px-5 py-2.5 rounded-xl text-sm hover:bg-blue-700 transition-colors">
+      Upload CV Lagi →
+    </a>`;
   ctaArea.after(errDiv);
 }

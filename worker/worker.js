@@ -315,6 +315,14 @@ const TIER_PRICES = {
   jobhunt: { label: 'GasLamar — Job Hunt Pack',  amount: 299000 },
 };
 
+// Number of CV generations included per tier
+const TIER_CREDITS = {
+  coba:    1,
+  single:  1,
+  '3pack': 3,
+  jobhunt: 10,
+};
+
 async function createMayarInvoice(sessionId, tier, env) {
   const tierConfig = TIER_PRICES[tier];
   if (!tierConfig) throw new Error('Tier tidak valid');
@@ -527,12 +535,15 @@ async function handleCreatePayment(request, env) {
     const { invoice_id, invoice_url } = await createMayarInvoice(sessionId, tier, env);
 
     // Store session in KV using pre-extracted text from /analyze
+    const credits = TIER_CREDITS[tier] ?? 1;
     await createSession(env, sessionId, {
       cv_text: stored.text,
       job_desc: stored.job_desc,
       tier,
       status: 'pending',
       mayar_invoice_id: invoice_id,
+      credits_remaining: credits,
+      total_credits: credits,
       ip
     });
 
@@ -540,6 +551,58 @@ async function handleCreatePayment(request, env) {
   } catch (e) {
     return jsonResponse({ message: e.message || 'Gagal membuat invoice' }, 500, request, env);
   }
+}
+
+// ---- Resend Email ----
+//
+// Sends a post-payment confirmation email via Resend API.
+// RESEND_API_KEY must be set via: wrangler secret put RESEND_API_KEY
+// FROM_EMAIL must be set or defaults to noreply@gaslamar.com.
+// Silently skips if RESEND_API_KEY is absent — email is non-critical.
+
+async function sendPaymentConfirmationEmail(sessionId, env) {
+  const apiKey = env.RESEND_API_KEY;
+  if (!apiKey) return; // skip if not configured
+
+  const session = await getSession(env, sessionId);
+  if (!session || !session.email) return; // no email stored for this session
+
+  const downloadUrl = `https://gaslamar.com/download.html?session=${encodeURIComponent(sessionId)}`;
+  const tierLabels = {
+    coba:    'Coba Dulu (1 CV)',
+    single:  'Single (1 CV Bilingual)',
+    '3pack': '3-Pack (3 CV Bilingual)',
+    jobhunt: 'Job Hunt Pack (10 CV Bilingual)',
+  };
+  const tierLabel = tierLabels[session.tier] || session.tier;
+
+  const html = `
+    <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
+      <div style="margin-bottom:24px">
+        <span style="font-weight:800;font-size:20px;color:#1B4FE8">GasLamar</span>
+      </div>
+      <h1 style="font-size:22px;font-weight:700;color:#1F2937;margin-bottom:8px">Pembayaran Dikonfirmasi ✓</h1>
+      <p style="color:#6B7280;margin-bottom:24px">Paket <strong>${tierLabel}</strong> kamu sudah aktif.</p>
+      <a href="${downloadUrl}"
+        style="display:inline-block;background:#1B4FE8;color:#fff;font-weight:700;padding:14px 28px;border-radius:12px;text-decoration:none;margin-bottom:24px">
+        Download CV Sekarang →
+      </a>
+      <p style="font-size:12px;color:#9CA3AF">Link ini berlaku 30 menit. Kalau sudah kedaluwarsa, mulai ulang dari <a href="https://gaslamar.com/upload.html" style="color:#1B4FE8">sini</a>.</p>
+    </div>`;
+
+  await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      from: 'GasLamar <noreply@gaslamar.com>',
+      to: [session.email],
+      subject: `CV kamu siap download — GasLamar ${tierLabel}`,
+      html,
+    }),
+  });
 }
 
 async function handleMayarWebhook(request, env) {
@@ -588,6 +651,8 @@ async function handleMayarWebhook(request, env) {
 
   if (isPaid) {
     await updateSession(env, sessionId, { status: 'paid', paid_at: Date.now() });
+    // Fire-and-forget confirmation email via Resend
+    sendPaymentConfirmationEmail(sessionId, env).catch(() => {});
   }
 
   return new Response('OK', { status: 200 });
@@ -641,7 +706,9 @@ async function handleGetSession(request, env) {
   return jsonResponse({
     cv: session.cv_text,
     job_desc: session.job_desc,
-    tier: session.tier
+    tier: session.tier,
+    credits_remaining: session.credits_remaining ?? 1,
+    total_credits: session.total_credits ?? 1,
   }, 200, request, env);
 }
 
@@ -660,10 +727,17 @@ async function handleGenerate(request, env) {
     return jsonResponse({ message: 'Request body tidak valid' }, 400, request, env);
   }
 
-  const { session_id } = body;
+  const { session_id, job_desc: newJobDesc } = body;
 
   if (!session_id || !session_id.startsWith('sess_')) {
     return jsonResponse({ message: 'Session ID tidak valid' }, 400, request, env);
+  }
+
+  // Optional new job_desc for multi-credit re-use (3-Pack / JobHunt)
+  if (newJobDesc !== undefined) {
+    if (typeof newJobDesc !== 'string' || newJobDesc.length > 3000) {
+      return jsonResponse({ message: 'Job description terlalu panjang (maks 3.000 karakter)' }, 400, request, env);
+    }
   }
 
   // Verify session exists and has status 'generating' (set by /get-session)
@@ -676,37 +750,89 @@ async function handleGenerate(request, env) {
     return jsonResponse({ message: 'Sesi tidak valid atau pembayaran belum dikonfirmasi' }, 403, request, env);
   }
 
-  const { cv_text, job_desc, tier } = session;
-  if (!cv_text || !job_desc || !tier) {
+  const { cv_text, job_desc: storedJobDesc, tier } = session;
+  const effectiveJobDesc = (newJobDesc && newJobDesc.trim()) ? newJobDesc.trim() : storedJobDesc;
+
+  if (!cv_text || !effectiveJobDesc || !tier) {
     return jsonResponse({ message: 'Data sesi tidak lengkap' }, 400, request, env);
   }
 
+  // Credits: legacy sessions without the field get 1 (they paid for single use)
+  const creditsRemaining = typeof session.credits_remaining === 'number' ? session.credits_remaining : 1;
   const isBilingual = tier !== 'coba';
 
   try {
-    // Generate from KV data only — never from request body.
+    // Generate from KV data only — never from request body (except allowed job_desc override).
     // Run ID and EN tailoring in parallel to stay within Cloudflare's 30s wall-clock limit.
     // Sequential calls could reach 50s (2 × 25s Claude timeout) and hard-kill the Worker.
     let cvId, cvEn;
     if (isBilingual) {
       [cvId, cvEn] = await Promise.all([
-        tailorCVID(cv_text, job_desc, env),
-        tailorCVEN(cv_text, job_desc, env),
+        tailorCVID(cv_text, effectiveJobDesc, env),
+        tailorCVEN(cv_text, effectiveJobDesc, env),
       ]);
     } else {
-      cvId = await tailorCVID(cv_text, job_desc, env);
+      cvId = await tailorCVID(cv_text, effectiveJobDesc, env);
       cvEn = null;
     }
 
-    // Delete session — one-time use
-    await deleteSession(env, session_id);
+    const newCreditsRemaining = creditsRemaining - 1;
 
-    return jsonResponse({ cv_id: cvId, cv_en: cvEn }, 200, request, env);
+    if (newCreditsRemaining <= 0) {
+      // Last credit used — delete session
+      await deleteSession(env, session_id);
+    } else {
+      // Credits remain — reset to 'paid' for next generation, persist updated job_desc if changed
+      const updates = { status: 'paid', credits_remaining: newCreditsRemaining };
+      if (newJobDesc && newJobDesc.trim()) updates.job_desc = effectiveJobDesc;
+      await updateSession(env, session_id, updates);
+    }
+
+    return jsonResponse({ cv_id: cvId, cv_en: cvEn, credits_remaining: newCreditsRemaining }, 200, request, env);
   } catch (e) {
-    // On failure, reset to 'paid' so user can retry
+    // On failure, reset to 'paid' so user can retry (don't consume the credit)
     await updateSession(env, session_id, { status: 'paid' }).catch(() => {});
     return jsonResponse({ message: e.message || 'Generate CV gagal. Coba lagi.' }, 500, request, env);
   }
+}
+
+async function handleSubmitEmail(request, env) {
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+
+  // Reuse payment rate limiter (5 req/min per IP)
+  const allowed = await checkRateLimit(env, env.RATE_LIMITER_PAYMENT, ip);
+  if (!allowed) {
+    return jsonResponse({ message: 'Terlalu banyak permintaan. Coba lagi dalam 1 menit.' }, 429, request, env);
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch (e) {
+    return jsonResponse({ message: 'Request body tidak valid' }, 400, request, env);
+  }
+
+  const { email } = body;
+
+  if (!email || typeof email !== 'string') {
+    return jsonResponse({ message: 'Email tidak valid' }, 400, request, env);
+  }
+
+  // Basic format + length check
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email) || email.length > 254) {
+    return jsonResponse({ message: 'Format email tidak valid' }, 400, request, env);
+  }
+
+  // Store with 30-day TTL — keyed by timestamp + short UUID to avoid collisions
+  const key = `email_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
+  await env.GASLAMAR_SESSIONS.put(
+    key,
+    JSON.stringify({ email: email.toLowerCase().trim(), submitted_at: Date.now(), ip }),
+    { expirationTtl: 86400 * 30 }
+  );
+
+  return jsonResponse({ ok: true }, 200, request, env);
 }
 
 // ---- Main Handler ----
@@ -748,6 +874,10 @@ export default {
 
       if (method === 'POST' && pathname === '/generate') {
         return handleGenerate(request, env);
+      }
+
+      if (method === 'POST' && pathname === '/submit-email') {
+        return handleSubmitEmail(request, env);
       }
 
       if (pathname === '/health') {

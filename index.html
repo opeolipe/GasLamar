@@ -7,26 +7,13 @@
   <meta name="description" content="AI CV tailoring + scoring untuk pencari kerja Indonesia. Upload CV, lihat skor match vs job description, download CV bilingual dalam 2 menit." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- css/tailwind.css is generated at build time — run `npm run vendor` locally -->
+  <link rel="stylesheet" href="css/tailwind.css" />
   <link rel="stylesheet" href="css/style.css" />
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            primary: '#1B4FE8',
-            accent: '#22C55E',
-            warning: '#F59E0B',
-            danger: '#EF4444',
-          },
-          fontFamily: {
-            heading: ['"Plus Jakarta Sans"', 'sans-serif'],
-            body: ['Inter', 'sans-serif'],
-          }
-        }
-      }
-    }
-  </script>
+  <!-- Twitter/X Pixel — replace YOUR_TWITTER_PIXEL_ID with your pixel ID -->
+  <script>!function(e,t,n,s,u,a){e.twq||(s=e.twq=function(){s.exe?s.exe.apply(s,arguments):s.queue.push(arguments)},s.version='1.1',s.queue=[],u=t.createElement(n),u.async=!0,u.src='https://static.ads-twitter.com/uwt.js',a=t.getElementsByTagName(n)[0],a.parentNode.insertBefore(u,a))}(window,document,'script');twq('config','YOUR_TWITTER_PIXEL_ID');</script>
+  <!-- Cloudflare Web Analytics — replace YOUR_CF_ANALYTICS_TOKEN with your token -->
+  <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "YOUR_CF_ANALYTICS_TOKEN"}'></script>
 </head>
 <body class="bg-[#F9FAFB] text-[#1F2937] font-body">
 
@@ -49,10 +36,6 @@
 
   <!-- Hero Section -->
   <section class="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24 text-center">
-    <div class="inline-flex items-center gap-2 bg-blue-50 text-primary font-semibold text-sm px-4 py-2 rounded-full mb-6">
-      <span class="w-2 h-2 bg-accent rounded-full animate-pulse"></span>
-      Sudah 1.200+ CV dianalisis minggu ini
-    </div>
     <h1 class="font-heading font-extrabold text-4xl sm:text-5xl lg:text-6xl text-[#1F2937] leading-tight mb-6">
       Lamar Lebih Banyak.<br class="hidden sm:block" />
       <span class="text-primary">Diterima Lebih Cepat.</span>
@@ -68,21 +51,6 @@
       <p class="text-sm text-gray-400">Mulai dari Rp 29.000 · Tidak perlu daftar</p>
     </div>
 
-    <!-- Social proof stats -->
-    <div class="mt-16 grid grid-cols-3 gap-6 max-w-lg mx-auto">
-      <div class="text-center">
-        <p class="font-heading font-bold text-3xl text-primary">1.200+</p>
-        <p class="text-sm text-gray-500 mt-1">CV dianalisis</p>
-      </div>
-      <div class="text-center border-x border-gray-100">
-        <p class="font-heading font-bold text-3xl text-primary">94%</p>
-        <p class="text-sm text-gray-500 mt-1">skor meningkat</p>
-      </div>
-      <div class="text-center">
-        <p class="font-heading font-bold text-3xl text-primary">2 mnt</p>
-        <p class="text-sm text-gray-500 mt-1">rata-rata selesai</p>
-      </div>
-    </div>
   </section>
 
   <!-- Cara Kerja -->

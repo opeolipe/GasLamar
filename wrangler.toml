@@ -41,3 +41,4 @@ ENVIRONMENT = "production"
 # - MAYAR_API_KEY
 # - MAYAR_API_KEY_SANDBOX
 # - MAYAR_WEBHOOK_SECRET
+# - RESEND_API_KEY          (optional — enables post-payment confirmation email)
