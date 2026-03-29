@@ -1,9 +1,8 @@
 /**
  * payment.js — GasLamar
  * Handles tier selection, create payment session via Worker, redirect to Mayar
+ * Requires: js/config.js (defines WORKER_URL)
  */
-
-const WORKER_URL = 'https://gaslamar-worker.gaslamar.workers.dev';
 
 const TIER_CONFIG = {
   coba:    { label: 'Coba Dulu',      price: 29000,  bilingual: false },

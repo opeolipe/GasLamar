@@ -1,9 +1,9 @@
 /**
  * download.js — GasLamar
  * Handles: session polling, CV generation via Worker, DOCX + PDF generation client-side
+ * Requires: js/config.js (defines WORKER_URL)
  */
 
-const WORKER_URL = 'https://gaslamar-worker.gaslamar.workers.dev';
 const POLL_INTERVAL = 3000;  // 3 seconds
 const MAX_POLLS = 10;
 
@@ -137,13 +137,13 @@ async function fetchAndGenerateCV(sessionId) {
     }
 
     const sessionData = await res.json();
-    const { cv, job_desc, tier } = sessionData;
+    const { tier } = sessionData;
 
     setProgress(25);
     setGeneratingText('AI sedang menulis CV Bahasa Indonesia...');
 
-    // Generate CV via Worker
-    await generateCVContent(sessionId, cv, job_desc, tier);
+    // Generate CV via Worker (cv and job_desc retrieved server-side from KV)
+    await generateCVContent(sessionId, tier);
 
   } catch (err) {
     clearTimeout(timeout);
@@ -155,8 +155,8 @@ async function fetchAndGenerateCV(sessionId) {
   }
 }
 
-async function generateCVContent(sessionId, _cvData, _jobDesc, tier) {
-  // Note: cv data and job_desc come from KV server-side — not sent from browser
+async function generateCVContent(sessionId, tier) {
+  // CV data and job_desc are read from KV server-side — browser only sends session_id
   const isBilingual = tier !== 'coba';
 
   const controller = new AbortController();

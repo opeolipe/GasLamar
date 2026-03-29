@@ -7,11 +7,15 @@
     "deploy": "wrangler deploy",
     "deploy:prod": "wrangler deploy --env production",
     "tail": "wrangler tail",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "kv:create": "wrangler kv:namespace create GASLAMAR_SESSIONS",
     "kv:create:preview": "wrangler kv:namespace create GASLAMAR_SESSIONS --preview",
     "secret:set": "echo 'Run: wrangler secret put ANTHROPIC_API_KEY && wrangler secret put MAYAR_API_KEY && wrangler secret put MAYAR_API_KEY_SANDBOX && wrangler secret put MAYAR_WEBHOOK_SECRET'"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.5.41",
+    "vitest": "^2.1.9",
     "wrangler": "^3.0.0"
   }
 }
