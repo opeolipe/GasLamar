@@ -34,3 +34,49 @@ Available gstack skills:
 - `/guard` — Guard mode
 - `/unfreeze` — Unfreeze a feature/branch
 - `/gstack-upgrade` — Upgrade gstack
+
+## Deploy Configuration (configured by /setup-deploy)
+- Platform: Cloudflare Workers (API) + Cloudflare Pages (frontend)
+- Production URL: https://gaslamar.com
+- Worker URL: https://gaslamar-worker.gaslamar.workers.dev
+- Deploy workflow: .github/workflows/deploy.yml (auto-deploy on push to main)
+- Deploy status command: curl -s https://gaslamar-worker.gaslamar.workers.dev/health
+- Merge method: squash
+- Project type: web app
+
+### Jobs (in order)
+1. `test` — `cd worker && npm test` (vitest, runs on all PRs + pushes to main)
+2. `deploy-worker` — `wrangler deploy --env production` (main only, after test)
+3. `build-frontend` — `npm run vendor` builds js/vendor/ (main only, after test)
+4. `deploy-pages` — Cloudflare Pages action (main only, after build-frontend)
+
+### GitHub Secrets required
+- `CLOUDFLARE_API_TOKEN` — API token with Workers + Pages deploy permissions
+- `CLOUDFLARE_ACCOUNT_ID` — Cloudflare account ID
+
+### Custom deploy hooks
+- Pre-merge: `npm test` (in /worker) — enforced by CI
+- Deploy trigger: automatic on push to main
+- Post-deploy health check: GET https://gaslamar-worker.gaslamar.workers.dev/health → 200
+
+### One-time setup (first deploy)
+```bash
+# 1. Create KV namespaces
+cd worker && npx wrangler kv:namespace create GASLAMAR_SESSIONS
+npx wrangler kv:namespace create GASLAMAR_SESSIONS --preview
+# → Paste IDs into wrangler.toml
+
+# 2. Set secrets
+npx wrangler secret put ANTHROPIC_API_KEY
+npx wrangler secret put MAYAR_API_KEY
+npx wrangler secret put MAYAR_API_KEY_SANDBOX
+npx wrangler secret put MAYAR_WEBHOOK_SECRET
+
+# 3. Create Cloudflare Pages project (once, via dashboard)
+# Project name: gaslamar
+# Build command: npm install && npm run vendor
+# Output directory: /
+
+# 4. Add GitHub secrets CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID
+# Then push to main — CI handles the rest
+```
