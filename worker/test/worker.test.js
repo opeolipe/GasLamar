@@ -624,6 +624,75 @@ describe('POST /get-session — returns credits_remaining', () => {
   });
 });
 
+describe('Multi-credit session — total_credits preserved through updateSession', () => {
+  // These tests verify that total_credits is not lost when the worker updates session
+  // state (webhook paid, get-session generating). The KV mock does not enforce TTL
+  // expiry, but by checking total_credits survives we confirm getSessionTtl will
+  // also receive the correct data and choose the 7-day TTL in production.
+
+  it('webhook: total_credits=3 preserved after status → paid', async () => {
+    const WEBHOOK_SECRET = 'test_webhook_secret_key';
+    const sessionId = `sess_${crypto.randomUUID()}`;
+    await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
+      cv_text: 'CV text',
+      job_desc: JOB_DESC,
+      tier: '3pack',
+      status: 'pending',
+      credits_remaining: 3,
+      total_credits: 3,
+      mayar_invoice_id: 'inv_multi1',
+      created_at: Date.now(),
+    }), { expirationTtl: 604800 });
+
+    const payload = JSON.stringify({
+      status: 'paid',
+      data: { redirect_url: `https://gaslamar.com/download.html?session=${sessionId}` },
+    });
+    const sig = await hmacSign(WEBHOOK_SECRET, payload);
+    const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-mayar-signature': sig,
+        'origin': 'https://gaslamar.com',
+      },
+      body: payload,
+    });
+    expect(res.status).toBe(200);
+
+    const session = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
+    expect(session).not.toBeNull();
+    expect(session.status).toBe('paid');
+    expect(session.total_credits).toBe(3);
+    expect(session.credits_remaining).toBe(3);
+  });
+
+  it('get-session: total_credits=10 preserved after status → generating', async () => {
+    const sessionId = `sess_${crypto.randomUUID()}`;
+    await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
+      cv_text: 'CV text jobhunt',
+      job_desc: JOB_DESC,
+      tier: 'jobhunt',
+      status: 'paid',
+      credits_remaining: 10,
+      total_credits: 10,
+      created_at: Date.now(),
+    }), { expirationTtl: 604800 });
+
+    const res = await post('/get-session', { session_id: sessionId }, {}, '10.3.0.1');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.total_credits).toBe(10);
+    expect(body.credits_remaining).toBe(10);
+
+    // KV must still have total_credits after the 'generating' update
+    const session = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
+    expect(session).not.toBeNull();
+    expect(session.total_credits).toBe(10);
+    expect(session.status).toBe('generating');
+  });
+});
+
 describe('POST /generate — job_desc override validation', () => {
   it('rejects job_desc over 3000 chars → 400', async () => {
     const sessionId = await seedSession('generating', 'single');

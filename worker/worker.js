@@ -406,13 +406,21 @@ async function verifyMayarWebhook(request, env) {
 
 // ---- KV Session Helpers ----
 
-const SESSION_TTL = 1800; // 30 minutes
+const SESSION_TTL = 1800;        // 30 minutes — single-use sessions
+const SESSION_TTL_MULTI = 604800; // 7 days — 3-Pack / Job Hunt Pack
+
+// Returns the appropriate TTL based on how many total credits the session has.
+// Multi-credit sessions (total_credits > 1) get 7 days so users can come back
+// the next day (or later) to use remaining credits via the emailed link.
+function getSessionTtl(data) {
+  return (data && data.total_credits > 1) ? SESSION_TTL_MULTI : SESSION_TTL;
+}
 
 async function createSession(env, sessionId, data) {
   await env.GASLAMAR_SESSIONS.put(
     sessionId,
     JSON.stringify({ ...data, created_at: Date.now() }),
-    { expirationTtl: SESSION_TTL }
+    { expirationTtl: getSessionTtl(data) }
   );
 }
 
@@ -424,10 +432,11 @@ async function getSession(env, sessionId) {
 async function updateSession(env, sessionId, updates) {
   const existing = await getSession(env, sessionId);
   if (!existing) return false;
+  const merged = { ...existing, ...updates };
   await env.GASLAMAR_SESSIONS.put(
     sessionId,
-    JSON.stringify({ ...existing, ...updates }),
-    { expirationTtl: SESSION_TTL }
+    JSON.stringify(merged),
+    { expirationTtl: getSessionTtl(merged) }
   );
   return true;
 }
@@ -582,19 +591,29 @@ async function sendPaymentConfirmationEmail(sessionId, env) {
     jobhunt: 'Job Hunt Pack (10 CV Bilingual)',
   };
   const tierLabel = tierLabels[session.tier] || session.tier;
+  const totalCredits = session.total_credits ?? 1;
+  const isMulti = totalCredits > 1;
+  const validityText = isMulti ? '7 hari' : '30 menit';
+  const creditsNote = isMulti
+    ? `<div style="background:#EFF6FF;border-radius:10px;padding:14px 18px;margin-bottom:20px">
+        <p style="margin:0;font-size:14px;color:#1E40AF;font-weight:600">Kamu punya ${totalCredits} kredit CV</p>
+        <p style="margin:6px 0 0;font-size:13px;color:#3B82F6">Simpan link ini — kamu bisa kembali kapan saja dalam 7 hari untuk generate CV berikutnya dengan job description berbeda.</p>
+      </div>`
+    : '';
 
   const html = `
     <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
       <div style="margin-bottom:24px">
         <span style="font-weight:800;font-size:20px;color:#1B4FE8">GasLamar</span>
       </div>
-      <h1 style="font-size:22px;font-weight:700;color:#1F2937;margin-bottom:8px">Pembayaran Dikonfirmasi ✓</h1>
-      <p style="color:#6B7280;margin-bottom:24px">Paket <strong>${tierLabel}</strong> kamu sudah aktif.</p>
+      <h1 style="font-size:22px;font-weight:700;color:#1F2937;margin-bottom:8px">Pembayaran Dikonfirmasi</h1>
+      <p style="color:#6B7280;margin-bottom:20px">Paket <strong>${tierLabel}</strong> kamu sudah aktif.</p>
+      ${creditsNote}
       <a href="${downloadUrl}"
         style="display:inline-block;background:#1B4FE8;color:#fff;font-weight:700;padding:14px 28px;border-radius:12px;text-decoration:none;margin-bottom:24px">
-        Download CV Sekarang →
+        ${isMulti ? 'Mulai Generate CV →' : 'Download CV Sekarang →'}
       </a>
-      <p style="font-size:12px;color:#9CA3AF">Link ini berlaku 30 menit. Kalau sudah kedaluwarsa, mulai ulang dari <a href="https://gaslamar.com/upload.html" style="color:#1B4FE8">sini</a>.</p>
+      <p style="font-size:12px;color:#9CA3AF">Link ini berlaku ${validityText}. Kalau sudah kedaluwarsa, mulai ulang dari <a href="https://gaslamar.com/upload.html" style="color:#1B4FE8">sini</a>.</p>
     </div>`;
 
   await fetch('https://api.resend.com/emails', {
