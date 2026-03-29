@@ -1,0 +1,13 @@
+{
+  "name": "gaslamar-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "vendor": "node scripts/vendor.js",
+    "build": "node scripts/vendor.js"
+  },
+  "dependencies": {
+    "docx": "8.5.0",
+    "jspdf": "2.5.1"
+  }
+}

@@ -13,7 +13,8 @@ gaslamar/
 │   ├── upload.js       # File reading + send to worker
 │   ├── scoring.js      # Display scoring results
 │   ├── payment.js      # Tier selection + Mayar redirect
-│   └── download.js     # DOCX/PDF generation + polling
+│   ├── download.js     # DOCX/PDF generation + polling
+│   └── vendor/         # Generated — run `npm run vendor` (gitignored)
 ├── worker/
 │   ├── worker.js       # Cloudflare Worker (API proxy)
 │   └── package.json
@@ -80,6 +81,23 @@ Update `WORKER_URL` di semua JS files:
 
 ---
 
+## Step 3b: Build Frontend Vendor Libraries
+
+`download.html` membutuhkan docx.js dan jsPDF secara lokal (menghindari CDN supply-chain risk).
+
+```bash
+# Di root project (bukan di /worker)
+npm install
+npm run vendor
+# → menghasilkan js/vendor/docx.js dan js/vendor/jspdf.umd.min.js
+```
+
+Untuk Cloudflare Pages deployment, set build command:
+- Build command: `npm install && npm run vendor`
+- Build output directory: `/` (root)
+
+---
+
 ## Step 4: Cloudflare Pages Setup
 
 1. Push repo ke GitHub
@@ -87,7 +105,7 @@ Update `WORKER_URL` di semua JS files:
 3. Connect GitHub repo `gaslamar`
 4. Build settings:
    - Framework preset: None
-   - Build command: (kosong)
+   - Build command: `npm install && npm run vendor`
    - Build output directory: `/` (root)
 5. Custom domain: `gaslamar.com`
 
@@ -147,6 +165,7 @@ const redirectUrl = `https://gaslamar.com/download.html?session=${encodeURICompo
 - [x] Claude timeout 25 detik
 - [x] Double payment prevention (disable button)
 - [x] Mobile download fallback (plain text)
+- [x] docx.js + jsPDF self-hosted (no CDN supply-chain risk)
 - [x] Rate limiting per IP per endpoint
 - [x] Session one-time use (hapus setelah generate)
 - [x] Session TTL 30 menit

@@ -66,28 +66,19 @@ function jsonResponse(data, status = 200, request, env) {
   );
 }
 
-// ---- Rate Limiting (in-memory via Durable Objects would be better, but KV-based here) ----
+// ---- Rate Limiting ----
+//
+// Uses Cloudflare Workers Rate Limiting API (atomic, no TOCTOU race).
+// Each endpoint has its own binding declared in wrangler.toml [[unsafe.bindings]].
+// The binding's .limit({ key }) call is atomic at the CF edge.
+//
+// Fallback: if the binding is absent (e.g. local dev without wrangler), allow through.
+// This is safe — local dev is not public traffic.
 
-async function checkRateLimit(env, ip, endpoint, maxPerMinute) {
-  const key = `ratelimit_${endpoint}_${ip}`;
-  const now = Date.now();
-  const windowMs = 60 * 1000;
-
-  const existing = await env.GASLAMAR_SESSIONS.get(key, { type: 'json' });
-
-  if (existing) {
-    const { count, windowStart } = existing;
-    if (now - windowStart < windowMs) {
-      if (count >= maxPerMinute) return false; // Rate limited
-      await env.GASLAMAR_SESSIONS.put(key, JSON.stringify({ count: count + 1, windowStart }), { expirationTtl: 120 });
-    } else {
-      await env.GASLAMAR_SESSIONS.put(key, JSON.stringify({ count: 1, windowStart: now }), { expirationTtl: 120 });
-    }
-  } else {
-    await env.GASLAMAR_SESSIONS.put(key, JSON.stringify({ count: 1, windowStart: now }), { expirationTtl: 120 });
-  }
-
-  return true; // Allowed
+async function checkRateLimit(env, limiterBinding, ip) {
+  if (!limiterBinding) return true; // binding absent in local dev — allow
+  const { success } = await limiterBinding.limit({ key: ip });
+  return success;
 }
 
 // ---- File Validation ----
@@ -442,8 +433,7 @@ async function deleteSession(env, sessionId) {
 async function handleAnalyze(request, env) {
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
 
-  // Rate limit: 10 req/min per IP
-  const allowed = await checkRateLimit(env, ip, 'analyze', 10);
+  const allowed = await checkRateLimit(env, env.RATE_LIMITER_ANALYZE, ip);
   if (!allowed) {
     return jsonResponse({ message: 'Terlalu banyak permintaan. Coba lagi dalam 1 menit.' }, 429, request, env);
   }
@@ -496,8 +486,7 @@ async function handleAnalyze(request, env) {
 async function handleCreatePayment(request, env) {
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
 
-  // Rate limit: 5 req/min per IP
-  const allowed = await checkRateLimit(env, ip, 'payment', 5);
+  const allowed = await checkRateLimit(env, env.RATE_LIMITER_PAYMENT, ip);
   if (!allowed) {
     return jsonResponse({ message: 'Terlalu banyak permintaan. Coba lagi dalam 1 menit.' }, 429, request, env);
   }
@@ -659,8 +648,7 @@ async function handleGetSession(request, env) {
 async function handleGenerate(request, env) {
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
 
-  // Rate limit: 5 req/min per IP
-  const allowed = await checkRateLimit(env, ip, 'generate', 5);
+  const allowed = await checkRateLimit(env, env.RATE_LIMITER_GENERATE, ip);
   if (!allowed) {
     return jsonResponse({ message: 'Terlalu banyak permintaan. Coba lagi dalam 1 menit.' }, 429, request, env);
   }
@@ -696,12 +684,18 @@ async function handleGenerate(request, env) {
   const isBilingual = tier !== 'coba';
 
   try {
-    // Generate from KV data only — never from request body
-    const cvId = await tailorCVID(cv_text, job_desc, env);
-
-    let cvEn = null;
+    // Generate from KV data only — never from request body.
+    // Run ID and EN tailoring in parallel to stay within Cloudflare's 30s wall-clock limit.
+    // Sequential calls could reach 50s (2 × 25s Claude timeout) and hard-kill the Worker.
+    let cvId, cvEn;
     if (isBilingual) {
-      cvEn = await tailorCVEN(cv_text, job_desc, env);
+      [cvId, cvEn] = await Promise.all([
+        tailorCVID(cv_text, job_desc, env),
+        tailorCVEN(cv_text, job_desc, env),
+      ]);
+    } else {
+      cvId = await tailorCVID(cv_text, job_desc, env);
+      cvEn = null;
     }
 
     // Delete session — one-time use

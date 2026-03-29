@@ -8,10 +8,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="css/style.css" />
-  <!-- docx.js for DOCX generation -->
-  <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js"></script>
-  <!-- jsPDF for PDF generation -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- docx.js and jsPDF served locally — eliminates CDN supply-chain risk -->
+  <!-- Run `npm install && npm run vendor` before deploying to generate js/vendor/ -->
+  <script src="js/vendor/docx.js"></script>
+  <script src="js/vendor/jspdf.umd.min.js"></script>
   <script>
     tailwind.config = {
       theme: {
