@@ -27,7 +27,9 @@
       </a>
       <div class="hidden sm:flex items-center gap-2 text-sm">
         <span class="flex items-center gap-1.5 text-accent font-semibold">
-          <span class="w-6 h-6 bg-accent text-white rounded-full flex items-center justify-center text-xs">✓</span>
+          <span class="w-6 h-6 bg-accent text-white rounded-full flex items-center justify-center">
+            <svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          </span>
           Upload
         </span>
         <span class="text-gray-300">→</span>
@@ -78,16 +80,16 @@
       <div class="bg-white rounded-2xl border border-gray-100 p-6 sm:p-8">
         <div class="flex flex-col sm:flex-row items-center gap-6">
           <!-- Score circle -->
-          <div class="relative w-32 h-32 flex-shrink-0">
-            <svg viewBox="0 0 120 120" class="w-full h-full -rotate-90">
-              <circle cx="60" cy="60" r="52" fill="none" stroke="#F3F4F6" stroke-width="12"/>
-              <circle id="score-ring" cx="60" cy="60" r="52" fill="none" stroke="#1B4FE8" stroke-width="12"
-                stroke-dasharray="327" stroke-dashoffset="327" stroke-linecap="round"
+          <div class="relative w-44 h-44 flex-shrink-0" aria-hidden="true">
+            <svg viewBox="0 0 190 190" class="w-full h-full -rotate-90">
+              <circle cx="95" cy="95" r="85" fill="none" stroke="#F3F4F6" stroke-width="12"/>
+              <circle id="score-ring" cx="95" cy="95" r="85" fill="none" stroke="#1B4FE8" stroke-width="12"
+                stroke-dasharray="534" stroke-dashoffset="534" stroke-linecap="round"
                 class="transition-all duration-1000"/>
             </svg>
             <div class="absolute inset-0 flex flex-col items-center justify-center">
-              <span id="score-number" class="font-heading font-extrabold text-3xl text-[#1F2937]">0</span>
-              <span class="text-xs text-gray-400 font-medium">/ 100</span>
+              <span id="score-number" class="font-heading font-extrabold text-4xl text-[#1F2937]">0</span>
+              <span class="text-sm text-gray-400 font-medium">/ 100</span>
             </div>
           </div>
 
@@ -108,7 +110,9 @@
       <!-- Kekuatan -->
       <div id="strengths-section" class="hidden bg-white rounded-2xl border border-gray-100 p-6">
         <h2 class="font-heading font-bold text-lg text-[#1F2937] mb-4 flex items-center gap-2">
-          <span class="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center text-accent">✓</span>
+          <span class="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center flex-shrink-0">
+            <svg class="w-4 h-4 text-accent" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          </span>
           Kekuatan CV Kamu
         </h2>
         <ul id="strengths-list" class="space-y-2"></ul>
@@ -117,7 +121,9 @@
       <!-- Gap Analysis -->
       <div id="gap-section" class="hidden bg-white rounded-2xl border border-gray-100 p-6">
         <h2 class="font-heading font-bold text-lg text-[#1F2937] mb-4 flex items-center gap-2">
-          <span class="w-8 h-8 bg-red-50 rounded-lg flex items-center justify-center text-danger">!</span>
+          <span class="w-8 h-8 bg-red-50 rounded-lg flex items-center justify-center flex-shrink-0">
+            <svg class="w-4 h-4 text-danger" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+          </span>
           Gap dari Job Requirements
         </h2>
         <ul id="gap-list" class="space-y-2"></ul>
@@ -126,7 +132,9 @@
       <!-- Rekomendasi -->
       <div id="reco-section" class="hidden bg-white rounded-2xl border border-gray-100 p-6">
         <h2 class="font-heading font-bold text-lg text-[#1F2937] mb-4 flex items-center gap-2">
-          <span class="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-primary">→</span>
+          <span class="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
+            <svg class="w-4 h-4 text-primary" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
+          </span>
           Rekomendasi untuk CV Kamu
         </h2>
         <ul id="reco-list" class="space-y-2"></ul>
@@ -134,13 +142,13 @@
 
       <!-- Email capture -->
       <div class="bg-white rounded-2xl border border-gray-100 p-6">
-        <p class="font-semibold text-[#1F2937] mb-1">Dapat update CV tips gratis?</p>
+        <label for="email-input" class="font-semibold text-[#1F2937] mb-1 block">Dapat update CV tips gratis?</label>
         <p class="text-sm text-gray-500 mb-4">Masukkan email kamu — kami kirim tips ATS + info fitur baru. Tidak ada spam.</p>
         <div id="email-capture-form" class="flex gap-2">
-          <input id="email-input" type="email" placeholder="nama@email.com"
-            class="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
+          <input id="email-input" type="email" autocomplete="email" placeholder="nama@email.com"
+            class="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 min-h-[44px]" />
           <button id="email-submit-btn" onclick="submitEmail()"
-            class="bg-primary text-white font-semibold px-5 py-2.5 rounded-xl text-sm hover:bg-blue-700 transition-colors whitespace-nowrap">
+            class="bg-primary text-white font-semibold px-5 rounded-xl text-sm hover:bg-blue-700 transition-colors whitespace-nowrap min-h-[44px]">
             Kirim
           </button>
         </div>

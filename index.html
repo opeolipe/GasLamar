@@ -15,42 +15,75 @@
   <!-- Cloudflare Web Analytics — replace YOUR_CF_ANALYTICS_TOKEN with your token -->
   <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "YOUR_CF_ANALYTICS_TOKEN"}'></script>
 </head>
-<body class="bg-[#F9FAFB] text-[#1F2937] font-body">
+<body class="bg-[#F8FAFF] text-[#1F2937] font-body">
 
   <!-- Navbar -->
-  <nav class="bg-white border-b border-gray-100 sticky top-0 z-50">
+  <nav class="nav-dark border-b border-white/5 sticky top-0 z-50">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
       <a href="/" class="flex items-center gap-2">
-        <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+        <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-lg shadow-blue-900/40">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M8 2v12M2 8h12" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
           </svg>
         </div>
-        <span class="font-heading font-700 text-xl text-primary">GasLamar</span>
+        <span class="font-heading font-bold text-xl text-white">GasLamar</span>
       </a>
-      <a href="upload.html" class="bg-primary text-white font-semibold px-5 py-2 rounded-xl text-sm hover:bg-blue-700 transition-colors">
-        Cek CV Saya
+      <a href="upload.html" class="btn-shine bg-primary text-white font-semibold px-5 py-2.5 rounded-xl text-sm hover:bg-blue-600 transition-colors shadow-lg shadow-blue-900/30">
+        Cek CV Saya →
       </a>
     </div>
   </nav>
 
   <!-- Hero Section -->
-  <section class="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24 text-center">
-    <h1 class="font-heading font-extrabold text-4xl sm:text-5xl lg:text-6xl text-[#1F2937] leading-tight mb-6">
-      Lamar Lebih Banyak.<br class="hidden sm:block" />
-      <span class="text-primary">Diterima Lebih Cepat.</span>
-    </h1>
-    <p class="text-lg sm:text-xl text-gray-500 max-w-2xl mx-auto mb-10 leading-relaxed">
-      Upload CV kamu, lihat langsung skor match vs job description,<br class="hidden sm:block" />
-      dan download CV tailored bilingual dalam <strong class="text-[#1F2937]">2 menit</strong> — tanpa daftar akun.
-    </p>
-    <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
-      <a href="upload.html" class="w-full sm:w-auto bg-primary text-white font-bold text-lg px-8 py-4 rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 hover:shadow-blue-300 hover:-translate-y-0.5">
-        Cek CV Saya Sekarang →
-      </a>
-      <p class="text-sm text-gray-400">Mulai dari Rp 29.000 · Tidak perlu daftar</p>
-    </div>
+  <section class="hero-section">
+    <div class="hero-glow absolute inset-0 pointer-events-none"></div>
+    <div class="hero-grid absolute inset-0 pointer-events-none"></div>
+    <div class="relative max-w-6xl mx-auto px-4 sm:px-6 pt-20 sm:pt-28 pb-24 sm:pb-32 text-center">
 
+      <h1 class="font-heading font-extrabold text-5xl sm:text-6xl lg:text-7xl text-white leading-[1.08] tracking-tight mb-7 anim-fade-up">
+        Lamar Lebih Banyak.<br />
+        <span class="text-primary">Diterima Lebih Cepat.</span>
+      </h1>
+
+      <p class="text-lg sm:text-xl text-[#94A3B8] max-w-xl mx-auto mb-10 leading-relaxed anim-fade-up anim-delay-1">
+        Skor CV kamu vs job description dalam 30 detik — lalu download CV tailored bilingual tanpa daftar akun.
+      </p>
+
+      <div class="flex flex-col sm:flex-row gap-4 justify-center items-center anim-fade-up anim-delay-2">
+        <a href="upload.html" class="btn-shine w-full sm:w-auto bg-primary text-white font-bold text-lg px-10 py-4 rounded-2xl hover:bg-blue-600 transition-all shadow-2xl shadow-blue-900/60 hover:-translate-y-0.5 active:translate-y-0">
+          Cek CV Saya Sekarang →
+        </a>
+        <p class="text-sm text-[#64748B]">Mulai dari Rp 29.000 · Tidak perlu daftar</p>
+      </div>
+
+      <!-- Score preview teaser -->
+      <div class="mt-14 flex justify-center anim-fade-up anim-delay-3">
+        <div class="inline-flex flex-col sm:flex-row items-center gap-4 sm:gap-6 bg-white/[0.06] border border-white/10 rounded-2xl px-6 sm:px-8 py-5 backdrop-blur-sm">
+          <div class="flex items-center gap-4">
+            <div class="relative w-14 h-14 flex-shrink-0">
+              <svg viewBox="0 0 56 56" class="w-full h-full -rotate-90">
+                <circle cx="28" cy="28" r="22" fill="none" stroke="#1E3A5F" stroke-width="5"/>
+                <circle cx="28" cy="28" r="22" fill="none" stroke="#1B4FE8" stroke-width="5"
+                  stroke-dasharray="138" stroke-dashoffset="28" stroke-linecap="round"/>
+              </svg>
+              <div class="absolute inset-0 flex items-center justify-center">
+                <span class="font-heading font-extrabold text-white text-base">80</span>
+              </div>
+            </div>
+            <div class="text-left">
+              <p class="text-white font-semibold text-sm">Skor CV: 80/100</p>
+              <p class="text-[#64748B] text-xs mt-0.5">3 gap · 2 rekomendasi AI</p>
+            </div>
+          </div>
+          <div class="hidden sm:block w-px h-10 bg-white/10 flex-shrink-0"></div>
+          <div class="text-left sm:text-left">
+            <p class="text-[#22C55E] font-bold text-sm">CV baru siap →</p>
+            <p class="text-[#64748B] text-xs mt-0.5">ID + EN · DOCX + PDF</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
   </section>
 
   <!-- Cara Kerja -->
@@ -61,36 +94,36 @@
         <p class="text-gray-500 text-lg">Tiga langkah simpel, CV langsung siap kirim</p>
       </div>
       <div class="grid sm:grid-cols-3 gap-8">
-        <div class="text-center p-6">
+        <div class="step-item text-center p-6">
           <div class="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-5">
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
               <path d="M14 4v14M9 13l5 5 5-5" stroke="#1B4FE8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
               <path d="M4 20v2a2 2 0 002 2h16a2 2 0 002-2v-2" stroke="#1B4FE8" stroke-width="2.5" stroke-linecap="round"/>
             </svg>
           </div>
-          <div class="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center font-bold text-sm mx-auto mb-4">1</div>
+          <div class="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center font-bold text-sm mx-auto mb-4" aria-hidden="true">1</div>
           <h3 class="font-heading font-bold text-lg mb-2">Upload CV &amp; Loker</h3>
           <p class="text-gray-500 text-sm leading-relaxed">Upload CV kamu (PDF/DOCX) dan paste job description dari loker yang kamu inginkan</p>
         </div>
-        <div class="text-center p-6">
+        <div class="step-item text-center p-6">
           <div class="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-5">
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
               <circle cx="14" cy="14" r="10" stroke="#22C55E" stroke-width="2.5"/>
               <path d="M14 8v6l4 2" stroke="#22C55E" stroke-width="2.5" stroke-linecap="round"/>
             </svg>
           </div>
-          <div class="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center font-bold text-sm mx-auto mb-4">2</div>
+          <div class="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center font-bold text-sm mx-auto mb-4" aria-hidden="true">2</div>
           <h3 class="font-heading font-bold text-lg mb-2">Lihat Skor &amp; Gap</h3>
           <p class="text-gray-500 text-sm leading-relaxed">AI langsung analisis dan kasih skor 0–100 plus gap analysis konkret — apa yang kurang dari requirements</p>
         </div>
-        <div class="text-center p-6">
+        <div class="step-item text-center p-6">
           <div class="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-5">
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
               <rect x="4" y="4" width="20" height="24" rx="3" stroke="#1B4FE8" stroke-width="2.5"/>
               <path d="M9 12h10M9 17h7" stroke="#1B4FE8" stroke-width="2" stroke-linecap="round"/>
             </svg>
           </div>
-          <div class="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center font-bold text-sm mx-auto mb-4">3</div>
+          <div class="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center font-bold text-sm mx-auto mb-4" aria-hidden="true">3</div>
           <h3 class="font-heading font-bold text-lg mb-2">Download CV Jadi</h3>
           <p class="text-gray-500 text-sm leading-relaxed">Bayar, dan CV tailored bilingual (ID + EN) langsung bisa download dalam DOCX &amp; PDF</p>
         </div>
@@ -151,28 +184,28 @@
           <tbody class="divide-y divide-gray-50">
             <tr>
               <td class="px-6 py-3 text-gray-600">Job-specific tailoring</td>
-              <td class="px-4 py-3 text-center text-accent font-bold">✓</td>
-              <td class="px-4 py-3 text-center text-gray-300">✗</td>
+              <td class="px-4 py-3 text-center"><svg class="w-5 h-5 text-accent mx-auto" viewBox="0 0 20 20" fill="currentColor" aria-label="Ya"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></td>
+              <td class="px-4 py-3 text-center"><svg class="w-5 h-5 text-gray-300 mx-auto" viewBox="0 0 20 20" fill="currentColor" aria-label="Tidak"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg></td>
             </tr>
             <tr>
               <td class="px-6 py-3 text-gray-600">CV bilingual (ID + EN)</td>
-              <td class="px-4 py-3 text-center text-accent font-bold">✓</td>
-              <td class="px-4 py-3 text-center text-gray-300">✗</td>
+              <td class="px-4 py-3 text-center"><svg class="w-5 h-5 text-accent mx-auto" viewBox="0 0 20 20" fill="currentColor" aria-label="Ya"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></td>
+              <td class="px-4 py-3 text-center"><svg class="w-5 h-5 text-gray-300 mx-auto" viewBox="0 0 20 20" fill="currentColor" aria-label="Tidak"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg></td>
             </tr>
             <tr>
               <td class="px-6 py-3 text-gray-600">Skor match + gap analysis</td>
-              <td class="px-4 py-3 text-center text-accent font-bold">✓</td>
-              <td class="px-4 py-3 text-center text-gray-300">✗</td>
+              <td class="px-4 py-3 text-center"><svg class="w-5 h-5 text-accent mx-auto" viewBox="0 0 20 20" fill="currentColor" aria-label="Ya"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></td>
+              <td class="px-4 py-3 text-center"><svg class="w-5 h-5 text-gray-300 mx-auto" viewBox="0 0 20 20" fill="currentColor" aria-label="Tidak"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg></td>
             </tr>
             <tr>
               <td class="px-6 py-3 text-gray-600">Tidak perlu daftar akun</td>
-              <td class="px-4 py-3 text-center text-accent font-bold">✓</td>
-              <td class="px-4 py-3 text-center text-gray-300">✗</td>
+              <td class="px-4 py-3 text-center"><svg class="w-5 h-5 text-accent mx-auto" viewBox="0 0 20 20" fill="currentColor" aria-label="Ya"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></td>
+              <td class="px-4 py-3 text-center"><svg class="w-5 h-5 text-gray-300 mx-auto" viewBox="0 0 20 20" fill="currentColor" aria-label="Tidak"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg></td>
             </tr>
             <tr>
               <td class="px-6 py-3 text-gray-600">Selesai &lt; 2 menit</td>
-              <td class="px-4 py-3 text-center text-accent font-bold">✓</td>
-              <td class="px-4 py-3 text-center text-gray-300">✗</td>
+              <td class="px-4 py-3 text-center"><svg class="w-5 h-5 text-accent mx-auto" viewBox="0 0 20 20" fill="currentColor" aria-label="Ya"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></td>
+              <td class="px-4 py-3 text-center"><svg class="w-5 h-5 text-gray-300 mx-auto" viewBox="0 0 20 20" fill="currentColor" aria-label="Tidak"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg></td>
             </tr>
             <tr class="bg-blue-50/50">
               <td class="px-6 py-3 font-semibold text-[#1F2937]">Harga mulai dari</td>
@@ -202,10 +235,10 @@
             <p class="text-sm text-gray-500 mt-1">1 CV</p>
           </div>
           <ul class="space-y-2 flex-1 mb-6">
-            <li class="flex items-start gap-2 text-sm text-gray-600"><span class="text-accent font-bold mt-0.5">✓</span> CV tailored Bahasa Indonesia</li>
-            <li class="flex items-start gap-2 text-sm text-gray-600"><span class="text-accent font-bold mt-0.5">✓</span> Skor match + gap analysis</li>
-            <li class="flex items-start gap-2 text-sm text-gray-600"><span class="text-accent font-bold mt-0.5">✓</span> Download DOCX + PDF</li>
-            <li class="flex items-start gap-2 text-sm text-gray-300"><span class="mt-0.5">–</span> Bahasa Inggris</li>
+            <li class="flex items-start gap-2 text-sm text-gray-600"><svg class="w-4 h-4 text-accent flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> CV tailored Bahasa Indonesia</li>
+            <li class="flex items-start gap-2 text-sm text-gray-600"><svg class="w-4 h-4 text-accent flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> Skor match + gap analysis</li>
+            <li class="flex items-start gap-2 text-sm text-gray-600"><svg class="w-4 h-4 text-accent flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> Download DOCX + PDF</li>
+            <li class="flex items-start gap-2 text-sm text-gray-300"><svg class="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/></svg> Bahasa Inggris</li>
           </ul>
           <a href="upload.html?tier=coba" class="block text-center bg-white border-2 border-primary text-primary font-bold py-3 rounded-xl hover:bg-blue-50 transition-colors text-sm">
             Mulai Sekarang
@@ -220,10 +253,10 @@
             <p class="text-sm text-gray-500 mt-1">1 CV bilingual</p>
           </div>
           <ul class="space-y-2 flex-1 mb-6">
-            <li class="flex items-start gap-2 text-sm text-gray-600"><span class="text-accent font-bold mt-0.5">✓</span> CV tailored Bahasa Indonesia</li>
-            <li class="flex items-start gap-2 text-sm text-gray-600"><span class="text-accent font-bold mt-0.5">✓</span> CV tailored Bahasa Inggris</li>
-            <li class="flex items-start gap-2 text-sm text-gray-600"><span class="text-accent font-bold mt-0.5">✓</span> Skor match + gap analysis</li>
-            <li class="flex items-start gap-2 text-sm text-gray-600"><span class="text-accent font-bold mt-0.5">✓</span> DOCX + PDF (4 file)</li>
+            <li class="flex items-start gap-2 text-sm text-gray-600"><svg class="w-4 h-4 text-accent flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> CV tailored Bahasa Indonesia</li>
+            <li class="flex items-start gap-2 text-sm text-gray-600"><svg class="w-4 h-4 text-accent flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> CV tailored Bahasa Inggris</li>
+            <li class="flex items-start gap-2 text-sm text-gray-600"><svg class="w-4 h-4 text-accent flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> Skor match + gap analysis</li>
+            <li class="flex items-start gap-2 text-sm text-gray-600"><svg class="w-4 h-4 text-accent flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> DOCX + PDF (4 file)</li>
           </ul>
           <a href="upload.html?tier=single" class="block text-center bg-white border-2 border-primary text-primary font-bold py-3 rounded-xl hover:bg-blue-50 transition-colors text-sm">
             Pilih Paket
@@ -241,10 +274,10 @@
             <p class="text-sm text-blue-200 mt-1">3 CV bilingual</p>
           </div>
           <ul class="space-y-2 flex-1 mb-6">
-            <li class="flex items-start gap-2 text-sm text-blue-100"><span class="text-accent font-bold mt-0.5">✓</span> 3 CV tailored (ID + EN)</li>
-            <li class="flex items-start gap-2 text-sm text-blue-100"><span class="text-accent font-bold mt-0.5">✓</span> Skor match + gap analysis</li>
-            <li class="flex items-start gap-2 text-sm text-blue-100"><span class="text-accent font-bold mt-0.5">✓</span> DOCX + PDF per CV (4 file)</li>
-            <li class="flex items-start gap-2 text-sm text-blue-100"><span class="text-accent font-bold mt-0.5">✓</span> Hemat Rp 28.000 vs Single</li>
+            <li class="flex items-start gap-2 text-sm text-blue-100"><svg class="w-4 h-4 text-accent flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> 3 CV tailored (ID + EN)</li>
+            <li class="flex items-start gap-2 text-sm text-blue-100"><svg class="w-4 h-4 text-accent flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> Skor match + gap analysis</li>
+            <li class="flex items-start gap-2 text-sm text-blue-100"><svg class="w-4 h-4 text-accent flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> DOCX + PDF per CV (4 file)</li>
+            <li class="flex items-start gap-2 text-sm text-blue-100"><svg class="w-4 h-4 text-accent flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> Hemat Rp 28.000 vs Single</li>
           </ul>
           <a href="upload.html?tier=3pack" class="block text-center bg-white text-primary font-bold py-3 rounded-xl hover:bg-blue-50 transition-colors text-sm">
             Pilih Paket
@@ -259,10 +292,10 @@
             <p class="text-sm text-gray-500 mt-1">10 CV bilingual</p>
           </div>
           <ul class="space-y-2 flex-1 mb-6">
-            <li class="flex items-start gap-2 text-sm text-gray-600"><span class="text-accent font-bold mt-0.5">✓</span> 10 CV tailored (ID + EN)</li>
-            <li class="flex items-start gap-2 text-sm text-gray-600"><span class="text-accent font-bold mt-0.5">✓</span> Skor match + gap analysis</li>
-            <li class="flex items-start gap-2 text-sm text-gray-600"><span class="text-accent font-bold mt-0.5">✓</span> DOCX + PDF per CV (4 file)</li>
-            <li class="flex items-start gap-2 text-sm text-gray-600"><span class="text-accent font-bold mt-0.5">✓</span> Hemat Rp 291.000 vs Single</li>
+            <li class="flex items-start gap-2 text-sm text-gray-600"><svg class="w-4 h-4 text-accent flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> 10 CV tailored (ID + EN)</li>
+            <li class="flex items-start gap-2 text-sm text-gray-600"><svg class="w-4 h-4 text-accent flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> Skor match + gap analysis</li>
+            <li class="flex items-start gap-2 text-sm text-gray-600"><svg class="w-4 h-4 text-accent flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> DOCX + PDF per CV (4 file)</li>
+            <li class="flex items-start gap-2 text-sm text-gray-600"><svg class="w-4 h-4 text-accent flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> Hemat Rp 291.000 vs Single</li>
           </ul>
           <a href="upload.html?tier=jobhunt" class="block text-center bg-white border-2 border-primary text-primary font-bold py-3 rounded-xl hover:bg-blue-50 transition-colors text-sm">
             Pilih Paket
@@ -281,8 +314,12 @@
     </div>
     <div class="grid sm:grid-cols-3 gap-6">
       <div class="bg-white rounded-2xl p-6 border border-gray-100">
-        <div class="flex gap-1 mb-4">
-          <span class="text-warning">★★★★★</span>
+        <div class="flex gap-0.5 mb-4" aria-label="5 bintang">
+          <svg class="w-4 h-4 text-warning" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          <svg class="w-4 h-4 text-warning" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          <svg class="w-4 h-4 text-warning" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          <svg class="w-4 h-4 text-warning" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          <svg class="w-4 h-4 text-warning" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
         </div>
         <p class="text-gray-600 text-sm leading-relaxed mb-4">"Skor CV saya naik dari 52 ke 87 setelah pakai GasLamar. Langsung dapat callback dari Tokopedia minggu berikutnya!"</p>
         <div class="flex items-center gap-3">
@@ -294,8 +331,12 @@
         </div>
       </div>
       <div class="bg-white rounded-2xl p-6 border border-gray-100">
-        <div class="flex gap-1 mb-4">
-          <span class="text-warning">★★★★★</span>
+        <div class="flex gap-0.5 mb-4" aria-label="5 bintang">
+          <svg class="w-4 h-4 text-warning" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          <svg class="w-4 h-4 text-warning" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          <svg class="w-4 h-4 text-warning" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          <svg class="w-4 h-4 text-warning" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          <svg class="w-4 h-4 text-warning" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
         </div>
         <p class="text-gray-600 text-sm leading-relaxed mb-4">"Praktis banget! Upload CV, bayar, 2 menit kemudian CV bilingual sudah siap. Gap analysis-nya juga sangat detail dan actionable."</p>
         <div class="flex items-center gap-3">
@@ -307,8 +348,12 @@
         </div>
       </div>
       <div class="bg-white rounded-2xl p-6 border border-gray-100">
-        <div class="flex gap-1 mb-4">
-          <span class="text-warning">★★★★★</span>
+        <div class="flex gap-0.5 mb-4" aria-label="5 bintang">
+          <svg class="w-4 h-4 text-warning" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          <svg class="w-4 h-4 text-warning" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          <svg class="w-4 h-4 text-warning" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          <svg class="w-4 h-4 text-warning" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          <svg class="w-4 h-4 text-warning" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
         </div>
         <p class="text-gray-600 text-sm leading-relaxed mb-4">"Pakai Job Hunt Pack untuk lamar 10 perusahaan sekaligus. Worth it banget, CV-nya langsung terasa lebih profesional dan relevan."</p>
         <div class="flex items-center gap-3">
@@ -331,7 +376,7 @@
       <div class="space-y-4" id="faq">
 
         <div class="bg-[#F9FAFB] rounded-2xl border border-gray-100 overflow-hidden">
-          <button class="faq-toggle w-full text-left px-6 py-5 flex items-center justify-between font-semibold text-[#1F2937]" onclick="toggleFaq(this)">
+          <button class="faq-toggle w-full text-left px-6 py-5 flex items-center justify-between font-semibold text-[#1F2937] cursor-pointer" onclick="toggleFaq(this)" aria-expanded="false">
             Apakah CV saya aman?
             <svg class="faq-icon w-5 h-5 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
           </button>
@@ -341,7 +386,7 @@
         </div>
 
         <div class="bg-[#F9FAFB] rounded-2xl border border-gray-100 overflow-hidden">
-          <button class="faq-toggle w-full text-left px-6 py-5 flex items-center justify-between font-semibold text-[#1F2937]" onclick="toggleFaq(this)">
+          <button class="faq-toggle w-full text-left px-6 py-5 flex items-center justify-between font-semibold text-[#1F2937] cursor-pointer" onclick="toggleFaq(this)" aria-expanded="false">
             Format CV apa yang didukung?
             <svg class="faq-icon w-5 h-5 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
           </button>
@@ -351,7 +396,7 @@
         </div>
 
         <div class="bg-[#F9FAFB] rounded-2xl border border-gray-100 overflow-hidden">
-          <button class="faq-toggle w-full text-left px-6 py-5 flex items-center justify-between font-semibold text-[#1F2937]" onclick="toggleFaq(this)">
+          <button class="faq-toggle w-full text-left px-6 py-5 flex items-center justify-between font-semibold text-[#1F2937] cursor-pointer" onclick="toggleFaq(this)" aria-expanded="false">
             Apakah fakta di CV saya akan diubah?
             <svg class="faq-icon w-5 h-5 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
           </button>
@@ -361,7 +406,7 @@
         </div>
 
         <div class="bg-[#F9FAFB] rounded-2xl border border-gray-100 overflow-hidden">
-          <button class="faq-toggle w-full text-left px-6 py-5 flex items-center justify-between font-semibold text-[#1F2937]" onclick="toggleFaq(this)">
+          <button class="faq-toggle w-full text-left px-6 py-5 flex items-center justify-between font-semibold text-[#1F2937] cursor-pointer" onclick="toggleFaq(this)" aria-expanded="false">
             Metode pembayaran apa yang tersedia?
             <svg class="faq-icon w-5 h-5 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
           </button>
@@ -371,7 +416,7 @@
         </div>
 
         <div class="bg-[#F9FAFB] rounded-2xl border border-gray-100 overflow-hidden">
-          <button class="faq-toggle w-full text-left px-6 py-5 flex items-center justify-between font-semibold text-[#1F2937]" onclick="toggleFaq(this)">
+          <button class="faq-toggle w-full text-left px-6 py-5 flex items-center justify-between font-semibold text-[#1F2937] cursor-pointer" onclick="toggleFaq(this)" aria-expanded="false">
             Apa itu paket 3-Pack dan Job Hunt Pack?
             <svg class="faq-icon w-5 h-5 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
           </button>
@@ -381,7 +426,7 @@
         </div>
 
         <div class="bg-[#F9FAFB] rounded-2xl border border-gray-100 overflow-hidden">
-          <button class="faq-toggle w-full text-left px-6 py-5 flex items-center justify-between font-semibold text-[#1F2937]" onclick="toggleFaq(this)">
+          <button class="faq-toggle w-full text-left px-6 py-5 flex items-center justify-between font-semibold text-[#1F2937] cursor-pointer" onclick="toggleFaq(this)" aria-expanded="false">
             Bagaimana jika tidak bisa download setelah bayar?
             <svg class="faq-icon w-5 h-5 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
           </button>
@@ -430,8 +475,10 @@
     function toggleFaq(btn) {
       const content = btn.nextElementSibling;
       const icon = btn.querySelector('.faq-icon');
+      const isExpanded = btn.getAttribute('aria-expanded') === 'true';
       content.classList.toggle('hidden');
       icon.classList.toggle('rotate-180');
+      btn.setAttribute('aria-expanded', String(!isExpanded));
     }
   </script>
 </body>

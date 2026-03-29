@@ -43,7 +43,7 @@ function renderScore(scoring) {
 
   // Animate ring
   const ring = document.getElementById('score-ring');
-  const circumference = 327; // 2π × 52
+  const circumference = 534; // 2π × 85
   const offset = circumference - (score / 100) * circumference;
 
   // Set color based on score
