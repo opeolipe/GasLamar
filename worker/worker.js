@@ -406,8 +406,8 @@ async function verifyMayarWebhook(request, env) {
 
 // ---- KV Session Helpers ----
 
-const SESSION_TTL = 1800;        // 30 minutes — single-use sessions
-const SESSION_TTL_MULTI = 604800; // 7 days — 3-Pack / Job Hunt Pack
+const SESSION_TTL = 1800;          // 30 minutes — single-use sessions
+const SESSION_TTL_MULTI = 2592000; // 30 days — 3-Pack / Job Hunt Pack
 
 // Returns the appropriate TTL based on how many total credits the session has.
 // Multi-credit sessions (total_credits > 1) get 7 days so users can come back
@@ -593,7 +593,7 @@ async function sendPaymentConfirmationEmail(sessionId, env) {
   const tierLabel = tierLabels[session.tier] || session.tier;
   const totalCredits = session.total_credits ?? 1;
   const isMulti = totalCredits > 1;
-  const validityText = isMulti ? '7 hari' : '30 menit';
+  const validityText = isMulti ? '30 hari' : '30 menit';
   const creditsNote = isMulti
     ? `<div style="background:#EFF6FF;border-radius:10px;padding:14px 18px;margin-bottom:20px">
         <p style="margin:0;font-size:14px;color:#1E40AF;font-weight:600">Kamu punya ${totalCredits} kredit CV</p>
