@@ -81,6 +81,14 @@ async function checkRateLimit(env, limiterBinding, ip) {
   return success;
 }
 
+// ---- Structured Logging ----
+function log(event, data = {}) {
+  console.log(JSON.stringify({ event, ts: Date.now(), ...data }));
+}
+function logError(event, data = {}) {
+  console.error(JSON.stringify({ event, ts: Date.now(), ...data }));
+}
+
 // ---- File Validation ----
 
 function validateFileData(cvData) {
@@ -539,15 +547,16 @@ async function handleCreatePayment(request, env) {
   if (!stored || !stored.text) {
     return jsonResponse({ message: 'Sesi analisis kedaluwarsa. Ulangi upload CV.' }, 400, request, env);
   }
-  // Consume key — one-time use
-  await env.GASLAMAR_SESSIONS.delete(cv_text_key);
 
   // Create session
   const sessionId = `sess_${crypto.randomUUID()}`;
 
   try {
-    // Create Mayar invoice
+    // Create Mayar invoice first — if this fails, cv_text_key is still intact and user can retry
     const { invoice_id, invoice_url } = await createMayarInvoice(sessionId, tier, env);
+
+    // Consume cv_text_key only after invoice is successfully created (atomic enough for this use case)
+    await env.GASLAMAR_SESSIONS.delete(cv_text_key);
 
     // Store session in KV using pre-extracted text from /analyze
     const credits = TIER_CREDITS[tier] ?? 1;
@@ -597,7 +606,7 @@ async function sendPaymentConfirmationEmail(sessionId, env) {
   const creditsNote = isMulti
     ? `<div style="background:#EFF6FF;border-radius:10px;padding:14px 18px;margin-bottom:20px">
         <p style="margin:0;font-size:14px;color:#1E40AF;font-weight:600">Kamu punya ${totalCredits} kredit CV</p>
-        <p style="margin:6px 0 0;font-size:13px;color:#3B82F6">Simpan link ini — kamu bisa kembali kapan saja dalam 7 hari untuk generate CV berikutnya dengan job description berbeda.</p>
+        <p style="margin:6px 0 0;font-size:13px;color:#3B82F6">Simpan link ini — kamu bisa kembali kapan saja dalam 30 hari untuk generate CV berikutnya dengan job description berbeda.</p>
       </div>`
     : '';
 
@@ -667,8 +676,8 @@ async function handleMayarWebhook(request, env) {
   }
 
   if (!sessionId) {
-    // Try to find session by invoice ID
-    // This requires a secondary index — for now log and return 200
+    // Cannot recover without a secondary index — log for operator visibility and return 200
+    console.error(JSON.stringify({ event: 'webhook_no_session', invoiceId, status, redirectUrl }));
     return new Response('OK', { status: 200 });
   }
 
@@ -676,9 +685,17 @@ async function handleMayarWebhook(request, env) {
   const isPaid = ['paid', 'settlement', 'capture', 'PAID', 'SETTLEMENT'].includes(status);
 
   if (isPaid) {
+    // Idempotency: skip if already processed (prevents duplicate emails on duplicate webhooks)
+    const existing = await getSession(env, sessionId);
+    if (existing && existing.status !== 'pending') {
+      return new Response('OK', { status: 200 });
+    }
     await updateSession(env, sessionId, { status: 'paid', paid_at: Date.now() });
+    log('payment_confirmed', { sessionId, invoiceId });
     // Fire-and-forget confirmation email via Resend
-    sendPaymentConfirmationEmail(sessionId, env).catch(() => {});
+    sendPaymentConfirmationEmail(sessionId, env).catch((e) => {
+      logError('email_failed', { sessionId, error: e.message });
+    });
   }
 
   return new Response('OK', { status: 200 });
@@ -814,10 +831,14 @@ async function handleGenerate(request, env) {
       await updateSession(env, session_id, updates);
     }
 
+    log('generate_success', { session_id, tier, credits_remaining: newCreditsRemaining });
     return jsonResponse({ cv_id: cvId, cv_en: cvEn, credits_remaining: newCreditsRemaining }, 200, request, env);
   } catch (e) {
     // On failure, reset to 'paid' so user can retry (don't consume the credit)
-    await updateSession(env, session_id, { status: 'paid' }).catch(() => {});
+    logError('generate_failed', { session_id, error: e.message });
+    await updateSession(env, session_id, { status: 'paid' }).catch((e2) => {
+      logError('generate_recovery_failed', { session_id, error: e2.message });
+    });
     return jsonResponse({ message: e.message || 'Generate CV gagal. Coba lagi.' }, 500, request, env);
   }
 }
