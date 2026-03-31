@@ -41,6 +41,12 @@ function renderScore(scoring) {
   // Animate number counter
   animateCounter(document.getElementById('score-number'), 0, score, 1200);
 
+  // Announce score to screen readers after animation
+  const announce = document.getElementById('score-announce');
+  if (announce) {
+    setTimeout(() => { announce.textContent = `Skor kamu: ${score} dari 100`; }, 1300);
+  }
+
   // Animate ring
   const ring = document.getElementById('score-ring');
   const circumference = 534; // 2π × 85

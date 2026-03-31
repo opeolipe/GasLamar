@@ -202,7 +202,10 @@ h1, h2, h3, h4, h5, h6,
    TRANSITIONS (global)
    ===================================================== */
 
-* {
+/* Scoped transitions — avoid global * rule which causes jank on low-end Android */
+a, button, input, textarea, select,
+.btn-shine, .faq-icon, .dl-btn,
+[class*="hover:"], [class*="transition"] {
   transition-property: color, background-color, border-color, box-shadow, transform, opacity;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
@@ -274,6 +277,13 @@ textarea:focus-visible {
   border-left: 1px solid rgba(255,255,255,0.07);
   padding-left: 2rem;
   margin-left: 0;
+}
+/* On mobile flex-wrap, 3rd+ items start a new row — remove divider so it doesn't float mid-row */
+@media (max-width: 639px) {
+  .stats-bar-item + .stats-bar-item {
+    border-left: none;
+    padding-left: 0;
+  }
 }
 
 /* =====================================================

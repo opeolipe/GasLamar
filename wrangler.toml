@@ -3,6 +3,9 @@ main = "worker/worker.js"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Default is sandbox so tests/local dev work without secrets.
+# CI always deploys with --env production (see .github/workflows/deploy.yml).
+# NEVER run `wrangler deploy` without --env production for production deploys.
 [vars]
 ENVIRONMENT = "sandbox"
 
