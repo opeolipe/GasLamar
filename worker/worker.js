@@ -361,8 +361,16 @@ async function createMayarInvoice(sessionId, tier, env) {
   });
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.messages?.[0] || `Mayar error: ${res.status}`);
+    const errBody = await res.text().catch(() => '');
+    let errMsg;
+    try {
+      const errJson = JSON.parse(errBody);
+      errMsg = errJson.messages?.[0] || errJson.message || `Mayar error: ${res.status}`;
+    } catch {
+      errMsg = `Mayar error: ${res.status}`;
+    }
+    console.error(JSON.stringify({ event: 'mayar_invoice_failed', status: res.status, body: errBody.substring(0, 500) }));
+    throw new Error(errMsg);
   }
 
   const data = await res.json();
@@ -575,6 +583,7 @@ async function handleCreatePayment(request, env) {
 
     return jsonResponse({ session_id: sessionId, invoice_url }, 200, request, env);
   } catch (e) {
+    console.error(JSON.stringify({ event: 'create_payment_failed', error: e.message, tier, cv_text_key }));
     return jsonResponse({ message: e.message || 'Gagal membuat invoice' }, 500, request, env);
   }
 }
