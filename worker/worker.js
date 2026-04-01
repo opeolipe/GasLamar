@@ -339,18 +339,19 @@ async function createMayarInvoice(sessionId, tier, env) {
   const apiUrl = getMayarApiUrl(env);
   const apiKey = getMayarApiKey(env);
 
-  console.log(JSON.stringify({ event: 'mayar_invoice_start', tier, has_key: !!apiKey, env: env.ENVIRONMENT, apiUrl }));
+  console.log(JSON.stringify({ event: 'mayar_invoice_start', tier, has_key: !!apiKey, key_prefix: apiKey ? apiKey.substring(0, 4) : null, env: env.ENVIRONMENT, apiUrl }));
 
   if (!apiKey) throw new Error('Mayar API key tidak tersedia');
 
   const redirectUrl = `https://gaslamar.com/download.html?session=${encodeURIComponent(sessionId)}`;
 
   // Use session-scoped email so each invoice has a unique customer identity.
-  // Mayar requires name + email for invoice creation.
+  // Mayar requires name + email + mobile for invoice creation.
   const shortId = sessionId.replace('sess_', '').substring(0, 8);
   const body = {
     name: `GasLamar User ${shortId}`,
     email: `user+${shortId}@gaslamar.com`,
+    mobile: '08000000000',
     description: `${tierConfig.label} — GasLamar.com`,
     redirectUrl,
     items: [{
@@ -376,7 +377,7 @@ async function createMayarInvoice(sessionId, tier, env) {
     let errMsg;
     try {
       const errJson = JSON.parse(errBody);
-      errMsg = errJson.messages?.[0] || errJson.message || `Mayar error: ${res.status}`;
+      errMsg = (typeof errJson.messages === 'string' ? errJson.messages : errJson.messages?.[0]) || errJson.message || `Mayar error: ${res.status}`;
     } catch {
       errMsg = `Mayar error: ${res.status}`;
     }
