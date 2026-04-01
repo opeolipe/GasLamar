@@ -115,3 +115,4 @@ jobs:
           projectName: gaslamar
           directory: dist
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          wranglerVersion: '3'
