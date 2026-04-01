@@ -11,8 +11,8 @@ ENVIRONMENT = "sandbox"
 
 [[kv_namespaces]]
 binding = "GASLAMAR_SESSIONS"
-id = "YOUR_KV_NAMESPACE_ID"
-preview_id = "YOUR_KV_PREVIEW_NAMESPACE_ID"
+id = "6524fffd3c574f92a16c655bc82dec8d"
+preview_id = "871f92d1f62e48d899976889e8710858"
 
 # Native rate limiting (atomic — no TOCTOU race, unlike KV-based counters)
 # namespace_id is an arbitrary unique number per account
