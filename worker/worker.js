@@ -37,7 +37,8 @@ function getCorsHeaders(request, env) {
     ? ALLOWED_ORIGINS
     : [...ALLOWED_ORIGINS, ...DEV_ORIGINS];
 
-  const allowedOrigin = allowed.includes(origin) ? origin : 'null';
+  const isAllowed = allowed.includes(origin) || origin.endsWith('.gaslamar.pages.dev');
+  const allowedOrigin = isAllowed ? origin : 'null';
 
   return {
     'Access-Control-Allow-Origin': allowedOrigin,

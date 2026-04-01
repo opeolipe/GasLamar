@@ -265,6 +265,9 @@ async function analyzeCV(cvData, jobDesc) {
     if (err.name === 'AbortError') {
       throw new Error('Analisis memakan waktu terlalu lama. Coba lagi.');
     }
+    if (err.name === 'TypeError' && err.message.includes('fetch')) {
+      throw new Error('Tidak bisa terhubung ke server. Periksa koneksi internet kamu, lalu coba lagi.');
+    }
     throw err;
   }
 }
