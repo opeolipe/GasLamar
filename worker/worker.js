@@ -162,7 +162,7 @@ async function callClaude(env, systemPrompt, userContent, maxTokens = 2000) {
   if (!apiKey) throw new Error('API key tidak tersedia');
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25000);
+  const timeout = setTimeout(() => controller.abort(), 40000);
 
   const messages = [];
 
@@ -344,14 +344,19 @@ async function createMayarInvoice(sessionId, tier, env) {
   const redirectUrl = `https://gaslamar.com/download.html?session=${encodeURIComponent(sessionId)}`;
 
   const body = {
-    name: tierConfig.label,
-    amount: tierConfig.amount,
-    description: `CV Tailoring ${tierConfig.label} — GasLamar.com`,
-    redirect_url: redirectUrl,
-    is_one_time: true,
+    name: 'Pengguna GasLamar',
+    email: 'user@gaslamar.com',
+    mobile: '08000000000',
+    description: `${tierConfig.label} — GasLamar.com`,
+    redirectUrl,
+    items: [{
+      quantity: 1,
+      rate: tierConfig.amount,
+      description: tierConfig.label,
+    }],
   };
 
-  const res = await fetch(`${apiUrl}/invoice/create`, {
+  const res = await fetch(`${apiUrl}/invoice`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

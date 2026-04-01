@@ -230,7 +230,7 @@ async function analyzeCV(cvData, jobDesc) {
   setLoadingText('AI sedang menganalisis CV kamu...');
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25000);
+  const timeout = setTimeout(() => controller.abort(), 55000);
 
   try {
     const response = await fetch(`${WORKER_URL}/analyze`, {
