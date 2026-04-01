@@ -63,6 +63,15 @@ type = "ratelimit"
 namespace_id = "1003"
 simple = { limit = 5, period = 60 }
 
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true
+
 # Secrets (set via: wrangler secret put ANTHROPIC_API_KEY)
 # - ANTHROPIC_API_KEY
 # - MAYAR_API_KEY
