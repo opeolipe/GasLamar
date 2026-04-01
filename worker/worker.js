@@ -345,10 +345,12 @@ async function createMayarInvoice(sessionId, tier, env) {
 
   const redirectUrl = `https://gaslamar.com/download.html?session=${encodeURIComponent(sessionId)}`;
 
+  // Use session-scoped email so each invoice has a unique customer identity.
+  // Mayar requires name + email for invoice creation.
+  const shortId = sessionId.replace('sess_', '').substring(0, 8);
   const body = {
-    name: 'Pengguna GasLamar',
-    email: 'user@gaslamar.com',
-    mobile: '08000000000',
+    name: `GasLamar User ${shortId}`,
+    email: `user+${shortId}@gaslamar.com`,
     description: `${tierConfig.label} — GasLamar.com`,
     redirectUrl,
     items: [{
@@ -357,6 +359,8 @@ async function createMayarInvoice(sessionId, tier, env) {
       description: tierConfig.label,
     }],
   };
+
+  console.log(JSON.stringify({ event: 'mayar_request_body', endpoint: `${apiUrl}/invoice`, tier, amount: tierConfig.amount }));
 
   const res = await fetch(`${apiUrl}/invoice`, {
     method: 'POST',
