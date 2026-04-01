@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
   <title>Hasil Analisis CV — GasLamar</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -142,21 +143,6 @@
         <ul id="reco-list" class="space-y-2"></ul>
       </div>
 
-      <!-- Email capture -->
-      <div class="bg-white rounded-2xl border border-gray-100 p-6">
-        <label for="email-input" class="font-semibold text-[#1F2937] mb-1 block">Mau dapat tips CV gratis?</label>
-        <p class="text-sm text-gray-500 mb-4">Masukkan email kamu — kami kirim tips ATS + info fitur baru. Tidak ada spam.</p>
-        <div id="email-capture-form" class="flex gap-2">
-          <input id="email-input" type="email" autocomplete="email" placeholder="nama@email.com"
-            class="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 min-h-[44px]" />
-          <button id="email-submit-btn" onclick="submitEmail()"
-            class="bg-primary text-white font-semibold px-5 rounded-xl text-sm hover:bg-blue-700 transition-colors whitespace-nowrap min-h-[44px]">
-            Kirim
-          </button>
-        </div>
-        <p id="email-status" class="text-xs text-gray-400 mt-1"></p>
-      </div>
-
       <!-- CTA — Perbaiki CV -->
       <div class="bg-gradient-to-br from-primary to-blue-700 rounded-2xl p-6 sm:p-8 text-white">
         <h2 class="font-heading font-bold text-2xl sm:text-3xl mb-2">Perbaiki CV Kamu Sekarang</h2>
@@ -210,6 +196,21 @@
         </div>
 
         <p class="text-blue-300 text-xs text-center mt-3">Pembayaran aman via Mayar · VA, QRIS, e-wallet · <span class="text-blue-200">Tidak puas? Hubungi kami di support@gaslamar.com</span></p>
+      </div>
+
+      <!-- Email capture — secondary action, shown after conversion CTA -->
+      <div class="bg-white rounded-2xl border border-gray-100 p-6">
+        <label for="email-input" class="font-semibold text-[#1F2937] mb-1 block">Mau dapat tips CV gratis?</label>
+        <p class="text-sm text-gray-500 mb-4">Masukkan email kamu — kami kirim tips ATS + info fitur baru. Tidak ada spam.</p>
+        <div id="email-capture-form" class="flex gap-2">
+          <input id="email-input" type="email" autocomplete="email" placeholder="nama@email.com"
+            class="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 min-h-[44px]" />
+          <button id="email-submit-btn" onclick="submitEmail()"
+            class="bg-primary text-white font-semibold px-5 rounded-xl text-sm hover:bg-blue-700 transition-colors whitespace-nowrap min-h-[44px]">
+            Kirim
+          </button>
+        </div>
+        <p id="email-status" class="text-xs text-gray-400 mt-1"></p>
       </div>
 
       <!-- Restart -->

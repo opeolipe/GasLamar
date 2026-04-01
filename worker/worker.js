@@ -414,7 +414,7 @@ async function verifyMayarWebhook(request, env) {
 
 // ---- KV Session Helpers ----
 
-const SESSION_TTL = 1800;          // 30 minutes — single-use sessions
+const SESSION_TTL = 86400;         // 24 hours — single-credit paid sessions (30min was too short: webhook delays + slow connections)
 const SESSION_TTL_MULTI = 2592000; // 30 days — 3-Pack / Job Hunt Pack
 
 // Returns the appropriate TTL based on how many total credits the session has.
@@ -602,7 +602,7 @@ async function sendPaymentConfirmationEmail(sessionId, env) {
   const tierLabel = tierLabels[session.tier] || session.tier;
   const totalCredits = session.total_credits ?? 1;
   const isMulti = totalCredits > 1;
-  const validityText = isMulti ? '30 hari' : '30 menit';
+  const validityText = isMulti ? '30 hari' : '24 jam';
   const creditsNote = isMulti
     ? `<div style="background:#EFF6FF;border-radius:10px;padding:14px 18px;margin-bottom:20px">
         <p style="margin:0;font-size:14px;color:#1E40AF;font-weight:600">Kamu punya ${totalCredits} kredit CV</p>
@@ -640,7 +640,7 @@ async function sendPaymentConfirmationEmail(sessionId, env) {
   });
 }
 
-async function handleMayarWebhook(request, env) {
+async function handleMayarWebhook(request, env, ctx) {
   const { valid, body } = await verifyMayarWebhook(request, env);
 
   if (!valid) {
@@ -692,10 +692,12 @@ async function handleMayarWebhook(request, env) {
     }
     await updateSession(env, sessionId, { status: 'paid', paid_at: Date.now() });
     log('payment_confirmed', { sessionId, invoiceId });
-    // Fire-and-forget confirmation email via Resend
-    sendPaymentConfirmationEmail(sessionId, env).catch((e) => {
-      logError('email_failed', { sessionId, error: e.message });
-    });
+    // Email: use ctx.waitUntil so CF Worker doesn't kill the Resend fetch before it completes
+    ctx.waitUntil(
+      sendPaymentConfirmationEmail(sessionId, env).catch((e) => {
+        logError('email_failed', { sessionId, error: e.message });
+      })
+    );
   }
 
   return new Response('OK', { status: 200 });
@@ -908,7 +910,7 @@ export default {
       }
 
       if (method === 'POST' && pathname === '/webhook/mayar') {
-        return handleMayarWebhook(request, env);
+        return handleMayarWebhook(request, env, ctx);
       }
 
       if (method === 'GET' && pathname === '/check-session') {
