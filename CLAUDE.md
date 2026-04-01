@@ -38,9 +38,9 @@ Available gstack skills:
 ## Deploy Configuration (configured by /setup-deploy)
 - Platform: Cloudflare Workers (API) + Cloudflare Pages (frontend)
 - Production URL: https://gaslamar.com
-- Worker URL: https://gaslamar-worker.gaslamar.workers.dev
+- Worker URL: https://gaslamar-worker.carolineratuolivia.workers.dev
 - Deploy workflow: .github/workflows/deploy.yml (auto-deploy on push to main)
-- Deploy status command: curl -s https://gaslamar-worker.gaslamar.workers.dev/health
+- Deploy status command: curl -s https://gaslamar-worker.carolineratuolivia.workers.dev/health
 - Merge method: squash
 - Project type: web app
 
@@ -57,7 +57,7 @@ Available gstack skills:
 ### Custom deploy hooks
 - Pre-merge: `npm test` (in /worker) — enforced by CI
 - Deploy trigger: automatic on push to main
-- Post-deploy health check: GET https://gaslamar-worker.gaslamar.workers.dev/health → 200
+- Post-deploy health check: GET https://gaslamar-worker.carolineratuolivia.workers.dev/health → 200
 
 ### One-time setup (first deploy)
 ```bash

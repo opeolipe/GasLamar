@@ -58,7 +58,7 @@ jobs:
         run: |
           echo "Waiting 10s for Worker to propagate..."
           sleep 10
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://gaslamar-worker.gaslamar.workers.dev/health)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://gaslamar-worker.carolineratuolivia.workers.dev/health)
           if [ "$STATUS" != "200" ]; then
             echo "Health check failed — got HTTP $STATUS"
             exit 1
