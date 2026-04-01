@@ -339,6 +339,8 @@ async function createMayarInvoice(sessionId, tier, env) {
   const apiUrl = getMayarApiUrl(env);
   const apiKey = getMayarApiKey(env);
 
+  console.log(JSON.stringify({ event: 'mayar_invoice_start', tier, has_key: !!apiKey, env: env.ENVIRONMENT, apiUrl }));
+
   if (!apiKey) throw new Error('Mayar API key tidak tersedia');
 
   const redirectUrl = `https://gaslamar.com/download.html?session=${encodeURIComponent(sessionId)}`;

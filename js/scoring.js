@@ -143,12 +143,12 @@ function setupShareButton(score) {
     try {
       await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
       const orig = btn.innerHTML;
-      btn.innerHTML = '<span>Tersalin!</span>';
+      btn.innerHTML = '<span>✓ Teks skor disalin!</span>';
       btn.classList.add('bg-accent', 'border-accent');
-      setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('bg-accent', 'border-accent'); }, 2000);
+      setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('bg-accent', 'border-accent'); }, 2500);
     } catch (e) {
-      // Last fallback: Twitter intent
-      window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText + '\n' + shareUrl)}`, '_blank', 'noopener,noreferrer');
+      // Last fallback: Twitter/X intent
+      window.open(`https://x.com/intent/post?text=${encodeURIComponent(shareText + '\n' + shareUrl)}`, '_blank', 'noopener,noreferrer');
     }
   });
 }
