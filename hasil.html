@@ -4,223 +4,592 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>Hasil Analisis CV — GasLamar</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-  <!-- css/tailwind.css is generated at build time — run `npm run vendor` locally -->
+  <title>Hasil Analisis CV · GasLamar</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+  <!-- Tailwind kept for backward-compat with scoring.js/payment.js injected classes -->
   <link rel="stylesheet" href="css/tailwind.css" />
   <link rel="stylesheet" href="css/style.css" />
   <!-- Cloudflare Web Analytics -->
   <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "f9c97d82f2a04b9f95e051946eb0525e"}'></script>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+      background: #F9FAFB !important;
+      color: #111827;
+      line-height: 1.5;
+      padding: 2rem 1rem;
+    }
+
+    .hidden { display: none !important; }
+
+    .container {
+      max-width: 980px;
+      margin: 0 auto;
+    }
+
+    /* Card */
+    .gl-card {
+      background: white;
+      border-radius: 32px;
+      box-shadow: 0 20px 35px -12px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.02);
+      padding: 2rem;
+      border: 1px solid #EEF2F6;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Progress steps */
+    .progress-steps {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 1.5rem;
+      position: relative;
+    }
+    .gl-step {
+      flex: 1;
+      text-align: center;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #9CA3AF;
+      position: relative;
+      background: white;
+      z-index: 1;
+    }
+    .gl-step.completed { color: #0F172A; font-weight: 600; }
+    .gl-step.completed::before {
+      content: "✓";
+      display: block;
+      font-size: 0.7rem;
+      margin-bottom: 4px;
+      color: #10B981;
+      font-weight: bold;
+    }
+    .gl-step.active { color: #0F172A; font-weight: 700; }
+    .gl-step.active::before {
+      content: "●";
+      display: block;
+      font-size: 0.7rem;
+      margin-bottom: 4px;
+      color: #0F172A;
+    }
+    .gl-step::before {
+      content: "○";
+      display: block;
+      font-size: 0.7rem;
+      margin-bottom: 4px;
+      color: #D1D5DB;
+    }
+    .step-line {
+      position: absolute;
+      top: 12px;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: #E5E7EB;
+      z-index: 0;
+    }
+
+    /* Score section */
+    .score-section {
+      text-align: center;
+      margin: 1rem 0 1.5rem;
+    }
+    .score-circle-wrap {
+      position: relative;
+      width: 150px;
+      height: 150px;
+      margin: 0 auto 1rem;
+    }
+    .score-circle-wrap svg {
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+    }
+    .score-inner {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .score-inner .score-num {
+      font-size: 2.8rem;
+      font-weight: 800;
+      line-height: 1;
+      color: #111827;
+    }
+    .score-inner .score-denom {
+      font-size: 0.9rem;
+      color: #5B6E8C;
+    }
+    .score-status-badge {
+      display: inline-block;
+      padding: 0.25rem 1rem;
+      border-radius: 60px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-top: 0.5rem;
+    }
+    .progress-bar-bg {
+      background: #E5E7EB;
+      border-radius: 100px;
+      height: 8px;
+      width: 60%;
+      margin: 1rem auto;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      border-radius: 100px;
+      transition: width 1s ease;
+    }
+
+    /* Two-col grid */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin: 0 0 1.5rem;
+    }
+    @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+    .strength-box, .gap-box {
+      background: #FAFCFE;
+      border-radius: 20px;
+      padding: 1.2rem;
+      border: 1px solid #EDF2F7;
+    }
+    .strength-box h4, .gap-box h4 {
+      font-size: 1rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 700;
+    }
+    .strength-box ul, .gap-box ul {
+      padding-left: 1.2rem;
+      font-size: 0.85rem;
+      color: #2D3A5E;
+    }
+    .strength-box li, .gap-box li { margin: 0.5rem 0; }
+
+    /* Priority box */
+    .priority-box {
+      background: #FFFBEB;
+      border-left: 4px solid #F59E0B;
+      border-radius: 20px;
+      padding: 1.2rem;
+      margin-bottom: 1.5rem;
+    }
+    .priority-box h4 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+    .priority-box ol { margin-left: 1.2rem; font-size: 0.9rem; }
+    .priority-box li { margin: 0.4rem 0; }
+
+    /* Before/After example */
+    .example-box {
+      background: #F8FAFC;
+      border-radius: 24px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .example-title { font-weight: 700; margin-bottom: 1rem; }
+    .before-after {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    @media (max-width: 600px) { .before-after { grid-template-columns: 1fr; } }
+    .before-card, .after-card {
+      background: white;
+      border-radius: 16px;
+      padding: 1rem;
+      border: 1px solid #E2E8F0;
+    }
+    .badge-before {
+      background: #FEE2E2;
+      color: #991B1B;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.2rem 0.6rem;
+      border-radius: 40px;
+      display: inline-block;
+      margin-bottom: 0.5rem;
+    }
+    .badge-after {
+      background: #DCFCE7;
+      color: #166534;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.2rem 0.6rem;
+      border-radius: 40px;
+      display: inline-block;
+      margin-bottom: 0.5rem;
+    }
+    .blurred-preview {
+      background: #EFF6FF;
+      border-radius: 16px;
+      padding: 1rem;
+      text-align: center;
+      filter: blur(4px);
+      user-select: none;
+      pointer-events: none;
+      margin-bottom: 0.5rem;
+    }
+    .unlock-text {
+      text-align: center;
+      font-size: 0.8rem;
+      color: #3B82F6;
+    }
+
+    /* Pricing grid */
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+    .pricing-card {
+      background: white;
+      border-radius: 24px;
+      padding: 1.2rem;
+      text-align: center;
+      border: 1px solid #EDF2F7;
+      transition: 0.2s;
+      cursor: pointer;
+      position: relative;
+    }
+    .pricing-card:hover { border-color: #CBD5E1; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+    .pricing-card.popular { border: 2px solid #0F172A; }
+    .pricing-card.selected {
+      border-color: #0F172A !important;
+      border-width: 2px;
+      background: #F8FAFC;
+    }
+    .popular-badge {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #0F172A;
+      color: white;
+      font-size: 0.65rem;
+      padding: 0.2rem 0.8rem;
+      border-radius: 60px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .pkg-name { font-weight: 700; font-size: 1.1rem; }
+    .pkg-price { font-size: 1.8rem; font-weight: 800; margin: 0.5rem 0; }
+    .pkg-desc { font-size: 0.7rem; color: #5B6E8C; margin: 0.5rem 0; }
+
+    /* Pay button */
+    #pay-btn {
+      background: #0F172A;
+      color: white;
+      border: none;
+      border-radius: 60px;
+      padding: 0.85rem 1.5rem;
+      font-weight: 700;
+      cursor: pointer;
+      width: 100%;
+      transition: 0.2s;
+      font-family: 'Inter', sans-serif;
+      font-size: 1rem;
+      margin-top: 0.5rem;
+    }
+    #pay-btn:hover:not(:disabled) { background: #1E293B; }
+    #pay-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Tier recommendation */
+    #tier-recommendation {
+      background: #0F172A;
+      color: white;
+      border-radius: 16px;
+      padding: 1rem 1.2rem;
+      margin-bottom: 1rem;
+      font-size: 0.85rem;
+    }
+    #tier-recommendation button {
+      color: #93C5FD;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: inherit;
+      text-decoration: underline;
+    }
+
+    /* Trust footer */
+    .trust-footer {
+      background: #F1F5F9;
+      border-radius: 20px;
+      padding: 0.8rem;
+      text-align: center;
+      font-size: 0.75rem;
+      color: #4B5563;
+      margin-top: 1.5rem;
+    }
+
+    /* Email capture */
+    .email-capture-box {
+      background: white;
+      border-radius: 20px;
+      padding: 1rem;
+      text-align: center;
+      border: 1px solid #E2E8F0;
+    }
+    .email-input-group {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+      justify-content: center;
+    }
+    .email-input-group input {
+      padding: 0.6rem 1rem;
+      border-radius: 60px;
+      border: 1px solid #E2E8F0;
+      flex: 1;
+      max-width: 250px;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.85rem;
+    }
+    .email-input-group input:focus {
+      outline: none;
+      border-color: #0F172A;
+    }
+    .btn-send-email {
+      background: #0F172A;
+      color: white;
+      border: none;
+      border-radius: 60px;
+      padding: 0.6rem 1.2rem;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.85rem;
+    }
+
+    /* Loading/error states */
+    #results-loading {
+      text-align: center;
+      padding: 3rem 2rem;
+    }
+    .loading-spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid #E2E8F0;
+      border-top-color: #0F172A;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+      margin-bottom: 1rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Share button override */
+    #share-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid #E2E8F0;
+      color: #4B5563;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 0.5rem 1.1rem;
+      border-radius: 40px;
+      background: white;
+      cursor: pointer;
+      transition: 0.2s;
+      font-family: 'Inter', sans-serif;
+    }
+    #share-btn:hover { border-color: #0F172A; color: #0F172A; }
+  </style>
 </head>
-<body class="bg-[#F9FAFB] text-[#1F2937] font-body min-h-screen">
+<body>
+<div class="container">
 
-  <!-- Navbar -->
-  <nav class="bg-white border-b border-gray-100">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-      <a href="/" class="flex items-center gap-2">
-        <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v12M2 8h12" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>
-        </div>
-        <span class="font-heading font-bold text-xl text-primary">GasLamar</span>
-      </a>
-      <div class="flex sm:hidden text-xs font-semibold text-primary">Langkah 2 / 3 — Hasil</div>
-      <div class="hidden sm:flex items-center gap-2 text-sm">
-        <span class="flex items-center gap-1.5 text-accent font-semibold">
-          <span class="w-6 h-6 bg-accent text-white rounded-full flex items-center justify-center">
-            <svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          </span>
-          Upload
-        </span>
-        <span class="text-gray-300">→</span>
-        <span class="flex items-center gap-1.5 text-primary font-semibold">
-          <span class="w-6 h-6 bg-primary text-white rounded-full flex items-center justify-center text-xs font-bold">2</span>
-          Hasil
-        </span>
-        <span class="text-gray-300">→</span>
-        <span class="flex items-center gap-1.5 text-gray-400">
-          <span class="w-6 h-6 bg-gray-200 text-gray-400 rounded-full flex items-center justify-center text-xs font-bold">3</span>
-          Download
-        </span>
-      </div>
-    </div>
-  </nav>
+  <!-- Loading state (hidden by scoring.js once data is available) -->
+  <div id="results-loading" class="gl-card">
+    <div class="loading-spinner"></div>
+    <p style="font-weight:600; font-size:1.1rem;">Memuat hasil analisis...</p>
+    <p style="color:#5B6E8C; font-size:0.85rem; margin-top:0.5rem;">Sebentar lagi</p>
+  </div>
 
-  <main class="max-w-4xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+  <!-- Error state -->
+  <div id="results-error" class="gl-card hidden" style="text-align:center; padding: 3rem 2rem;">
+    <div style="font-size:2.5rem; margin-bottom:1rem;">⚠️</div>
+    <h2 style="font-weight:700; font-size:1.3rem; margin-bottom:0.5rem;">Analisis Gagal</h2>
+    <p id="error-message" style="color:#5B6E8C; font-size:0.9rem; margin-bottom:1.5rem;">Terjadi kesalahan. Coba lagi.</p>
+    <a href="upload.html" style="display:inline-block; background:#0F172A; color:white; font-weight:700; padding:0.75rem 1.5rem; border-radius:60px; text-decoration:none;">Coba Lagi</a>
+  </div>
 
-    <!-- Loading state -->
-    <div id="results-loading" class="text-center py-20">
-      <div class="inline-flex items-center gap-3 bg-white rounded-2xl border border-gray-100 px-8 py-6">
-        <div class="spinner w-8 h-8 border-3 border-primary border-t-transparent rounded-full"></div>
-        <div class="text-left">
-          <p class="font-semibold text-[#1F2937] text-lg">AI sedang menganalisis CV kamu...</p>
-          <p class="text-sm text-gray-400">Biasanya 10–15 detik</p>
-        </div>
+  <!-- Main results content (shown by scoring.js) -->
+  <div id="results-content" class="hidden">
+
+    <!-- Progress steps -->
+    <div class="gl-card" style="padding-bottom: 1.2rem; margin-bottom: 1rem;">
+      <div class="progress-steps">
+        <div class="gl-step completed">1. Upload CV</div>
+        <div class="gl-step completed">2. Job Desc</div>
+        <div class="gl-step active">3. Hasil Analisis</div>
+        <div class="step-line"></div>
       </div>
     </div>
 
-    <!-- Error state -->
-    <div id="results-error" class="hidden text-center py-20">
-      <div class="bg-white rounded-2xl border border-red-200 p-10 max-w-md mx-auto">
-        <div class="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M12 8v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#EF4444" stroke-width="2" stroke-linecap="round"/></svg>
-        </div>
-        <h2 class="font-heading font-bold text-xl mb-2">Analisis Gagal</h2>
-        <p class="text-gray-500 text-sm mb-6" id="error-message">Terjadi kesalahan. Coba lagi.</p>
-        <a href="upload.html" class="inline-block bg-primary text-white font-bold px-6 py-3 rounded-xl hover:bg-blue-700 transition-colors">
-          Coba Lagi
-        </a>
-      </div>
-    </div>
+    <!-- Score card -->
+    <div class="gl-card">
+      <div class="score-section">
+        <span id="score-announce" class="sr-only" aria-live="polite"></span>
 
-    <!-- Results content -->
-    <div id="results-content" class="hidden space-y-6">
-
-      <!-- Score Card -->
-      <div class="bg-white rounded-2xl border border-gray-100 p-6 sm:p-8">
-        <div class="flex flex-col sm:flex-row items-center gap-6">
-          <!-- Score circle -->
-          <span id="score-announce" class="sr-only" aria-live="polite"></span>
-          <div class="relative w-44 h-44 flex-shrink-0" aria-hidden="true">
-            <svg viewBox="0 0 190 190" class="w-full h-full -rotate-90">
-              <circle cx="95" cy="95" r="85" fill="none" stroke="#F3F4F6" stroke-width="12"/>
-              <circle id="score-ring" cx="95" cy="95" r="85" fill="none" stroke="#1B4FE8" stroke-width="12"
-                stroke-dasharray="534" stroke-dashoffset="534" stroke-linecap="round"
-                class="transition-all duration-1000"/>
-            </svg>
-            <div class="absolute inset-0 flex flex-col items-center justify-center">
-              <span id="score-number" class="font-heading font-extrabold text-4xl text-[#1F2937]">0</span>
-              <span class="text-sm text-gray-400 font-medium">/ 100</span>
-            </div>
-          </div>
-
-          <div class="flex-1 text-center sm:text-left">
-            <div id="score-badge" class="inline-block px-4 py-1.5 rounded-full text-sm font-bold mb-3"></div>
-            <h1 class="font-heading font-bold text-2xl sm:text-3xl text-[#1F2937] mb-2">Skor Match CV Kamu</h1>
-            <p id="score-reason" class="text-gray-500 leading-relaxed mb-4"></p>
-            <!-- Share button -->
-            <button id="share-btn"
-              class="inline-flex items-center gap-2 border border-gray-200 text-gray-600 text-sm font-semibold px-4 py-2 rounded-xl hover:border-primary hover:text-primary transition-colors">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              <span>Bagikan Skor</span>
-            </button>
+        <!-- SVG ring (animated by scoring.js) -->
+        <div class="score-circle-wrap" aria-hidden="true">
+          <svg viewBox="0 0 190 190">
+            <circle cx="95" cy="95" r="85" fill="none" stroke="#E5E7EB" stroke-width="12"/>
+            <circle id="score-ring" cx="95" cy="95" r="85" fill="none" stroke="#0F172A" stroke-width="12"
+              stroke-dasharray="534" stroke-dashoffset="534" stroke-linecap="round"
+              style="transition: stroke-dashoffset 1s ease;"/>
+          </svg>
+          <div class="score-inner">
+            <span id="score-number" class="score-num">0</span>
+            <span class="score-denom">/ 100</span>
           </div>
         </div>
-      </div>
 
-      <!-- Kekuatan -->
-      <div id="strengths-section" class="hidden bg-white rounded-2xl border border-gray-100 p-6">
-        <h2 class="font-heading font-bold text-lg text-[#1F2937] mb-4 flex items-center gap-2">
-          <span class="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center flex-shrink-0">
-            <svg class="w-4 h-4 text-accent" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          </span>
-          Kekuatan CV Kamu
-        </h2>
-        <ul id="strengths-list" class="space-y-2"></ul>
-      </div>
+        <!-- Badge (set by scoring.js) -->
+        <div id="score-badge" class="score-status-badge"></div>
 
-      <!-- Gap Analysis -->
-      <div id="gap-section" class="hidden bg-white rounded-2xl border border-gray-100 p-6">
-        <h2 class="font-heading font-bold text-lg text-[#1F2937] mb-4 flex items-center gap-2">
-          <span class="w-8 h-8 bg-red-50 rounded-lg flex items-center justify-center flex-shrink-0">
-            <svg class="w-4 h-4 text-danger" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
-          </span>
-          Yang Perlu Diperkuat
-        </h2>
-        <ul id="gap-list" class="space-y-2"></ul>
-      </div>
-
-      <!-- Rekomendasi -->
-      <div id="reco-section" class="hidden bg-white rounded-2xl border border-gray-100 p-6">
-        <h2 class="font-heading font-bold text-lg text-[#1F2937] mb-4 flex items-center gap-2">
-          <span class="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
-            <svg class="w-4 h-4 text-primary" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
-          </span>
-          Rekomendasi untuk CV Kamu
-        </h2>
-        <ul id="reco-list" class="space-y-2"></ul>
-      </div>
-
-      <!-- CTA — Perbaiki CV -->
-      <div class="bg-gradient-to-br from-primary to-blue-700 rounded-2xl p-6 sm:p-8 text-white">
-        <h2 class="font-heading font-bold text-2xl sm:text-3xl mb-2">Perbaiki CV Kamu Sekarang</h2>
-        <p class="text-blue-200 text-sm mb-4">CV tailored + bilingual (ID + EN) siap download dalam 2 menit</p>
-
-        <!-- Tier recommendation (inserted by scoring.js based on score) -->
-        <div id="tier-recommendation" class="hidden bg-blue-900/40 border border-blue-400/30 rounded-xl px-4 py-3 mb-4 text-blue-100"></div>
-
-        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-
-          <!-- Coba Dulu -->
-          <button onclick="selectTier('coba')" data-tier="coba"
-            class="tier-card bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl p-4 text-left transition-all cursor-pointer">
-            <p class="font-bold text-sm mb-1">Coba Dulu</p>
-            <p class="text-2xl font-extrabold">Rp 29k</p>
-            <p class="text-blue-200 text-xs mt-1">1 CV · Bahasa Indonesia</p>
-          </button>
-
-          <!-- Single -->
-          <button onclick="selectTier('single')" data-tier="single"
-            class="tier-card bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl p-4 text-left transition-all cursor-pointer">
-            <p class="font-bold text-sm mb-1">Single</p>
-            <p class="text-2xl font-extrabold">Rp 59k</p>
-            <p class="text-blue-200 text-xs mt-1">1 CV · Bilingual ID + EN</p>
-          </button>
-
-          <!-- 3-Pack -->
-          <button onclick="selectTier('3pack')" data-tier="3pack"
-            class="tier-card bg-white/20 hover:bg-white/30 border-2 border-accent rounded-xl p-4 text-left transition-all cursor-pointer relative">
-            <span class="absolute -top-2 -right-2 bg-accent text-white text-[10px] font-bold px-2 py-0.5 rounded-full">Populer</span>
-            <p class="font-bold text-sm mb-1">3-Pack</p>
-            <p class="text-2xl font-extrabold">Rp 149k</p>
-            <p class="text-blue-200 text-xs mt-1">3 CV · Bilingual ID + EN</p>
-          </button>
-
-          <!-- Job Hunt Pack -->
-          <button onclick="selectTier('jobhunt')" data-tier="jobhunt"
-            class="tier-card bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl p-4 text-left transition-all cursor-pointer">
-            <p class="font-bold text-sm mb-1">Job Hunt Pack</p>
-            <p class="text-2xl font-extrabold">Rp 299k</p>
-            <p class="text-blue-200 text-xs mt-1">10 CV · Bilingual ID + EN</p>
-          </button>
+        <!-- Progress bar (visual indicator, width driven by CSS variable) -->
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="score-progress-bar" style="width:48%; background:#EF4444;"></div>
         </div>
 
-        <div id="cta-area">
-          <button id="pay-btn" onclick="proceedToPayment()"
-            class="w-full bg-white text-primary font-bold text-lg py-4 rounded-xl hover:bg-blue-50 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled>
-            Pilih Paket Dulu →
-          </button>
-        </div>
+        <!-- Reason text -->
+        <p id="score-reason" style="font-size:0.85rem; color:#5B6E8C; max-width:400px; margin:0.5rem auto;"></p>
 
-        <p class="text-blue-300 text-xs text-center mt-3">Pembayaran aman via Mayar · VA, QRIS, e-wallet · <span class="text-blue-200">Tidak puas? Hubungi kami di support@gaslamar.com</span></p>
+        <!-- Share button -->
+        <button id="share-btn" style="margin-top:1rem;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
+          <span>Bagikan Skor</span>
+        </button>
       </div>
-
-      <!-- Email capture — secondary action, shown after conversion CTA -->
-      <div class="bg-white rounded-2xl border border-gray-100 p-6">
-        <label for="email-input" class="font-semibold text-[#1F2937] mb-1 block">Mau dapat tips CV gratis?</label>
-        <p class="text-sm text-gray-500 mb-4">Masukkan email kamu — kami kirim tips ATS + info fitur baru. Tidak ada spam.</p>
-        <div id="email-capture-form" class="flex gap-2">
-          <input id="email-input" type="email" autocomplete="email" placeholder="nama@email.com"
-            class="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 min-h-[44px]" />
-          <button id="email-submit-btn" onclick="submitEmail()"
-            class="bg-primary text-white font-semibold px-5 rounded-xl text-sm hover:bg-blue-700 transition-colors whitespace-nowrap min-h-[44px]">
-            Kirim
-          </button>
-        </div>
-        <p id="email-status" class="text-xs text-gray-400 mt-1"></p>
-      </div>
-
-      <!-- Restart -->
-      <div class="text-center">
-        <a href="upload.html" class="text-sm text-gray-400 hover:text-primary transition-colors">← Upload CV lain</a>
-      </div>
-
     </div>
-  </main>
 
-  <script src="js/config.js"></script>
-  <script src="js/scoring.js"></script>
-  <script src="js/payment.js"></script>
+    <!-- Strengths + Gaps two-col -->
+    <div class="two-col">
+      <div id="strengths-section" class="hidden strength-box">
+        <h4>✅ Kekuatan CV Kamu</h4>
+        <ul id="strengths-list"></ul>
+      </div>
+      <div id="gap-section" class="hidden gap-box">
+        <h4>⚠️ Yang Perlu Diperkuat</h4>
+        <ul id="gap-list"></ul>
+      </div>
+    </div>
+
+    <!-- Recommendations (hidden until scoring.js populates it) -->
+    <div id="reco-section" class="priority-box hidden">
+      <h4>🔥 Prioritas Perbaikan — Fokus ini dulu</h4>
+      <ol id="reco-list"></ol>
+    </div>
+
+    <!-- Before/After proof example (static) -->
+    <div class="example-box">
+      <div class="example-title">📄 Contoh Hasil Rewrite (berdasarkan CV kamu)</div>
+      <div class="before-after">
+        <div class="before-card">
+          <div class="badge-before">SEBELUM (generic)</div>
+          <div style="font-size:0.85rem;">"Pengalaman Product Manager di Mekari selama 3 tahun, bertanggung jawab terhadap pengembangan fitur dan koordinasi dengan tim."</div>
+        </div>
+        <div class="after-card">
+          <div class="badge-after">SESUDAH (HR-friendly + job-match)</div>
+          <div style="font-size:0.85rem;">"Lead product roadmap untuk 3 fitur inti B2B SaaS, meningkatkan user retention 18% dalam 6 bulan melalui data-driven prioritization &amp; eksperimen A/B."</div>
+        </div>
+      </div>
+      <div class="blurred-preview">
+        ✨ 7 rekomendasi lainnya (termasuk rewrite untuk 5 bullet point, tambahan keyword, dan restrukturisasi CV)
+      </div>
+      <div class="unlock-text">🔓 <strong>Lihat semua rekomendasi + CV rewrite lengkap setelah pilih paket</strong></div>
+    </div>
+
+    <!-- Pricing card -->
+    <div class="gl-card">
+      <h3 style="text-align:center; margin-bottom:0.5rem; font-size:1.3rem; font-weight:700;">Perbaiki CV Kamu Sekarang</h3>
+      <p style="text-align:center; font-size:0.9rem; color:#4B5563;">CV tailored + bilingual (ID + EN) siap download dalam 2 menit</p>
+
+      <!-- Tier recommendation (injected by scoring.js based on score) -->
+      <div id="tier-recommendation" class="hidden" style="margin-top:1rem;"></div>
+
+      <div class="pricing-grid">
+        <!-- Coba Dulu -->
+        <div class="pricing-card tier-card" data-tier="coba" onclick="selectTier('coba')">
+          <div class="pkg-name">Coba Dulu</div>
+          <div class="pkg-price">Rp 29k</div>
+          <div class="pkg-desc">1 CV · Bahasa Indonesia</div>
+        </div>
+        <!-- Single -->
+        <div class="pricing-card tier-card" data-tier="single" onclick="selectTier('single')">
+          <div class="pkg-name">Single</div>
+          <div class="pkg-price">Rp 59k</div>
+          <div class="pkg-desc">1 CV · Bilingual ID + EN</div>
+        </div>
+        <!-- 3-Pack (popular) -->
+        <div class="pricing-card popular tier-card" data-tier="3pack" onclick="selectTier('3pack')">
+          <div class="popular-badge">⭐ PALING LARIS</div>
+          <div class="pkg-name">3-Pack</div>
+          <div class="pkg-price">Rp 149k</div>
+          <div class="pkg-desc">3 CV · Bilingual ID + EN</div>
+        </div>
+        <!-- Job Hunt Pack -->
+        <div class="pricing-card tier-card" data-tier="jobhunt" onclick="selectTier('jobhunt')">
+          <div class="pkg-name">Job Hunt Pack</div>
+          <div class="pkg-price">Rp 299k</div>
+          <div class="pkg-desc">10 CV · Bilingual ID + EN</div>
+        </div>
+      </div>
+
+      <div id="cta-area">
+        <button id="pay-btn" onclick="proceedToPayment()" disabled>
+          Pilih Paket Dulu →
+        </button>
+      </div>
+
+      <div class="trust-footer">
+        💳 Pembayaran aman via Mayar · VA, QRIS, e-wallet · Tidak puas? Hubungi kami di support@gaslamar.com
+      </div>
+    </div>
+
+    <!-- Email capture -->
+    <div class="gl-card">
+      <div class="email-capture-box">
+        <div style="font-weight:600;">📧 Mau dapat tips CV gratis + contoh rewrite?</div>
+        <div id="email-capture-form" class="email-input-group">
+          <input type="email" id="email-input" placeholder="nama@email.com" autocomplete="email">
+          <button id="email-submit-btn" class="btn-send-email" onclick="submitEmail()">Kirim Tips</button>
+        </div>
+        <p id="email-status" style="font-size:0.7rem; margin-top:0.5rem; color:#6B7280;"></p>
+        <p style="font-size:0.7rem; margin-top:0.3rem; color:#9CA3AF;">Tidak ada spam. Dapatkan info ATS &amp; promo.</p>
+      </div>
+    </div>
+
+    <!-- Restart -->
+    <div style="text-align:center; margin-bottom: 2rem;">
+      <a href="upload.html" style="font-size:0.85rem; color:#9CA3AF; text-decoration:none;">← Upload CV lain</a>
+    </div>
+
+  </div><!-- end results-content -->
+
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/scoring.js"></script>
+<script src="js/payment.js"></script>
 </body>
 </html>

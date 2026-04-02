@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow" />
+  <title>GasLamar · Menganalisis CV Anda</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+  <!-- Cloudflare Web Analytics -->
+  <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "f9c97d82f2a04b9f95e051946eb0525e"}'></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #F9FAFB;
+      color: #111827;
+      line-height: 1.5;
+      padding: 2rem 1rem;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      max-width: 700px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: white;
+      border-radius: 32px;
+      box-shadow: 0 20px 35px -12px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.02);
+      padding: 2rem;
+      border: 1px solid #EEF2F6;
+    }
+
+    /* Progress steps */
+    .progress-steps {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 2.5rem;
+      position: relative;
+    }
+    .step {
+      flex: 1;
+      text-align: center;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #9CA3AF;
+      position: relative;
+      background: white;
+      z-index: 1;
+    }
+    .step.active {
+      color: #0F172A;
+      font-weight: 700;
+    }
+    .step.active::before {
+      content: "●";
+      display: block;
+      font-size: 0.7rem;
+      margin-bottom: 4px;
+      color: #0F172A;
+    }
+    .step.completed {
+      color: #0F172A;
+      font-weight: 600;
+    }
+    .step.completed::before {
+      content: "✓";
+      display: block;
+      font-size: 0.7rem;
+      margin-bottom: 4px;
+      color: #10B981;
+      font-weight: bold;
+    }
+    .step::before {
+      content: "○";
+      display: block;
+      font-size: 0.7rem;
+      margin-bottom: 4px;
+      color: #D1D5DB;
+    }
+    .step-line {
+      position: absolute;
+      top: 12px;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: #E5E7EB;
+      z-index: 0;
+    }
+
+    /* File badge */
+    .file-badge {
+      background: #F1F5F9;
+      border-radius: 60px;
+      padding: 0.5rem 1rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      margin-bottom: 1.8rem;
+    }
+
+    /* Brain animation */
+    .loading-brain {
+      text-align: center;
+      margin: 1rem 0 1.5rem;
+    }
+    .pulse-icon {
+      font-size: 3rem;
+      animation: pulse 1.2s infinite ease-in-out;
+      display: inline-block;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(0.95); opacity: 0.6; }
+      50% { transform: scale(1.1); opacity: 1; }
+    }
+
+    /* Progress bar */
+    .progress-bar-container {
+      background: #E5E7EB;
+      border-radius: 100px;
+      height: 8px;
+      width: 100%;
+      margin: 1.5rem 0;
+      overflow: hidden;
+    }
+    #progressFill {
+      background: #0F172A;
+      width: 0%;
+      height: 100%;
+      border-radius: 100px;
+      transition: width 0.4s ease;
+    }
+
+    /* Step list */
+    .step-list {
+      margin: 2rem 0 1rem;
+      background: #FAFCFE;
+      border-radius: 24px;
+      padding: 1.2rem;
+      border: 1px solid #EDF2F7;
+    }
+    .step-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid #F0F4F9;
+      font-size: 0.9rem;
+      color: #4B5563;
+    }
+    .step-item:last-child { border-bottom: none; }
+    .step-status {
+      width: 24px;
+      font-size: 1rem;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .step-status.spinning {
+      animation: spin 1s infinite linear;
+      display: inline-block;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    /* Timer */
+    .timer-text {
+      font-size: 0.8rem;
+      color: #5B6E8C;
+      text-align: center;
+      margin: 0.5rem 0;
+      font-weight: 500;
+    }
+
+    /* Trust rotator */
+    .trust-rotator {
+      background: #F1F5F9;
+      border-radius: 60px;
+      padding: 0.7rem 1rem;
+      text-align: center;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #1E293B;
+      margin: 1.5rem 0;
+      transition: opacity 0.3s;
+    }
+
+    /* Edit link */
+    .edit-link {
+      text-align: center;
+      margin-top: 1rem;
+    }
+    .edit-link a {
+      color: #6B7280;
+      text-decoration: none;
+      font-size: 0.8rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .edit-link a:hover { color: #0F172A; }
+
+    .fade-note {
+      font-size: 0.7rem;
+      text-align: center;
+      margin-top: 1.5rem;
+      color: #9CA3AF;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="card">
+    <!-- Progress steps -->
+    <div class="progress-steps">
+      <div class="step completed">1. Upload CV</div>
+      <div class="step completed">2. Job Desc</div>
+      <div class="step active">3. Hasil Analisis</div>
+      <div class="step-line"></div>
+    </div>
+
+    <!-- File badge -->
+    <div class="file-badge" id="fileBadge">
+      📄 <strong id="filenameDisplay">CV Kamu</strong>
+    </div>
+
+    <!-- Brain animation -->
+    <div class="loading-brain">
+      <div class="pulse-icon">🧠✨</div>
+      <h3 style="margin-top: 0.75rem; font-weight: 700;">AI sedang menganalisis CV kamu...</h3>
+      <p style="color: #5B6E8C; font-size: 0.85rem;">Biasanya 20–40 detik · Jangan tutup halaman</p>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar-container">
+      <div id="progressFill"></div>
+    </div>
+
+    <!-- Step-by-step list -->
+    <div class="step-list">
+      <div class="step-item" id="step1">
+        <div class="step-status" id="step1Icon">○</div>
+        <span>📄 Membaca struktur CV &amp; ekstrak teks</span>
+      </div>
+      <div class="step-item" id="step2">
+        <div class="step-status" id="step2Icon">○</div>
+        <span>🔍 Mencocokkan dengan job description</span>
+      </div>
+      <div class="step-item" id="step3">
+        <div class="step-status" id="step3Icon">○</div>
+        <span>📊 Menghitung skor kecocokan &amp; gap</span>
+      </div>
+      <div class="step-item" id="step4">
+        <div class="step-status" id="step4Icon">○</div>
+        <span>✍️ Menyusun rekomendasi &amp; bullet rewrite</span>
+      </div>
+    </div>
+
+    <div class="timer-text" id="timerText">⏱️ Estimasi sisa: ~30 detik</div>
+
+    <!-- Trust rotator -->
+    <div class="trust-rotator" id="trustMessage">
+      🔒 CV tidak disimpan — data aman
+    </div>
+
+    <!-- Edit back link -->
+    <div class="edit-link">
+      <a href="#" id="editBackLink">← Ubah CV atau job description</a>
+    </div>
+    <div class="fade-note">
+      ⚡ Proses sepenuhnya di server, hasil akan muncul otomatis.
+    </div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script>
+  // Read pending data from sessionStorage
+  const cvData    = sessionStorage.getItem('gaslamar_cv_pending');
+  const jobDesc   = sessionStorage.getItem('gaslamar_jd_pending');
+  const filename  = sessionStorage.getItem('gaslamar_filename') || 'CV Kamu';
+
+  // Redirect back if no data
+  if (!cvData || !jobDesc) {
+    window.location.href = 'upload.html';
+  }
+
+  // Show filename
+  document.getElementById('filenameDisplay').textContent = filename;
+
+  // Animation state
+  let completedStep = 0;
+  const totalSteps = 4;
+  let startTime = Date.now();
+  const estimatedMs = 35000;
+  let analysisComplete = false;
+  let abortController = new AbortController();
+
+  const trustMessages = [
+    '🔒 CV tidak disimpan — data aman',
+    '⚡ Rata-rata analisis 25 detik',
+    '🎯 Hasil akan spesifik untuk lowongan ini',
+    '🤖 AI dilatih memahami kebutuhan recruiter Indonesia',
+    '📧 Hasil juga bisa dikirim ke email (opsional)'
+  ];
+  let trustIndex = 0;
+
+  function setStepDone(n) {
+    const icon = document.getElementById('step' + n + 'Icon');
+    if (!icon) return;
+    icon.textContent = '✓';
+    icon.className = 'step-status';
+    icon.style.color = '#10B981';
+  }
+
+  function setStepActive(n) {
+    const icon = document.getElementById('step' + n + 'Icon');
+    if (!icon) return;
+    icon.textContent = '⟳';
+    icon.className = 'step-status spinning';
+    icon.style.color = '#0F172A';
+  }
+
+  function advanceAnimation() {
+    if (completedStep > 0) setStepDone(completedStep);
+    completedStep++;
+    if (completedStep <= totalSteps) {
+      setStepActive(completedStep);
+      const pct = Math.round((completedStep / (totalSteps + 1)) * 90);
+      document.getElementById('progressFill').style.width = pct + '%';
+    }
+  }
+
+  function finishAnimation() {
+    for (let i = 1; i <= totalSteps; i++) setStepDone(i);
+    document.getElementById('progressFill').style.width = '100%';
+    document.getElementById('timerText').textContent = '✅ Analisis selesai! Mengarahkan ke hasil...';
+  }
+
+  // Start step animation independently (every ~7s per step)
+  const stepInterval = Math.floor(estimatedMs / (totalSteps + 1));
+  advanceAnimation(); // step 1 active immediately
+  for (let i = 1; i < totalSteps; i++) {
+    setTimeout(() => { if (!analysisComplete) advanceAnimation(); }, i * stepInterval);
+  }
+
+  // Countdown timer
+  const timerInterval = setInterval(() => {
+    const elapsed = Date.now() - startTime;
+    const remaining = Math.max(0, Math.ceil((estimatedMs - elapsed) / 1000));
+    if (!analysisComplete) {
+      document.getElementById('timerText').textContent = remaining > 0
+        ? '⏱️ Estimasi sisa: ~' + remaining + ' detik'
+        : '⏱️ Hampir selesai...';
+    }
+  }, 1000);
+
+  // Rotate trust messages
+  const trustInterval = setInterval(() => {
+    trustIndex = (trustIndex + 1) % trustMessages.length;
+    const el = document.getElementById('trustMessage');
+    el.style.opacity = '0';
+    setTimeout(() => {
+      el.textContent = trustMessages[trustIndex];
+      el.style.opacity = '1';
+    }, 150);
+  }, 5000);
+
+  // Make actual API call
+  async function runAnalysis() {
+    try {
+      const response = await fetch(WORKER_URL + '/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cv: cvData, job_desc: jobDesc }),
+        signal: abortController.signal
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || 'Server error: ' + response.status);
+      }
+
+      const result = await response.json();
+
+      // Store results
+      sessionStorage.setItem('gaslamar_scoring', JSON.stringify(result));
+      sessionStorage.setItem('gaslamar_cv_key', result.cv_text_key || '');
+
+      // Clear pending data
+      sessionStorage.removeItem('gaslamar_cv_pending');
+      sessionStorage.removeItem('gaslamar_jd_pending');
+      sessionStorage.removeItem('gaslamar_filename');
+
+      // Finish animation then redirect
+      analysisComplete = true;
+      clearInterval(timerInterval);
+      clearInterval(trustInterval);
+      finishAnimation();
+
+      setTimeout(() => { window.location.href = 'hasil.html'; }, 800);
+
+    } catch (err) {
+      clearInterval(timerInterval);
+      clearInterval(trustInterval);
+
+      if (err.name === 'AbortError') return; // user navigated away
+
+      let msg = err.message || 'Terjadi kesalahan. Coba lagi.';
+      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+        msg = 'Tidak bisa terhubung ke server. Periksa koneksi internet kamu, lalu coba lagi.';
+      } else if (err.name === 'AbortError' || msg.includes('timeout') || msg.includes('terlalu lama')) {
+        msg = 'Analisis memakan waktu terlalu lama. Coba lagi.';
+      }
+
+      sessionStorage.setItem('gaslamar_upload_error', msg);
+      window.location.href = 'upload.html';
+    }
+  }
+
+  // Edit back link
+  document.getElementById('editBackLink').addEventListener('click', (e) => {
+    e.preventDefault();
+    if (confirm('Batalkan analisis dan kembali ke halaman upload? Data tidak akan tersimpan.')) {
+      abortController.abort();
+      clearInterval(timerInterval);
+      clearInterval(trustInterval);
+      sessionStorage.removeItem('gaslamar_cv_pending');
+      sessionStorage.removeItem('gaslamar_jd_pending');
+      sessionStorage.removeItem('gaslamar_filename');
+      window.location.href = 'upload.html';
+    }
+  });
+
+  // Start analysis
+  runAnalysis();
+</script>
+</body>
+</html>

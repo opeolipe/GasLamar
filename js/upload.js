@@ -230,23 +230,15 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
     return;
   }
 
-  // Prevent double submit
+  // Store CV data and redirect to analyzing page (which makes the API call)
   const submitBtn = document.getElementById('submit-btn');
   submitBtn.disabled = true;
-  submitBtn.classList.add('hidden');
-  document.getElementById('loading-state').classList.remove('hidden');
-  setLoadingText('Membaca CV kamu...');
-  startProgress();
 
-  try {
-    await analyzeCV(cvText, jobDesc);
-  } catch (err) {
-    finishProgress();
-    submitBtn.disabled = false;
-    submitBtn.classList.remove('hidden');
-    document.getElementById('loading-state').classList.add('hidden');
-    showError('file-error', err.message || 'Terjadi kesalahan. Coba lagi.');
-  }
+  sessionStorage.setItem('gaslamar_cv_pending', cvText);
+  sessionStorage.setItem('gaslamar_jd_pending', jobDesc);
+  sessionStorage.setItem('gaslamar_filename', selectedFile ? selectedFile.name : 'CV');
+
+  window.location.href = 'analyzing.html';
 });
 
 async function analyzeCV(cvData, jobDesc) {

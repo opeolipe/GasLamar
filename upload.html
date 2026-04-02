@@ -2,244 +2,480 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>Upload CV — GasLamar</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-  <!-- css/tailwind.css is generated at build time — run `npm run vendor` locally -->
-  <link rel="stylesheet" href="css/tailwind.css" />
-  <link rel="stylesheet" href="css/style.css" />
+  <title>Upload CV · GasLamar</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
   <!-- Cloudflare Web Analytics -->
   <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "f9c97d82f2a04b9f95e051946eb0525e"}'></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #F9FAFB;
+      color: #111827;
+      line-height: 1.5;
+      padding: 2rem 1rem;
+    }
+
+    .hidden { display: none !important; }
+
+    .container {
+      max-width: 880px;
+      margin: 0 auto;
+    }
+
+    /* Card */
+    .card {
+      background: white;
+      border-radius: 32px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03);
+      padding: 2rem;
+      border: 1px solid #EEF2F6;
+      margin-bottom: 1rem;
+    }
+
+    /* Progress steps */
+    .progress-steps {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 2rem;
+      position: relative;
+    }
+    .step {
+      flex: 1;
+      text-align: center;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #9CA3AF;
+      position: relative;
+      background: white;
+      z-index: 1;
+    }
+    .step.active {
+      color: #0F172A;
+      font-weight: 700;
+    }
+    .step.active::before {
+      content: "●";
+      display: block;
+      font-size: 0.7rem;
+      margin-bottom: 4px;
+      color: #0F172A;
+    }
+    .step::before {
+      content: "○";
+      display: block;
+      font-size: 0.7rem;
+      margin-bottom: 4px;
+      color: #D1D5DB;
+    }
+    .step-line {
+      position: absolute;
+      top: 12px;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: #E5E7EB;
+      z-index: 0;
+    }
+
+    /* Form labels */
+    label {
+      font-weight: 600;
+      display: block;
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+      font-size: 1rem;
+    }
+
+    /* Dropzone */
+    .dropzone {
+      border: 2px dashed #CBD5E1;
+      border-radius: 24px;
+      padding: 2rem 1.5rem;
+      text-align: center;
+      background: #FAFCFE;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      margin-top: 0.5rem;
+    }
+    .dropzone:hover,
+    .dropzone.drop-zone-active {
+      border-color: #0F172A;
+      background: #F8FAFC;
+    }
+
+    /* File preview (inside dropzone) */
+    #drop-preview {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+    #drop-preview .file-info-inner {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex: 1;
+    }
+    #drop-preview .file-icon {
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+    .replace-btn {
+      background: none;
+      border: none;
+      color: #3B82F6;
+      font-weight: 500;
+      cursor: pointer;
+      font-size: 0.8rem;
+      white-space: nowrap;
+    }
+    .replace-btn:hover { text-decoration: underline; }
+
+    /* Error messages */
+    .error-msg {
+      background: #FEF2F2;
+      border: 1px solid #FECACA;
+      color: #B91C1C;
+      border-radius: 16px;
+      padding: 0.6rem 1rem;
+      font-size: 0.8rem;
+      margin-top: 0.75rem;
+    }
+    .warning-note {
+      background: #FFFBEB;
+      border-left: 3px solid #F59E0B;
+      padding: 0.6rem 1rem;
+      border-radius: 16px;
+      font-size: 0.75rem;
+      color: #92400E;
+      margin-top: 0.8rem;
+    }
+
+    /* Textarea */
+    .textarea-wrapper { position: relative; }
+    textarea {
+      width: 100%;
+      border: 1px solid #E2E8F0;
+      border-radius: 20px;
+      padding: 1rem;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.9rem;
+      resize: vertical;
+      transition: 0.2s;
+      color: #111827;
+    }
+    textarea:focus {
+      outline: none;
+      border-color: #0F172A;
+      box-shadow: 0 0 0 3px rgba(15,23,42,0.08);
+    }
+    .char-counter {
+      text-align: right;
+      font-size: 0.7rem;
+      color: #6B7280;
+      margin-top: 0.3rem;
+    }
+
+    /* Button group */
+    .button-group {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin: 0.75rem 0 0.5rem;
+    }
+    .btn-icon {
+      background: #F1F5F9;
+      border: none;
+      border-radius: 40px;
+      padding: 0.4rem 1rem;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: 0.2s;
+      font-family: 'Inter', sans-serif;
+    }
+    .btn-icon:hover { background: #E2E8F0; }
+
+    /* Skip link */
+    .skip-link {
+      text-align: right;
+      margin-top: 0.5rem;
+    }
+    .skip-link a {
+      font-size: 0.8rem;
+      color: #6B7280;
+      text-decoration: none;
+    }
+    .skip-link a:hover { color: #0F172A; }
+
+    /* Submit button */
+    .btn-primary {
+      background: #0F172A;
+      color: white;
+      border: none;
+      border-radius: 60px;
+      padding: 0.9rem 1.8rem;
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
+      width: 100%;
+      transition: 0.2s;
+      margin-top: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: 'Inter', sans-serif;
+    }
+    .btn-primary:hover {
+      background: #1E293B;
+      transform: translateY(-1px);
+    }
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Loading state */
+    #loading-state {
+      text-align: center;
+      padding: 1.5rem;
+    }
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 3px solid #E2E8F0;
+      border-top-color: #0F172A;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Progress bar */
+    .progress-bar-bg {
+      background: #E5E7EB;
+      border-radius: 100px;
+      height: 6px;
+      width: 60%;
+      margin: 0.75rem auto 0;
+    }
+    #progress-bar {
+      background: #0F172A;
+      width: 0%;
+      height: 100%;
+      border-radius: 100px;
+      transition: width 0.7s ease;
+    }
+
+    /* Trust bar */
+    .trust-bar {
+      background: #F1F5F9;
+      border-radius: 60px;
+      padding: 0.7rem 1.2rem;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 1.5rem;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #1E293B;
+    }
+
+    /* Scroll hint */
+    #scroll-hint {
+      text-align: center;
+      color: #9CA3AF;
+      font-size: 0.75rem;
+      padding: 0.5rem 0;
+      animation: bounce 1.2s ease-in-out infinite;
+    }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+    }
+
+    /* Back link */
+    .back-link {
+      display: inline-block;
+      margin-bottom: 1rem;
+      color: #4B5563;
+      text-decoration: none;
+      font-size: 0.85rem;
+    }
+    .back-link:hover { color: #0F172A; }
+  </style>
 </head>
-<body class="bg-[#F9FAFB] text-[#1F2937] font-body min-h-screen">
+<body>
+<div class="container">
+  <a href="index.html" class="back-link">← Kembali ke beranda</a>
 
-  <!-- Navbar -->
-  <nav class="bg-white border-b border-gray-100">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-      <a href="/" class="flex items-center gap-2">
-        <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v12M2 8h12" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>
-        </div>
-        <span class="font-heading font-bold text-xl text-primary">GasLamar</span>
-      </a>
-      <!-- Progress steps — mobile simplified -->
-      <div class="flex sm:hidden text-xs font-semibold text-primary">Langkah 1 / 3 — Upload</div>
-      <!-- Progress steps — desktop full -->
-      <div class="hidden sm:flex items-center gap-2 text-sm">
-        <span class="flex items-center gap-1.5 text-primary font-semibold">
-          <span class="w-6 h-6 bg-primary text-white rounded-full flex items-center justify-center text-xs font-bold">1</span>
-          Upload
-        </span>
-        <span class="text-gray-300">→</span>
-        <span class="flex items-center gap-1.5 text-gray-400">
-          <span class="w-6 h-6 bg-gray-200 text-gray-400 rounded-full flex items-center justify-center text-xs font-bold">2</span>
-          Hasil
-        </span>
-        <span class="text-gray-300">→</span>
-        <span class="flex items-center gap-1.5 text-gray-400">
-          <span class="w-6 h-6 bg-gray-200 text-gray-400 rounded-full flex items-center justify-center text-xs font-bold">3</span>
-          Download
-        </span>
-      </div>
-    </div>
-  </nav>
-
-  <main class="max-w-4xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
-    <div class="text-center mb-10">
-      <h1 class="font-heading font-extrabold text-3xl sm:text-4xl text-[#1F2937] mb-3">Analisis CV Kamu</h1>
-      <p class="text-gray-500 text-lg">Upload CV dan job description — skor match langsung keluar</p>
+  <div class="card">
+    <!-- Progress steps -->
+    <div class="progress-steps">
+      <div class="step active">1. Upload CV</div>
+      <div class="step">2. Job Desc</div>
+      <div class="step">3. Hasil Analisis</div>
+      <div class="step-line"></div>
     </div>
 
-    <form id="upload-form" class="space-y-6">
+    <form id="upload-form">
 
       <!-- CV Upload -->
-      <div class="bg-white rounded-2xl border border-gray-200 p-6">
-        <label class="block font-semibold text-[#1F2937] mb-4 text-lg">
-          1. Upload CV Kamu
-          <span class="text-sm font-normal text-gray-400 ml-2">PDF, DOCX, atau TXT · maks 5MB</span>
-        </label>
+      <label>📄 1. Upload CV Kamu</label>
 
-        <div id="drop-zone"
-          class="border-2 border-dashed border-gray-200 rounded-xl p-10 text-center cursor-pointer hover:border-primary hover:bg-blue-50/30 transition-all"
-          onclick="document.getElementById('cv-file').click()"
-          ondragover="handleDragOver(event)"
-          ondragleave="handleDragLeave(event)"
-          ondrop="handleDrop(event)">
+      <div id="drop-zone" class="dropzone"
+        onclick="if(!event.target.closest('#drop-preview')) document.getElementById('cv-file').click()"
+        ondragover="handleDragOver(event)"
+        ondragleave="handleDragLeave(event)"
+        ondrop="handleDrop(event)">
 
-          <div id="drop-idle">
-            <div class="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                <path d="M14 18V6M9 11l5-5 5 5" stroke="#1B4FE8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M4 20v2a2 2 0 002 2h16a2 2 0 002-2v-2" stroke="#1B4FE8" stroke-width="2.5" stroke-linecap="round"/>
-              </svg>
-            </div>
-            <p class="font-semibold text-[#1F2937] mb-1">Drag & drop CV di sini</p>
-            <p class="text-sm text-gray-400">atau klik untuk pilih file</p>
-            <p class="text-xs text-gray-400 mt-2">PDF · DOCX · TXT &nbsp;·&nbsp; maks 5MB</p>
-            <p class="text-xs text-amber-600 mt-1.5">⚠ Pastikan CV bukan file scan atau foto — upload PDF teks dari Word/Canva</p>
-          </div>
-
-          <div id="drop-preview" class="hidden">
-            <div class="flex items-center justify-center gap-3">
-              <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <rect x="4" y="2" width="16" height="20" rx="2" stroke="#1B4FE8" stroke-width="2"/>
-                  <path d="M8 10h8M8 14h5" stroke="#1B4FE8" stroke-width="1.5" stroke-linecap="round"/>
-                </svg>
-              </div>
-              <div class="text-left">
-                <p id="file-name" class="font-semibold text-[#1F2937] text-sm"></p>
-                <p id="file-size" class="text-xs text-gray-400"></p>
-              </div>
-              <button type="button" onclick="removeFile()" class="ml-2 text-gray-400 hover:text-danger transition-colors">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-              </button>
-            </div>
-          </div>
+        <div id="drop-idle">
+          <div style="font-size: 2rem; margin-bottom: 8px;">📁</div>
+          <div style="font-weight: 500;">Drag &amp; drop CV di sini</div>
+          <div style="font-size: 0.8rem; color: #5B6E8C; margin: 8px 0;">atau</div>
+          <button type="button" onclick="event.stopPropagation(); document.getElementById('cv-file').click()"
+            style="background: #0F172A; color: white; border: none; border-radius: 40px; padding: 0.4rem 1rem; font-weight: 500; cursor: pointer; font-family: inherit;">Pilih file</button>
+          <input type="file" id="cv-file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+            style="display: none;" onchange="handleFileSelect(event)">
+          <div style="font-size: 0.7rem; color: #6B7280; margin-top: 12px;">PDF, DOCX, TXT · maks 5MB</div>
         </div>
 
-        <input type="file" id="cv-file" class="hidden" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" onchange="handleFileSelect(event)" />
+        <div id="drop-preview" class="hidden">
+          <div class="file-info-inner">
+            <span class="file-icon">📄</span>
+            <div style="text-align:left;">
+              <div style="font-weight: 600; font-size: 0.9rem;" id="file-name"></div>
+              <div style="font-size: 0.75rem; color: #6B7280;" id="file-size"></div>
+            </div>
+          </div>
+          <button type="button" class="replace-btn" onclick="event.stopPropagation(); removeFile()">Ganti file</button>
+        </div>
+      </div>
 
-        <div id="file-error" class="hidden mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-danger text-sm"></div>
+      <div id="file-error" class="error-msg hidden"></div>
+
+      <div id="cv-text-warning" class="warning-note hidden">
+        <strong>CV tidak bisa dibaca.</strong> CV kamu sepertinya file gambar atau hasil scan. Coba download ulang CV kamu dari Canva/Word sebagai PDF teks, lalu upload lagi.
+      </div>
+      <div class="warning-note" style="margin-top: 0.8rem;">
+        ⚠️ Pastikan CV bukan file scan atau foto — upload PDF teks dari Word/Canva.
       </div>
 
       <!-- Job Description -->
-      <div class="bg-white rounded-2xl border border-gray-200 p-6">
-        <label for="job-desc" class="block font-semibold text-[#1F2937] mb-1 text-lg">
-          2. Job Description / Lowongan
-        </label>
-        <p class="text-sm text-gray-400 mb-4">Paste bagian Requirements dan Responsibilities (maks 3.000 karakter)</p>
-
-        <textarea
-          id="job-desc"
-          rows="8"
+      <label>📝 2. Job Description / Lowongan</label>
+      <div class="button-group">
+        <button type="button" class="btn-icon" id="paste-linkedin-btn">📋 Paste dari LinkedIn</button>
+        <button type="button" class="btn-icon" id="example-btn">📄 Gunakan contoh</button>
+      </div>
+      <div class="textarea-wrapper">
+        <textarea id="job-desc" rows="6"
+          placeholder="Paste bagian Requirements dan Responsibilities (contoh: min S1, pengalaman 3 tahun, skill yang dibutuhkan...)"
           maxlength="3000"
-          placeholder="Contoh:
-Posisi: Product Manager
-Perusahaan: PT Maju Bersama
+          oninput="updateCharCount()"></textarea>
+        <div class="char-counter"><span id="char-count">0</span> / 3.000 karakter</div>
+      </div>
+      <div id="char-warning" class="hidden" style="font-size: 0.75rem; color: #D97706; margin-top: 0.3rem;">Mendekati batas karakter</div>
+      <div id="jd-error" class="error-msg hidden"></div>
 
-Requirements:
-- Min. S1 semua jurusan
-- 3+ tahun pengalaman sebagai Product Manager
-- Familiar dengan Agile/Scrum
-- Kemampuan analisis data (SQL, Excel)
-..."
-          class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-[#1F2937] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
-          oninput="updateCharCount()"
-        ></textarea>
-        <div class="flex items-center justify-between mt-2">
-          <p id="char-warning" class="text-xs text-gray-400 hidden text-warning">Mendekati batas karakter</p>
-          <p class="text-xs text-gray-400 ml-auto"><span id="char-count">0</span>/3.000</p>
-        </div>
-
-        <!-- JD example toggle (Fix 3) -->
-        <button type="button" id="jd-example-toggle"
-          onclick="const el=document.getElementById('jd-example');el.classList.toggle('hidden');this.textContent=el.classList.contains('hidden')?'Lihat contoh yang benar →':'Sembunyikan contoh ↑'"
-          class="text-xs text-primary hover:underline mt-2 block">
-          Lihat contoh yang benar →
-        </button>
-        <div id="jd-example" class="hidden mt-2 p-4 bg-blue-50 border border-blue-100 rounded-xl text-xs text-gray-600 leading-relaxed">
-          <p class="font-semibold text-gray-700 mb-2">Contoh dari lowongan LinkedIn:</p>
-          <p>Posisi: Product Manager — Tokopedia<br><br>
-          Requirements:<br>
-          - Min. S1 semua jurusan<br>
-          - 3+ tahun pengalaman sebagai PM di startup/tech<br>
-          - Familiar dengan Agile/Scrum dan data analytics (SQL, Looker)<br>
-          - Kemampuan komunikasi lintas fungsi yang kuat<br><br>
-          Responsibilities:<br>
-          - Define product roadmap bersama tim engineering &amp; design<br>
-          - Monitor KPI produk dan iterasi berdasarkan data<br>
-          - Koordinasi dengan stakeholder bisnis untuk prioritas fitur</p>
-        </div>
-
-        <div id="jd-error" class="hidden mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-danger text-sm"></div>
+      <div class="skip-link">
+        <a href="#" id="skip-jd-link">Atau lewati — analisis umum tanpa job desc →</a>
       </div>
 
-      <!-- Scroll hint — visible only when button is below the fold -->
-      <div id="scroll-hint" class="flex flex-col items-center gap-1 py-2 text-gray-400 text-xs animate-bounce">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      <!-- Scroll hint -->
+      <div id="scroll-hint" style="margin-top: 0.75rem;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="display:block;margin:0 auto 4px;"><polyline points="6 9 12 15 18 9"/></svg>
         <span>Scroll untuk tombol analisis</span>
       </div>
 
-      <!-- Before/After CV sample collapsible (Fix 4) -->
-      <div class="rounded-2xl border border-gray-100 overflow-hidden">
-        <button type="button"
-          onclick="const el=document.getElementById('ba-sample');el.classList.toggle('hidden');const arr=document.getElementById('ba-arrow');arr.style.transform=el.classList.contains('hidden')?'':'rotate(180deg)'"
-          class="w-full flex items-center justify-between px-5 py-3.5 bg-gray-50 hover:bg-gray-100 transition-colors text-sm font-semibold text-gray-700">
-          <span>Lihat contoh hasil tailored CV →</span>
-          <svg id="ba-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform duration-200"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
-        <div id="ba-sample" class="hidden p-5 bg-white">
-          <p class="text-xs text-gray-400 mb-4 text-center">Contoh nyata — semua fakta asli, hanya framing yang dioptimalkan untuk loker</p>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <!-- Before -->
-            <div class="rounded-xl border border-gray-200 p-4 bg-gray-50">
-              <p class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Sebelum (CV generic)</p>
-              <p class="text-sm text-gray-500 leading-relaxed">• Bertanggung jawab mengerjakan berbagai tugas di tim produk dan berkoordinasi dengan tim lain.</p>
-              <p class="text-sm text-gray-500 leading-relaxed mt-2">• Membantu tim dalam pengembangan fitur aplikasi.</p>
-            </div>
-            <!-- After -->
-            <div class="rounded-xl border border-green-200 p-4 bg-white">
-              <p class="text-xs font-bold text-green-600 uppercase tracking-wide mb-3">Setelah (Tailored untuk PM role)</p>
-              <p class="text-sm text-gray-700 leading-relaxed">• Memimpin <span class="bg-green-100 text-green-800 px-1 rounded font-medium">roadmap produk</span> B2B untuk 12.000+ merchant aktif, meningkatkan <span class="bg-green-100 text-green-800 px-1 rounded font-medium">retensi</span> 23% (Q3) menggunakan framework <span class="bg-green-100 text-green-800 px-1 rounded font-medium">OKR</span>.</p>
-              <p class="text-sm text-gray-700 leading-relaxed mt-2">• Mengkoordinasikan tim <span class="bg-green-100 text-green-800 px-1 rounded font-medium">cross-functional</span> (engineering, design, data) untuk 3 sprint delivery per bulan.</p>
-              <div class="flex flex-wrap gap-1.5 mt-3">
-                <span class="text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full">✓ 3 keyword dari JD</span>
-                <span class="text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full">✓ Data kuantitatif</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- CV Text minimum warning -->
-      <div id="cv-text-warning" class="hidden p-4 bg-yellow-50 border border-yellow-200 rounded-xl text-sm text-yellow-800">
-        <strong>CV tidak bisa dibaca.</strong> CV kamu sepertinya file gambar atau hasil scan. Coba download ulang CV kamu dari Canva/Word sebagai PDF teks, lalu upload lagi.
-      </div>
-
       <!-- Submit -->
-      <button
-        type="submit"
-        id="submit-btn"
-        class="w-full bg-primary text-white font-bold text-lg py-4 rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none min-h-[52px]"
-      >
-        Analisis CV Saya →
+      <button type="submit" id="submit-btn" class="btn-primary">
+        ✨ Analisis &amp; Lihat Skor →
       </button>
 
-      <!-- Loading state (Fix 2: progress bar) -->
-      <div id="loading-state" class="hidden text-center py-6">
-        <div class="inline-flex items-center gap-3 bg-white rounded-2xl border border-gray-100 px-8 py-5 mb-4">
-          <div class="spinner w-6 h-6 border-3 border-primary border-t-transparent rounded-full"></div>
-          <div class="text-left">
-            <p class="font-semibold text-[#1F2937]" id="loading-text">Membaca CV kamu...</p>
-            <p class="text-sm text-gray-400">Biasanya 20–40 detik</p>
-          </div>
+      <!-- Loading state (shown briefly before redirect to analyzing.html) -->
+      <div id="loading-state" class="hidden">
+        <div style="display:inline-flex; align-items:center; gap:8px; margin-bottom: 0.5rem;">
+          <div class="spinner"></div>
+          <span id="loading-text" style="font-weight:600;">Menyiapkan analisis...</span>
         </div>
-        <div class="w-full max-w-sm mx-auto">
-          <div class="bg-gray-100 rounded-full h-1.5">
-            <div id="progress-bar" class="bg-primary h-1.5 rounded-full transition-all duration-700" style="width:0%"></div>
-          </div>
-          <p id="progress-label" class="text-xs text-gray-400 mt-1.5"><span id="progress-pct">0</span>%</p>
+        <div class="progress-bar-bg">
+          <div id="progress-bar"></div>
         </div>
+        <p style="font-size:0.7rem;color:#6B7280;margin-top:0.3rem;"><span id="progress-pct">0</span>%</p>
       </div>
 
     </form>
-  </main>
 
-  <script src="js/config.js"></script>
-  <script src="js/upload.js"></script>
-  <script>
-    // Hide scroll hint once the submit button scrolls into view
-    const _scrollHint = document.getElementById('scroll-hint');
-    const _submitBtn = document.getElementById('submit-btn');
-    if (_scrollHint && _submitBtn) {
-      const _obs = new IntersectionObserver(([e]) => {
-        if (e.isIntersecting) { _scrollHint.classList.add('hidden'); _obs.disconnect(); }
-      }, { threshold: 0.5 });
-      _obs.observe(_submitBtn);
+    <!-- Trust bar -->
+    <div class="trust-bar">
+      <span>🔒 CV tidak disimpan</span>
+      <span>⚡ Proses ±30 detik</span>
+      <span>❌ Tidak perlu daftar</span>
+      <span>⭐ 4.9/5 · 1.200+ pengguna</span>
+    </div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/upload.js"></script>
+<script>
+  // Hide scroll hint once submit button scrolls into view
+  const _scrollHint = document.getElementById('scroll-hint');
+  const _submitBtn = document.getElementById('submit-btn');
+  if (_scrollHint && _submitBtn && 'IntersectionObserver' in window) {
+    const _obs = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { _scrollHint.classList.add('hidden'); _obs.disconnect(); }
+    }, { threshold: 0.5 });
+    _obs.observe(_submitBtn);
+  }
+
+  // Paste from LinkedIn mock
+  document.getElementById('paste-linkedin-btn').addEventListener('click', () => {
+    const mockText = `Requirements:
+- Minimal S1 Teknik Informatika atau terkait
+- 2+ tahun pengalaman sebagai Frontend Engineer
+- Menguasai React.js, Tailwind CSS, dan state management (Redux/Zustand)
+- Pengalaman dengan REST API dan Git flow
+- Diutamakan memiliki portofolio proyek`;
+    document.getElementById('job-desc').value = mockText;
+    updateCharCount();
+  });
+
+  // Use example
+  document.getElementById('example-btn').addEventListener('click', () => {
+    const exampleText = `Posisi: Product Manager
+
+Requirements:
+- S1 semua jurusan dengan IPK ≥ 3.0
+- 3+ tahun pengalaman sebagai Product Manager
+- Familiar dengan Agile/Scrum
+- Kemampuan analisis data (SQL adalah nilai tambah)
+- Komunikasi yang baik dan problem solving`;
+    document.getElementById('job-desc').value = exampleText;
+    updateCharCount();
+  });
+
+  // Skip JD link
+  document.getElementById('skip-jd-link').addEventListener('click', (e) => {
+    e.preventDefault();
+    const jdEl = document.getElementById('job-desc');
+    if (jdEl.value.trim().length < 10) {
+      jdEl.value = 'Analisis umum tanpa job description spesifik. Evaluasi secara keseluruhan.';
+      updateCharCount();
     }
-  </script>
+  });
+</script>
 </body>
 </html>
