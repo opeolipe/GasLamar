@@ -39,7 +39,7 @@ simple = { limit = 5, period = 60 }
 name = "gaslamar-worker"
 
 [env.production.vars]
-ENVIRONMENT = "production"
+ENVIRONMENT = "sandbox"
 
 [[env.production.kv_namespaces]]
 binding = "GASLAMAR_SESSIONS"
