@@ -172,7 +172,7 @@ function setupTierRecommendation(score) {
   el.innerHTML = `
     <div class="flex items-start gap-3">
       <span class="text-lg flex-shrink-0">💡</span>
-      <p class="text-sm text-blue-900">${msg}
+      <p class="text-sm text-white/90">${msg}
         <button onclick="selectTier('${tier}')" class="ml-1 underline font-semibold hover:no-underline">Pilih sekarang →</button>
       </p>
     </div>`;

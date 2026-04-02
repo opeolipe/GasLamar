@@ -135,6 +135,12 @@ Requirements:
         <div id="jd-error" class="hidden mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-danger text-sm"></div>
       </div>
 
+      <!-- Scroll hint — visible only when button is below the fold -->
+      <div id="scroll-hint" class="flex flex-col items-center gap-1 py-2 text-gray-400 text-xs animate-bounce">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        <span>Scroll untuk tombol analisis</span>
+      </div>
+
       <!-- CV Text minimum warning -->
       <div id="cv-text-warning" class="hidden p-4 bg-yellow-50 border border-yellow-200 rounded-xl text-sm text-yellow-800">
         <strong>CV tidak bisa dibaca.</strong> CV kamu sepertinya file gambar atau hasil scan. Coba download ulang CV kamu dari Canva/Word sebagai PDF teks, lalu upload lagi.
@@ -165,5 +171,16 @@ Requirements:
 
   <script src="js/config.js"></script>
   <script src="js/upload.js"></script>
+  <script>
+    // Hide scroll hint once the submit button scrolls into view
+    const _scrollHint = document.getElementById('scroll-hint');
+    const _submitBtn = document.getElementById('submit-btn');
+    if (_scrollHint && _submitBtn) {
+      const _obs = new IntersectionObserver(([e]) => {
+        if (e.isIntersecting) { _scrollHint.classList.add('hidden'); _obs.disconnect(); }
+      }, { threshold: 0.5 });
+      _obs.observe(_submitBtn);
+    }
+  </script>
 </body>
 </html>
