@@ -324,6 +324,148 @@
     }
     .value-emoji { font-size: 2rem; margin-bottom: 0.5rem; }
 
+    /* Pricing section */
+    .pricing-section {
+      margin: 3rem 0;
+      text-align: center;
+    }
+    .harga-pill {
+      display: inline-block;
+      border: 1px solid #CBD5E1;
+      border-radius: 60px;
+      padding: 0.25rem 1rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      color: #475569;
+      margin-bottom: 1rem;
+    }
+    .pricing-section h2 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+    }
+    .pricing-section .pricing-sub {
+      color: #5B6E8C;
+      font-size: 1rem;
+      margin-bottom: 2.5rem;
+    }
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.25rem;
+      align-items: start;
+    }
+    @media (max-width: 900px) {
+      .pricing-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 560px) {
+      .pricing-grid { grid-template-columns: 1fr; }
+    }
+    .price-card {
+      background: white;
+      border: 1px solid #E2E8F0;
+      border-radius: 20px;
+      padding: 1.5rem;
+      text-align: left;
+      position: relative;
+    }
+    .price-card.featured {
+      background: #1d4ed8;
+      border: none;
+      color: white;
+    }
+    .price-card-name {
+      font-weight: 700;
+      font-size: 1.05rem;
+      margin-bottom: 0.5rem;
+    }
+    .price-card.featured .price-card-name { color: white; }
+    .price-amount {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.4rem;
+    }
+    .price-card.featured .price-amount { color: white; }
+    .per-cv-badge {
+      display: inline-block;
+      background: #DCFCE7;
+      color: #166534;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 0.15rem 0.6rem;
+      border-radius: 40px;
+      margin-bottom: 1rem;
+    }
+    .feat-list {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 1.5rem 0;
+      font-size: 0.85rem;
+      color: #374151;
+    }
+    .price-card.featured .feat-list { color: rgba(255,255,255,0.9); }
+    .feat-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      margin: 0.55rem 0;
+    }
+    .feat-list li .ck { color: #22c55e; flex-shrink: 0; font-weight: 700; }
+    .feat-list li.feat-disabled { color: #9CA3AF; }
+    .feat-list li.feat-disabled .ck { color: #9CA3AF; }
+    .btn-outline-blue {
+      display: block;
+      width: 100%;
+      text-align: center;
+      background: white;
+      color: #1d4ed8;
+      border: 1.5px solid #1d4ed8;
+      border-radius: 10px;
+      padding: 0.75rem;
+      font-weight: 700;
+      font-size: 0.95rem;
+      text-decoration: none;
+      transition: background 0.15s;
+    }
+    .btn-outline-blue:hover { background: #EFF6FF; }
+    .btn-white {
+      display: block;
+      width: 100%;
+      text-align: center;
+      background: white;
+      color: #1d4ed8;
+      border: none;
+      border-radius: 10px;
+      padding: 0.75rem;
+      font-weight: 700;
+      font-size: 0.95rem;
+      text-decoration: none;
+      transition: opacity 0.15s;
+    }
+    .btn-white:hover { opacity: 0.9; }
+    .popular-pill {
+      display: inline-block;
+      background: #22c55e;
+      color: white;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 0.2rem 0.9rem;
+      border-radius: 60px;
+      position: absolute;
+      top: -14px;
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+    }
+    .pricing-footer-note {
+      margin-top: 1.5rem;
+      font-size: 0.75rem;
+      color: #6B7280;
+    }
+
     /* Footer */
     footer {
       border-top: 1px solid #EDF2F7;
@@ -464,31 +606,72 @@
   </div>
 
   <!-- PRICING -->
-  <div style="background: #F9FAFB; border-radius: 2rem; padding: 2rem; margin: 2rem 0; text-align: center;">
-    <h2 style="font-size: 1.7rem; font-weight: 700;">Pilih sesuai kebutuhan</h2>
-    <p style="margin-bottom: 2rem; color: #4B5563;">Tanpa ribet, tanpa biaya tersembunyi</p>
-    <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 1.5rem;">
-      <div style="background: white; border-radius: 24px; padding: 1.5rem; width: 260px; box-shadow: 0 4px 10px rgba(0,0,0,0.02); border: 1px solid #EEF2F6;">
-        <div style="font-weight: 800; font-size: 1.8rem;">Rp29k</div>
-        <div style="margin: 0.5rem 0; color: #4B5563;">1x analisis + rewrite</div>
-        <hr style="margin: 1rem 0; border-color:#EDF2F7; border-width: 1px 0 0 0;">
-        <div style="font-size: 0.85rem; margin: 0.3rem 0;">✅ Hasil personalized</div>
-        <div style="font-size: 0.85rem; margin: 0.3rem 0;">✅ Gap analysis prioritas</div>
-        <div style="font-size: 0.85rem; margin: 0.3rem 0;">✅ Download PDF</div>
-        <a href="upload.html" class="btn-primary" style="margin-top: 1.5rem; width: 100%; background:#1E293B; display:flex; justify-content:center;">Pilih Paket</a>
+  <div class="pricing-section">
+    <div class="harga-pill">HARGA</div>
+    <h2>Bayar Sekali, Download Langsung</h2>
+    <p class="pricing-sub">Tidak ada langganan. Tidak ada biaya tersembunyi.</p>
+
+    <div class="pricing-grid">
+
+      <!-- Coba Dulu -->
+      <div class="price-card">
+        <div class="price-card-name">Coba Dulu</div>
+        <div class="price-amount">Rp 29.000</div>
+        <div class="per-cv-badge">Rp 29k / CV</div>
+        <ul class="feat-list">
+          <li><span class="ck">✓</span> CV tailored Bahasa Indonesia</li>
+          <li><span class="ck">✓</span> Skor match + gap analysis</li>
+          <li><span class="ck">✓</span> Download DOCX + PDF</li>
+          <li class="feat-disabled"><span class="ck">—</span> Bahasa Inggris</li>
+        </ul>
+        <a href="upload.html" class="btn-outline-blue">Mulai Sekarang</a>
       </div>
-      <div style="background: white; border-radius: 24px; padding: 1.5rem; width: 260px; border: 2px solid #0F172A; position: relative;">
-        <div style="position: absolute; top: -12px; left: 20%; background:#0F172A; color:white; padding: 0.2rem 1rem; border-radius: 60px; font-size: 0.7rem; font-weight: bold; white-space: nowrap;">MOST POPULAR</div>
-        <div style="font-weight: 800; font-size: 1.8rem;">Rp149k</div>
-        <div style="margin: 0.5rem 0; color: #4B5563;">3 CV (3x analisis + rewrite)</div>
-        <hr style="margin: 1rem 0; border-color:#EDF2F7; border-width: 1px 0 0 0;">
-        <div style="font-size: 0.85rem; margin: 0.3rem 0;">✅ Semua fitur Single</div>
-        <div style="font-size: 0.85rem; margin: 0.3rem 0;">✅ Simpan 3 versi CV berbeda</div>
-        <div style="font-size: 0.85rem; margin: 0.3rem 0;">✅ Revisi tambahan via email</div>
-        <a href="upload.html" class="btn-primary" style="margin-top: 1.5rem; width: 100%; display:flex; justify-content:center;">Paling Hemat</a>
+
+      <!-- Single -->
+      <div class="price-card">
+        <div class="price-card-name">Single</div>
+        <div class="price-amount">Rp 59.000</div>
+        <div class="per-cv-badge">Rp 59k / CV bilingual</div>
+        <ul class="feat-list">
+          <li><span class="ck">✓</span> CV tailored Bahasa Indonesia</li>
+          <li><span class="ck">✓</span> CV tailored Bahasa Inggris</li>
+          <li><span class="ck">✓</span> Skor match + gap analysis</li>
+          <li><span class="ck">✓</span> DOCX + PDF (4 file)</li>
+        </ul>
+        <a href="upload.html" class="btn-outline-blue">Pilih Paket</a>
       </div>
+
+      <!-- 3-Pack (featured) -->
+      <div class="price-card featured">
+        <div class="popular-pill">Paling Populer</div>
+        <div class="price-card-name">3-Pack</div>
+        <div class="price-amount">Rp 149.000</div>
+        <div class="per-cv-badge">~Rp 50k / CV · hemat 16%</div>
+        <ul class="feat-list">
+          <li><span class="ck">✓</span> 3 CV tailored (ID + EN)</li>
+          <li><span class="ck">✓</span> Skor match + gap analysis</li>
+          <li><span class="ck">✓</span> DOCX + PDF per CV (4 file)</li>
+          <li><span class="ck">✓</span> Hemat Rp 28.000 vs Single</li>
+        </ul>
+        <a href="upload.html" class="btn-white">Pilih Paket</a>
+      </div>
+
+      <!-- Job Hunt Pack -->
+      <div class="price-card">
+        <div class="price-card-name">Job Hunt Pack</div>
+        <div class="price-amount">Rp 299.000</div>
+        <div class="per-cv-badge">~Rp 30k / CV · hemat 49%</div>
+        <ul class="feat-list">
+          <li><span class="ck">✓</span> 10 CV tailored (ID + EN)</li>
+          <li><span class="ck">✓</span> Skor match + gap analysis</li>
+          <li><span class="ck">✓</span> DOCX + PDF per CV (4 file)</li>
+          <li><span class="ck">✓</span> Hemat Rp 291.000 vs Single</li>
+        </ul>
+        <a href="upload.html" class="btn-outline-blue">Pilih Paket</a>
+      </div>
+
     </div>
-    <p style="margin-top: 1.5rem; font-size: 0.7rem; color:#6B7280;">🔒 Pembayaran aman · Tidak perlu daftar · CV otomatis dihapus setelah 7 hari</p>
+    <p class="pricing-footer-note">🔒 Pembayaran aman · Tidak perlu daftar · CV otomatis dihapus setelah 7 hari</p>
   </div>
 
   <!-- FINAL CTA -->
