@@ -348,7 +348,9 @@ async function createMayarInvoice(sessionId, tier, env) {
   // Use session-scoped email so each invoice has a unique customer identity.
   // Mayar requires name + email + mobile for invoice creation.
   const shortId = sessionId.replace('sess_', '').substring(0, 8);
-  const body = {
+  // Try /invoice first (supports line items), fall back to /payment-link (flat amount)
+  // Mayar 404 on /invoice usually means the account hasn't enabled the Invoice product.
+  const invoiceBody = {
     name: `GasLamar User ${shortId}`,
     email: `user+${shortId}@gaslamar.com`,
     mobile: '08000000000',
@@ -361,35 +363,55 @@ async function createMayarInvoice(sessionId, tier, env) {
     }],
   };
 
-  console.log(JSON.stringify({ event: 'mayar_request_body', endpoint: `${apiUrl}/invoice`, tier, amount: tierConfig.amount }));
+  const paymentLinkBody = {
+    name: `GasLamar User ${shortId}`,
+    email: `user+${shortId}@gaslamar.com`,
+    mobile: '08000000000',
+    amount: tierConfig.amount,
+    description: `${tierConfig.label} — GasLamar.com`,
+    redirectUrl,
+  };
 
-  const res = await fetch(`${apiUrl}/invoice`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(body)
-  });
+  // Try invoice endpoint first, then fall back to payment-link
+  for (const [endpoint, body] of [[`${apiUrl}/invoice`, invoiceBody], [`${apiUrl}/payment-link`, paymentLinkBody]]) {
+    console.log(JSON.stringify({ event: 'mayar_request_body', endpoint, tier, amount: tierConfig.amount }));
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+    });
 
-  if (!res.ok) {
-    const errBody = await res.text().catch(() => '');
-    let errMsg;
-    try {
-      const errJson = JSON.parse(errBody);
-      errMsg = (typeof errJson.messages === 'string' ? errJson.messages : errJson.messages?.[0]) || errJson.message || `Mayar error: ${res.status}`;
-    } catch {
-      errMsg = `Mayar error: ${res.status}`;
+    if (res.status === 404) {
+      const errBody = await res.text().catch(() => '');
+      console.log(JSON.stringify({ event: 'mayar_endpoint_404', endpoint, body: errBody.substring(0, 200) }));
+      continue; // try next endpoint
     }
-    console.error(JSON.stringify({ event: 'mayar_invoice_failed', status: res.status, body: errBody.substring(0, 500) }));
-    throw new Error(errMsg);
+
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      let errMsg;
+      try {
+        const errJson = JSON.parse(errBody);
+        errMsg = (typeof errJson.messages === 'string' ? errJson.messages : errJson.messages?.[0]) || errJson.message || `Mayar error: ${res.status}`;
+      } catch {
+        errMsg = `Mayar error: ${res.status}`;
+      }
+      console.error(JSON.stringify({ event: 'mayar_invoice_failed', endpoint, status: res.status, body: errBody.substring(0, 500) }));
+      throw new Error(errMsg);
+    }
+
+    const data = await res.json();
+    console.log(JSON.stringify({ event: 'mayar_invoice_success', endpoint, data_keys: Object.keys(data) }));
+    return {
+      invoice_id: data.data?.id || data.id,
+      invoice_url: data.data?.link || data.link || data.data?.url || data.url,
+    };
   }
 
-  const data = await res.json();
-  return {
-    invoice_id: data.data?.id || data.id,
-    invoice_url: data.data?.link || data.link
-  };
+  throw new Error('Pembayaran belum tersedia. Hubungi support@gaslamar.com');
 }
 
 // ---- Webhook Verification ----
