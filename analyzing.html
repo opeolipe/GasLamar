@@ -232,8 +232,8 @@
     <!-- Brain animation -->
     <div class="loading-brain">
       <div class="pulse-icon">🧠✨</div>
-      <h3 style="margin-top: 0.75rem; font-weight: 700;">AI sedang menganalisis CV kamu...</h3>
-      <p style="color: #5B6E8C; font-size: 0.85rem;">Biasanya 20–40 detik · Jangan tutup halaman</p>
+      <h3 style="margin-top: 0.75rem; font-weight: 700;">Kami sedang menganalisis CV kamu…</h3>
+      <p style="color: #5B6E8C; font-size: 0.85rem;">Membandingkan dengan job dan pola screening recruiter</p>
     </div>
 
     <!-- Progress bar -->
@@ -245,7 +245,7 @@
     <div class="step-list">
       <div class="step-item" id="step1">
         <div class="step-status" id="step1Icon">○</div>
-        <span>📄 Membaca struktur CV &amp; ekstrak teks</span>
+        <span>📄 Membaca &amp; memahami struktur CV</span>
       </div>
       <div class="step-item" id="step2">
         <div class="step-status" id="step2Icon">○</div>
@@ -253,15 +253,15 @@
       </div>
       <div class="step-item" id="step3">
         <div class="step-status" id="step3Icon">○</div>
-        <span>📊 Menghitung skor kecocokan &amp; gap</span>
+        <span>📊 Menghitung skor &amp; gap</span>
       </div>
       <div class="step-item" id="step4">
         <div class="step-status" id="step4Icon">○</div>
-        <span>✍️ Menyusun rekomendasi &amp; bullet rewrite</span>
+        <span>✍️ Menyusun rekomendasi &amp; rewrite</span>
       </div>
     </div>
 
-    <div class="timer-text" id="timerText">⏱️ Estimasi sisa: ~30 detik</div>
+    <div class="timer-text" id="timerText">⏱️ Estimasi selesai: ~25 detik</div>
 
     <!-- Trust rotator -->
     <div class="trust-rotator" id="trustMessage">
@@ -270,10 +270,7 @@
 
     <!-- Edit back link -->
     <div class="edit-link">
-      <a href="#" id="editBackLink">← Ubah CV atau job description</a>
-    </div>
-    <div class="fade-note">
-      ⚡ Proses sepenuhnya di server, hasil akan muncul otomatis.
+      <a href="#" id="editBackLink">← Ubah CV atau job</a>
     </div>
   </div>
 </div>
@@ -302,11 +299,10 @@
   let abortController = new AbortController();
 
   const trustMessages = [
-    '🔒 CV tidak disimpan — data aman',
-    '⚡ Rata-rata analisis 25 detik',
-    '🎯 Hasil akan spesifik untuk lowongan ini',
-    '🤖 AI dilatih memahami kebutuhan recruiter Indonesia',
-    '📧 Hasil juga bisa dikirim ke email (opsional)'
+    '🔒 CV tidak disimpan — aman',
+    '🤖 Analisis berbasis pola HR & ATS',
+    '🎯 Hasil spesifik untuk job ini',
+    '⚡ Rata-rata selesai dalam 30 detik'
   ];
   let trustIndex = 0;
 

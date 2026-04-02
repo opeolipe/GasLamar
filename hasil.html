@@ -466,6 +466,11 @@
         <!-- Badge (set by scoring.js) -->
         <div id="score-badge" class="score-status-badge"></div>
 
+        <!-- Benchmark comparison -->
+        <div style="display:inline-flex; align-items:center; gap:6px; background:#F1F5F9; border-radius:40px; padding:0.25rem 0.9rem; font-size:0.75rem; color:#5B6E8C; margin-top:0.4rem; font-weight:500;">
+          Rata-rata kandidat: <strong>72</strong> &nbsp;·&nbsp; Kamu di bawah sebagian besar pelamar
+        </div>
+
         <!-- Progress bar (visual indicator, width driven by CSS variable) -->
         <div class="progress-bar-bg">
           <div class="progress-bar-fill" id="score-progress-bar" style="width:48%; background:#EF4444;"></div>
@@ -485,44 +490,50 @@
     <!-- Strengths + Gaps two-col -->
     <div class="two-col">
       <div id="strengths-section" class="hidden strength-box">
-        <h4>✅ Kekuatan CV Kamu</h4>
+        <h4>✅ Yang sudah bagus (pertahankan)</h4>
         <ul id="strengths-list"></ul>
       </div>
       <div id="gap-section" class="hidden gap-box">
-        <h4>⚠️ Yang Perlu Diperkuat</h4>
+        <h4>❌ Yang perlu diperbaiki (prioritas)</h4>
         <ul id="gap-list"></ul>
       </div>
     </div>
 
     <!-- Recommendations (hidden until scoring.js populates it) -->
     <div id="reco-section" class="priority-box hidden">
-      <h4>🔥 Prioritas Perbaikan — Fokus ini dulu</h4>
+      <h4>🔥 Fokus perbaiki ini dulu</h4>
       <ol id="reco-list"></ol>
+      <p style="font-size:0.8rem; color:#92400E; margin-top:0.75rem; font-style:italic;">Ini adalah perubahan dengan dampak terbesar untuk meningkatkan peluang kamu dipanggil interview.</p>
     </div>
 
     <!-- Before/After proof example (static) -->
     <div class="example-box">
-      <div class="example-title">📄 Contoh Hasil Rewrite (berdasarkan CV kamu)</div>
+      <div class="example-title">Contoh perbaikan dari CV kamu</div>
       <div class="before-after">
         <div class="before-card">
           <div class="badge-before">SEBELUM (generic)</div>
           <div style="font-size:0.85rem;">"Pengalaman Product Manager di Mekari selama 3 tahun, bertanggung jawab terhadap pengembangan fitur dan koordinasi dengan tim."</div>
         </div>
         <div class="after-card">
-          <div class="badge-after">SESUDAH (HR-friendly + job-match)</div>
+          <div class="badge-after">✅ Versi yang lebih kuat (tailored)</div>
           <div style="font-size:0.85rem;">"Lead product roadmap untuk 3 fitur inti B2B SaaS, meningkatkan user retention 18% dalam 6 bulan melalui data-driven prioritization &amp; eksperimen A/B."</div>
         </div>
       </div>
       <div class="blurred-preview">
-        ✨ 7 rekomendasi lainnya (termasuk rewrite untuk 5 bullet point, tambahan keyword, dan restrukturisasi CV)
+        🔒 Masih ada 7+ rekomendasi penting lainnya
       </div>
-      <div class="unlock-text">🔓 <strong>Lihat semua rekomendasi + CV rewrite lengkap setelah pilih paket</strong></div>
+      <div class="unlock-text">Termasuk rewrite bullet lain, penambahan keyword, dan struktur CV yang lebih kuat</div>
+    </div>
+
+    <!-- Pricing anchor CTA -->
+    <div style="text-align:center; margin-bottom:0.5rem;">
+      <h3 style="font-size:1.4rem; font-weight:800; color:#0F172A;">👉 Perbaiki CV saya sekarang</h3>
     </div>
 
     <!-- Pricing card -->
     <div class="gl-card">
-      <h3 style="text-align:center; margin-bottom:0.5rem; font-size:1.3rem; font-weight:700;">Perbaiki CV Kamu Sekarang</h3>
-      <p style="text-align:center; font-size:0.9rem; color:#4B5563;">CV tailored + bilingual (ID + EN) siap download dalam 2 menit</p>
+      <h3 style="text-align:center; margin-bottom:0.5rem; font-size:1.3rem; font-weight:700;">Pilih versi CV yang ingin kamu gunakan</h3>
+      <p style="text-align:center; font-size:0.9rem; color:#4B5563;">Sekali bayar — langsung download CV yang sudah diperbaiki</p>
 
       <!-- Tier recommendation (injected by scoring.js based on score) -->
       <div id="tier-recommendation" class="hidden" style="margin-top:1rem;"></div>
@@ -557,7 +568,7 @@
 
       <div id="cta-area">
         <button id="pay-btn" onclick="proceedToPayment()" disabled>
-          Pilih Paket Dulu →
+          ✨ Lihat CV hasil rewrite lengkap
         </button>
       </div>
 
@@ -569,13 +580,13 @@
     <!-- Email capture -->
     <div class="gl-card">
       <div class="email-capture-box">
-        <div style="font-weight:600;">📧 Mau dapat tips CV gratis + contoh rewrite?</div>
+        <div style="font-weight:600;">Mau dapat tips CV &amp; contoh rewrite gratis?</div>
         <div id="email-capture-form" class="email-input-group">
-          <input type="email" id="email-input" placeholder="nama@email.com" autocomplete="email">
-          <button id="email-submit-btn" class="btn-send-email" onclick="submitEmail()">Kirim Tips</button>
+          <input type="email" id="email-input" placeholder="email kamu" autocomplete="email">
+          <button id="email-submit-btn" class="btn-send-email" onclick="submitEmail()">Kirim ke saya</button>
         </div>
         <p id="email-status" style="font-size:0.7rem; margin-top:0.5rem; color:#6B7280;"></p>
-        <p style="font-size:0.7rem; margin-top:0.3rem; color:#9CA3AF;">Tidak ada spam. Dapatkan info ATS &amp; promo.</p>
+        <p style="font-size:0.7rem; margin-top:0.3rem; color:#9CA3AF;">Tidak spam. Hanya insight &amp; update penting.</p>
       </div>
     </div>
 

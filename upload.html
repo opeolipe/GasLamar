@@ -322,6 +322,11 @@
   <a href="index.html" class="back-link">← Kembali ke beranda</a>
 
   <div class="card">
+    <div style="margin-bottom: 1.5rem;">
+      <h2 style="font-size: 1.4rem; font-weight: 700; margin-bottom: 0.3rem;">Upload CV kamu</h2>
+      <p style="font-size: 0.9rem; color: #5B6E8C;">Kami akan analisis dan bandingkan dengan job yang kamu targetkan</p>
+    </div>
+
     <!-- Progress steps -->
     <div class="progress-steps">
       <div class="step active">1. Upload CV</div>
@@ -349,7 +354,7 @@
             style="background: #0F172A; color: white; border: none; border-radius: 40px; padding: 0.4rem 1rem; font-weight: 500; cursor: pointer; font-family: inherit;">Pilih file</button>
           <input type="file" id="cv-file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
             style="display: none;" onchange="handleFileSelect(event)">
-          <div style="font-size: 0.7rem; color: #6B7280; margin-top: 12px;">PDF, DOCX, TXT · maks 5MB</div>
+          <div style="font-size: 0.7rem; color: #6B7280; margin-top: 12px;">PDF atau DOCX &nbsp;•&nbsp; maks 5MB</div>
         </div>
 
         <div id="drop-preview" class="hidden">
@@ -370,18 +375,18 @@
         <strong>CV tidak bisa dibaca.</strong> CV kamu sepertinya file gambar atau hasil scan. Coba download ulang CV kamu dari Canva/Word sebagai PDF teks, lalu upload lagi.
       </div>
       <div class="warning-note" style="margin-top: 0.8rem;">
-        ⚠️ Pastikan CV bukan file scan atau foto — upload PDF teks dari Word/Canva.
+        ⚠️ Gunakan CV berbentuk teks (bukan scan/foto) agar analisis lebih akurat
       </div>
 
       <!-- Job Description -->
-      <label>📝 2. Job Description / Lowongan</label>
+      <label>Job yang kamu targetkan <span style="font-weight: 400; color: #5B6E8C;">(opsional tapi disarankan)</span></label>
       <div class="button-group">
         <button type="button" class="btn-icon" id="paste-linkedin-btn">📋 Paste dari LinkedIn</button>
         <button type="button" class="btn-icon" id="example-btn">📄 Gunakan contoh</button>
       </div>
       <div class="textarea-wrapper">
         <textarea id="job-desc" rows="6"
-          placeholder="Paste bagian Requirements dan Responsibilities (contoh: min S1, pengalaman 3 tahun, skill yang dibutuhkan...)"
+          placeholder="Paste bagian requirements / responsibilities dari job yang kamu lamar…"
           maxlength="3000"
           oninput="updateCharCount()"></textarea>
         <div class="char-counter"><span id="char-count">0</span> / 3.000 karakter</div>
@@ -390,7 +395,7 @@
       <div id="jd-error" class="error-msg hidden"></div>
 
       <div class="skip-link">
-        <a href="#" id="skip-jd-link">Atau lewati — analisis umum tanpa job desc →</a>
+        <a href="#" id="skip-jd-link">Lewati (hasil akan lebih umum &amp; kurang akurat)</a>
       </div>
 
       <!-- Scroll hint -->
@@ -401,7 +406,7 @@
 
       <!-- Submit -->
       <button type="submit" id="submit-btn" class="btn-primary">
-        ✨ Analisis &amp; Lihat Skor →
+        👉 Analisis CV Saya
       </button>
 
       <!-- Loading state (shown briefly before redirect to analyzing.html) -->
@@ -423,7 +428,7 @@
       <span>🔒 CV tidak disimpan</span>
       <span>⚡ Proses ±30 detik</span>
       <span>❌ Tidak perlu daftar</span>
-      <span>⭐ 4.9/5 · 1.200+ pengguna</span>
+      <span>⭐ 4.9/5 dari 1.200+ pengguna</span>
     </div>
   </div>
 </div>
