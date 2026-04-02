@@ -51,13 +51,23 @@ function processFile(file) {
   // Validate file type by extension + MIME
   const validTypes = [
     'application/pdf',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'text/plain',
   ];
-  const validExts = ['.pdf', '.docx'];
+  const validExts = ['.pdf', '.docx', '.txt'];
   const ext = '.' + file.name.split('.').pop().toLowerCase();
 
   if (!validExts.includes(ext) && !validTypes.includes(file.type)) {
-    showError('file-error', 'Format file tidak didukung. Gunakan PDF atau DOCX.');
+    // Give specific guidance for common unsupported formats
+    if (ext === '.doc') {
+      showError('file-error', 'Format .doc belum didukung. Buka di Word → Save As → .docx atau PDF, lalu upload lagi.');
+    } else if (ext === '.pages') {
+      showError('file-error', 'Format .pages belum didukung. Export sebagai PDF dari Pages, lalu upload lagi.');
+    } else if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) {
+      showError('file-error', 'File gambar tidak didukung. Upload CV dalam format PDF, DOCX, atau TXT.');
+    } else {
+      showError('file-error', 'Format tidak didukung. Upload CV dalam format PDF, DOCX, atau TXT (maks 5MB).');
+    }
     return;
   }
 
@@ -95,6 +105,8 @@ async function extractTextFromFile(file) {
       cvText = await extractFromPDF(file);
     } else if (ext === '.docx') {
       cvText = await extractFromDOCX(file);
+    } else if (ext === '.txt') {
+      cvText = await extractFromTXT(file);
     }
 
     // Validate minimum text length
@@ -153,6 +165,15 @@ async function extractFromDOCX(file) {
     };
     reader.onerror = () => reject(new Error('Gagal membaca file'));
     reader.readAsArrayBuffer(file);
+  });
+}
+
+async function extractFromTXT(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(JSON.stringify({ type: 'txt', data: e.target.result }));
+    reader.onerror = () => reject(new Error('Gagal membaca file'));
+    reader.readAsText(file, 'UTF-8');
   });
 }
 

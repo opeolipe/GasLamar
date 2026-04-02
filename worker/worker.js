@@ -128,12 +128,17 @@ function validateFileData(cvData) {
 // ---- CV Text Extraction ----
 
 async function extractCVText(cvData, env) {
-  // For PDF/DOCX, we need to extract text server-side
-  // Using a simple approach: send to Claude with vision/document capability
-  // or use a basic text extraction
-
   try {
     const parsed = typeof cvData === 'string' ? JSON.parse(cvData) : cvData;
+
+    // TXT files: text is already extracted on the frontend, no Claude call needed
+    if (parsed.type === 'txt') {
+      const text = parsed.data || '';
+      if (text.trim().length < 100) {
+        return { success: false, error: 'CV kamu tidak bisa dibaca. Pastikan file berisi teks CV yang lengkap.' };
+      }
+      return { success: true, text };
+    }
 
     // Use Claude to extract text from the document
     const response = await callClaude(
@@ -170,15 +175,21 @@ async function callClaude(env, systemPrompt, userContent, maxTokens = 2000) {
   if (typeof userContent === 'string') {
     messages.push({ role: 'user', content: userContent });
   } else if (userContent && userContent.type && userContent.data) {
-    // Document file passed
-    const mediaType = userContent.type === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-    messages.push({
-      role: 'user',
-      content: [{
-        type: 'document',
-        source: { type: 'base64', media_type: mediaType, data: userContent.data }
-      }]
-    });
+    if (userContent.type === 'txt') {
+      // Plain text — send directly as text message
+      messages.push({ role: 'user', content: userContent.data });
+    } else {
+      const mediaType = userContent.type === 'pdf'
+        ? 'application/pdf'
+        : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      messages.push({
+        role: 'user',
+        content: [{
+          type: 'document',
+          source: { type: 'base64', media_type: mediaType, data: userContent.data }
+        }]
+      });
+    }
   }
 
   try {
