@@ -170,6 +170,12 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
 
     const reqBody = { session_id: sessionId };
     if (newJobDesc) reqBody.job_desc = newJobDesc;
+    // Pass score + gaps so worker can send post-generate email
+    try {
+      const scoring = JSON.parse(sessionStorage.getItem('gaslamar_scoring') || '{}');
+      if (typeof scoring.score === 'number') reqBody.score = scoring.score;
+      if (Array.isArray(scoring.gaps) && scoring.gaps.length) reqBody.gaps = scoring.gaps.slice(0, 3);
+    } catch (_) { /* ignore */ }
 
     const res = await fetch(`${WORKER_URL}/generate`, {
       method: 'POST',

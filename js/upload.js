@@ -236,10 +236,12 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
   submitBtn.classList.add('hidden');
   document.getElementById('loading-state').classList.remove('hidden');
   setLoadingText('Membaca CV kamu...');
+  startProgress();
 
   try {
     await analyzeCV(cvText, jobDesc);
   } catch (err) {
+    finishProgress();
     submitBtn.disabled = false;
     submitBtn.classList.remove('hidden');
     document.getElementById('loading-state').classList.add('hidden');
@@ -279,6 +281,7 @@ async function analyzeCV(cvData, jobDesc) {
 
     // Redirect to scoring page
     setLoadingText('Menyiapkan hasil analisis...');
+    finishProgress();
     window.location.href = 'hasil.html';
 
   } catch (err) {
@@ -296,6 +299,38 @@ async function analyzeCV(cvData, jobDesc) {
 function setLoadingText(text) {
   const el = document.getElementById('loading-text');
   if (el) el.textContent = text;
+}
+
+// ---- Progress Bar ----
+let _progressTimer = null;
+
+function setProgress(pct) {
+  const bar = document.getElementById('progress-bar');
+  const label = document.getElementById('progress-pct');
+  if (bar) bar.style.width = pct + '%';
+  if (label) label.textContent = pct;
+}
+
+function startProgress() {
+  setProgress(5);
+  // Simulate progress: slow crawl to 85%, then hold until done
+  const steps = [
+    { pct: 25, delay: 2000 },
+    { pct: 45, delay: 8000 },
+    { pct: 65, delay: 15000 },
+    { pct: 80, delay: 25000 },
+    { pct: 85, delay: 35000 },
+  ];
+  steps.forEach(({ pct, delay }) => {
+    const t = setTimeout(() => setProgress(pct), delay);
+    if (!_progressTimer) _progressTimer = [];
+    _progressTimer.push(t);
+  });
+}
+
+function finishProgress() {
+  if (_progressTimer) { _progressTimer.forEach(clearTimeout); _progressTimer = null; }
+  setProgress(100);
 }
 
 // ---- Helpers ----

@@ -78,6 +78,7 @@
             <p class="font-semibold text-[#1F2937] mb-1">Drag & drop CV di sini</p>
             <p class="text-sm text-gray-400">atau klik untuk pilih file</p>
             <p class="text-xs text-gray-400 mt-2">PDF · DOCX · TXT &nbsp;·&nbsp; maks 5MB</p>
+            <p class="text-xs text-amber-600 mt-1.5">⚠ Pastikan CV bukan file scan atau foto — upload PDF teks dari Word/Canva</p>
           </div>
 
           <div id="drop-preview" class="hidden">
@@ -133,6 +134,26 @@ Requirements:
           <p class="text-xs text-gray-400 ml-auto"><span id="char-count">0</span>/3.000</p>
         </div>
 
+        <!-- JD example toggle (Fix 3) -->
+        <button type="button" id="jd-example-toggle"
+          onclick="const el=document.getElementById('jd-example');el.classList.toggle('hidden');this.textContent=el.classList.contains('hidden')?'Lihat contoh yang benar →':'Sembunyikan contoh ↑'"
+          class="text-xs text-primary hover:underline mt-2 block">
+          Lihat contoh yang benar →
+        </button>
+        <div id="jd-example" class="hidden mt-2 p-4 bg-blue-50 border border-blue-100 rounded-xl text-xs text-gray-600 leading-relaxed">
+          <p class="font-semibold text-gray-700 mb-2">Contoh dari lowongan LinkedIn:</p>
+          <p>Posisi: Product Manager — Tokopedia<br><br>
+          Requirements:<br>
+          - Min. S1 semua jurusan<br>
+          - 3+ tahun pengalaman sebagai PM di startup/tech<br>
+          - Familiar dengan Agile/Scrum dan data analytics (SQL, Looker)<br>
+          - Kemampuan komunikasi lintas fungsi yang kuat<br><br>
+          Responsibilities:<br>
+          - Define product roadmap bersama tim engineering &amp; design<br>
+          - Monitor KPI produk dan iterasi berdasarkan data<br>
+          - Koordinasi dengan stakeholder bisnis untuk prioritas fitur</p>
+        </div>
+
         <div id="jd-error" class="hidden mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-danger text-sm"></div>
       </div>
 
@@ -140,6 +161,37 @@ Requirements:
       <div id="scroll-hint" class="flex flex-col items-center gap-1 py-2 text-gray-400 text-xs animate-bounce">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
         <span>Scroll untuk tombol analisis</span>
+      </div>
+
+      <!-- Before/After CV sample collapsible (Fix 4) -->
+      <div class="rounded-2xl border border-gray-100 overflow-hidden">
+        <button type="button"
+          onclick="const el=document.getElementById('ba-sample');el.classList.toggle('hidden');const arr=document.getElementById('ba-arrow');arr.style.transform=el.classList.contains('hidden')?'':'rotate(180deg)'"
+          class="w-full flex items-center justify-between px-5 py-3.5 bg-gray-50 hover:bg-gray-100 transition-colors text-sm font-semibold text-gray-700">
+          <span>Lihat contoh hasil tailored CV →</span>
+          <svg id="ba-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform duration-200"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div id="ba-sample" class="hidden p-5 bg-white">
+          <p class="text-xs text-gray-400 mb-4 text-center">Contoh nyata — semua fakta asli, hanya framing yang dioptimalkan untuk loker</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <!-- Before -->
+            <div class="rounded-xl border border-gray-200 p-4 bg-gray-50">
+              <p class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Sebelum (CV generic)</p>
+              <p class="text-sm text-gray-500 leading-relaxed">• Bertanggung jawab mengerjakan berbagai tugas di tim produk dan berkoordinasi dengan tim lain.</p>
+              <p class="text-sm text-gray-500 leading-relaxed mt-2">• Membantu tim dalam pengembangan fitur aplikasi.</p>
+            </div>
+            <!-- After -->
+            <div class="rounded-xl border border-green-200 p-4 bg-white">
+              <p class="text-xs font-bold text-green-600 uppercase tracking-wide mb-3">Setelah (Tailored untuk PM role)</p>
+              <p class="text-sm text-gray-700 leading-relaxed">• Memimpin <span class="bg-green-100 text-green-800 px-1 rounded font-medium">roadmap produk</span> B2B untuk 12.000+ merchant aktif, meningkatkan <span class="bg-green-100 text-green-800 px-1 rounded font-medium">retensi</span> 23% (Q3) menggunakan framework <span class="bg-green-100 text-green-800 px-1 rounded font-medium">OKR</span>.</p>
+              <p class="text-sm text-gray-700 leading-relaxed mt-2">• Mengkoordinasikan tim <span class="bg-green-100 text-green-800 px-1 rounded font-medium">cross-functional</span> (engineering, design, data) untuk 3 sprint delivery per bulan.</p>
+              <div class="flex flex-wrap gap-1.5 mt-3">
+                <span class="text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full">✓ 3 keyword dari JD</span>
+                <span class="text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full">✓ Data kuantitatif</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- CV Text minimum warning -->
@@ -156,14 +208,20 @@ Requirements:
         Analisis CV Saya →
       </button>
 
-      <!-- Loading state -->
+      <!-- Loading state (Fix 2: progress bar) -->
       <div id="loading-state" class="hidden text-center py-6">
-        <div class="inline-flex items-center gap-3 bg-white rounded-2xl border border-gray-100 px-8 py-5">
+        <div class="inline-flex items-center gap-3 bg-white rounded-2xl border border-gray-100 px-8 py-5 mb-4">
           <div class="spinner w-6 h-6 border-3 border-primary border-t-transparent rounded-full"></div>
           <div class="text-left">
             <p class="font-semibold text-[#1F2937]" id="loading-text">Membaca CV kamu...</p>
             <p class="text-sm text-gray-400">Biasanya 20–40 detik</p>
           </div>
+        </div>
+        <div class="w-full max-w-sm mx-auto">
+          <div class="bg-gray-100 rounded-full h-1.5">
+            <div id="progress-bar" class="bg-primary h-1.5 rounded-full transition-all duration-700" style="width:0%"></div>
+          </div>
+          <p id="progress-label" class="text-xs text-gray-400 mt-1.5"><span id="progress-pct">0</span>%</p>
         </div>
       </div>
 

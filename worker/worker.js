@@ -697,6 +697,70 @@ async function sendPaymentConfirmationEmail(sessionId, env) {
   });
 }
 
+// Sends a "CV siap" email after generation completes, with score badge + gaps + upsell.
+// score: integer 0-100 (from frontend sessionStorage)
+// gaps: string[] top 3 gaps from analysis result
+async function sendCVReadyEmail(sessionId, score, gaps, env) {
+  const apiKey = env.RESEND_API_KEY;
+  if (!apiKey) return;
+
+  const session = await getSession(env, sessionId);
+  if (!session || !session.email) return;
+
+  const downloadUrl = `https://gaslamar.com/download.html?session=${encodeURIComponent(sessionId)}`;
+  const scoreNum = typeof score === 'number' ? score : parseInt(score, 10) || 0;
+  const scoreColor = scoreNum >= 75 ? '#059669' : scoreNum >= 50 ? '#D97706' : '#DC2626';
+  const top3 = Array.isArray(gaps) ? gaps.slice(0, 3) : [];
+  const gapsHtml = top3.length
+    ? `<div style="background:#FFF7ED;border-radius:10px;padding:14px 18px;margin-bottom:20px">
+        <p style="margin:0 0 8px;font-size:14px;color:#92400E;font-weight:600">3 gap utama yang sudah diperbaiki di CV tailored-mu:</p>
+        <ul style="margin:0;padding-left:18px;font-size:13px;color:#78350F">
+          ${top3.map(g => `<li style="margin-bottom:4px">${g}</li>`).join('')}
+        </ul>
+      </div>`
+    : '';
+
+  const tierLabels = { coba: 'Coba Dulu', single: 'Single', '3pack': '3-Pack', jobhunt: 'Job Hunt Pack' };
+  const tierLabel = tierLabels[session.tier] || session.tier;
+  const isMulti = (session.total_credits ?? 1) > 1;
+
+  const html = `
+    <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
+      <div style="margin-bottom:24px">
+        <span style="font-weight:800;font-size:20px;color:#1B4FE8">GasLamar</span>
+      </div>
+      <h1 style="font-size:22px;font-weight:700;color:#1F2937;margin-bottom:8px">CV tailored-mu siap! 🎯</h1>
+      <p style="color:#6B7280;margin-bottom:20px">Paket <strong>${tierLabel}</strong> — hasil analisis AI:</p>
+      <div style="background:#F0FDF4;border-radius:12px;padding:16px 20px;margin-bottom:20px;text-align:center">
+        <p style="margin:0;font-size:13px;color:#6B7280">Skor match CV kamu</p>
+        <p style="margin:4px 0 0;font-size:40px;font-weight:800;color:${scoreColor}">${scoreNum}<span style="font-size:18px;color:#9CA3AF">/100</span></p>
+      </div>
+      ${gapsHtml}
+      <a href="${downloadUrl}"
+        style="display:inline-block;background:#1B4FE8;color:#fff;font-weight:700;padding:14px 28px;border-radius:12px;text-decoration:none;margin-bottom:24px">
+        Download CV Tailored →
+      </a>
+      ${isMulti ? '' : `<div style="background:#EFF6FF;border-radius:10px;padding:14px 18px;margin-bottom:20px">
+        <p style="margin:0;font-size:13px;color:#1E40AF">Punya loker lain? <a href="https://gaslamar.com/?tier=3pack" style="color:#1B4FE8;font-weight:600">Upgrade ke 3-Pack</a> dan hemat 40%.</p>
+      </div>`}
+      <p style="font-size:12px;color:#9CA3AF">Link download berlaku 24 jam. Pertanyaan? Email ke <a href="mailto:support@gaslamar.com" style="color:#1B4FE8">support@gaslamar.com</a></p>
+    </div>`;
+
+  await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      from: 'GasLamar <noreply@gaslamar.com>',
+      to: [session.email],
+      subject: `CV tailored-mu siap — skor match ${scoreNum}/100 🎯`,
+      html,
+    }),
+  });
+}
+
 async function handleMayarWebhook(request, env, ctx) {
   const { valid, body } = await verifyMayarWebhook(request, env);
 
@@ -814,7 +878,7 @@ async function handleGetSession(request, env) {
   }, 200, request, env);
 }
 
-async function handleGenerate(request, env) {
+async function handleGenerate(request, env, ctx) {
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
 
   const allowed = await checkRateLimit(env, env.RATE_LIMITER_GENERATE, ip);
@@ -829,7 +893,7 @@ async function handleGenerate(request, env) {
     return jsonResponse({ message: 'Request body tidak valid' }, 400, request, env);
   }
 
-  const { session_id, job_desc: newJobDesc } = body;
+  const { session_id, job_desc: newJobDesc, score, gaps } = body;
 
   if (!session_id || !session_id.startsWith('sess_')) {
     return jsonResponse({ message: 'Session ID tidak valid' }, 400, request, env);
@@ -891,6 +955,14 @@ async function handleGenerate(request, env) {
     }
 
     log('generate_success', { session_id, tier, credits_remaining: newCreditsRemaining });
+
+    // Fire post-generate email (non-blocking) if score/gaps provided by frontend
+    if (ctx && (score !== undefined || gaps !== undefined)) {
+      ctx.waitUntil(sendCVReadyEmail(session_id, score, gaps, env).catch((e) => {
+        logError('cv_ready_email_failed', { session_id, error: e.message });
+      }));
+    }
+
     return jsonResponse({ cv_id: cvId, cv_en: cvEn, credits_remaining: newCreditsRemaining }, 200, request, env);
   } catch (e) {
     // On failure, reset to 'paid' so user can retry (don't consume the credit)
@@ -979,7 +1051,7 @@ export default {
       }
 
       if (method === 'POST' && pathname === '/generate') {
-        return handleGenerate(request, env);
+        return handleGenerate(request, env, ctx);
       }
 
       if (method === 'POST' && pathname === '/submit-email') {
