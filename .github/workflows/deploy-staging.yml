@@ -46,8 +46,9 @@ jobs:
         run: npm ci
 
       # Deploy default env (ENVIRONMENT=sandbox → gaslamar.carolineratuolivia.workers.dev)
+      # No --env flag = default top-level env (ENVIRONMENT=sandbox)
       - name: Deploy sandbox Cloudflare Worker
-        run: npx wrangler deploy --env=""
+        run: npx wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -106,7 +107,7 @@ jobs:
       - name: Deploy preview to Cloudflare Pages
         id: pages
         run: |
-          npx wrangler@3 pages deploy dist \
+          npx wrangler@4 pages deploy dist \
             --project-name=gaslamar \
             --branch=staging \
             --commit-dirty=true \
