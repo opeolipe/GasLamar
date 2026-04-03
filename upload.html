@@ -436,6 +436,16 @@
 <script src="js/config.js"></script>
 <script src="js/upload.js"></script>
 <script>
+  // Show error from analyzing.html if analysis failed
+  const _analyzeErr = sessionStorage.getItem('gaslamar_upload_error');
+  if (_analyzeErr) {
+    sessionStorage.removeItem('gaslamar_upload_error');
+    const _errEl = document.createElement('div');
+    _errEl.style.cssText = 'background:#FEF2F2;border:1px solid #FECACA;color:#B91C1C;border-radius:16px;padding:0.8rem 1.2rem;font-size:0.85rem;margin-bottom:1rem;font-family:inherit;';
+    _errEl.textContent = '⚠️ Analisis gagal: ' + _analyzeErr;
+    document.querySelector('.card').insertBefore(_errEl, document.querySelector('.card').firstChild);
+  }
+
   // Hide scroll hint once submit button scrolls into view
   const _scrollHint = document.getElementById('scroll-hint');
   const _submitBtn = document.getElementById('submit-btn');
