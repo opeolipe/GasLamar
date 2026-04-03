@@ -6,313 +6,347 @@
   <meta name="robots" content="noindex, nofollow" />
   <title>Download CV — GasLamar</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-  <!-- css/tailwind.css is generated at build time — run `npm run vendor` locally -->
-  <link rel="stylesheet" href="css/tailwind.css" />
-  <link rel="stylesheet" href="css/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <!-- Cloudflare Web Analytics -->
   <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "f9c97d82f2a04b9f95e051946eb0525e"}'></script>
-  <!-- docx.js and jsPDF served locally — eliminates CDN supply-chain risk -->
-  <!-- Run `npm install && npm run vendor` before deploying to generate js/vendor/ -->
+  <!-- docx.js and jsPDF served locally -->
   <script src="js/vendor/docx.js"></script>
   <script src="js/vendor/jspdf.umd.min.js"></script>
   <style>
-    /* ── Generating state ── */
-    .gen-card {
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #F9FAFB;
+      color: #1F2937;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+    .hidden { display: none !important; }
+
+    /* ── Cards ── */
+    .card {
       background: white;
       border-radius: 32px;
       box-shadow: 0 20px 35px -12px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.02);
       padding: 2rem;
       border: 1px solid #EEF2F6;
+      margin-bottom: 1.5rem;
     }
-    .gen-progress-steps {
-      display: flex; justify-content: space-between;
-      margin-bottom: 2rem; position: relative;
-    }
-    .gen-step { flex:1; text-align:center; font-size:.85rem; font-weight:500; color:#9CA3AF; position:relative; background:white; z-index:1; }
-    .gen-step.completed { color:#2563EB; font-weight:600; }
-    .gen-step.completed::before { content:"✓"; display:block; font-size:.7rem; margin-bottom:4px; color:#10B981; font-weight:bold; }
-    .gen-step.active { color:#2563EB; font-weight:700; }
-    .gen-step.active::before { content:"●"; display:block; font-size:.7rem; margin-bottom:4px; color:#2563EB; }
-    .gen-step::before { content:"○"; display:block; font-size:.7rem; margin-bottom:4px; color:#D1D5DB; }
-    .gen-step-line { position:absolute; top:12px; left:0; right:0; height:1px; background:#E5E7EB; z-index:0; }
-    .file-badge {
-      background:#EFF6FF; border-radius:60px; padding:.5rem 1rem;
-      display:inline-flex; align-items:center; gap:8px;
-      font-size:.8rem; margin-bottom:1.8rem; color:#1D4ED8;
-    }
-    .pulse-icon { font-size:3rem; animation:dlPulse 1.2s infinite ease-in-out; display:inline-block; }
-    @keyframes dlPulse { 0%,100%{transform:scale(.95);opacity:.6} 50%{transform:scale(1.1);opacity:1} }
-    .gen-progress-bar-wrap { background:#E5E7EB; border-radius:100px; height:8px; width:100%; margin:1.5rem 0; overflow:hidden; }
-    .gen-step-list { background:#FAFCFE; border-radius:24px; padding:1.2rem; border:1px solid #DBEAFE; margin:2rem 0 1rem; }
-    .gen-step-item { display:flex; align-items:center; gap:12px; padding:.75rem 0; border-bottom:1px solid #E2E8F0; font-size:.9rem; color:#4B5563; }
-    .gen-step-item:last-child { border-bottom:none; }
-    .gen-step-icon { width:24px; font-size:1rem; text-align:center; }
-    .gen-step-icon.spin { display:inline-block; animation:dlSpin 1s linear infinite; color:#2563EB; }
-    .gen-step-icon.done { color:#10B981; }
-    .gen-step-icon.pending { color:#D1D5DB; }
-    @keyframes dlSpin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
-    .gen-timer { font-size:.8rem; color:#2563EB; text-align:center; margin:.5rem 0; font-weight:500; }
-    .gen-trust { background:#EFF6FF; border-radius:60px; padding:.7rem 1rem; text-align:center; font-size:.8rem; font-weight:500; color:#1D4ED8; margin:1.5rem 0; transition:opacity .3s; }
-    .gen-edit-link { text-align:center; margin-top:1rem; }
-    .gen-edit-link a { color:#2563EB; text-decoration:none; font-size:.8rem; }
-    .gen-edit-link a:hover { text-decoration:underline; }
 
-    /* ── Download ready state ── */
-    .dl-card { background:white; border-radius:32px; box-shadow:0 20px 35px -12px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.02); padding:2rem; border:1px solid #EEF2F6; margin-bottom:1.5rem; }
-    .dl-success-icon { background:#EFF6FF; width:64px; height:64px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 1rem; font-size:2rem; }
-    .dl-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; margin:1.5rem 0; }
-    @media(max-width:640px){ .dl-grid{ grid-template-columns:1fr; } }
-    .dl-lang-box { background:#F8FAFC; border-radius:24px; padding:1.2rem; border:1px solid #DBEAFE; }
-    .dl-lang-title { font-size:1.1rem; font-weight:700; display:flex; align-items:center; gap:8px; margin-bottom:1rem; color:#1E3A8A; }
-    .dl-btn { background:white; border:1px solid #BFDBFE; border-radius:60px; padding:.7rem 1rem; font-size:.88rem; font-weight:500; display:flex; align-items:center; justify-content:space-between; cursor:pointer; transition:.2s; margin-bottom:.6rem; color:#1E3A8A; font-family:inherit; width:100%; }
-    .dl-btn:hover { border-color:#2563EB; background:#EFF6FF; transform:translateX(4px); }
-    .dl-btn-size { font-size:.7rem; color:#6B7280; }
-    .dl-tips { background:#EFF6FF; border-radius:20px; padding:1.2rem; margin:0 0 1.5rem; border-left:4px solid #2563EB; }
-    .dl-tips h4 { display:flex; align-items:center; gap:8px; margin-bottom:.75rem; color:#1E3A8A; }
-    .dl-tips ul { list-style:none; font-size:.85rem; }
-    .dl-tips ul li { margin:.4rem 0; display:flex; align-items:center; gap:6px; }
-    .dl-credits-box { background:#FEF9C3; border-radius:20px; padding:1rem; text-align:center; margin-bottom:1.5rem; }
-    .dl-credits-num { font-size:2rem; font-weight:800; color:#B45309; }
-    .dl-next-jd { background:#FAFCFE; border-radius:24px; padding:1.5rem; border:1px solid #E2E8F0; }
-    .dl-trust-footer { background:#F1F5F9; border-radius:20px; padding:.8rem; text-align:center; font-size:.75rem; color:#4B5563; margin-top:1.5rem; }
+    /* ── Progress steps ── */
+    .progress-steps {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 2rem;
+      position: relative;
+    }
+    .progress-steps.compact { margin-bottom: 0; }
+    .step {
+      flex: 1;
+      text-align: center;
+      font-size: .85rem;
+      font-weight: 500;
+      color: #9CA3AF;
+      position: relative;
+      background: white;
+      z-index: 1;
+    }
+    .step::before { content: "○"; display: block; font-size: .7rem; margin-bottom: 4px; color: #D1D5DB; }
+    .step.completed { color: #2563EB; font-weight: 600; }
+    .step.completed::before { content: "✓"; color: #10B981; font-weight: bold; }
+    .step.active { color: #2563EB; font-weight: 700; }
+    .step.active::before { content: "●"; color: #2563EB; }
+    .step-line {
+      position: absolute;
+      top: 12px; left: 0; right: 0;
+      height: 1px;
+      background: #E5E7EB;
+      z-index: 0;
+    }
+
+    /* ── File badge ── */
+    .file-badge {
+      background: #EFF6FF;
+      border-radius: 60px;
+      padding: .5rem 1rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: .8rem;
+      margin-bottom: 1.8rem;
+      color: #1D4ED8;
+    }
+
+    /* ── Generating animation ── */
+    .pulse-icon { font-size: 3rem; animation: dlPulse 1.2s infinite ease-in-out; display: inline-block; }
+    @keyframes dlPulse { 0%,100%{transform:scale(.95);opacity:.6} 50%{transform:scale(1.1);opacity:1} }
+
+    .progress-bar-wrap { background: #E5E7EB; border-radius: 100px; height: 8px; width: 100%; margin: 1.5rem 0; overflow: hidden; }
+
+    .step-list { background: #FAFCFE; border-radius: 24px; padding: 1.2rem; border: 1px solid #DBEAFE; margin: 2rem 0 1rem; }
+    .step-item { display: flex; align-items: center; gap: 12px; padding: .75rem 0; border-bottom: 1px solid #E2E8F0; font-size: .9rem; color: #4B5563; }
+    .step-item:last-child { border-bottom: none; }
+    .step-icon { width: 24px; font-size: 1rem; text-align: center; }
+    .step-icon.spin { display: inline-block; animation: dlSpin 1s linear infinite; color: #2563EB; }
+    .step-icon.done { color: #10B981; }
+    .step-icon.pending { color: #D1D5DB; }
+    @keyframes dlSpin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+
+    .timer-text { font-size: .8rem; color: #2563EB; text-align: center; margin: .5rem 0; font-weight: 500; }
+    .trust-rotator { background: #EFF6FF; border-radius: 60px; padding: .7rem 1rem; text-align: center; font-size: .8rem; font-weight: 500; color: #1D4ED8; margin: 1.5rem 0; transition: opacity .3s; }
+    .cancel-link { text-align: center; margin-top: 1rem; }
+    .cancel-link a { color: #2563EB; text-decoration: none; font-size: .8rem; }
+    .cancel-link a:hover { text-decoration: underline; }
+
+    /* ── Download ready ── */
+    .success-icon { background: #EFF6FF; width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; font-size: 2rem; }
+    .download-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin: 1.5rem 0; }
+    @media(max-width:640px){ .download-grid { grid-template-columns: 1fr; } }
+    .lang-section { background: #F8FAFC; border-radius: 24px; padding: 1.2rem; border: 1px solid #DBEAFE; }
+    .lang-title { font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; color: #1E3A8A; }
+    .btn-download {
+      background: white;
+      border: 1px solid #BFDBFE;
+      border-radius: 60px;
+      padding: .7rem 1rem;
+      font-size: .88rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: .2s;
+      margin-bottom: .6rem;
+      color: #1E3A8A;
+      font-family: inherit;
+      width: 100%;
+    }
+    .btn-download:hover { border-color: #2563EB; background: #EFF6FF; transform: translateX(4px); }
+    .btn-download-size { font-size: .7rem; color: #6B7280; }
+
+    .tips-box { background: #EFF6FF; border-radius: 20px; padding: 1.2rem; margin: 0 0 0; border-left: 4px solid #2563EB; }
+    .tips-box h4 { display: flex; align-items: center; gap: 8px; margin-bottom: .75rem; color: #1E3A8A; }
+    .tips-box ul { list-style: none; font-size: .85rem; }
+    .tips-box ul li { margin: .4rem 0; display: flex; align-items: center; gap: 6px; }
+
+    .credits-box { background: #FEF9C3; border-radius: 20px; padding: 1rem; text-align: center; margin-bottom: 1.5rem; }
+    .credits-number { font-size: 2rem; font-weight: 800; color: #B45309; }
+    .next-jd-box { background: #FAFCFE; border-radius: 24px; padding: 1.5rem; border: 1px solid #E2E8F0; }
+    .trust-footer { background: #F1F5F9; border-radius: 20px; padding: .8rem; text-align: center; font-size: .75rem; color: #4B5563; margin-top: 1.5rem; }
+
+    /* ── Waiting / error states ── */
+    .spinner { width: 48px; height: 48px; border: 3px solid #DBEAFE; border-top-color: #2563EB; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1.25rem; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .btn-primary {
+      display: inline-block;
+      background: #2563EB;
+      color: white;
+      font-family: inherit;
+      font-size: .9rem;
+      font-weight: 700;
+      padding: .75rem 1.5rem;
+      border-radius: 14px;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background .2s;
+    }
+    .btn-primary:hover { background: #1D4ED8; }
+    .btn-sandbox {
+      display: inline-block;
+      background: #FDE047;
+      color: #713F12;
+      font-family: inherit;
+      font-size: .9rem;
+      font-weight: 700;
+      padding: .75rem 1.5rem;
+      border-radius: 14px;
+      border: none;
+      cursor: pointer;
+      width: 100%;
+      transition: background .2s;
+    }
+    .btn-sandbox:hover { background: #FCD34D; }
   </style>
 </head>
-<body class="bg-[#F9FAFB] text-[#1F2937] font-body min-h-screen">
+<body>
 
-  <!-- Navbar -->
-  <nav class="bg-white border-b border-gray-100">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-      <a href="/" class="flex items-center gap-2">
-        <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v12M2 8h12" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>
+  <!-- 1. Waiting for payment state -->
+  <div id="waiting-payment" class="hidden" style="max-width:480px;margin:4rem auto;">
+    <div class="card" style="text-align:center;">
+      <div class="spinner"></div>
+      <h2 style="font-size:1.3rem;font-weight:700;margin-bottom:.5rem;">Menunggu Konfirmasi Pembayaran</h2>
+      <p style="color:#6B7280;font-size:.9rem;margin-bottom:.25rem;">Biasanya 1–2 menit setelah pembayaran berhasil</p>
+      <p style="font-size:.75rem;color:#9CA3AF;" id="poll-count-text"></p>
+      <div style="margin-top:1.5rem;display:flex;flex-direction:column;gap:.75rem;">
+        <button onclick="restartPolling()" id="check-btn" class="hidden btn-primary" style="width:100%;">
+          Cek Ulang Status Pembayaran
+        </button>
+        <a href="mailto:support@gaslamar.com" id="contact-btn" class="hidden" style="text-align:center;font-size:.85rem;color:#9CA3AF;text-decoration:none;">
+          Sudah lebih dari 5 menit? Hubungi Kami
+        </a>
+        <button onclick="sandboxConfirmPayment()" id="sandbox-pay-btn" class="hidden btn-sandbox">
+          🧪 Simulasi Pembayaran (Sandbox)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Session expired / error state -->
+  <div id="session-error" class="hidden" style="max-width:480px;margin:4rem auto;">
+    <div class="card" style="text-align:center;">
+      <div style="width:64px;height:64px;background:#FEF2F2;border-radius:20px;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M12 8v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#EF4444" stroke-width="2" stroke-linecap="round"/></svg>
+      </div>
+      <h2 style="font-size:1.3rem;font-weight:700;margin-bottom:.5rem;" id="error-title">Sesi Kedaluwarsa</h2>
+      <p style="color:#6B7280;font-size:.9rem;margin-bottom:1.5rem;" id="session-error-msg">Sesi kamu sudah kedaluwarsa. Mulai ulang dari awal.</p>
+      <a href="upload.html" class="btn-primary">Mulai Ulang</a>
+    </div>
+  </div>
+
+  <!-- 3. Generating CV state -->
+  <div id="generating-cv" class="hidden" style="max-width:720px;margin:0 auto;">
+    <div class="card">
+      <div class="progress-steps">
+        <div class="step completed">1. Upload</div>
+        <div class="step completed">2. Hasil</div>
+        <div class="step active">3. Download</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="file-badge">📄 <strong id="gen-filename">CV kamu</strong> · <span id="gen-tier">Single</span></div>
+      <div style="text-align:center;margin:1rem 0 1.5rem;">
+        <div class="pulse-icon">✍️✨</div>
+        <h3 style="margin-top:.75rem;font-weight:700;">AI sedang menulis CV tailored untuk kamu...</h3>
+        <p style="color:#5B6E8C;font-size:.85rem;margin-top:.25rem;">Biasanya 15–25 detik · Jangan tutup halaman</p>
+      </div>
+      <div class="progress-bar-wrap">
+        <div id="progress-bar" style="background:#2563EB;width:0%;height:100%;border-radius:100px;transition:width .3s ease;"></div>
+      </div>
+      <div class="step-list">
+        <div class="step-item"><span class="step-icon pending" id="gsi-1">○</span><span>📝 Menyesuaikan dengan job description &amp; CV asli</span></div>
+        <div class="step-item"><span class="step-icon pending" id="gsi-2">○</span><span>🔧 Menulis ulang bullet points (bilingual ID + EN)</span></div>
+        <div class="step-item"><span class="step-icon pending" id="gsi-3">○</span><span>📊 Menambahkan metrik &amp; kata kunci HR</span></div>
+        <div class="step-item"><span class="step-icon pending" id="gsi-4">○</span><span>✅ Menyusun CV akhir siap download</span></div>
+      </div>
+      <div class="timer-text" id="gen-timer">⏱️ Estimasi sisa: ~20 detik</div>
+      <div class="trust-rotator" id="gen-trust">🔒 CV tidak disimpan — data aman</div>
+      <div class="cancel-link">
+        <a href="hasil.html" onclick="return confirm('Batalkan proses penulisan?')">← Batalkan &amp; kembali ke hasil analisis</a>
+      </div>
+      <!-- compatibility: download.js reads this for text updates -->
+      <span id="generating-text" style="display:none;"></span>
+    </div>
+  </div>
+
+  <!-- 4. Download ready state -->
+  <div id="download-ready" class="hidden" style="max-width:980px;margin:0 auto;">
+
+    <!-- progress steps -->
+    <div class="card" style="padding-bottom:1rem;">
+      <div class="progress-steps compact">
+        <div class="step completed">1. Upload</div>
+        <div class="step completed">2. Hasil</div>
+        <div class="step active">3. Download</div>
+        <div class="step-line"></div>
+      </div>
+    </div>
+
+    <!-- main download card -->
+    <div class="card">
+      <div style="text-align:center;margin-bottom:2rem;">
+        <div class="success-icon">🎉</div>
+        <h2 style="font-size:1.8rem;font-weight:700;color:#1E3A8A;margin:.5rem 0 .25rem;">CV Kamu Sudah Siap!</h2>
+        <p style="color:#5B6E8C;">Klik tombol di bawah untuk download file CV kamu</p>
+      </div>
+
+      <!-- download grid: ID always shown; EN shown for bilingual tiers via JS -->
+      <div class="download-grid">
+        <div class="lang-section">
+          <div class="lang-title">🇮🇩 Bahasa Indonesia</div>
+          <button class="btn-download" onclick="downloadFile('id','docx')">
+            <span>📄 CV Indonesia — DOCX</span>
+            <span class="btn-download-size">Untuk diedit di Word</span>
+          </button>
+          <button class="btn-download" onclick="downloadFile('id','pdf')">
+            <span>📑 CV Indonesia — PDF</span>
+            <span class="btn-download-size">Siap dikirim ke HRD</span>
+          </button>
         </div>
-        <span class="font-heading font-bold text-xl text-primary">GasLamar</span>
+        <!-- English: hidden until JS reveals it for bilingual tiers -->
+        <div class="lang-section hidden" id="en-section">
+          <div class="lang-title">🇬🇧 English</div>
+          <button class="btn-download" onclick="downloadFile('en','docx')">
+            <span>📄 CV English — DOCX</span>
+            <span class="btn-download-size">For editing in Word</span>
+          </button>
+          <button class="btn-download" onclick="downloadFile('en','pdf')">
+            <span>📑 CV English — PDF</span>
+            <span class="btn-download-size">For international applications</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="tips-box">
+        <h4>💡 Tips Submit CV</h4>
+        <ul>
+          <li>✅ Kirim PDF ke HRD via email — lebih rapi dari DOCX</li>
+          <li>✅ Gunakan format nama file: "Nama-Posisi-Perusahaan.pdf"</li>
+          <li>✅ Cek sekali lagi nama, no. HP, dan email sebelum kirim</li>
+          <li>✅ CV Bahasa Inggris untuk loker MNC dan remote job internasional</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Mobile fallback — plain text (hidden, revealed on mobile or error) -->
+    <div id="mobile-fallback" class="hidden" style="background:#FEFCE8;border:1px solid #FDE68A;border-radius:20px;padding:1.2rem;margin-bottom:1.5rem;">
+      <p style="font-size:.85rem;font-weight:600;color:#92400E;margin-bottom:.75rem;">Tidak bisa download? Salin teks CV di bawah ini</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div>
+          <p style="font-size:.75rem;font-weight:600;color:#6B7280;margin-bottom:.25rem;">Bahasa Indonesia</p>
+          <textarea id="cv-text-id" readonly rows="8" style="width:100%;font-size:.75rem;border:1px solid #FDE68A;border-radius:12px;padding:.5rem;resize:none;background:white;font-family:inherit;"></textarea>
+          <button onclick="copyText('cv-text-id')" style="font-size:.75rem;color:#2563EB;font-weight:600;background:none;border:none;cursor:pointer;margin-top:.25rem;font-family:inherit;">Salin</button>
+        </div>
+        <div id="en-fallback" class="hidden">
+          <p style="font-size:.75rem;font-weight:600;color:#6B7280;margin-bottom:.25rem;">English</p>
+          <textarea id="cv-text-en" readonly rows="8" style="width:100%;font-size:.75rem;border:1px solid #FDE68A;border-radius:12px;padding:.5rem;resize:none;background:white;font-family:inherit;"></textarea>
+          <button onclick="copyText('cv-text-en')" style="font-size:.75rem;color:#2563EB;font-weight:600;background:none;border:none;cursor:pointer;margin-top:.25rem;font-family:inherit;">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Multi-credit: generate for next job (3-Pack / JobHunt) -->
+    <div id="multi-credit-section" class="hidden card">
+      <div class="credits-box">
+        <span style="font-size:.8rem;">✨ Kamu masih punya</span>
+        <div class="credits-number"><span id="credits-remaining-count">0</span> kredit tersisa</div>
+        <p style="font-size:.8rem;margin-top:.25rem;">Tempel job description loker berikutnya — CV akan di-tailoring ulang dari CV aslimu</p>
+      </div>
+      <div class="next-jd-box">
+        <label style="font-weight:600;font-size:.9rem;">📋 Job Description / Lowongan Berikutnya</label>
+        <textarea id="new-job-desc" rows="4" placeholder="Paste bagian Requirements dan Responsibilities dari loker selanjutnya..."
+          style="width:100%;border:1px solid #E2E8F0;border-radius:20px;padding:1rem;font-family:inherit;font-size:.9rem;resize:vertical;margin:.5rem 0;display:block;"></textarea>
+        <button id="new-job-btn" onclick="generateForNewJob()"
+          style="background:#2563EB;color:white;border:none;border-radius:60px;padding:.8rem 1.5rem;font-weight:700;width:100%;cursor:pointer;font-family:inherit;font-size:1rem;">
+          🚀 Generate CV untuk Loker Ini
+        </button>
+      </div>
+      <div class="trust-footer">🔒 CV tidak disimpan secara permanen · Link download berlaku 30 hari · Kamu bisa generate kapan saja</div>
+    </div>
+
+    <!-- CTA when no credits remain -->
+    <div style="text-align:center;padding-bottom:2rem;">
+      <p style="color:#6B7280;font-size:.9rem;margin-bottom:.75rem;">Melamar ke tempat lain juga?</p>
+      <a href="upload.html" style="display:inline-block;background:#2563EB;color:white;font-weight:700;padding:.8rem 2rem;border-radius:60px;text-decoration:none;">
+        🔄 Tailoring CV untuk Loker Lain →
       </a>
-      <div class="flex sm:hidden text-xs font-semibold text-primary">Langkah 3 / 3 — Download</div>
-      <div class="hidden sm:flex items-center gap-2 text-sm">
-        <span class="flex items-center gap-1.5 text-accent font-semibold">
-          <span class="w-6 h-6 bg-accent text-white rounded-full flex items-center justify-center">
-            <svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          </span>
-          Upload
-        </span>
-        <span class="text-gray-300">→</span>
-        <span class="flex items-center gap-1.5 text-accent font-semibold">
-          <span class="w-6 h-6 bg-accent text-white rounded-full flex items-center justify-center">
-            <svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          </span>
-          Hasil
-        </span>
-        <span class="text-gray-300">→</span>
-        <span class="flex items-center gap-1.5 text-primary font-semibold">
-          <span class="w-6 h-6 bg-primary text-white rounded-full flex items-center justify-center text-xs font-bold">3</span>
-          Download
-        </span>
-      </div>
-    </div>
-  </nav>
-
-  <main class="max-w-4xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
-
-    <!-- Waiting for payment state -->
-    <div id="waiting-payment" class="hidden text-center py-16">
-      <div class="bg-white rounded-2xl border border-gray-100 p-10 max-w-md mx-auto">
-        <div class="spinner w-12 h-12 border-3 border-primary border-t-transparent rounded-full mx-auto mb-5"></div>
-        <h2 class="font-heading font-bold text-xl mb-2">Menunggu Konfirmasi Pembayaran</h2>
-        <p class="text-gray-500 text-sm mb-2">Biasanya 1–2 menit setelah pembayaran berhasil</p>
-        <p class="text-xs text-gray-400" id="poll-count-text"></p>
-        <div class="mt-6 space-y-3">
-          <button onclick="restartPolling()" id="check-btn" class="hidden w-full bg-primary text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition-colors text-sm">
-            Cek Ulang Status Pembayaran
-          </button>
-          <a href="mailto:support@gaslamar.com" id="contact-btn" class="hidden block text-center text-sm text-gray-400 hover:text-primary transition-colors">
-            Sudah lebih dari 5 menit? Hubungi Kami
-          </a>
-          <!-- Sandbox only: simulate payment for testing (hidden in production) -->
-          <button onclick="sandboxConfirmPayment()" id="sandbox-pay-btn" class="hidden w-full bg-yellow-400 text-yellow-900 font-bold py-3 rounded-xl hover:bg-yellow-300 transition-colors text-sm">
-            🧪 Simulasi Pembayaran (Sandbox)
-          </button>
-        </div>
-      </div>
     </div>
 
-    <!-- Session expired / error state -->
-    <div id="session-error" class="hidden text-center py-16">
-      <div class="bg-white rounded-2xl border border-red-200 p-10 max-w-md mx-auto">
-        <div class="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M12 8v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#EF4444" stroke-width="2" stroke-linecap="round"/></svg>
-        </div>
-        <h2 class="font-heading font-bold text-xl mb-2" id="error-title">Sesi Kedaluwarsa</h2>
-        <p class="text-gray-500 text-sm mb-6" id="session-error-msg">Sesi kamu sudah kedaluwarsa. Mulai ulang dari awal.</p>
-        <a href="upload.html" class="inline-block bg-primary text-white font-bold px-6 py-3 rounded-xl hover:bg-blue-700 transition-colors">
-          Mulai Ulang
-        </a>
-      </div>
-    </div>
-
-    <!-- Generating CV state -->
-    <div id="generating-cv" class="hidden" style="max-width:720px;margin:2rem auto;padding:0 1rem;">
-      <div class="gen-card">
-        <div class="gen-progress-steps">
-          <div class="gen-step completed">1. Upload</div>
-          <div class="gen-step completed">2. Hasil</div>
-          <div class="gen-step active">3. Download</div>
-          <div class="gen-step-line"></div>
-        </div>
-        <div class="file-badge" id="gen-file-badge">📄 <strong id="gen-filename">CV kamu</strong> · <span id="gen-tier">Single</span></div>
-        <div style="text-align:center;margin:1rem 0 1.5rem;">
-          <div class="pulse-icon">✍️✨</div>
-          <h3 style="margin-top:.75rem;font-weight:700;font-family:inherit;">AI sedang menulis CV tailored untuk kamu...</h3>
-          <p style="color:#5B6E8C;font-size:.85rem;">Biasanya 15–25 detik · Jangan tutup halaman</p>
-        </div>
-        <div class="gen-progress-bar-wrap">
-          <div id="progress-bar" style="background:#2563EB;width:0%;height:100%;border-radius:100px;transition:width .3s ease;"></div>
-        </div>
-        <div class="gen-step-list">
-          <div class="gen-step-item"><span class="gen-step-icon pending" id="gsi-1">○</span><span>📝 Menyesuaikan dengan job description & CV asli</span></div>
-          <div class="gen-step-item"><span class="gen-step-icon pending" id="gsi-2">○</span><span>🔧 Menulis ulang bullet points (bilingual ID + EN)</span></div>
-          <div class="gen-step-item"><span class="gen-step-icon pending" id="gsi-3">○</span><span>📊 Menambahkan metrik & kata kunci HR</span></div>
-          <div class="gen-step-item"><span class="gen-step-icon pending" id="gsi-4">○</span><span>✅ Menyusun CV akhir siap download</span></div>
-        </div>
-        <div class="gen-timer" id="gen-timer">⏱️ Estimasi sisa: ~20 detik</div>
-        <div class="gen-trust" id="gen-trust">🔒 CV tidak disimpan — data aman</div>
-        <div class="gen-edit-link">
-          <a href="hasil.html" onclick="return confirm('Batalkan proses penulisan?')">← Batalkan & kembali ke hasil analisis</a>
-        </div>
-        <!-- compatibility: download.js reads this for text updates -->
-        <span id="generating-text" style="display:none;"></span>
-      </div>
-    </div>
-
-    <!-- Download ready state -->
-    <div id="download-ready" class="hidden" style="max-width:980px;margin:2rem auto;padding:0 1rem;">
-
-      <!-- progress steps -->
-      <div class="dl-card" style="padding-bottom:1rem;margin-bottom:1.5rem;">
-        <div class="gen-progress-steps">
-          <div class="gen-step completed">1. Upload</div>
-          <div class="gen-step completed">2. Hasil</div>
-          <div class="gen-step active">3. Download</div>
-          <div class="gen-step-line"></div>
-        </div>
-      </div>
-
-      <!-- main download card -->
-      <div class="dl-card">
-        <div style="text-align:center;margin-bottom:2rem;">
-          <div class="dl-success-icon">🎉</div>
-          <h2 style="font-size:1.8rem;font-weight:700;color:#1E3A8A;margin:.5rem 0 .25rem;">CV Kamu Sudah Siap!</h2>
-          <p style="color:#5B6E8C;">Klik tombol di bawah untuk download file CV kamu</p>
-        </div>
-
-        <!-- download grid: always show ID, EN shown for bilingual tiers -->
-        <div class="dl-grid">
-          <div class="dl-lang-box">
-            <div class="dl-lang-title">🇮🇩 Bahasa Indonesia</div>
-            <button class="dl-btn" onclick="downloadFile('id','docx')">
-              <span>📄 CV Indonesia — DOCX</span>
-              <span class="dl-btn-size">Untuk diedit di Word</span>
-            </button>
-            <button class="dl-btn" onclick="downloadFile('id','pdf')">
-              <span>📑 CV Indonesia — PDF</span>
-              <span class="dl-btn-size">Siap dikirim ke HRD</span>
-            </button>
-          </div>
-          <!-- English section: hidden for coba tier, shown for single/3pack/jobhunt -->
-          <div class="dl-lang-box" id="en-section" style="display:none;">
-            <div class="dl-lang-title">🇬🇧 English</div>
-            <button class="dl-btn" onclick="downloadFile('en','docx')">
-              <span>📄 CV English — DOCX</span>
-              <span class="dl-btn-size">For editing in Word</span>
-            </button>
-            <button class="dl-btn" onclick="downloadFile('en','pdf')">
-              <span>📑 CV English — PDF</span>
-              <span class="dl-btn-size">For international applications</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- tips -->
-        <div class="dl-tips">
-          <h4>💡 Tips Submit CV</h4>
-          <ul>
-            <li>✅ Kirim PDF ke HRD via email — lebih rapi dari DOCX</li>
-            <li>✅ Gunakan format nama file: "Nama-Posisi-Perusahaan.pdf"</li>
-            <li>✅ Cek sekali lagi nama, no. HP, dan email sebelum kirim</li>
-            <li>✅ CV Bahasa Inggris untuk loker MNC dan remote job internasional</li>
-          </ul>
-        </div>
-      </div>
-
-      <!-- Mobile fallback — plain text (hidden, revealed on mobile or error) -->
-      <div id="mobile-fallback" class="hidden" style="background:#FEFCE8;border:1px solid #FDE68A;border-radius:20px;padding:1.2rem;margin-bottom:1.5rem;">
-        <p style="font-size:.85rem;font-weight:600;color:#92400E;margin-bottom:.75rem;">Tidak bisa download? Salin teks CV di bawah ini</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-          <div>
-            <p style="font-size:.75rem;font-weight:600;color:#6B7280;margin-bottom:.25rem;">Bahasa Indonesia</p>
-            <textarea id="cv-text-id" readonly rows="8" style="width:100%;font-size:.75rem;border:1px solid #FDE68A;border-radius:12px;padding:.5rem;resize:none;background:white;"></textarea>
-            <button onclick="copyText('cv-text-id')" style="font-size:.75rem;color:#2563EB;font-weight:600;background:none;border:none;cursor:pointer;margin-top:.25rem;">Salin</button>
-          </div>
-          <div id="en-fallback" class="hidden">
-            <p style="font-size:.75rem;font-weight:600;color:#6B7280;margin-bottom:.25rem;">English</p>
-            <textarea id="cv-text-en" readonly rows="8" style="width:100%;font-size:.75rem;border:1px solid #FDE68A;border-radius:12px;padding:.5rem;resize:none;background:white;"></textarea>
-            <button onclick="copyText('cv-text-en')" style="font-size:.75rem;color:#2563EB;font-weight:600;background:none;border:none;cursor:pointer;margin-top:.25rem;">Copy</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Multi-credit: generate for next job (3-Pack / JobHunt) -->
-      <div id="multi-credit-section" class="hidden dl-card">
-        <div class="dl-credits-box">
-          <span style="font-size:.8rem;">✨ Kamu masih punya</span>
-          <div class="dl-credits-num"><span id="credits-remaining-count">0</span> kredit tersisa</div>
-          <p style="font-size:.8rem;">Tempel job description loker berikutnya — CV akan di-tailoring ulang dari CV aslimu</p>
-        </div>
-        <div class="dl-next-jd">
-          <label style="font-weight:600;font-size:.9rem;">📋 Job Description / Lowongan Berikutnya</label>
-          <textarea id="new-job-desc" rows="4" placeholder="Paste bagian Requirements dan Responsibilities dari loker selanjutnya..."
-            style="width:100%;border:1px solid #E2E8F0;border-radius:20px;padding:1rem;font-family:inherit;font-size:.9rem;resize:vertical;margin:.5rem 0;display:block;"></textarea>
-          <button id="new-job-btn" onclick="generateForNewJob()"
-            style="background:#2563EB;color:white;border:none;border-radius:60px;padding:.8rem 1.5rem;font-weight:700;width:100%;cursor:pointer;font-family:inherit;font-size:1rem;">
-            🚀 Generate CV untuk Loker Ini
-          </button>
-        </div>
-        <div class="dl-trust-footer">🔒 CV tidak disimpan secara permanen · Link download berlaku 7 hari · Bisa diunduh 3 kali per file</div>
-      </div>
-
-      <!-- CTA when no credits remain -->
-      <div style="text-align:center;padding-bottom:2rem;">
-        <p style="color:#6B7280;font-size:.9rem;margin-bottom:.75rem;">Melamar ke tempat lain juga?</p>
-        <a href="upload.html" style="display:inline-block;background:#2563EB;color:white;font-weight:700;padding:.8rem 2rem;border-radius:60px;text-decoration:none;">
-          🔄 Tailoring CV untuk Loker Lain →
-        </a>
-      </div>
-
-    </div>
-  </main>
+  </div>
 
   <script src="js/config.js"></script>
   <script src="js/download.js"></script>
   <script>
-    // ── Patch showDownloadReady to handle en-section with inline style ──
-    // download.js uses classList.remove('hidden') but our en-section uses display:none
-    const _origShowDownloadReady = showDownloadReady;
-    function showDownloadReady(cvId, cvEn, tier, isBilingual, creditsRemaining) {
-      _origShowDownloadReady(cvId, cvEn, tier, isBilingual, creditsRemaining);
-      // en-section uses inline style in new design
-      const enSection = document.getElementById('en-section');
-      if (enSection && isBilingual && cvEn) {
-        enSection.style.display = '';
-      }
-      // Populate gen-file-badge on download ready too (in case generating state set it)
-      const filename = sessionStorage.getItem('gaslamar_filename') || 'CV kamu';
-      const tierLabel = { coba:'Coba Dulu', single:'Single', '3pack':'3-Pack', jobhunt:'Job Hunt Pack' }[tier] || tier;
-      document.getElementById('gen-filename').textContent = filename;
-      document.getElementById('gen-tier').textContent = 'Paket: ' + tierLabel;
-    }
-
-    // ── Generating state animation ──
+    // ── Generating animation ──
     const GEN_TRUST_MSGS = [
       '🔒 CV tidak disimpan — data aman',
       '⚡ Rata-rata penulisan CV: 20 detik',
@@ -323,7 +357,6 @@
     let _genTrustIdx = 0, _genTrustTimer = null, _genTimerTimer = null, _genStartTime = null;
 
     function startGeneratingAnimation() {
-      // Populate file badge from sessionStorage
       const filename = sessionStorage.getItem('gaslamar_filename') || 'CV kamu';
       const tier = sessionStorage.getItem('gaslamar_tier') || 'single';
       const tierLabel = { coba:'Coba Dulu', single:'Single', '3pack':'3-Pack', jobhunt:'Job Hunt Pack' }[tier] || tier;
@@ -331,14 +364,12 @@
       document.getElementById('gen-tier').textContent = 'Paket: ' + tierLabel;
 
       _genStartTime = Date.now();
-      // Trust message rotation
       _genTrustTimer = setInterval(() => {
         _genTrustIdx = (_genTrustIdx + 1) % GEN_TRUST_MSGS.length;
         const el = document.getElementById('gen-trust');
         el.style.opacity = '0';
         setTimeout(() => { el.textContent = GEN_TRUST_MSGS[_genTrustIdx]; el.style.opacity = '1'; }, 150);
       }, 5000);
-      // Countdown timer
       const EST = 22;
       _genTimerTimer = setInterval(() => {
         const elapsed = (Date.now() - _genStartTime) / 1000;
@@ -356,41 +387,37 @@
 
     // Map progress % → step icons
     function updateGenSteps(pct) {
-      const thresholds = [10, 40, 70, 90]; // activate steps at these %
+      const thresholds = [10, 40, 70, 90];
       for (let i = 1; i <= 4; i++) {
         const el = document.getElementById('gsi-' + i);
         if (!el) continue;
-        if (pct >= (thresholds[i-1] + 20)) { // done
-          el.textContent = '✓'; el.className = 'gen-step-icon done';
-        } else if (pct >= thresholds[i-1]) { // active
-          el.textContent = '⟳'; el.className = 'gen-step-icon spin';
-        } else { // pending
-          el.textContent = '○'; el.className = 'gen-step-icon pending';
+        if (pct >= thresholds[i-1] + 20) {
+          el.textContent = '✓'; el.className = 'step-icon done';
+        } else if (pct >= thresholds[i-1]) {
+          el.textContent = '⟳'; el.className = 'step-icon spin';
+        } else {
+          el.textContent = '○'; el.className = 'step-icon pending';
         }
       }
     }
 
-    // Patch setProgress to also drive step animations
-    const _origSetProgress = setProgress;
-    function setProgress(pct) {
-      _origSetProgress(pct);
-      updateGenSteps(pct);
-    }
+    // Use MutationObserver to hook into download.js state changes without patching functions
+    // (function patching causes hoisting bugs — MutationObserver is safe)
 
-    // Patch showState to start/stop animation
-    const _origShowState = showState;
-    function showState(id) {
-      _origShowState(id);
-      if (id === 'generating-cv') {
-        startGeneratingAnimation();
-      } else {
-        stopGeneratingAnimation();
-      }
-    }
+    // Watch generating-cv visibility → start/stop animation
+    new MutationObserver(() => {
+      const el = document.getElementById('generating-cv');
+      if (!el.classList.contains('hidden')) startGeneratingAnimation();
+      else stopGeneratingAnimation();
+    }).observe(document.getElementById('generating-cv'), { attributes: true, attributeFilter: ['class'] });
+
+    // Watch progress-bar width → update step icons
+    new MutationObserver(() => {
+      const pct = parseFloat(document.getElementById('progress-bar').style.width) || 0;
+      updateGenSteps(pct);
+    }).observe(document.getElementById('progress-bar'), { attributes: true, attributeFilter: ['style'] });
 
     // ── Sandbox detection ──
-    // Show sandbox button by probing the /sandbox/pay endpoint
-    // Returns 404 in production — button stays hidden
     (function checkSandbox() {
       fetch(WORKER_URL + '/sandbox/pay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
         .then(r => { if (r.status !== 404) document.getElementById('sandbox-pay-btn').classList.remove('hidden'); })

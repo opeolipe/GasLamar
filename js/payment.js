@@ -40,6 +40,42 @@ function selectTier(tier) {
     btn.disabled = false;
     btn.textContent = `Bayar Rp ${config.price.toLocaleString('id-ID')} — ${config.label} →`;
   }
+
+  // Transform email section based on tier
+  updateEmailSection(tier);
+}
+
+function updateEmailSection(tier) {
+  const isMulti = tier === '3pack' || tier === 'jobhunt';
+  const card = document.getElementById('email-card');
+  const defaultView = document.getElementById('email-default');
+  const multiView = document.getElementById('email-multi');
+  const input = document.getElementById('email-input');
+  if (!card || !defaultView || !multiView || !input) return;
+
+  if (isMulti) {
+    const slot = document.getElementById('email-multi-slot');
+    if (slot && !slot.contains(input)) slot.appendChild(input);
+    card.style.borderColor = '#F59E0B';
+    card.style.background = '#FFFBEB';
+    defaultView.style.display = 'none';
+    multiView.style.display = 'block';
+    document.getElementById('credit-label').textContent = tier === '3pack' ? '3 loker' : '10 loker';
+    input.placeholder = 'nama@gmail.com';
+    input.style.cssText = 'width:100%;padding:0.75rem 1rem;border:1.5px solid #D97706;border-radius:10px;font-size:0.95rem;box-sizing:border-box;';
+  } else {
+    const slot = document.getElementById('email-default-slot');
+    if (slot && !slot.contains(input)) slot.appendChild(input);
+    card.style.borderColor = '';
+    card.style.background = '';
+    defaultView.style.display = 'block';
+    multiView.style.display = 'none';
+    input.placeholder = 'email kamu';
+    input.style.cssText = '';
+    // Clear any error state
+    const errEl = document.getElementById('email-error');
+    if (errEl) errEl.style.display = 'none';
+  }
 }
 
 async function proceedToPayment() {
@@ -53,9 +89,30 @@ async function proceedToPayment() {
     return;
   }
 
-  // Optional: pick up email entered in the capture form on this page
+  // Email: required for multi-credit tiers, optional for single/coba
   const emailInput = document.getElementById('email-input');
-  const capturedEmail = emailInput && emailInput.value.trim() || null;
+  const capturedEmail = emailInput ? emailInput.value.trim() : '';
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(capturedEmail);
+  const isMultiCredit = selectedTier === '3pack' || selectedTier === 'jobhunt';
+
+  if (isMultiCredit && !emailValid) {
+    const errEl = document.getElementById('email-error');
+    if (errEl) errEl.style.display = 'block';
+    if (emailInput) {
+      emailInput.style.borderColor = '#DC2626';
+      emailInput.focus();
+    }
+    return;
+  }
+  // Clear any previous error
+  const errEl = document.getElementById('email-error');
+  if (errEl) errEl.style.display = 'none';
+  if (emailInput) emailInput.style.borderColor = '';
+
+  // Store email in sessionStorage for use on download page
+  if (capturedEmail && emailValid) {
+    sessionStorage.setItem('gaslamar_email', capturedEmail);
+  }
 
   // Prevent double payment
   paymentInProgress = true;

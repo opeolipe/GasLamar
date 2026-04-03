@@ -939,13 +939,15 @@ async function handleGetSession(request, env) {
     return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa' }, 404, request, env);
   }
 
-  // Strict status check — only allow 'paid'
-  if (session.status !== 'paid') {
+  // Allow 'paid' (first time) or 'generating' (retry after failed /generate)
+  if (session.status !== 'paid' && session.status !== 'generating') {
     return jsonResponse({ message: 'Pembayaran belum dikonfirmasi' }, 403, request, env);
   }
 
-  // Mark as generating to prevent race conditions
-  await updateSession(env, session_id, { status: 'generating' });
+  // Only transition paid → generating once; already-generating sessions stay generating
+  if (session.status === 'paid') {
+    await updateSession(env, session_id, { status: 'generating' });
+  }
 
   return jsonResponse({
     cv: session.cv_text,

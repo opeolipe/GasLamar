@@ -578,16 +578,35 @@
       </div>
     </div>
 
-    <!-- Email capture -->
-    <div class="gl-card">
-      <div class="email-capture-box">
-        <div style="font-weight:600;">Mau dapat tips CV &amp; contoh rewrite gratis?</div>
-        <div id="email-capture-form" class="email-input-group">
+    <!-- Email capture (transforms based on selected tier) -->
+    <div class="gl-card" id="email-card">
+      <!-- Default view: single / coba tiers -->
+      <div id="email-default">
+        <div style="font-weight:600; margin-bottom:0.5rem;">Email untuk konfirmasi pembayaran</div>
+        <div class="email-input-group" id="email-default-slot">
           <input type="email" id="email-input" placeholder="email kamu" autocomplete="email">
-          <button id="email-submit-btn" class="btn-send-email" onclick="submitEmail()">Kirim ke saya</button>
         </div>
         <p id="email-status" style="font-size:0.7rem; margin-top:0.5rem; color:#6B7280;"></p>
-        <p style="font-size:0.7rem; margin-top:0.3rem; color:#9CA3AF;">Tidak spam. Hanya insight &amp; update penting.</p>
+      </div>
+      <!-- Multi-credit view: 3pack / jobhunt — shown via JS on tier select -->
+      <div id="email-multi" style="display:none;">
+        <div style="display:flex; align-items:flex-start; gap:0.75rem;">
+          <span style="font-size:1.5rem; line-height:1;">📧</span>
+          <div style="flex:1;">
+            <div style="font-weight:700; font-size:1rem; margin-bottom:0.25rem;">
+              Masukkan email aktif kamu <span style="color:#DC2626;">*</span>
+            </div>
+            <p style="font-size:0.85rem; color:#92400E; margin-bottom:0.75rem; line-height:1.5;">
+              Link download dikirim ke email ini. Kamu bisa pakai link itu untuk generate CV baru ke
+              <strong id="credit-label">3 loker</strong> berbeda kapan saja dalam
+              <strong>30 hari</strong> — tanpa login.
+            </p>
+            <div id="email-multi-slot"></div>
+            <p id="email-error" style="display:none; color:#DC2626; font-size:0.8rem; margin-top:0.4rem;">
+              ⚠️ Email wajib diisi — link download CV kamu akan dikirim ke sini
+            </p>
+          </div>
+        </div>
       </div>
     </div>
 
