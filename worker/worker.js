@@ -668,6 +668,24 @@ async function handleCreatePayment(request, env) {
   // Create session
   const sessionId = `sess_${crypto.randomUUID()}`;
 
+  const credits = TIER_CREDITS[tier] ?? 1;
+
+  // Sandbox: skip Mayar entirely — session goes straight to pending, frontend uses /sandbox/pay
+  if (env.ENVIRONMENT !== 'production') {
+    await env.GASLAMAR_SESSIONS.delete(cv_text_key);
+    await createSession(env, sessionId, {
+      cv_text: stored.text,
+      job_desc: stored.job_desc,
+      tier,
+      status: 'pending',
+      credits_remaining: credits,
+      total_credits: credits,
+      ip,
+      ...(sessionEmail ? { email: sessionEmail } : {}),
+    });
+    return jsonResponse({ session_id: sessionId, is_sandbox: true }, 200, request, env);
+  }
+
   try {
     // Create Mayar invoice first — if this fails, cv_text_key is still intact and user can retry
     const { invoice_id, invoice_url } = await createMayarInvoice(sessionId, tier, env);
@@ -676,7 +694,6 @@ async function handleCreatePayment(request, env) {
     await env.GASLAMAR_SESSIONS.delete(cv_text_key);
 
     // Store session in KV using pre-extracted text from /analyze
-    const credits = TIER_CREDITS[tier] ?? 1;
     await createSession(env, sessionId, {
       cv_text: stored.text,
       job_desc: stored.job_desc,

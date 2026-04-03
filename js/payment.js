@@ -92,7 +92,7 @@ async function proceedToPayment() {
       throw new Error(errMsg);
     }
 
-    const { session_id, invoice_url } = await response.json();
+    const { session_id, invoice_url, is_sandbox } = await response.json();
 
     // Save session to localStorage (backup if user closes tab)
     localStorage.setItem('gaslamar_session', session_id);
@@ -101,9 +101,15 @@ async function proceedToPayment() {
     // Save to sessionStorage too
     sessionStorage.setItem('gaslamar_session', session_id);
 
-    // Redirect to Mayar payment page
-    btn.textContent = 'Mengalihkan ke halaman pembayaran...';
-    window.location.href = invoice_url;
+    if (is_sandbox) {
+      // Sandbox: skip Mayar, go directly to download page with Simulasi Pembayaran button
+      btn.textContent = 'Mengalihkan...';
+      window.location.href = `${window.location.origin}/download.html?session=${encodeURIComponent(session_id)}`;
+    } else {
+      // Production: redirect to real Mayar payment page
+      btn.textContent = 'Mengalihkan ke halaman pembayaran...';
+      window.location.href = invoice_url;
+    }
 
   } catch (err) {
     clearTimeout(timeout);
