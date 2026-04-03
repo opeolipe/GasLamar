@@ -140,7 +140,16 @@ async function extractCVText(cvData, env) {
       return { success: true, text };
     }
 
-    // Use Claude to extract text from the document
+    // DOCX: extract text locally via ZIP+XML parsing (no API call needed)
+    if (parsed.type === 'docx') {
+      const text = await extractTextFromDOCX(parsed.data);
+      if (text.length < 100) {
+        return { success: false, error: 'CV kamu tidak bisa dibaca. Pastikan CV berisi teks, bukan tabel gambar atau file hasil scan.' };
+      }
+      return { success: true, text };
+    }
+
+    // PDF: use Claude document API
     const response = await callClaude(
       env,
       'Ekstrak semua teks dari dokumen CV ini. Output hanya teks mentah tanpa formatting tambahan.',
@@ -156,8 +165,59 @@ async function extractCVText(cvData, env) {
 
     return { success: true, text };
   } catch (e) {
-    return { success: false, error: 'Gagal memproses file CV' };
+    console.error('[extractCVText]', e.message);
+    return { success: false, error: 'Gagal memproses file CV: ' + e.message };
   }
+}
+
+// ---- DOCX text extraction (client-side ZIP+XML parsing) ----
+
+async function extractTextFromDOCX(base64Data) {
+  const binaryStr = atob(base64Data);
+  const bytes = new Uint8Array(binaryStr.length);
+  for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+
+  const target = 'word/document.xml';
+
+  for (let i = 0; i < bytes.length - 30; i++) {
+    // ZIP local file header signature: PK\x03\x04
+    if (bytes[i] !== 0x50 || bytes[i+1] !== 0x4B || bytes[i+2] !== 0x03 || bytes[i+3] !== 0x04) continue;
+
+    const comprMethod   = bytes[i+8]  | (bytes[i+9]  << 8);
+    const compressedSz  = bytes[i+18] | (bytes[i+19] << 8) | (bytes[i+20] << 16) | (bytes[i+21] << 24);
+    const filenameLen   = bytes[i+26] | (bytes[i+27] << 8);
+    const extraLen      = bytes[i+28] | (bytes[i+29] << 8);
+
+    const filename = new TextDecoder().decode(bytes.slice(i + 30, i + 30 + filenameLen));
+    if (filename !== target) continue;
+
+    const dataStart = i + 30 + filenameLen + extraLen;
+    const compressed = bytes.slice(dataStart, dataStart + compressedSz);
+
+    let xmlBytes;
+    if (comprMethod === 0) {
+      xmlBytes = compressed; // stored, no compression
+    } else if (comprMethod === 8) {
+      // raw DEFLATE (ZIP uses no zlib header)
+      const ds = new DecompressionStream('deflate-raw');
+      const writer = ds.writable.getWriter();
+      writer.write(compressed);
+      writer.close();
+      xmlBytes = new Uint8Array(await new Response(ds.readable).arrayBuffer());
+    } else {
+      throw new Error('Unsupported DOCX compression method: ' + comprMethod);
+    }
+
+    const xmlText = new TextDecoder('utf-8').decode(xmlBytes);
+    // Extract text from <w:t> elements, preserving space runs
+    const parts = [];
+    const re = /<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g;
+    let m;
+    while ((m = re.exec(xmlText)) !== null) parts.push(m[1]);
+    return parts.join(' ').replace(/\s+/g, ' ').trim();
+  }
+
+  throw new Error('word/document.xml not found in DOCX');
 }
 
 // ---- Claude API ----
@@ -179,27 +239,28 @@ async function callClaude(env, systemPrompt, userContent, maxTokens = 2000) {
       // Plain text — send directly as text message
       messages.push({ role: 'user', content: userContent.data });
     } else {
-      const mediaType = userContent.type === 'pdf'
-        ? 'application/pdf'
-        : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      // PDF document block (DOCX is handled before reaching callClaude)
       messages.push({
         role: 'user',
         content: [{
           type: 'document',
-          source: { type: 'base64', media_type: mediaType, data: userContent.data }
+          source: { type: 'base64', media_type: 'application/pdf', data: userContent.data }
         }]
       });
     }
   }
 
+  const headers = {
+    'Content-Type': 'application/json',
+    'x-api-key': apiKey,
+    'anthropic-version': '2023-06-01',
+    'anthropic-beta': 'pdfs-2024-09-25',
+  };
+
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
+      headers,
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: maxTokens,
