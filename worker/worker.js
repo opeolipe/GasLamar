@@ -1013,6 +1013,26 @@ async function handleSubmitEmail(request, env) {
   return jsonResponse({ ok: true }, 200, request, env);
 }
 
+// ---- Sandbox Test Helper ----
+
+async function handleSandboxPay(request, env) {
+  let body;
+  try { body = await request.json(); } catch { return jsonResponse({ message: 'Invalid JSON' }, 400, request, env); }
+
+  const { session_id } = body;
+  if (!session_id || !session_id.startsWith('sess_')) {
+    return jsonResponse({ message: 'Invalid session_id' }, 400, request, env);
+  }
+
+  const session = await getSession(env, session_id);
+  if (!session) return jsonResponse({ message: 'Session not found' }, 404, request, env);
+  if (session.status === 'paid') return jsonResponse({ ok: true, already_paid: true }, 200, request, env);
+
+  await updateSession(env, session_id, { status: 'paid', paid_at: Date.now() });
+  console.log({ event: 'sandbox_payment_confirmed', sessionId: session_id });
+  return jsonResponse({ ok: true }, 200, request, env);
+}
+
 // ---- Main Handler ----
 
 export default {
@@ -1056,6 +1076,14 @@ export default {
 
       if (method === 'POST' && pathname === '/submit-email') {
         return handleSubmitEmail(request, env);
+      }
+
+      // Sandbox-only: simulate payment confirmation for testing (blocked in production)
+      if (method === 'POST' && pathname === '/sandbox/pay') {
+        if (env.ENVIRONMENT === 'production') {
+          return jsonResponse({ message: 'Not found' }, 404, request, env);
+        }
+        return handleSandboxPay(request, env);
       }
 
       if (pathname === '/health') {

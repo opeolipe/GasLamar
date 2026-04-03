@@ -68,6 +68,10 @@
           <a href="mailto:support@gaslamar.com" id="contact-btn" class="hidden block text-center text-sm text-gray-400 hover:text-primary transition-colors">
             Sudah lebih dari 5 menit? Hubungi Kami
           </a>
+          <!-- Sandbox only: simulate payment for testing (hidden in production) -->
+          <button onclick="sandboxConfirmPayment()" id="sandbox-pay-btn" class="hidden w-full bg-yellow-400 text-yellow-900 font-bold py-3 rounded-xl hover:bg-yellow-300 transition-colors text-sm">
+            🧪 Simulasi Pembayaran (Sandbox)
+          </button>
         </div>
       </div>
     </div>
@@ -237,5 +241,40 @@
 
   <script src="js/config.js"></script>
   <script src="js/download.js"></script>
+  <script>
+    // Show sandbox button by probing the /sandbox/pay endpoint
+    // Returns 404 in production — button stays hidden
+    (function checkSandbox() {
+      fetch(WORKER_URL + '/sandbox/pay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        .then(r => { if (r.status !== 404) document.getElementById('sandbox-pay-btn').classList.remove('hidden'); })
+        .catch(() => {});
+    })();
+
+    async function sandboxConfirmPayment() {
+      const btn = document.getElementById('sandbox-pay-btn');
+      const params = new URLSearchParams(location.search);
+      const sessionId = params.get('session') || localStorage.getItem('gaslamar_session');
+      if (!sessionId) return;
+      btn.disabled = true;
+      btn.textContent = 'Mengkonfirmasi...';
+      try {
+        const res = await fetch(WORKER_URL + '/sandbox/pay', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: sessionId })
+        });
+        if (res.ok) {
+          btn.textContent = '✓ Dikonfirmasi — memuat CV...';
+          restartPolling();
+        } else {
+          btn.textContent = '🧪 Simulasi Pembayaran (Sandbox)';
+          btn.disabled = false;
+        }
+      } catch {
+        btn.textContent = '🧪 Simulasi Pembayaran (Sandbox)';
+        btn.disabled = false;
+      }
+    }
+  </script>
 </body>
 </html>
