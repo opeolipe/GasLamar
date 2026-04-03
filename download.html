@@ -16,6 +16,67 @@
   <!-- Run `npm install && npm run vendor` before deploying to generate js/vendor/ -->
   <script src="js/vendor/docx.js"></script>
   <script src="js/vendor/jspdf.umd.min.js"></script>
+  <style>
+    /* ── Generating state ── */
+    .gen-card {
+      background: white;
+      border-radius: 32px;
+      box-shadow: 0 20px 35px -12px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.02);
+      padding: 2rem;
+      border: 1px solid #EEF2F6;
+    }
+    .gen-progress-steps {
+      display: flex; justify-content: space-between;
+      margin-bottom: 2rem; position: relative;
+    }
+    .gen-step { flex:1; text-align:center; font-size:.85rem; font-weight:500; color:#9CA3AF; position:relative; background:white; z-index:1; }
+    .gen-step.completed { color:#2563EB; font-weight:600; }
+    .gen-step.completed::before { content:"✓"; display:block; font-size:.7rem; margin-bottom:4px; color:#10B981; font-weight:bold; }
+    .gen-step.active { color:#2563EB; font-weight:700; }
+    .gen-step.active::before { content:"●"; display:block; font-size:.7rem; margin-bottom:4px; color:#2563EB; }
+    .gen-step::before { content:"○"; display:block; font-size:.7rem; margin-bottom:4px; color:#D1D5DB; }
+    .gen-step-line { position:absolute; top:12px; left:0; right:0; height:1px; background:#E5E7EB; z-index:0; }
+    .file-badge {
+      background:#EFF6FF; border-radius:60px; padding:.5rem 1rem;
+      display:inline-flex; align-items:center; gap:8px;
+      font-size:.8rem; margin-bottom:1.8rem; color:#1D4ED8;
+    }
+    .pulse-icon { font-size:3rem; animation:dlPulse 1.2s infinite ease-in-out; display:inline-block; }
+    @keyframes dlPulse { 0%,100%{transform:scale(.95);opacity:.6} 50%{transform:scale(1.1);opacity:1} }
+    .gen-progress-bar-wrap { background:#E5E7EB; border-radius:100px; height:8px; width:100%; margin:1.5rem 0; overflow:hidden; }
+    .gen-step-list { background:#FAFCFE; border-radius:24px; padding:1.2rem; border:1px solid #DBEAFE; margin:2rem 0 1rem; }
+    .gen-step-item { display:flex; align-items:center; gap:12px; padding:.75rem 0; border-bottom:1px solid #E2E8F0; font-size:.9rem; color:#4B5563; }
+    .gen-step-item:last-child { border-bottom:none; }
+    .gen-step-icon { width:24px; font-size:1rem; text-align:center; }
+    .gen-step-icon.spin { display:inline-block; animation:dlSpin 1s linear infinite; color:#2563EB; }
+    .gen-step-icon.done { color:#10B981; }
+    .gen-step-icon.pending { color:#D1D5DB; }
+    @keyframes dlSpin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+    .gen-timer { font-size:.8rem; color:#2563EB; text-align:center; margin:.5rem 0; font-weight:500; }
+    .gen-trust { background:#EFF6FF; border-radius:60px; padding:.7rem 1rem; text-align:center; font-size:.8rem; font-weight:500; color:#1D4ED8; margin:1.5rem 0; transition:opacity .3s; }
+    .gen-edit-link { text-align:center; margin-top:1rem; }
+    .gen-edit-link a { color:#2563EB; text-decoration:none; font-size:.8rem; }
+    .gen-edit-link a:hover { text-decoration:underline; }
+
+    /* ── Download ready state ── */
+    .dl-card { background:white; border-radius:32px; box-shadow:0 20px 35px -12px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.02); padding:2rem; border:1px solid #EEF2F6; margin-bottom:1.5rem; }
+    .dl-success-icon { background:#EFF6FF; width:64px; height:64px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 1rem; font-size:2rem; }
+    .dl-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; margin:1.5rem 0; }
+    @media(max-width:640px){ .dl-grid{ grid-template-columns:1fr; } }
+    .dl-lang-box { background:#F8FAFC; border-radius:24px; padding:1.2rem; border:1px solid #DBEAFE; }
+    .dl-lang-title { font-size:1.1rem; font-weight:700; display:flex; align-items:center; gap:8px; margin-bottom:1rem; color:#1E3A8A; }
+    .dl-btn { background:white; border:1px solid #BFDBFE; border-radius:60px; padding:.7rem 1rem; font-size:.88rem; font-weight:500; display:flex; align-items:center; justify-content:space-between; cursor:pointer; transition:.2s; margin-bottom:.6rem; color:#1E3A8A; font-family:inherit; width:100%; }
+    .dl-btn:hover { border-color:#2563EB; background:#EFF6FF; transform:translateX(4px); }
+    .dl-btn-size { font-size:.7rem; color:#6B7280; }
+    .dl-tips { background:#EFF6FF; border-radius:20px; padding:1.2rem; margin:0 0 1.5rem; border-left:4px solid #2563EB; }
+    .dl-tips h4 { display:flex; align-items:center; gap:8px; margin-bottom:.75rem; color:#1E3A8A; }
+    .dl-tips ul { list-style:none; font-size:.85rem; }
+    .dl-tips ul li { margin:.4rem 0; display:flex; align-items:center; gap:6px; }
+    .dl-credits-box { background:#FEF9C3; border-radius:20px; padding:1rem; text-align:center; margin-bottom:1.5rem; }
+    .dl-credits-num { font-size:2rem; font-weight:800; color:#B45309; }
+    .dl-next-jd { background:#FAFCFE; border-radius:24px; padding:1.5rem; border:1px solid #E2E8F0; }
+    .dl-trust-footer { background:#F1F5F9; border-radius:20px; padding:.8rem; text-align:center; font-size:.75rem; color:#4B5563; margin-top:1.5rem; }
+  </style>
 </head>
 <body class="bg-[#F9FAFB] text-[#1F2937] font-body min-h-screen">
 
@@ -91,148 +152,140 @@
     </div>
 
     <!-- Generating CV state -->
-    <div id="generating-cv" class="hidden text-center py-16">
-      <div class="bg-white rounded-2xl border border-gray-100 p-10 max-w-md mx-auto">
-        <div class="spinner w-12 h-12 border-3 border-primary border-t-transparent rounded-full mx-auto mb-5"></div>
-        <h2 class="font-heading font-bold text-xl mb-2">AI Sedang Menulis CV Kamu</h2>
-        <p class="text-gray-500 text-sm" id="generating-text">Tailoring CV untuk posisi yang kamu lamar...</p>
-        <div class="mt-4 w-full bg-gray-100 rounded-full h-2">
-          <div id="progress-bar" class="bg-primary h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+    <div id="generating-cv" class="hidden" style="max-width:720px;margin:2rem auto;padding:0 1rem;">
+      <div class="gen-card">
+        <div class="gen-progress-steps">
+          <div class="gen-step completed">1. Upload</div>
+          <div class="gen-step completed">2. Hasil</div>
+          <div class="gen-step active">3. Download</div>
+          <div class="gen-step-line"></div>
         </div>
+        <div class="file-badge" id="gen-file-badge">📄 <strong id="gen-filename">CV kamu</strong> · <span id="gen-tier">Single</span></div>
+        <div style="text-align:center;margin:1rem 0 1.5rem;">
+          <div class="pulse-icon">✍️✨</div>
+          <h3 style="margin-top:.75rem;font-weight:700;font-family:inherit;">AI sedang menulis CV tailored untuk kamu...</h3>
+          <p style="color:#5B6E8C;font-size:.85rem;">Biasanya 15–25 detik · Jangan tutup halaman</p>
+        </div>
+        <div class="gen-progress-bar-wrap">
+          <div id="progress-bar" style="background:#2563EB;width:0%;height:100%;border-radius:100px;transition:width .3s ease;"></div>
+        </div>
+        <div class="gen-step-list">
+          <div class="gen-step-item"><span class="gen-step-icon pending" id="gsi-1">○</span><span>📝 Menyesuaikan dengan job description & CV asli</span></div>
+          <div class="gen-step-item"><span class="gen-step-icon pending" id="gsi-2">○</span><span>🔧 Menulis ulang bullet points (bilingual ID + EN)</span></div>
+          <div class="gen-step-item"><span class="gen-step-icon pending" id="gsi-3">○</span><span>📊 Menambahkan metrik & kata kunci HR</span></div>
+          <div class="gen-step-item"><span class="gen-step-icon pending" id="gsi-4">○</span><span>✅ Menyusun CV akhir siap download</span></div>
+        </div>
+        <div class="gen-timer" id="gen-timer">⏱️ Estimasi sisa: ~20 detik</div>
+        <div class="gen-trust" id="gen-trust">🔒 CV tidak disimpan — data aman</div>
+        <div class="gen-edit-link">
+          <a href="hasil.html" onclick="return confirm('Batalkan proses penulisan?')">← Batalkan & kembali ke hasil analisis</a>
+        </div>
+        <!-- compatibility: download.js reads this for text updates -->
+        <span id="generating-text" style="display:none;"></span>
       </div>
     </div>
 
     <!-- Download ready state -->
-    <div id="download-ready" class="hidden space-y-6">
+    <div id="download-ready" class="hidden" style="max-width:980px;margin:2rem auto;padding:0 1rem;">
 
-      <!-- Success header -->
-      <div class="bg-white rounded-2xl border border-gray-100 p-6 sm:p-8 text-center">
-        <div class="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#22C55E" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <!-- progress steps -->
+      <div class="dl-card" style="padding-bottom:1rem;margin-bottom:1.5rem;">
+        <div class="gen-progress-steps">
+          <div class="gen-step completed">1. Upload</div>
+          <div class="gen-step completed">2. Hasil</div>
+          <div class="gen-step active">3. Download</div>
+          <div class="gen-step-line"></div>
         </div>
-        <h1 class="font-heading font-extrabold text-2xl sm:text-3xl text-[#1F2937] mb-2">CV Kamu Sudah Siap!</h1>
-        <p class="text-gray-500">Klik tombol di bawah untuk download file CV kamu</p>
       </div>
 
-      <!-- Download buttons -->
-      <div class="bg-white rounded-2xl border border-gray-100 p-6">
-        <h2 class="font-heading font-bold text-lg mb-5">Download File CV</h2>
+      <!-- main download card -->
+      <div class="dl-card">
+        <div style="text-align:center;margin-bottom:2rem;">
+          <div class="dl-success-icon">🎉</div>
+          <h2 style="font-size:1.8rem;font-weight:700;color:#1E3A8A;margin:.5rem 0 .25rem;">CV Kamu Sudah Siap!</h2>
+          <p style="color:#5B6E8C;">Klik tombol di bawah untuk download file CV kamu</p>
+        </div>
 
-        <!-- Bahasa Indonesia -->
-        <div class="mb-6">
-          <p class="text-sm font-semibold text-gray-500 mb-3 flex items-center gap-2">
-            <span class="w-6 h-6 bg-red-50 rounded-lg flex items-center justify-center text-xs font-bold text-red-600">ID</span>
-            Bahasa Indonesia
-          </p>
-          <div class="grid sm:grid-cols-2 gap-3">
-            <button onclick="downloadFile('id', 'docx')" id="btn-id-docx"
-              class="flex items-center gap-3 border border-gray-200 rounded-xl p-4 hover:border-primary hover:bg-blue-50/30 transition-all text-left group">
-              <div class="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="4" y="2" width="16" height="20" rx="2" stroke="#1B4FE8" stroke-width="2"/><path d="M8 10h8M8 14h5" stroke="#1B4FE8" stroke-width="1.5" stroke-linecap="round"/></svg>
-              </div>
-              <div>
-                <p class="font-semibold text-sm text-[#1F2937]">CV Indonesia — DOCX</p>
-                <p class="text-xs text-gray-400">Untuk diedit di Word</p>
-              </div>
+        <!-- download grid: always show ID, EN shown for bilingual tiers -->
+        <div class="dl-grid">
+          <div class="dl-lang-box">
+            <div class="dl-lang-title">🇮🇩 Bahasa Indonesia</div>
+            <button class="dl-btn" onclick="downloadFile('id','docx')">
+              <span>📄 CV Indonesia — DOCX</span>
+              <span class="dl-btn-size">Untuk diedit di Word</span>
             </button>
-            <button onclick="downloadFile('id', 'pdf')" id="btn-id-pdf"
-              class="flex items-center gap-3 border border-gray-200 rounded-xl p-4 hover:border-primary hover:bg-blue-50/30 transition-all text-left group">
-              <div class="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-red-100 transition-colors">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="4" y="2" width="16" height="20" rx="2" stroke="#EF4444" stroke-width="2"/><path d="M8 8h8M8 12h8M8 16h5" stroke="#EF4444" stroke-width="1.5" stroke-linecap="round"/></svg>
-              </div>
-              <div>
-                <p class="font-semibold text-sm text-[#1F2937]">CV Indonesia — PDF</p>
-                <p class="text-xs text-gray-400">Siap dikirim ke HRD</p>
-              </div>
+            <button class="dl-btn" onclick="downloadFile('id','pdf')">
+              <span>📑 CV Indonesia — PDF</span>
+              <span class="dl-btn-size">Siap dikirim ke HRD</span>
+            </button>
+          </div>
+          <!-- English section: hidden for coba tier, shown for single/3pack/jobhunt -->
+          <div class="dl-lang-box" id="en-section" style="display:none;">
+            <div class="dl-lang-title">🇬🇧 English</div>
+            <button class="dl-btn" onclick="downloadFile('en','docx')">
+              <span>📄 CV English — DOCX</span>
+              <span class="dl-btn-size">For editing in Word</span>
+            </button>
+            <button class="dl-btn" onclick="downloadFile('en','pdf')">
+              <span>📑 CV English — PDF</span>
+              <span class="dl-btn-size">For international applications</span>
             </button>
           </div>
         </div>
 
-        <!-- Bahasa Inggris (bilingual tiers only) -->
-        <div id="en-section" class="hidden">
-          <p class="text-sm font-semibold text-gray-500 mb-3 flex items-center gap-2">
-            <span class="w-6 h-6 bg-blue-50 rounded-lg flex items-center justify-center text-xs font-bold text-blue-600">EN</span>
-            Bahasa Inggris
-          </p>
-          <div class="grid sm:grid-cols-2 gap-3">
-            <button onclick="downloadFile('en', 'docx')" id="btn-en-docx"
-              class="flex items-center gap-3 border border-gray-200 rounded-xl p-4 hover:border-primary hover:bg-blue-50/30 transition-all text-left group">
-              <div class="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="4" y="2" width="16" height="20" rx="2" stroke="#1B4FE8" stroke-width="2"/><path d="M8 10h8M8 14h5" stroke="#1B4FE8" stroke-width="1.5" stroke-linecap="round"/></svg>
-              </div>
-              <div>
-                <p class="font-semibold text-sm text-[#1F2937]">CV English — DOCX</p>
-                <p class="text-xs text-gray-400">Untuk diedit di Word</p>
-              </div>
-            </button>
-            <button onclick="downloadFile('en', 'pdf')" id="btn-en-pdf"
-              class="flex items-center gap-3 border border-gray-200 rounded-xl p-4 hover:border-primary hover:bg-blue-50/30 transition-all text-left group">
-              <div class="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-red-100 transition-colors">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="4" y="2" width="16" height="20" rx="2" stroke="#EF4444" stroke-width="2"/><path d="M8 8h8M8 12h8M8 16h5" stroke="#EF4444" stroke-width="1.5" stroke-linecap="round"/></svg>
-              </div>
-              <div>
-                <p class="font-semibold text-sm text-[#1F2937]">CV English — PDF</p>
-                <p class="text-xs text-gray-400">For international applications</p>
-              </div>
-            </button>
-          </div>
+        <!-- tips -->
+        <div class="dl-tips">
+          <h4>💡 Tips Submit CV</h4>
+          <ul>
+            <li>✅ Kirim PDF ke HRD via email — lebih rapi dari DOCX</li>
+            <li>✅ Gunakan format nama file: "Nama-Posisi-Perusahaan.pdf"</li>
+            <li>✅ Cek sekali lagi nama, no. HP, dan email sebelum kirim</li>
+            <li>✅ CV Bahasa Inggris untuk loker MNC dan remote job internasional</li>
+          </ul>
         </div>
       </div>
 
-      <!-- Mobile fallback — plain text -->
-      <div id="mobile-fallback" class="hidden bg-yellow-50 border border-yellow-200 rounded-2xl p-5">
-        <p class="text-sm font-semibold text-yellow-800 mb-2">Tidak bisa download? Salin teks CV di bawah ini</p>
-        <div class="grid sm:grid-cols-2 gap-3">
+      <!-- Mobile fallback — plain text (hidden, revealed on mobile or error) -->
+      <div id="mobile-fallback" class="hidden" style="background:#FEFCE8;border:1px solid #FDE68A;border-radius:20px;padding:1.2rem;margin-bottom:1.5rem;">
+        <p style="font-size:.85rem;font-weight:600;color:#92400E;margin-bottom:.75rem;">Tidak bisa download? Salin teks CV di bawah ini</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
           <div>
-            <p class="text-xs font-semibold text-gray-500 mb-1">Bahasa Indonesia</p>
-            <textarea id="cv-text-id" readonly rows="8"
-              class="w-full bg-white border border-yellow-200 rounded-xl px-3 py-2 text-xs text-gray-600 resize-none focus:outline-none"></textarea>
-            <button onclick="copyText('cv-text-id')" class="text-xs text-primary font-semibold mt-1 hover:underline">Salin</button>
+            <p style="font-size:.75rem;font-weight:600;color:#6B7280;margin-bottom:.25rem;">Bahasa Indonesia</p>
+            <textarea id="cv-text-id" readonly rows="8" style="width:100%;font-size:.75rem;border:1px solid #FDE68A;border-radius:12px;padding:.5rem;resize:none;background:white;"></textarea>
+            <button onclick="copyText('cv-text-id')" style="font-size:.75rem;color:#2563EB;font-weight:600;background:none;border:none;cursor:pointer;margin-top:.25rem;">Salin</button>
           </div>
           <div id="en-fallback" class="hidden">
-            <p class="text-xs font-semibold text-gray-500 mb-1">English</p>
-            <textarea id="cv-text-en" readonly rows="8"
-              class="w-full bg-white border border-yellow-200 rounded-xl px-3 py-2 text-xs text-gray-600 resize-none focus:outline-none"></textarea>
-            <button onclick="copyText('cv-text-en')" class="text-xs text-primary font-semibold mt-1 hover:underline">Copy</button>
+            <p style="font-size:.75rem;font-weight:600;color:#6B7280;margin-bottom:.25rem;">English</p>
+            <textarea id="cv-text-en" readonly rows="8" style="width:100%;font-size:.75rem;border:1px solid #FDE68A;border-radius:12px;padding:.5rem;resize:none;background:white;"></textarea>
+            <button onclick="copyText('cv-text-en')" style="font-size:.75rem;color:#2563EB;font-weight:600;background:none;border:none;cursor:pointer;margin-top:.25rem;">Copy</button>
           </div>
         </div>
       </div>
 
-      <!-- Tips -->
-      <div class="bg-blue-50 rounded-2xl p-5 border border-blue-100">
-        <h3 class="font-semibold text-primary mb-3 text-sm">Tips Submit CV</h3>
-        <ul class="space-y-2 text-sm text-gray-600">
-          <li class="flex items-start gap-2"><span class="text-accent font-bold mt-0.5">✓</span> Kirim PDF ke HRD via email — lebih rapi dari DOCX</li>
-          <li class="flex items-start gap-2"><span class="text-accent font-bold mt-0.5">✓</span> Gunakan format nama file: "Nama-Posisi-Perusahaan.pdf"</li>
-          <li class="flex items-start gap-2"><span class="text-accent font-bold mt-0.5">✓</span> Cek sekali lagi nama, no. HP, dan email sebelum kirim</li>
-          <li class="flex items-start gap-2"><span class="text-accent font-bold mt-0.5">✓</span> CV Bahasa Inggris untuk loker MNC dan remote job internasional</li>
-        </ul>
-      </div>
-
-      <!-- Multi-credit: generate for new job (3-Pack / JobHunt only) -->
-      <div id="multi-credit-section" class="hidden bg-white rounded-2xl border border-accent/30 p-6">
-        <div class="flex items-center gap-3 mb-4">
-          <div class="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center flex-shrink-0">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#22C55E" stroke-width="2.5" stroke-linecap="round"/></svg>
-          </div>
-          <div>
-            <p class="font-heading font-bold text-[#1F2937]">Kamu masih punya <span id="credits-remaining-count">0</span> kredit tersisa</p>
-            <p class="text-sm text-gray-500">Tempel job description loker berikutnya — CV akan di-tailoring ulang dari CV aslimu</p>
-          </div>
+      <!-- Multi-credit: generate for next job (3-Pack / JobHunt) -->
+      <div id="multi-credit-section" class="hidden dl-card">
+        <div class="dl-credits-box">
+          <span style="font-size:.8rem;">✨ Kamu masih punya</span>
+          <div class="dl-credits-num"><span id="credits-remaining-count">0</span> kredit tersisa</div>
+          <p style="font-size:.8rem;">Tempel job description loker berikutnya — CV akan di-tailoring ulang dari CV aslimu</p>
         </div>
-        <textarea id="new-job-desc" rows="5" placeholder="Paste job description loker berikutnya di sini..."
-          class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 resize-none focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 mb-3"></textarea>
-        <button id="new-job-btn" onclick="generateForNewJob()"
-          class="w-full bg-accent text-white font-bold py-3 rounded-xl hover:bg-green-600 transition-colors">
-          Generate CV untuk Loker Ini →
-        </button>
+        <div class="dl-next-jd">
+          <label style="font-weight:600;font-size:.9rem;">📋 Job Description / Lowongan Berikutnya</label>
+          <textarea id="new-job-desc" rows="4" placeholder="Paste bagian Requirements dan Responsibilities dari loker selanjutnya..."
+            style="width:100%;border:1px solid #E2E8F0;border-radius:20px;padding:1rem;font-family:inherit;font-size:.9rem;resize:vertical;margin:.5rem 0;display:block;"></textarea>
+          <button id="new-job-btn" onclick="generateForNewJob()"
+            style="background:#2563EB;color:white;border:none;border-radius:60px;padding:.8rem 1.5rem;font-weight:700;width:100%;cursor:pointer;font-family:inherit;font-size:1rem;">
+            🚀 Generate CV untuk Loker Ini
+          </button>
+        </div>
+        <div class="dl-trust-footer">🔒 CV tidak disimpan secara permanen · Link download berlaku 7 hari · Bisa diunduh 3 kali per file</div>
       </div>
 
-      <!-- CTA: tailoring for another job (shown when no credits remain) -->
-      <div class="text-center pb-4">
-        <p class="text-gray-500 text-sm mb-3">Melamar ke tempat lain juga?</p>
-        <a href="upload.html" class="inline-block bg-primary text-white font-bold px-8 py-3 rounded-xl hover:bg-blue-700 transition-colors">
-          Tailoring CV untuk Loker Lain →
+      <!-- CTA when no credits remain -->
+      <div style="text-align:center;padding-bottom:2rem;">
+        <p style="color:#6B7280;font-size:.9rem;margin-bottom:.75rem;">Melamar ke tempat lain juga?</p>
+        <a href="upload.html" style="display:inline-block;background:#2563EB;color:white;font-weight:700;padding:.8rem 2rem;border-radius:60px;text-decoration:none;">
+          🔄 Tailoring CV untuk Loker Lain →
         </a>
       </div>
 
@@ -242,6 +295,100 @@
   <script src="js/config.js"></script>
   <script src="js/download.js"></script>
   <script>
+    // ── Patch showDownloadReady to handle en-section with inline style ──
+    // download.js uses classList.remove('hidden') but our en-section uses display:none
+    const _origShowDownloadReady = showDownloadReady;
+    function showDownloadReady(cvId, cvEn, tier, isBilingual, creditsRemaining) {
+      _origShowDownloadReady(cvId, cvEn, tier, isBilingual, creditsRemaining);
+      // en-section uses inline style in new design
+      const enSection = document.getElementById('en-section');
+      if (enSection && isBilingual && cvEn) {
+        enSection.style.display = '';
+      }
+      // Populate gen-file-badge on download ready too (in case generating state set it)
+      const filename = sessionStorage.getItem('gaslamar_filename') || 'CV kamu';
+      const tierLabel = { coba:'Coba Dulu', single:'Single', '3pack':'3-Pack', jobhunt:'Job Hunt Pack' }[tier] || tier;
+      document.getElementById('gen-filename').textContent = filename;
+      document.getElementById('gen-tier').textContent = 'Paket: ' + tierLabel;
+    }
+
+    // ── Generating state animation ──
+    const GEN_TRUST_MSGS = [
+      '🔒 CV tidak disimpan — data aman',
+      '⚡ Rata-rata penulisan CV: 20 detik',
+      '🎯 Setiap bullet disesuaikan dengan lowonganmu',
+      '🤖 AI dilatih oleh HR profesional Indonesia',
+      '📧 Hasil juga dikirim ke email (cek spam)',
+    ];
+    let _genTrustIdx = 0, _genTrustTimer = null, _genTimerTimer = null, _genStartTime = null;
+
+    function startGeneratingAnimation() {
+      // Populate file badge from sessionStorage
+      const filename = sessionStorage.getItem('gaslamar_filename') || 'CV kamu';
+      const tier = sessionStorage.getItem('gaslamar_tier') || 'single';
+      const tierLabel = { coba:'Coba Dulu', single:'Single', '3pack':'3-Pack', jobhunt:'Job Hunt Pack' }[tier] || tier;
+      document.getElementById('gen-filename').textContent = filename;
+      document.getElementById('gen-tier').textContent = 'Paket: ' + tierLabel;
+
+      _genStartTime = Date.now();
+      // Trust message rotation
+      _genTrustTimer = setInterval(() => {
+        _genTrustIdx = (_genTrustIdx + 1) % GEN_TRUST_MSGS.length;
+        const el = document.getElementById('gen-trust');
+        el.style.opacity = '0';
+        setTimeout(() => { el.textContent = GEN_TRUST_MSGS[_genTrustIdx]; el.style.opacity = '1'; }, 150);
+      }, 5000);
+      // Countdown timer
+      const EST = 22;
+      _genTimerTimer = setInterval(() => {
+        const elapsed = (Date.now() - _genStartTime) / 1000;
+        const rem = Math.max(0, Math.ceil(EST - elapsed));
+        const el = document.getElementById('gen-timer');
+        if (rem <= 0) { el.textContent = '✅ CV siap! Memuat file...'; clearInterval(_genTimerTimer); }
+        else el.textContent = `⏱️ Estimasi sisa: ~${rem} detik`;
+      }, 1000);
+    }
+
+    function stopGeneratingAnimation() {
+      clearInterval(_genTrustTimer);
+      clearInterval(_genTimerTimer);
+    }
+
+    // Map progress % → step icons
+    function updateGenSteps(pct) {
+      const thresholds = [10, 40, 70, 90]; // activate steps at these %
+      for (let i = 1; i <= 4; i++) {
+        const el = document.getElementById('gsi-' + i);
+        if (!el) continue;
+        if (pct >= (thresholds[i-1] + 20)) { // done
+          el.textContent = '✓'; el.className = 'gen-step-icon done';
+        } else if (pct >= thresholds[i-1]) { // active
+          el.textContent = '⟳'; el.className = 'gen-step-icon spin';
+        } else { // pending
+          el.textContent = '○'; el.className = 'gen-step-icon pending';
+        }
+      }
+    }
+
+    // Patch setProgress to also drive step animations
+    const _origSetProgress = setProgress;
+    function setProgress(pct) {
+      _origSetProgress(pct);
+      updateGenSteps(pct);
+    }
+
+    // Patch showState to start/stop animation
+    const _origShowState = showState;
+    function showState(id) {
+      _origShowState(id);
+      if (id === 'generating-cv') {
+        startGeneratingAnimation();
+      } else {
+        stopGeneratingAnimation();
+      }
+    }
+
+    // ── Sandbox detection ──
     // Show sandbox button by probing the /sandbox/pay endpoint
     // Returns 404 in production — button stays hidden
     (function checkSandbox() {

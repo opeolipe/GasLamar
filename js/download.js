@@ -84,7 +84,12 @@ async function poll(sessionId) {
         scheduleNextPoll(sessionId);
       }
     } else {
-      scheduleNextPoll(sessionId);
+      if (pollCount < MAX_POLLS) {
+        scheduleNextPoll(sessionId);
+      } else {
+        document.getElementById('check-btn').classList.remove('hidden');
+        document.getElementById('poll-count-text').textContent = 'Klik tombol di bawah untuk cek ulang.';
+      }
     }
   } catch (err) {
     if (pollCount < MAX_POLLS) {
@@ -241,6 +246,19 @@ function downloadFile(lang, format) {
   } else if (format === 'pdf') {
     generatePDF(cvText, lang, tier);
   }
+}
+
+// ---- File Download Helper ----
+
+function triggerDownload(blob, filename, mimeType) {
+  const url = URL.createObjectURL(new Blob([blob], { type: mimeType }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 // ---- Line Parsing ----
