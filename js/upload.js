@@ -237,6 +237,7 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
   sessionStorage.setItem('gaslamar_cv_pending', cvText);
   sessionStorage.setItem('gaslamar_jd_pending', jobDesc);
   sessionStorage.setItem('gaslamar_filename', selectedFile ? selectedFile.name : 'CV');
+  sessionStorage.removeItem('gaslamar_jd_draft'); // clear draft on successful submit
 
   window.location.href = 'analyzing.html';
 });
@@ -340,12 +341,35 @@ function hideError(id) {
   if (el) el.classList.add('hidden');
 }
 
-// ---- Init: pre-select tier from URL param ----
+// ---- Init: restore tier, JD draft, and CV state ----
 
 (function init() {
+  // Tier from URL param
   const params = new URLSearchParams(location.search);
   const tier = params.get('tier');
-  if (tier) {
-    sessionStorage.setItem('gaslamar_tier', tier);
+  if (tier) sessionStorage.setItem('gaslamar_tier', tier);
+
+  // Restore JD draft
+  const savedJd = sessionStorage.getItem('gaslamar_jd_draft');
+  if (savedJd) {
+    document.getElementById('job-desc').value = savedJd;
+    updateCharCount();
+  }
+
+  // Restore CV state if pending data exists (user navigated away and came back)
+  const pendingCv = sessionStorage.getItem('gaslamar_cv_pending');
+  const pendingName = sessionStorage.getItem('gaslamar_filename');
+  if (pendingCv && pendingName) {
+    cvText = pendingCv;
+    selectedFile = { name: pendingName }; // truthy placeholder for form validation
+    document.getElementById('drop-idle').classList.add('hidden');
+    document.getElementById('drop-preview').classList.remove('hidden');
+    document.getElementById('file-name').textContent = pendingName;
+    document.getElementById('file-size').textContent = '(sudah diproses)';
   }
 })();
+
+// Save JD draft on every keystroke
+document.getElementById('job-desc').addEventListener('input', () => {
+  sessionStorage.setItem('gaslamar_jd_draft', document.getElementById('job-desc').value);
+});

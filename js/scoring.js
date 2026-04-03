@@ -9,7 +9,7 @@
   if (!raw) {
     // No data — redirect back
     showError('Data analisis tidak ditemukan. Mohon upload CV kamu kembali.');
-    setTimeout(() => window.location.href = 'upload.html', 3000);
+    window.location.href = 'upload.html';
     return;
   }
 

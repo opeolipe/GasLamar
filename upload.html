@@ -472,14 +472,13 @@ Requirements:
     updateCharCount();
   });
 
-  // Skip JD link
+  // Skip JD link — fill with generic text and auto-submit
   document.getElementById('skip-jd-link').addEventListener('click', (e) => {
     e.preventDefault();
-    const jdEl = document.getElementById('job-desc');
-    if (jdEl.value.trim().length < 10) {
-      jdEl.value = 'Analisis umum tanpa job description spesifik. Evaluasi secara keseluruhan.';
-      updateCharCount();
-    }
+    document.getElementById('job-desc').value =
+      'Analisis umum tanpa job description spesifik. Evaluasi secara keseluruhan.';
+    updateCharCount();
+    document.getElementById('upload-form').dispatchEvent(new Event('submit'));
   });
 </script>
 </body>
