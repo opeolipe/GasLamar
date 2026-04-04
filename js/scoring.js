@@ -170,10 +170,10 @@ function setupTierRecommendation(score) {
   }
 
   el.innerHTML = `
-    <div class="flex items-start gap-3">
-      <span class="text-lg flex-shrink-0">💡</span>
-      <p class="text-sm text-white/90">${msg}
-        <button onclick="selectTier('${tier}')" class="ml-1 underline font-semibold hover:no-underline">Pilih sekarang →</button>
+    <div style="display:flex;align-items:flex-start;gap:0.75rem;">
+      <span style="font-size:1.1rem;flex-shrink:0;">💡</span>
+      <p style="font-size:0.85rem;color:rgba(255,255,255,0.9);margin:0;">${msg}
+        <button onclick="selectTier('${tier}')" style="margin-left:4px;text-decoration:underline;font-weight:600;background:none;border:none;color:inherit;cursor:pointer;font-family:inherit;font-size:inherit;padding:0;">Pilih →</button>
       </p>
     </div>`;
   el.classList.remove('hidden');
