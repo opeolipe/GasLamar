@@ -532,7 +532,7 @@ async function verifyMayarWebhook(request, env) {
 
 // ---- KV Session Helpers ----
 
-const SESSION_TTL = 86400;         // 24 hours — single-credit paid sessions (30min was too short: webhook delays + slow connections)
+const SESSION_TTL = 604800;        // 7 days — single-credit paid sessions (single / coba dulu)
 const SESSION_TTL_MULTI = 2592000; // 30 days — 3-Pack / Job Hunt Pack
 
 // Returns the appropriate TTL based on how many total credits the session has.

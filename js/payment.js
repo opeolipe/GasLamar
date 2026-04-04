@@ -38,46 +38,45 @@ function selectTier(tier) {
 }
 
 function updateEmailSection(tier) {
-  const isMulti = tier === '3pack' || tier === 'jobhunt';
   const card = document.getElementById('email-card');
   const defaultView = document.getElementById('email-default');
   const multiView = document.getElementById('email-multi');
   const input = document.getElementById('email-input');
   if (!card || !defaultView || !multiView || !input) return;
 
-  if (isMulti) {
-    const slot = document.getElementById('email-multi-slot');
-    if (slot && !slot.contains(input)) slot.appendChild(input);
-    card.style.borderColor = '#F59E0B';
-    card.style.background = '#FFFBEB';
-    defaultView.style.display = 'none';
-    multiView.style.display = 'block';
+  // All tiers now show the prominent amber email section
+  const slot = document.getElementById('email-multi-slot');
+  if (slot && !slot.contains(input)) slot.appendChild(input);
+  card.style.borderColor = '#F59E0B';
+  card.style.background = '#FFFBEB';
+  defaultView.style.display = 'none';
+  multiView.style.display = 'block';
 
-    const bodyEl = document.getElementById('email-multi-body');
-    const helperEl = document.getElementById('email-helper');
-    if (tier === '3pack') {
-      if (bodyEl) bodyEl.innerHTML = 'Kami kirim 1 link akses ke email kamu.<br>Pakai link ini untuk generate CV yang sudah disesuaikan hingga <strong>3 lowongan berbeda</strong> dalam 30 hari — tanpa perlu login.';
-      if (helperEl) helperEl.textContent = '🔒 Link pribadi kamu — bisa dipakai ulang kapan saja selama 30 hari';
-    } else {
-      if (bodyEl) bodyEl.innerHTML = 'Kami kirim 1 link akses ke email kamu.<br>Gunakan link ini untuk generate CV yang sudah dioptimasi hingga <strong>10 lowongan berbeda</strong> dalam 30 hari — tanpa login.';
-      if (helperEl) helperEl.textContent = '⚡ 1 link untuk semua lamaran kamu selama 30 hari';
-    }
+  const titleEl = document.getElementById('email-multi-title');
+  const bodyEl = document.getElementById('email-multi-body');
+  const helperEl = document.getElementById('email-helper');
 
-    input.placeholder = 'contoh@email.com';
-    input.style.cssText = 'width:100%;padding:0.75rem 1rem;border:1.5px solid #D97706;border-radius:10px;font-size:0.95rem;box-sizing:border-box;';
+  if (tier === '3pack') {
+    if (titleEl) titleEl.innerHTML = 'Masukkan email aktif kamu <span style="color:#DC2626;">*</span>';
+    if (bodyEl) bodyEl.innerHTML = 'Kami kirim 1 link akses ke email kamu.<br>Pakai link ini untuk generate CV yang sudah disesuaikan hingga <strong>3 lowongan berbeda</strong> dalam 30 hari — tanpa perlu login.';
+    if (helperEl) helperEl.textContent = '🔒 Link pribadi kamu — bisa dipakai ulang kapan saja selama 30 hari';
+  } else if (tier === 'jobhunt') {
+    if (titleEl) titleEl.innerHTML = 'Masukkan email aktif kamu <span style="color:#DC2626;">*</span>';
+    if (bodyEl) bodyEl.innerHTML = 'Kami kirim 1 link akses ke email kamu.<br>Gunakan link ini untuk generate CV yang sudah dioptimasi hingga <strong>10 lowongan berbeda</strong> dalam 30 hari — tanpa login.';
+    if (helperEl) helperEl.textContent = '⚡ 1 link untuk semua lamaran kamu selama 30 hari';
   } else {
-    const slot = document.getElementById('email-default-slot');
-    if (slot && !slot.contains(input)) slot.appendChild(input);
-    card.style.borderColor = '';
-    card.style.background = '';
-    defaultView.style.display = 'block';
-    multiView.style.display = 'none';
-    input.placeholder = 'email kamu';
-    input.style.cssText = '';
-    // Clear any error state
-    const errEl = document.getElementById('email-error');
-    if (errEl) errEl.style.display = 'none';
+    // single / coba dulu
+    if (titleEl) titleEl.innerHTML = 'Masukkan email untuk menerima link download CV kamu <span style="color:#DC2626;">*</span>';
+    if (bodyEl) bodyEl.innerHTML = 'Kami kirim 1 link akses ke email kamu setelah pembayaran berhasil.<br>Link berlaku selama <strong>7 hari</strong> — tanpa perlu login.';
+    if (helperEl) helperEl.textContent = '🔒 Link download pribadimu — tersedia selama 7 hari';
   }
+
+  input.placeholder = 'contoh@email.com';
+  input.style.cssText = 'width:100%;padding:0.75rem 1rem;border:1.5px solid #D97706;border-radius:10px;font-size:0.95rem;box-sizing:border-box;';
+
+  // Clear any previous error
+  const errEl = document.getElementById('email-error');
+  if (errEl) errEl.style.display = 'none';
 }
 
 async function proceedToPayment() {
@@ -91,13 +90,12 @@ async function proceedToPayment() {
     return;
   }
 
-  // Email: required for multi-credit tiers, optional for single/coba
+  // Email required for all tiers
   const emailInput = document.getElementById('email-input');
   const capturedEmail = emailInput ? emailInput.value.trim() : '';
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(capturedEmail);
-  const isMultiCredit = selectedTier === '3pack' || selectedTier === 'jobhunt';
 
-  if (isMultiCredit && !emailValid) {
+  if (!emailValid) {
     const errEl = document.getElementById('email-error');
     if (errEl) errEl.style.display = 'block';
     if (emailInput) {
@@ -106,7 +104,6 @@ async function proceedToPayment() {
     }
     return;
   }
-  // Clear any previous error
   const errEl = document.getElementById('email-error');
   if (errEl) errEl.style.display = 'none';
   if (emailInput) emailInput.style.borderColor = '';
