@@ -319,26 +319,68 @@
       <div class="credits-box">
         <span style="font-size:.8rem;">✨ Kamu masih punya</span>
         <div class="credits-number"><span id="credits-remaining-count">0</span> kredit tersisa</div>
-        <p style="font-size:.8rem;margin-top:.25rem;">Tempel job description loker berikutnya — CV akan di-tailoring ulang dari CV aslimu</p>
+        <p style="font-size:.8rem;margin-top:.25rem;">CV aslimu sudah tersimpan — tinggal masukkan job description loker berikutnya</p>
       </div>
       <div class="next-jd-box">
-        <label style="font-weight:600;font-size:.9rem;">📋 Job Description / Lowongan Berikutnya</label>
-        <textarea id="new-job-desc" rows="4" placeholder="Paste bagian Requirements dan Responsibilities dari loker selanjutnya..."
-          style="width:100%;border:1px solid #E2E8F0;border-radius:20px;padding:1rem;font-family:inherit;font-size:.9rem;resize:vertical;margin:.5rem 0;display:block;"></textarea>
+        <label style="font-weight:600;font-size:.95rem;display:block;margin-bottom:.75rem;">Job yang kamu targetkan selanjutnya</label>
+
+        <!-- Button group matching upload.html -->
+        <div style="display:flex;gap:.5rem;margin-bottom:.75rem;flex-wrap:wrap;">
+          <button type="button" id="new-fetch-url-btn"
+            style="background:white;border:1.5px solid #E2E8F0;border-radius:60px;padding:.45rem 1rem;font-size:.85rem;font-weight:500;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:.4rem;">
+            🔗 Ambil dari URL Loker
+          </button>
+          <button type="button" id="new-example-btn"
+            style="background:white;border:1.5px solid #E2E8F0;border-radius:60px;padding:.45rem 1rem;font-size:.85rem;font-weight:500;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:.4rem;">
+            📄 Gunakan contoh
+          </button>
+        </div>
+
+        <!-- URL fetch row -->
+        <div id="new-url-fetch-row" style="display:none;margin-bottom:.75rem;">
+          <div style="display:flex;gap:.5rem;align-items:center;">
+            <input type="url" id="new-job-url-input"
+              placeholder="https://www.linkedin.com/jobs/view/…"
+              style="flex:1;padding:.6rem .8rem;border:1.5px solid #BFDBFE;border-radius:10px;font-size:.9rem;font-family:inherit;outline:none;"
+              onfocus="this.style.borderColor='#2563EB'" onblur="this.style.borderColor='#BFDBFE'" />
+            <button type="button" id="new-fetch-submit-btn" onclick="fetchNewJobFromUrl()"
+              style="background:#2563EB;color:white;border:none;border-radius:10px;padding:.6rem 1rem;font-weight:600;font-size:.85rem;cursor:pointer;white-space:nowrap;font-family:inherit;">
+              Ambil
+            </button>
+            <button type="button" onclick="document.getElementById('new-url-fetch-row').style.display='none'"
+              style="background:none;border:none;color:#9CA3AF;cursor:pointer;font-size:1.1rem;padding:.4rem;">✕</button>
+          </div>
+          <p id="new-url-fetch-status" style="font-size:.78rem;color:#6B7280;margin-top:.4rem;min-height:1rem;"></p>
+        </div>
+
+        <!-- Textarea with char counter -->
+        <div style="position:relative;">
+          <textarea id="new-job-desc" rows="5" maxlength="5000"
+            placeholder="Paste bagian Requirements dan Responsibilities dari loker selanjutnya..."
+            oninput="updateNewCharCount()"
+            style="width:100%;border:1.5px solid #E2E8F0;border-radius:16px;padding:1rem;font-family:inherit;font-size:.9rem;resize:vertical;display:block;box-sizing:border-box;outline:none;"
+            onfocus="this.style.borderColor='#2563EB'" onblur="this.style.borderColor='#E2E8F0'"></textarea>
+          <div style="text-align:right;font-size:.7rem;color:#6B7280;margin-top:.3rem;">
+            <span id="new-char-count">0</span> / 5.000 karakter
+          </div>
+        </div>
+        <div id="new-char-warning" style="display:none;font-size:.75rem;color:#D97706;margin-top:.2rem;">Mendekati batas karakter</div>
+
         <button id="new-job-btn" onclick="generateForNewJob()"
-          style="background:#2563EB;color:white;border:none;border-radius:60px;padding:.8rem 1.5rem;font-weight:700;width:100%;cursor:pointer;font-family:inherit;font-size:1rem;">
+          style="background:#2563EB;color:white;border:none;border-radius:60px;padding:.85rem 1.5rem;font-weight:700;width:100%;cursor:pointer;font-family:inherit;font-size:1rem;margin-top:1rem;">
           🚀 Generate CV untuk Loker Ini
         </button>
       </div>
-      <div class="trust-footer">🔒 CV tidak disimpan secara permanen · Link download berlaku 30 hari · Kamu bisa generate kapan saja</div>
+      <div class="trust-footer" style="margin-top:1.5rem;">🔒 CV aslimu tersimpan aman · Link berlaku 30 hari · Generate kapan saja tanpa login</div>
     </div>
 
-    <!-- CTA when no credits remain -->
-    <div style="text-align:center;padding-bottom:2rem;">
+    <!-- CTA: scroll to multi-credit if credits remain, else go to upload -->
+    <div style="text-align:center;padding-bottom:2rem;" id="bottom-cta">
       <p style="color:#6B7280;font-size:.9rem;margin-bottom:.75rem;">Melamar ke tempat lain juga?</p>
-      <a href="upload.html" style="display:inline-block;background:#2563EB;color:white;font-weight:700;padding:.8rem 2rem;border-radius:60px;text-decoration:none;">
+      <button onclick="handleTailoringCta()"
+        style="background:#2563EB;color:white;font-weight:700;padding:.8rem 2rem;border-radius:60px;text-decoration:none;border:none;cursor:pointer;font-family:inherit;font-size:1rem;">
         🔄 Tailoring CV untuk Loker Lain →
-      </a>
+      </button>
     </div>
 
   </div>
@@ -445,6 +487,84 @@
       } catch {
         btn.textContent = '🧪 Simulasi Pembayaran (Sandbox)';
         btn.disabled = false;
+      }
+    }
+
+    // ── Multi-credit: URL fetch for next job ──
+    document.getElementById('new-fetch-url-btn').addEventListener('click', () => {
+      const row = document.getElementById('new-url-fetch-row');
+      row.style.display = 'block';
+      document.getElementById('new-job-url-input').focus();
+    });
+
+    document.getElementById('new-job-url-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') fetchNewJobFromUrl();
+    });
+
+    document.getElementById('new-example-btn').addEventListener('click', () => {
+      document.getElementById('new-job-desc').value = `Posisi: Software Engineer
+
+Requirements:
+- S1 Teknik Informatika atau terkait
+- 2+ tahun pengalaman sebagai Software Engineer
+- Menguasai JavaScript / TypeScript dan salah satu framework (React, Vue, Node.js)
+- Pengalaman dengan REST API dan version control (Git)
+- Kemampuan problem-solving yang baik dan senang belajar hal baru`;
+      updateNewCharCount();
+    });
+
+    async function fetchNewJobFromUrl() {
+      const urlInput = document.getElementById('new-job-url-input');
+      const statusEl = document.getElementById('new-url-fetch-status');
+      const submitBtn = document.getElementById('new-fetch-submit-btn');
+      const url = urlInput.value.trim();
+      if (!url) { urlInput.focus(); return; }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Mengambil...';
+      statusEl.style.color = '#6B7280';
+      statusEl.textContent = '⏳ Mengambil job description...';
+
+      try {
+        const res = await fetch(`${WORKER_URL}/fetch-job-url`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          statusEl.style.color = '#DC2626';
+          statusEl.textContent = '⚠️ ' + (data.message || 'Gagal mengambil. Coba copy-paste manual.');
+        } else {
+          document.getElementById('new-job-desc').value = data.job_desc;
+          updateNewCharCount();
+          statusEl.style.color = '#059669';
+          statusEl.textContent = '✅ Job description berhasil diambil. Periksa dan edit seperlunya.';
+        }
+      } catch {
+        statusEl.style.color = '#DC2626';
+        statusEl.textContent = '⚠️ Tidak bisa terhubung ke server. Coba lagi.';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Ambil';
+      }
+    }
+
+    function updateNewCharCount() {
+      const val = document.getElementById('new-job-desc').value.length;
+      document.getElementById('new-char-count').textContent = val.toLocaleString('id-ID');
+      const warn = document.getElementById('new-char-warning');
+      warn.style.display = val > 4500 ? 'block' : 'none';
+    }
+
+    // ── Bottom CTA: scroll to multi-credit if credits remain, else upload ──
+    function handleTailoringCta() {
+      const multiSection = document.getElementById('multi-credit-section');
+      if (multiSection && !multiSection.classList.contains('hidden')) {
+        multiSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setTimeout(() => document.getElementById('new-job-desc').focus(), 600);
+      } else {
+        window.location.href = 'upload.html';
       }
     }
   </script>
