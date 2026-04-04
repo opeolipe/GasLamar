@@ -1113,6 +1113,105 @@ async function handleSandboxPay(request, env) {
   return jsonResponse({ ok: true }, 200, request, env);
 }
 
+// ---- Fetch Job URL ----
+
+async function handleFetchJobUrl(request, env) {
+  const { url } = await request.json().catch(() => ({}));
+
+  if (!url || typeof url !== 'string') {
+    return jsonResponse({ message: 'Parameter url wajib diisi' }, 400, request, env);
+  }
+
+  // Only allow http/https
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return jsonResponse({ message: 'URL tidak valid' }, 400, request, env);
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    return jsonResponse({ message: 'URL harus menggunakan https' }, 400, request, env);
+  }
+
+  // Fetch the page with a browser-like User-Agent
+  let pageRes;
+  try {
+    pageRes = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Cache-Control': 'no-cache',
+      },
+      redirect: 'follow',
+    });
+  } catch (err) {
+    return jsonResponse({ message: 'Tidak bisa mengakses URL tersebut. Coba copy-paste manual.' }, 422, request, env);
+  }
+
+  if (!pageRes.ok) {
+    return jsonResponse({ message: `Halaman tidak bisa diakses (${pageRes.status}). Coba copy-paste manual.` }, 422, request, env);
+  }
+
+  const contentType = pageRes.headers.get('content-type') || '';
+  if (!contentType.includes('text/html')) {
+    return jsonResponse({ message: 'URL bukan halaman web (HTML). Coba copy-paste manual.' }, 422, request, env);
+  }
+
+  // Extract text using HTMLRewriter — skip nav, header, footer, script, style
+  const chunks = [];
+  const SKIP_TAGS = new Set(['script', 'style', 'nav', 'header', 'footer', 'noscript', 'iframe', 'svg', 'button', 'form', 'input', 'select', 'aside']);
+
+  let skipDepth = 0;
+
+  await new HTMLRewriter()
+    .on('*', {
+      element(el) {
+        if (SKIP_TAGS.has(el.tagName)) {
+          skipDepth++;
+          el.onEndTag(() => { skipDepth--; });
+        }
+      },
+      text(text) {
+        if (skipDepth > 0) return;
+        const t = text.text.replace(/\s+/g, ' ').trim();
+        if (t) chunks.push(t);
+      },
+    })
+    .transform(pageRes)
+    .text();
+
+  // Join, clean whitespace, and cap at 4000 chars before trimming to 3000
+  let raw = chunks.join(' ').replace(/\s{3,}/g, '\n\n').trim();
+
+  if (!raw || raw.length < 50) {
+    return jsonResponse({ message: 'Tidak bisa mengekstrak teks dari halaman ini. Coba copy-paste manual.' }, 422, request, env);
+  }
+
+  // LinkedIn-specific: job descriptions are buried after a lot of nav text.
+  // Try to find a sensible starting point by looking for common JD markers.
+  const JD_MARKERS = [
+    'About the job', 'Job Description', 'Deskripsi pekerjaan',
+    'Requirements', 'Qualifications', 'Responsibilities',
+    'Kualifikasi', 'Persyaratan', 'Tanggung Jawab',
+    'About this role', 'What you\'ll do', 'What we\'re looking for',
+  ];
+  let trimStart = 0;
+  for (const marker of JD_MARKERS) {
+    const idx = raw.indexOf(marker);
+    if (idx !== -1 && idx < raw.length * 0.6) {
+      trimStart = idx;
+      break;
+    }
+  }
+  if (trimStart > 0) raw = raw.slice(trimStart);
+
+  // Cap at 3000 chars
+  if (raw.length > 3000) raw = raw.slice(0, 3000);
+
+  return jsonResponse({ job_desc: raw }, 200, request, env);
+}
+
 // ---- Main Handler ----
 
 export default {
@@ -1156,6 +1255,10 @@ export default {
 
       if (method === 'POST' && pathname === '/submit-email') {
         return handleSubmitEmail(request, env);
+      }
+
+      if (method === 'POST' && pathname === '/fetch-job-url') {
+        return handleFetchJobUrl(request, env);
       }
 
       // Sandbox-only: simulate payment confirmation for testing (blocked in production)

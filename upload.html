@@ -381,9 +381,29 @@
       <!-- Job Description -->
       <label>Job yang kamu targetkan <span style="font-weight: 400; color: #5B6E8C;">(opsional tapi disarankan)</span></label>
       <div class="button-group">
-        <button type="button" class="btn-icon" id="paste-linkedin-btn">📋 Paste dari LinkedIn</button>
+        <button type="button" class="btn-icon" id="fetch-url-btn">🔗 Ambil dari URL Loker</button>
         <button type="button" class="btn-icon" id="example-btn">📄 Gunakan contoh</button>
       </div>
+
+      <!-- URL fetch row (hidden until button clicked) -->
+      <div id="url-fetch-row" style="display:none; margin-bottom:0.75rem;">
+        <div style="display:flex; gap:0.5rem; align-items:center;">
+          <input type="url" id="job-url-input"
+            placeholder="https://www.linkedin.com/jobs/view/…"
+            style="flex:1; padding:0.6rem 0.8rem; border:1.5px solid #BFDBFE; border-radius:10px; font-size:0.9rem; font-family:inherit; outline:none;"
+            onfocus="this.style.borderColor='#2563EB'"
+            onblur="this.style.borderColor='#BFDBFE'"
+          />
+          <button type="button" id="fetch-url-submit-btn" onclick="fetchJobFromUrl()"
+            style="background:#2563EB; color:white; border:none; border-radius:10px; padding:0.6rem 1rem; font-weight:600; font-size:0.85rem; cursor:pointer; white-space:nowrap; font-family:inherit;">
+            Ambil
+          </button>
+          <button type="button" onclick="closeUrlFetch()"
+            style="background:none; border:none; color:#9CA3AF; cursor:pointer; font-size:1.1rem; padding:0.4rem;" title="Tutup">✕</button>
+        </div>
+        <p id="url-fetch-status" style="font-size:0.78rem; color:#6B7280; margin-top:0.4rem; min-height:1rem;"></p>
+      </div>
+
       <div class="textarea-wrapper">
         <textarea id="job-desc" rows="6"
           placeholder="Paste bagian requirements / responsibilities dari job yang kamu lamar…"
@@ -456,16 +476,62 @@
     _obs.observe(_submitBtn);
   }
 
-  // Paste from LinkedIn mock
-  document.getElementById('paste-linkedin-btn').addEventListener('click', () => {
-    const mockText = `Requirements:
-- Minimal S1 Teknik Informatika atau terkait
-- 2+ tahun pengalaman sebagai Frontend Engineer
-- Menguasai React.js, Tailwind CSS, dan state management (Redux/Zustand)
-- Pengalaman dengan REST API dan Git flow
-- Diutamakan memiliki portofolio proyek`;
-    document.getElementById('job-desc').value = mockText;
-    updateCharCount();
+  // Fetch job description from URL
+  document.getElementById('fetch-url-btn').addEventListener('click', () => {
+    const row = document.getElementById('url-fetch-row');
+    row.style.display = 'block';
+    document.getElementById('job-url-input').focus();
+  });
+
+  function closeUrlFetch() {
+    document.getElementById('url-fetch-row').style.display = 'none';
+    document.getElementById('url-fetch-status').textContent = '';
+    document.getElementById('job-url-input').value = '';
+  }
+
+  async function fetchJobFromUrl() {
+    const urlInput = document.getElementById('job-url-input');
+    const statusEl = document.getElementById('url-fetch-status');
+    const submitBtn = document.getElementById('fetch-url-submit-btn');
+    const url = urlInput.value.trim();
+
+    if (!url) { urlInput.focus(); return; }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Mengambil...';
+    statusEl.style.color = '#6B7280';
+    statusEl.textContent = '⏳ Mengambil job description...';
+
+    try {
+      const res = await fetch(`${WORKER_URL}/fetch-job-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        statusEl.style.color = '#DC2626';
+        statusEl.textContent = '⚠️ ' + (data.message || 'Gagal mengambil. Coba copy-paste manual.');
+      } else {
+        document.getElementById('job-desc').value = data.job_desc;
+        updateCharCount();
+        statusEl.style.color = '#059669';
+        statusEl.textContent = '✅ Job description berhasil diambil. Periksa dan edit seperlunya.';
+      }
+    } catch {
+      statusEl.style.color = '#DC2626';
+      statusEl.textContent = '⚠️ Tidak bisa terhubung ke server. Coba lagi.';
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Ambil';
+    }
+  }
+
+  // Allow Enter key in URL input to trigger fetch
+  document.getElementById('job-url-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') fetchJobFromUrl();
   });
 
   // Use example
