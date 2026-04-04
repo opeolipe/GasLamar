@@ -52,8 +52,18 @@ function updateEmailSection(tier) {
     card.style.background = '#FFFBEB';
     defaultView.style.display = 'none';
     multiView.style.display = 'block';
-    document.getElementById('credit-label').textContent = tier === '3pack' ? '3 loker' : '10 loker';
-    input.placeholder = 'nama@gmail.com';
+
+    const bodyEl = document.getElementById('email-multi-body');
+    const helperEl = document.getElementById('email-helper');
+    if (tier === '3pack') {
+      if (bodyEl) bodyEl.innerHTML = 'Kami kirim 1 link akses ke email kamu.<br>Pakai link ini untuk generate CV yang sudah disesuaikan hingga <strong>3 lowongan berbeda</strong> dalam 30 hari — tanpa perlu login.';
+      if (helperEl) helperEl.textContent = '🔒 Link pribadi kamu — bisa dipakai ulang kapan saja selama 30 hari';
+    } else {
+      if (bodyEl) bodyEl.innerHTML = 'Kami kirim 1 link akses ke email kamu.<br>Gunakan link ini untuk generate CV yang sudah dioptimasi hingga <strong>10 lowongan berbeda</strong> dalam 30 hari — tanpa login.';
+      if (helperEl) helperEl.textContent = '⚡ 1 link untuk semua lamaran kamu selama 30 hari';
+    }
+
+    input.placeholder = 'contoh@email.com';
     input.style.cssText = 'width:100%;padding:0.75rem 1rem;border:1.5px solid #D97706;border-radius:10px;font-size:0.95rem;box-sizing:border-box;';
   } else {
     const slot = document.getElementById('email-default-slot');
