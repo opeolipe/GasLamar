@@ -14,6 +14,8 @@ const TIER_CONFIG = {
 let selectedTier = null;
 let paymentInProgress = false;
 
+// Show amber email section with single/coba copy by default (before any tier is selected)
+document.addEventListener('DOMContentLoaded', () => updateEmailSection('single'));
 function selectTier(tier) {
   if (!TIER_CONFIG[tier]) return;
   selectedTier = tier;
