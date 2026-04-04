@@ -5,7 +5,7 @@
  */
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const MAX_JD_CHARS = 3000;
+const MAX_JD_CHARS = 5000;
 const MIN_CV_TEXT_LENGTH = 100;
 
 let selectedFile = null;
