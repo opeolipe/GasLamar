@@ -14,14 +14,6 @@ const TIER_CONFIG = {
 let selectedTier = null;
 let paymentInProgress = false;
 
-// Auto-select tier from sessionStorage (set by URL param on landing/upload)
-(function initTier() {
-  const stored = sessionStorage.getItem('gaslamar_tier');
-  if (stored && TIER_CONFIG[stored]) {
-    selectTier(stored);
-  }
-})();
-
 function selectTier(tier) {
   if (!TIER_CONFIG[tier]) return;
   selectedTier = tier;

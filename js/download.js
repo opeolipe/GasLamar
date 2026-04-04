@@ -495,8 +495,8 @@ async function generateForNewJob() {
     textarea.focus();
     return;
   }
-  if (newJobDesc.length > 3000) {
-    alert('Job description terlalu panjang (maks 3.000 karakter).');
+  if (newJobDesc.length > 5000) {
+    alert('Job description terlalu panjang (maks 5.000 karakter).');
     return;
   }
 

@@ -195,7 +195,7 @@ function updateCharCount() {
   document.getElementById('char-count').textContent = count.toLocaleString('id-ID');
 
   const warning = document.getElementById('char-warning');
-  if (count > 2500) {
+  if (count > 4500) {
     warning.classList.remove('hidden');
   } else {
     warning.classList.add('hidden');

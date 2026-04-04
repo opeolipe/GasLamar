@@ -171,11 +171,11 @@ describe('POST /analyze — validation', () => {
     expect(res.status).toBe(400);
   });
 
-  it('rejects job_desc > 3000 chars → 400', async () => {
-    const res = await post('/analyze', { cv: VALID_PDF_CV, job_desc: 'x'.repeat(3001) });
+  it('rejects job_desc > 5000 chars → 400', async () => {
+    const res = await post('/analyze', { cv: VALID_PDF_CV, job_desc: 'x'.repeat(5001) });
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.message).toContain('3.000');
+    expect(body.message).toContain('5.000');
   });
 
   it('rejects PDF with wrong magic bytes → 400', async () => {
@@ -694,11 +694,11 @@ describe('Multi-credit session — total_credits preserved through updateSession
 });
 
 describe('POST /generate — job_desc override validation', () => {
-  it('rejects job_desc over 3000 chars → 400', async () => {
+  it('rejects job_desc over 5000 chars → 400', async () => {
     const sessionId = await seedSession('generating', 'single');
     const res = await post('/generate', {
       session_id: sessionId,
-      job_desc: 'x'.repeat(3001),
+      job_desc: 'x'.repeat(5001),
     }, {}, '10.1.0.1');
     expect(res.status).toBe(400);
     const body = await res.json();

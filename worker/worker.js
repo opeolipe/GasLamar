@@ -594,8 +594,8 @@ async function handleAnalyze(request, env) {
     return jsonResponse({ message: 'CV dan job description wajib diisi' }, 400, request, env);
   }
 
-  if (job_desc.length > 3000) {
-    return jsonResponse({ message: 'Job description terlalu panjang (maks 3.000 karakter)' }, 400, request, env);
+  if (job_desc.length > 5000) {
+    return jsonResponse({ message: 'Job description terlalu panjang (maks 5.000 karakter)' }, 400, request, env);
   }
 
   // Validate file
@@ -617,7 +617,7 @@ async function handleAnalyze(request, env) {
     const cvTextKey = `cvtext_${crypto.randomUUID()}`;
     await env.GASLAMAR_SESSIONS.put(cvTextKey, JSON.stringify({
       text: extraction.text,
-      job_desc: job_desc.slice(0, 3000)
+      job_desc: job_desc.slice(0, 5000)
     }), { expirationTtl: 3600 });
 
     return jsonResponse({ ...scoring, cv_text_key: cvTextKey }, 200, request, env);
@@ -982,8 +982,8 @@ async function handleGenerate(request, env, ctx) {
 
   // Optional new job_desc for multi-credit re-use (3-Pack / JobHunt)
   if (newJobDesc !== undefined) {
-    if (typeof newJobDesc !== 'string' || newJobDesc.length > 3000) {
-      return jsonResponse({ message: 'Job description terlalu panjang (maks 3.000 karakter)' }, 400, request, env);
+    if (typeof newJobDesc !== 'string' || newJobDesc.length > 5000) {
+      return jsonResponse({ message: 'Job description terlalu panjang (maks 5.000 karakter)' }, 400, request, env);
     }
   }
 
@@ -1176,7 +1176,6 @@ async function handleFetchJobUrl(request, env) {
     .transform(pageRes)
     .text();
 
-  // Join, clean whitespace, and cap at 4000 chars before trimming to 3000
   let raw = chunks.join(' ').replace(/\s{3,}/g, '\n\n').trim();
 
   if (!raw || raw.length < 50) {
@@ -1201,8 +1200,7 @@ async function handleFetchJobUrl(request, env) {
   }
   if (trimStart > 0) raw = raw.slice(trimStart);
 
-  // Cap at 3000 chars
-  if (raw.length > 3000) raw = raw.slice(0, 3000);
+  if (raw.length > 5000) raw = raw.slice(0, 5000);
 
   return jsonResponse({ job_desc: raw }, 200, request, env);
 }
