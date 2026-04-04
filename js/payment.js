@@ -15,10 +15,23 @@ let selectedTier = null;
 let paymentInProgress = false;
 
 // Show amber email section with single/coba copy by default (before any tier is selected)
-document.addEventListener('DOMContentLoaded', () => updateEmailSection('single'));
+document.addEventListener('DOMContentLoaded', () => {
+  updateEmailSection('single');
+  // Clear email error state as user types, and update hint
+  const emailInput = document.getElementById('email-input');
+  if (emailInput) {
+    emailInput.addEventListener('input', () => {
+      const errEl = document.getElementById('email-error');
+      if (errEl) errEl.style.display = 'none';
+      emailInput.style.borderColor = '';
+      updatePayHint();
+    });
+  }
+});
 function selectTier(tier) {
   if (!TIER_CONFIG[tier]) return;
   selectedTier = tier;
+  sessionStorage.setItem('gaslamar_tier', tier);
 
   // Update UI — deselect all, select chosen
   document.querySelectorAll('.tier-card').forEach(card => {
@@ -37,6 +50,24 @@ function selectTier(tier) {
 
   // Transform email section based on tier
   updateEmailSection(tier);
+
+  updatePayHint();
+}
+
+function updatePayHint() {
+  const hint = document.getElementById('pay-hint');
+  if (!hint) return;
+  const email = document.getElementById('email-input')?.value.trim() || '';
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  if (!selectedTier) {
+    hint.textContent = 'Pilih paket di atas untuk melanjutkan';
+    hint.style.display = 'block';
+  } else if (!emailValid) {
+    hint.textContent = 'Masukkan email yang valid untuk melanjutkan';
+    hint.style.display = 'block';
+  } else {
+    hint.style.display = 'none';
+  }
 }
 
 function updateEmailSection(tier) {

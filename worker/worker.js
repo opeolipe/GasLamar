@@ -618,7 +618,7 @@ async function handleAnalyze(request, env) {
     await env.GASLAMAR_SESSIONS.put(cvTextKey, JSON.stringify({
       text: extraction.text,
       job_desc: job_desc.slice(0, 5000)
-    }), { expirationTtl: 3600 });
+    }), { expirationTtl: 7200 }); // 2 hours — gives users time to review hasil before paying
 
     return jsonResponse({ ...scoring, cv_text_key: cvTextKey }, 200, request, env);
   } catch (e) {
@@ -1260,6 +1260,14 @@ export default {
           return jsonResponse({ message: 'Not found' }, 404, request, env);
         }
         return handleSandboxPay(request, env);
+      }
+
+      // Sandbox detection probe — returns 200 in sandbox, 404 in production
+      if (method === 'GET' && pathname === '/sandbox/status') {
+        if (env.ENVIRONMENT === 'production') {
+          return new Response(null, { status: 404, headers: getCorsHeaders(request, env) });
+        }
+        return jsonResponse({ sandbox: true }, 200, request, env);
       }
 
       if (pathname === '/health') {

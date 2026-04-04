@@ -459,8 +459,8 @@
 
     // ── Sandbox detection ──
     (function checkSandbox() {
-      fetch(WORKER_URL + '/sandbox/pay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
-        .then(r => { if (r.status !== 404) document.getElementById('sandbox-pay-btn').classList.remove('hidden'); })
+      fetch(WORKER_URL + '/sandbox/status')
+        .then(r => { if (r.ok) document.getElementById('sandbox-pay-btn').classList.remove('hidden'); })
         .catch(() => {});
     })();
 

@@ -57,7 +57,7 @@ async function poll(sessionId) {
     const res = await fetch(`${WORKER_URL}/check-session?session=${encodeURIComponent(sessionId)}`);
 
     if (res.status === 404) {
-      showSessionError('Sesi Kedaluwarsa', 'Sesi kamu sudah kedaluwarsa (30 menit). Mulai ulang dari awal.');
+      showSessionError('Sesi Kedaluwarsa', 'Sesi kamu sudah kedaluwarsa. Mulai ulang dari awal.');
       return;
     }
 
@@ -261,6 +261,18 @@ function triggerDownload(blob, filename, mimeType) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+// ---- Candidate Name Extraction ----
+
+function extractCandidateName(cvText) {
+  if (!cvText) return null;
+  // First short non-blank line is typically the candidate's name
+  const firstLine = cvText.split('\n').map(l => l.trim()).find(l => l.length > 1 && l.length < 60);
+  if (!firstLine) return null;
+  // Sanitize: keep alphanumeric, spaces, hyphens only; collapse spaces to hyphens
+  const sanitized = firstLine.replace(/[^a-zA-Z0-9\s\-]/g, '').trim().replace(/\s+/g, '-').slice(0, 30);
+  return sanitized || null;
+}
+
 // ---- Line Parsing ----
 
 /**
@@ -330,8 +342,10 @@ function generateDOCX(cvText, lang, tier) {
     });
 
     Packer.toBlob(doc).then(blob => {
-      const langLabel = lang === 'id' ? 'Indonesia' : 'English';
-      triggerDownload(blob, `CV-${langLabel}-GasLamar.docx`, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      const langLabel = lang === 'id' ? 'ID' : 'EN';
+      const candidateName = extractCandidateName(cvText);
+      const filename = candidateName ? `CV-${candidateName}-${langLabel}-GasLamar.docx` : `CV-${langLabel}-GasLamar.docx`;
+      triggerDownload(blob, filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     });
 
   } catch (err) {
@@ -408,8 +422,10 @@ function generatePDF(cvText, lang, tier) {
       }
     }
 
-    const langLabel = lang === 'id' ? 'Indonesia' : 'English';
-    doc.save(`CV-${langLabel}-GasLamar.pdf`);
+    const langLabel = lang === 'id' ? 'ID' : 'EN';
+    const candidateName = extractCandidateName(cvText);
+    const filename = candidateName ? `CV-${candidateName}-${langLabel}-GasLamar.pdf` : `CV-${langLabel}-GasLamar.pdf`;
+    doc.save(filename);
 
   } catch (err) {
     console.error('PDF generation error:', err);
