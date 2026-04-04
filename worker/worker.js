@@ -26,6 +26,7 @@ const ALLOWED_ORIGINS = [
   'https://gaslamar.com',
   'https://www.gaslamar.com',
   'https://gaslamar.pages.dev',
+  'https://staging.gaslamar.pages.dev',
 ];
 
 // Add localhost for local development
@@ -1158,24 +1159,18 @@ async function handleFetchJobUrl(request, env) {
     return jsonResponse({ message: 'URL bukan halaman web (HTML). Coba copy-paste manual.' }, 422, request, env);
   }
 
-  // Extract text using HTMLRewriter — skip nav, header, footer, script, style
+  // Extract text using HTMLRewriter — extract all text from <body>, rely on JD markers below
+  // to trim nav/header noise. Avoid el.onEndTag() which throws on void elements.
   const chunks = [];
-  const SKIP_TAGS = new Set(['script', 'style', 'nav', 'header', 'footer', 'noscript', 'iframe', 'svg', 'button', 'form', 'input', 'select', 'aside']);
-
-  let skipDepth = 0;
 
   await new HTMLRewriter()
-    .on('*', {
-      element(el) {
-        if (SKIP_TAGS.has(el.tagName)) {
-          skipDepth++;
-          el.onEndTag(() => { skipDepth--; });
-        }
-      },
+    .on('script, style, noscript', {
+      text() { /* drop script/style text */ },
+    })
+    .on('body', {
       text(text) {
-        if (skipDepth > 0) return;
-        const t = text.text.replace(/\s+/g, ' ').trim();
-        if (t) chunks.push(t);
+        const t = text.text.replace(/\s+/g, ' ');
+        if (t.trim()) chunks.push(t);
       },
     })
     .transform(pageRes)
