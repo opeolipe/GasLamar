@@ -551,10 +551,22 @@ Requirements:
   document.getElementById('skip-jd-link').addEventListener('click', (e) => {
     e.preventDefault();
     document.getElementById('job-desc').value =
-      'Analisis umum tanpa job description spesifik. Evaluasi secara keseluruhan.';
+      'Analisis umum tanpa job description spesifik. Evaluasi kekuatan dan kelemahan CV secara keseluruhan.';
     updateCharCount();
-    document.getElementById('upload-form').dispatchEvent(new Event('submit'));
+    document.getElementById('upload-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
   });
+</script>
+
+<!-- Staging test panel — only loads on staging/localhost, no-op in production -->
+<script>
+  (function() {
+    const h = window.location.hostname;
+    if (h.includes('staging') || h === 'localhost' || h === '127.0.0.1') {
+      const s = document.createElement('script');
+      s.src = 'js/staging-cvs.js';
+      document.body.appendChild(s);
+    }
+  })();
 </script>
 </body>
 </html>

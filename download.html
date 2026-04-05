@@ -319,7 +319,9 @@
       <div class="credits-box">
         <span style="font-size:.8rem;">✨ Kamu masih punya</span>
         <div class="credits-number"><span id="credits-remaining-count">0</span> kredit tersisa</div>
-        <p style="font-size:.8rem;margin-top:.25rem;">CV aslimu sudah tersimpan — tinggal masukkan job description loker berikutnya</p>
+        <div style="font-size:.72rem;color:#6B7280;margin-top:.15rem;">dari <span id="credits-total-count">0</span> total kredit paket kamu</div>
+        <p style="font-size:.8rem;margin-top:.5rem;color:#374151;">CV dasarmu sudah tersimpan - tinggal masukkan job description loker berikutnya.</p>
+        <p style="font-size:.72rem;color:#9CA3AF;margin-top:.25rem;">Mau pakai CV yang berbeda? <a href="upload.html" style="color:#2563EB;text-decoration:none;">Mulai upload baru</a> (memerlukan paket baru)</p>
       </div>
       <div class="next-jd-box">
         <label style="font-weight:600;font-size:.95rem;display:block;margin-bottom:.75rem;">Job yang kamu targetkan selanjutnya</label>
@@ -372,6 +374,15 @@
         </button>
       </div>
       <div class="trust-footer" style="margin-top:1.5rem;">🔒 CV aslimu tersimpan aman · Link berlaku 30 hari · Generate kapan saja tanpa login</div>
+    </div>
+
+    <!-- 0-credits upgrade nudge (shown after last credit is used) -->
+    <div id="upgrade-nudge" class="hidden card" style="text-align:center;padding:1.5rem;">
+      <div style="font-size:1.8rem;margin-bottom:.5rem;">🎉</div>
+      <h3 style="font-weight:700;margin-bottom:.5rem;">Semua kredit sudah terpakai!</h3>
+      <p style="font-size:.9rem;color:#6B7280;margin-bottom:1.25rem;">Masih ada loker lain yang ingin kamu lamar? Beli paket baru untuk CV yang disesuaikan.</p>
+      <a href="upload.html" style="display:inline-block;background:#0F172A;color:white;font-weight:700;padding:.75rem 1.5rem;border-radius:60px;text-decoration:none;font-size:.95rem;">Upload CV untuk Loker Baru</a>
+      <p style="font-size:.72rem;color:#9CA3AF;margin-top:.75rem;">Bisa pakai CV yang sama atau upload CV yang sudah diperbarui</p>
     </div>
 
     <!-- CTA: scroll to multi-credit if credits remain, else go to upload -->

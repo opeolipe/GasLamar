@@ -45,6 +45,12 @@ function removeFile() {
 }
 
 function processFile(file) {
+  // Clear any stale data from a previous flow before starting fresh
+  ['gaslamar_scoring', 'gaslamar_cv_key', 'gaslamar_cv_pending',
+   'gaslamar_jd_pending', 'gaslamar_filename', 'gaslamar_tier',
+   'gaslamar_email', 'gaslamar_analyze_time',
+  ].forEach(k => sessionStorage.removeItem(k));
+
   hideError('file-error');
   hideError('cv-text-warning');
 

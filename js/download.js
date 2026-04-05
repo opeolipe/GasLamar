@@ -66,12 +66,20 @@ async function poll(sessionId) {
       return;
     }
 
-    const { status } = await res.json();
+    const data = await res.json();
+    const { status } = data;
 
     if (status === 'paid' || status === 'generating') {
-      // Payment confirmed! Fetch CV data and generate
       clearTimeout(pollTimer);
-      await fetchAndGenerateCV(sessionId);
+      const creditsRemaining = data.credits_remaining ?? 1;
+      const totalCredits = data.total_credits ?? 1;
+      // Returning user: already used ≥1 credit — show dashboard without auto-generating
+      const isReturning = totalCredits > 1 && creditsRemaining < totalCredits;
+      if (isReturning) {
+        showCreditsDashboard(creditsRemaining, totalCredits, data.tier);
+      } else {
+        await fetchAndGenerateCV(sessionId);
+      }
     } else if (status === 'pending') {
       if (pollCount >= MAX_POLLS) {
         // Stopped polling — show manual check buttons
@@ -198,10 +206,10 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
     setProgress(75);
     setGeneratingText('Menyiapkan file download...');
 
-    const { cv_id, cv_en, credits_remaining } = await res.json();
+    const { cv_id, cv_en, credits_remaining, total_credits } = await res.json();
 
     // Cache for retries
-    cvDataCache = { cv_id, cv_en, tier };
+    cvDataCache = { cv_id, cv_en, tier, total_credits };
 
     // Only clear localStorage when all credits are used up
     if (!credits_remaining || credits_remaining <= 0) {
@@ -462,6 +470,27 @@ function setGeneratingText(text) {
   if (el) el.textContent = text;
 }
 
+function showCreditsDashboard(creditsRemaining, totalCredits, tier) {
+  showState('download-ready');
+  // No previous CV — hide the download grid
+  const grid = document.getElementById('download-grid');
+  if (grid) grid.classList.add('hidden');
+  // Also hide the success header since nothing was generated yet
+  const successHeader = document.querySelector('#download-ready > .card:nth-child(2) > div:first-child');
+  if (successHeader) successHeader.style.display = 'none';
+  // Show multi-credit section
+  const multiSection = document.getElementById('multi-credit-section');
+  if (multiSection) {
+    const creditsEl = document.getElementById('credits-remaining-count');
+    if (creditsEl) creditsEl.textContent = creditsRemaining;
+    const totalEl = document.getElementById('credits-total-count');
+    if (totalEl) totalEl.textContent = totalCredits;
+    multiSection.classList.remove('hidden');
+  }
+  // Cache tier for generateForNewJob
+  cvDataCache = { cv_id: null, cv_en: null, tier: tier || 'single' };
+}
+
 function showDownloadReady(cvId, cvEn, tier, isBilingual, creditsRemaining) {
   showState('download-ready');
 
@@ -481,7 +510,14 @@ function showDownloadReady(cvId, cvEn, tier, isBilingual, creditsRemaining) {
   const creditsEl = document.getElementById('credits-remaining-count');
   if (multiSection && creditsRemaining > 0) {
     if (creditsEl) creditsEl.textContent = creditsRemaining;
+    const totalEl = document.getElementById('credits-total-count');
+    if (totalEl) totalEl.textContent = cvDataCache?.total_credits ?? (creditsRemaining + 1);
     multiSection.classList.remove('hidden');
+  }
+  // Show upgrade nudge when all credits are used
+  if (creditsRemaining <= 0) {
+    const upgradeEl = document.getElementById('upgrade-nudge');
+    if (upgradeEl) upgradeEl.classList.remove('hidden');
   }
 
   // Detect if mobile (for fallback hint)

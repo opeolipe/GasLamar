@@ -402,6 +402,7 @@
       // Store results
       sessionStorage.setItem('gaslamar_scoring', JSON.stringify(result));
       sessionStorage.setItem('gaslamar_cv_key', result.cv_text_key || '');
+      sessionStorage.setItem('gaslamar_analyze_time', String(Date.now()));
 
       // Clear pending data
       sessionStorage.removeItem('gaslamar_cv_pending');
