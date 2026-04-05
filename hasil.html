@@ -420,6 +420,15 @@
         window.location.replace('upload.html');
       }
 
+      // Reject any URL-level session parameter that doesn't match our format.
+      // hasil.html is a sessionStorage-only page; a foreign sessionId in the URL
+      // means someone is sharing/forging a link — clear local data and redirect.
+      var params = new URLSearchParams(location.search);
+      var urlSession = params.get('session') || params.get('sessionId');
+      if (urlSession !== null && !urlSession.startsWith('cvtext_')) {
+        clearAndRedirect(); return;
+      }
+
       var rawScoring = sessionStorage.getItem('gaslamar_scoring');
       var cvKey = sessionStorage.getItem('gaslamar_cv_key') || '';
       var analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
@@ -443,6 +452,9 @@
 
       // analyze_time must be present (guards against manually injected data)
       if (!analyzeTime) { clearAndRedirect(); return; }
+
+      // If a valid cvtext_ key is in the URL, it must match what's in sessionStorage
+      if (urlSession && urlSession !== cvKey) { clearAndRedirect(); return; }
     })();
   </script>
 </head>
