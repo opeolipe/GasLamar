@@ -432,7 +432,21 @@ NEVER:
 
 // ---- AI Analysis ----
 
+/** Compute a hex SHA-256 of text (first 32 chars used as KV key segment). */
+async function sha256Hex(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
+}
+
 async function analyzeCV(cvText, jobDesc, env) {
+  // --- Content-hash cache ---
+  // Same extracted CV text + job description always yields the same analysis.
+  // Cache the result in KV so re-uploads / re-runs are 100% deterministic
+  // even across different edge nodes.
+  const cacheKey = `analysis_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
+  const cached = await env.GASLAMAR_SESSIONS.get(cacheKey, { type: 'json' });
+  if (cached) return cached;
+
   const systemPrompt = `${SKILL_ANALYZE}
 
 --- TASK ---
@@ -490,11 +504,14 @@ Output hanya JSON, tidak ada teks lain.`;
 
   // Compute total score deterministically from discrete sub-scores.
   // Clamp each sub-score to its allowed set to guard against LLM hallucination.
-  const relevansi   = [0, 10, 20, 30, 40].includes(scoring.skor_relevansi)   ? scoring.skor_relevansi   : 0;
-  const requirements = [0, 10, 20, 30].includes(scoring.skor_requirements)   ? scoring.skor_requirements : 0;
-  const kualitas    = [0, 10, 20].includes(scoring.skor_kualitas)             ? scoring.skor_kualitas    : 0;
-  const keywords    = [0, 5, 10].includes(scoring.skor_keywords)              ? scoring.skor_keywords    : 0;
-  scoring.skor      = relevansi + requirements + kualitas + keywords;
+  const relevansi    = [0, 10, 20, 30, 40].includes(scoring.skor_relevansi)   ? scoring.skor_relevansi   : 0;
+  const requirements = [0, 10, 20, 30].includes(scoring.skor_requirements)    ? scoring.skor_requirements : 0;
+  const kualitas     = [0, 10, 20].includes(scoring.skor_kualitas)             ? scoring.skor_kualitas    : 0;
+  const keywords     = [0, 5, 10].includes(scoring.skor_keywords)              ? scoring.skor_keywords    : 0;
+  scoring.skor       = relevansi + requirements + kualitas + keywords;
+
+  // Store in cache (48-hour TTL). Identical CV+JD will always return this result.
+  await env.GASLAMAR_SESSIONS.put(cacheKey, JSON.stringify(scoring), { expirationTtl: 172800 });
 
   return scoring;
 }
