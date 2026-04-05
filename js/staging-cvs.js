@@ -395,25 +395,29 @@ Microsoft Office, JIRA, Confluence, Trello, Figma (basic), Google Analytics (bas
 
     const filename = `TEST-CV${cvId}-${meta.label.replace(/[^a-zA-Z0-9]/g, '-')}-${lang.toUpperCase()}.txt`;
 
-    // Create a real File object so the file input reflects the loaded CV
+    // Create a real File object so upload.js's processFile() runs normally
     const blob = new Blob([content], { type: 'text/plain' });
     const file = new File([blob], filename, { type: 'text/plain', lastModified: Date.now() });
-    window.selectedFile = file;
-    window.cvText = JSON.stringify({ type: 'txt', data: content });
 
-    // Populate the actual <input id="cv-file"> so "Ganti file" & label show correctly
+    // Populate the actual <input id="cv-file"> and fire change to trigger
+    // handleFileSelect → processFile, which sets upload.js's internal
+    // selectedFile + cvText so form validation passes.
     try {
       const fileInput = document.getElementById('cv-file');
       if (fileInput && typeof DataTransfer !== 'undefined') {
         const dt = new DataTransfer();
         dt.items.add(file);
         fileInput.files = dt.files;
+        fileInput.dispatchEvent(new Event('change'));
       }
-    } catch (_) { /* DataTransfer not available in all test environments */ }
+    } catch (_) { /* fallback: set globals directly */ }
 
-    if (typeof showFilePreview === 'function') {
-      showFilePreview(window.selectedFile);
-    }
+    // Keep window globals as fallback for environments where DataTransfer is unavailable
+    window.selectedFile = file;
+    window.cvText = JSON.stringify({ type: 'txt', data: content });
+
+    // Ensure preview is shown (idempotent if processFile already ran it)
+    if (typeof showFilePreview === 'function') showFilePreview(file);
 
     // Clear previous errors/warnings
     const fileErr = document.getElementById('file-error');
