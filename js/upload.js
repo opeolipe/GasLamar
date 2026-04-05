@@ -206,6 +206,11 @@ function updateCharCount() {
   } else {
     warning.classList.add('hidden');
   }
+
+  // Clear "too short" / "too long" errors as the user types to valid length
+  if (count >= 50 && count <= MAX_JD_CHARS) {
+    hideError('jd-error');
+  }
 }
 
 // ---- Form Submit ----
