@@ -197,6 +197,12 @@ function arrayBufferToBase64(buffer) {
 
 function updateCharCount() {
   const jd = document.getElementById('job-desc');
+
+  // Enforce hard cap — paste can bypass HTML maxlength on some browsers
+  if (jd.value.length > MAX_JD_CHARS) {
+    jd.value = jd.value.slice(0, MAX_JD_CHARS);
+  }
+
   const count = jd.value.length;
   document.getElementById('char-count').textContent = count.toLocaleString('id-ID');
 
@@ -345,11 +351,27 @@ function showError(id, message) {
     el.textContent = message;
     el.classList.remove('hidden');
   }
+  // Visual feedback on submit button: shake + red ring
+  const btn = document.getElementById('submit-btn');
+  if (btn) {
+    btn.classList.remove('btn-error'); // reset to re-trigger animation
+    void btn.offsetWidth; // force reflow
+    btn.classList.add('btn-error');
+  }
 }
 
 function hideError(id) {
   const el = document.getElementById(id);
   if (el) el.classList.add('hidden');
+  // Remove error ring only when no validation errors are visible
+  const anyVisible = ['file-error','jd-error'].some(eid => {
+    const e = document.getElementById(eid);
+    return e && !e.classList.contains('hidden');
+  });
+  if (!anyVisible) {
+    const btn = document.getElementById('submit-btn');
+    if (btn) btn.classList.remove('btn-error');
+  }
 }
 
 // ---- Init: restore tier, JD draft, and CV state ----

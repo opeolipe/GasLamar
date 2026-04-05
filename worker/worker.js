@@ -273,6 +273,7 @@ async function callClaude(env, systemPrompt, userContent, maxTokens = 2000) {
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: maxTokens,
+        temperature: 0,
         system: systemPrompt,
         messages,
       }),

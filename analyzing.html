@@ -297,9 +297,13 @@
   const jobDesc   = sessionStorage.getItem('gaslamar_jd_pending');
   const filename  = sessionStorage.getItem('gaslamar_filename') || 'CV Kamu';
 
-  // Redirect back if no data
+  // Redirect if no pending data (direct navigation or page refresh after completion)
   if (!cvData || !jobDesc) {
-    window.location.href = 'upload.html';
+    // If a fresh analysis result already exists, send them to hasil.html
+    const existingScore = sessionStorage.getItem('gaslamar_scoring');
+    const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
+    const isFresh = existingScore && analyzeTime && (Date.now() - analyzeTime) < 7200000;
+    window.location.replace(isFresh ? 'hasil.html' : 'upload.html');
   }
 
   // Show filename
@@ -415,7 +419,7 @@
       clearInterval(trustInterval);
       finishAnimation();
 
-      setTimeout(() => { window.location.href = 'hasil.html'; }, 800);
+      setTimeout(() => { window.location.replace('hasil.html'); }, 800);
 
     } catch (err) {
       clearInterval(timerInterval);
