@@ -379,3 +379,15 @@ function hideError(id) {
 document.getElementById('job-desc').addEventListener('input', () => {
   sessionStorage.setItem('gaslamar_jd_draft', document.getElementById('job-desc').value);
 });
+
+// ---- Staging test hook ----
+// Called by staging-cvs.js to inject pre-extracted CV text without going
+// through FileReader (avoids async timing issues with the change event).
+window.injectCVForTesting = function (cvTextJson, file) {
+  cvText = cvTextJson;
+  selectedFile = file;
+  showFilePreview(file);
+  hideError('file-error');
+  const cvWarn = document.getElementById('cv-text-warning');
+  if (cvWarn) cvWarn.classList.add('hidden');
+};

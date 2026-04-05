@@ -395,35 +395,30 @@ Microsoft Office, JIRA, Confluence, Trello, Figma (basic), Google Analytics (bas
 
     const filename = `TEST-CV${cvId}-${meta.label.replace(/[^a-zA-Z0-9]/g, '-')}-${lang.toUpperCase()}.txt`;
 
-    // Create a real File object so upload.js's processFile() runs normally
+    // Create a real File object (for file preview label and size display)
     const blob = new Blob([content], { type: 'text/plain' });
     const file = new File([blob], filename, { type: 'text/plain', lastModified: Date.now() });
+    const cvTextJson = JSON.stringify({ type: 'txt', data: content });
 
-    // Populate the actual <input id="cv-file"> and fire change to trigger
-    // handleFileSelect → processFile, which sets upload.js's internal
-    // selectedFile + cvText so form validation passes.
-    try {
-      const fileInput = document.getElementById('cv-file');
-      if (fileInput && typeof DataTransfer !== 'undefined') {
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        fileInput.files = dt.files;
-        fileInput.dispatchEvent(new Event('change'));
-      }
-    } catch (_) { /* fallback: set globals directly */ }
-
-    // Keep window globals as fallback for environments where DataTransfer is unavailable
-    window.selectedFile = file;
-    window.cvText = JSON.stringify({ type: 'txt', data: content });
-
-    // Ensure preview is shown (idempotent if processFile already ran it)
-    if (typeof showFilePreview === 'function') showFilePreview(file);
-
-    // Clear previous errors/warnings
-    const fileErr = document.getElementById('file-error');
-    if (fileErr) { fileErr.textContent = ''; fileErr.classList.add('hidden'); }
-    const cvWarn = document.getElementById('cv-text-warning');
-    if (cvWarn) cvWarn.classList.add('hidden');
+    // Primary path: call upload.js's test hook which sets module-level
+    // selectedFile + cvText synchronously (no FileReader async timing issues).
+    if (typeof window.injectCVForTesting === 'function') {
+      window.injectCVForTesting(cvTextJson, file);
+    } else {
+      // Fallback: populate file input + fire change event
+      try {
+        const fileInput = document.getElementById('cv-file');
+        if (fileInput && typeof DataTransfer !== 'undefined') {
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          fileInput.files = dt.files;
+          fileInput.dispatchEvent(new Event('change'));
+        }
+      } catch (_) {}
+      window.selectedFile = file;
+      window.cvText = cvTextJson;
+      if (typeof showFilePreview === 'function') showFilePreview(file);
+    }
 
     // Pre-fill job description
     const jdEl = document.getElementById('job-desc');
