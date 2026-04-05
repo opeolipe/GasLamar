@@ -303,6 +303,34 @@ describe('POST /create-payment — one-time key consumption', () => {
   });
 });
 
+describe('POST /session/ping', () => {
+  it('rejects missing body → 400', async () => {
+    const res = await post('/session/ping', {});
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects invalid session_id format → 400', async () => {
+    const res = await post('/session/ping', { session_id: 'invalid' });
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 404 for unknown session', async () => {
+    const res = await post('/session/ping', { session_id: 'sess_nonexistent' });
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.expired).toBe(true);
+  });
+
+  it('returns ok:true and refreshes session for known session', async () => {
+    const sessionId = await seedSession('paid', 'single');
+    const res = await post('/session/ping', { session_id: sessionId });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.status).toBe('paid');
+  });
+});
+
 describe('GET /check-session', () => {
   it('rejects missing session → 400', async () => {
     const res = await get('/check-session');

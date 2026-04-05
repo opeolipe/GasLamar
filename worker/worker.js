@@ -1039,6 +1039,28 @@ async function handleMayarWebhook(request, env, ctx) {
   return new Response('OK', { status: 200 });
 }
 
+async function handleSessionPing(request, env) {
+  let body;
+  try { body = await request.json(); } catch (_) {
+    return jsonResponse({ message: 'Request body tidak valid' }, 400, request, env);
+  }
+
+  const { session_id } = body;
+  if (!session_id || !session_id.startsWith('sess_')) {
+    return jsonResponse({ message: 'Session ID tidak valid' }, 400, request, env);
+  }
+
+  const session = await getSession(env, session_id);
+  if (!session) {
+    return jsonResponse({ ok: false, expired: true }, 404, request, env);
+  }
+
+  // Re-write to refresh KV TTL while user is still active on the page
+  await updateSession(env, session_id, { last_active: Date.now() });
+
+  return jsonResponse({ ok: true, status: session.status }, 200, request, env);
+}
+
 async function handleCheckSession(request, env) {
   const url = new URL(request.url);
   const sessionId = url.searchParams.get('session');
@@ -1373,6 +1395,10 @@ export default {
 
       if (method === 'POST' && pathname === '/webhook/mayar') {
         return handleMayarWebhook(request, env, ctx);
+      }
+
+      if (method === 'POST' && pathname === '/session/ping') {
+        return handleSessionPing(request, env);
       }
 
       if (method === 'GET' && pathname === '/check-session') {

@@ -6,9 +6,11 @@
 
 const POLL_INTERVAL = 3000;  // 3 seconds
 const MAX_POLLS = 10;
+const HEARTBEAT_INTERVAL = 3 * 60 * 1000; // 3 minutes
 
 let pollCount = 0;
 let pollTimer = null;
+let heartbeatTimer = null;
 let cvDataCache = null; // { cv_id: string, cv_en: string, tier: string }
 let sessionIdCache = null; // retained for multi-credit re-use
 
@@ -57,7 +59,11 @@ async function poll(sessionId) {
     const res = await fetch(`${WORKER_URL}/check-session?session=${encodeURIComponent(sessionId)}`);
 
     if (res.status === 404) {
-      showSessionError('Sesi Kedaluwarsa', 'Sesi kamu sudah kedaluwarsa. Mulai ulang dari awal.');
+      showSessionError(
+        'Sesi Tidak Ditemukan',
+        'Sesi tidak ditemukan. Jika kamu baru saja membayar, tunggu beberapa detik lalu refresh. Jika masalah berlanjut, hubungi support dengan bukti pembayaran.',
+        false
+      );
       return;
     }
 
@@ -71,6 +77,7 @@ async function poll(sessionId) {
 
     if (status === 'paid' || status === 'generating') {
       clearTimeout(pollTimer);
+      startSessionHeartbeat(sessionId); // keep session alive while user is on the page
       const creditsRemaining = data.credits_remaining ?? 1;
       const totalCredits = data.total_credits ?? 1;
       // Returning user: already used ≥1 credit — show dashboard without auto-generating
@@ -110,6 +117,37 @@ function scheduleNextPoll(sessionId) {
   pollTimer = setTimeout(() => poll(sessionId), POLL_INTERVAL);
 }
 
+// ---- Session Heartbeat ----
+// Pings /session/ping every 3 minutes to refresh KV TTL while user is active.
+
+function startSessionHeartbeat(sessionId) {
+  if (heartbeatTimer) return; // already running
+  heartbeatTimer = setInterval(async () => {
+    try {
+      const res = await fetch(`${WORKER_URL}/session/ping`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId })
+      });
+      if (res.status === 404) {
+        stopSessionHeartbeat();
+        showSessionError(
+          'Sesi Kedaluwarsa',
+          'Sesi kamu sudah kedaluwarsa. Jika kamu sudah membayar, hubungi kami dengan bukti pembayaran.',
+          false
+        );
+      }
+    } catch (_) { /* ignore transient network errors */ }
+  }, HEARTBEAT_INTERVAL);
+}
+
+function stopSessionHeartbeat() {
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
+}
+
 function updatePollUI() {
   const el = document.getElementById('poll-count-text');
   if (el) {
@@ -138,12 +176,16 @@ async function fetchAndGenerateCV(sessionId) {
     clearTimeout(timeout);
 
     if (res.status === 403) {
-      showSessionError('Akses Ditolak', 'Pembayaran belum dikonfirmasi atau sesi tidak valid.');
+      showSessionError('Akses Ditolak', 'Pembayaran belum dikonfirmasi atau sesi tidak valid.', false);
       return;
     }
 
     if (res.status === 404) {
-      showSessionError('Sesi Kedaluwarsa', 'Sesi kamu sudah kedaluwarsa. Mulai ulang dari awal.');
+      showSessionError(
+        'Sesi Tidak Ditemukan',
+        'Sesi tidak ditemukan atau sudah kedaluwarsa. Jika kamu sudah membayar, hubungi support dengan bukti pembayaran.',
+        false
+      );
       return;
     }
 
@@ -200,7 +242,28 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
     clearTimeout(timeout);
 
     if (!res.ok) {
-      throw new Error(`Gagal generate CV: ${res.status}`);
+      // Parse server error message for better context
+      let serverMsg = `Gagal generate CV (${res.status})`;
+      try {
+        const errData = await res.json();
+        if (errData.message) serverMsg = errData.message;
+      } catch (_) {}
+
+      if (res.status === 404) {
+        showSessionError(
+          'Sesi Tidak Ditemukan',
+          'Sesi tidak ditemukan atau sudah kedaluwarsa. Jika kamu sudah membayar, hubungi support dengan bukti pembayaran.',
+          false
+        );
+        return;
+      }
+      if (res.status === 403) {
+        showSessionError('Akses Ditolak', serverMsg, false);
+        return;
+      }
+      // 500 / 429: server resets session to 'paid' on failure — user can retry
+      showSessionError('Gagal Generate CV', serverMsg + ' Klik "Coba Lagi" untuk mencoba ulang.', true);
+      return;
     }
 
     setProgress(75);
@@ -223,6 +286,7 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
     // Show download UI
     setTimeout(() => {
       setProgress(100);
+      stopSessionHeartbeat(); // CV is ready — no need to keep extending session
       showDownloadReady(cv_id, cv_en, tier, isBilingual, credits_remaining || 0);
     }, 500);
 
@@ -454,10 +518,19 @@ function showState(id) {
   if (target) target.classList.remove('hidden');
 }
 
-function showSessionError(title, message) {
+function showSessionError(title, message, retryable = false) {
   showState('session-error');
   document.getElementById('error-title').textContent = title;
   document.getElementById('session-error-msg').textContent = message;
+  const retryBtn = document.getElementById('error-retry-btn');
+  const restartBtn = document.getElementById('error-restart-btn');
+  if (retryBtn) retryBtn.classList.toggle('hidden', !retryable);
+  if (restartBtn) restartBtn.classList.toggle('hidden', retryable);
+}
+
+function retryGeneration() {
+  if (!sessionIdCache) { window.location.reload(); return; }
+  fetchAndGenerateCV(sessionIdCache);
 }
 
 function setProgress(pct) {

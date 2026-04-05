@@ -395,9 +395,21 @@ Microsoft Office, JIRA, Confluence, Trello, Figma (basic), Google Analytics (bas
 
     const filename = `TEST-CV${cvId}-${meta.label.replace(/[^a-zA-Z0-9]/g, '-')}-${lang.toUpperCase()}.txt`;
 
-    // Inject into upload.js module-level globals
-    window.selectedFile = { name: filename, size: content.length };
+    // Create a real File object so the file input reflects the loaded CV
+    const blob = new Blob([content], { type: 'text/plain' });
+    const file = new File([blob], filename, { type: 'text/plain', lastModified: Date.now() });
+    window.selectedFile = file;
     window.cvText = JSON.stringify({ type: 'txt', data: content });
+
+    // Populate the actual <input id="cv-file"> so "Ganti file" & label show correctly
+    try {
+      const fileInput = document.getElementById('cv-file');
+      if (fileInput && typeof DataTransfer !== 'undefined') {
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        fileInput.files = dt.files;
+      }
+    } catch (_) { /* DataTransfer not available in all test environments */ }
 
     if (typeof showFilePreview === 'function') {
       showFilePreview(window.selectedFile);
