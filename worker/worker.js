@@ -1285,7 +1285,7 @@ async function handleSubmitEmail(request, env) {
 
 // ---- Sandbox Test Helper ----
 
-async function handleSandboxPay(request, env) {
+async function handleSandboxPay(request, env, ctx) {
   let body;
   try { body = await request.json(); } catch { return jsonResponse({ message: 'Invalid JSON' }, 400, request, env); }
 
@@ -1300,6 +1300,16 @@ async function handleSandboxPay(request, env) {
 
   await updateSession(env, session_id, { status: 'paid', paid_at: Date.now() });
   console.log({ event: 'sandbox_payment_confirmed', sessionId: session_id });
+
+  // Send payment confirmation email (same as production Mayar webhook path)
+  if (ctx) {
+    ctx.waitUntil(
+      sendPaymentConfirmationEmail(session_id, env).catch((e) => {
+        logError('sandbox_email_failed', { session_id, error: e.message });
+      })
+    );
+  }
+
   return jsonResponse({ ok: true }, 200, request, env);
 }
 
@@ -1452,7 +1462,7 @@ export default {
         if (env.ENVIRONMENT === 'production') {
           return jsonResponse({ message: 'Not found' }, 404, request, env);
         }
-        return handleSandboxPay(request, env);
+        return handleSandboxPay(request, env, ctx);
       }
 
       // Sandbox detection probe — returns 200 in sandbox, 404 in production

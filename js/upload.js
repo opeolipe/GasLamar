@@ -380,6 +380,15 @@ document.getElementById('job-desc').addEventListener('input', () => {
   sessionStorage.setItem('gaslamar_jd_draft', document.getElementById('job-desc').value);
 });
 
+// Re-enable submit when page is restored from BFcache (back-navigation or tab switch).
+// Without this, the button stays disabled if the user navigated away mid-submit.
+window.addEventListener('pageshow', (e) => {
+  if (e.persisted) {
+    const btn = document.getElementById('submit-btn');
+    if (btn) btn.disabled = false;
+  }
+});
+
 // ---- Staging test hook ----
 // Called by staging-cvs.js to inject pre-extracted CV text without going
 // through FileReader (avoids async timing issues with the change event).
