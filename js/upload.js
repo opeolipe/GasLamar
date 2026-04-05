@@ -243,6 +243,9 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
   }
 
   if (jobDesc.length > MAX_JD_CHARS) {
+    // Sync counter to show actual length — may be stale if content was injected
+    // programmatically (element.value=… doesn't fire oninput)
+    document.getElementById('char-count').textContent = jobDesc.length.toLocaleString('id-ID');
     showError('jd-error', `Job description terlalu panjang. Maksimal ${MAX_JD_CHARS.toLocaleString('id-ID')} karakter.`);
     return;
   }
@@ -405,6 +408,12 @@ function hideError(id) {
 // Save JD draft on every keystroke
 document.getElementById('job-desc').addEventListener('input', () => {
   sessionStorage.setItem('gaslamar_jd_draft', document.getElementById('job-desc').value);
+});
+
+// Paste fires BEFORE the value is updated — use requestAnimationFrame so
+// updateCharCount reads the final value (and enforces the hard cap).
+document.getElementById('job-desc').addEventListener('paste', () => {
+  requestAnimationFrame(updateCharCount);
 });
 
 // Re-enable submit when page is restored from BFcache (back-navigation or tab switch).
