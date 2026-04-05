@@ -818,7 +818,8 @@ async function handleCreatePayment(request, env) {
   // Sandbox: skip Mayar entirely — session goes straight to pending, frontend uses /sandbox/pay
   if (env.ENVIRONMENT !== 'production') {
     await env.GASLAMAR_SESSIONS.delete(cv_text_key);
-    await createSession(env, sessionId, {
+
+    const sessionData = {
       cv_text: stored.text,
       job_desc: stored.job_desc,
       tier,
@@ -827,7 +828,22 @@ async function handleCreatePayment(request, env) {
       total_credits: credits,
       ip,
       ...(sessionEmail ? { email: sessionEmail } : {}),
-    });
+    };
+
+    // Write with read-back verification — KV is eventually consistent across
+    // edge nodes, so we verify the write landed before returning to the client.
+    let verified = false;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      await createSession(env, sessionId, sessionData);
+      const check = await getSession(env, sessionId);
+      if (check) { verified = true; break; }
+      logError('sandbox_session_write_unverified', { session_id: sessionId, attempt });
+    }
+    if (!verified) {
+      logError('sandbox_session_create_failed', { session_id: sessionId, tier });
+      return jsonResponse({ message: 'Gagal membuat sesi. Coba lagi.' }, 500, request, env);
+    }
+
     log('sandbox_session_created', { session_id: sessionId, tier, credits });
     return jsonResponse({ session_id: sessionId, is_sandbox: true }, 200, request, env);
   }

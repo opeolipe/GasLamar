@@ -36,9 +36,10 @@ let sessionIdCache = null; // retained for multi-credit re-use
 
 function startPolling(sessionId) {
   pollCount = 0;
-  // Small delay before first poll — gives Cloudflare KV time to propagate
-  // the session write from /create-payment across edge nodes.
-  setTimeout(() => poll(sessionId), 1000);
+  // 2s delay before first poll — Cloudflare KV is eventually consistent;
+  // the session written by /create-payment may not be visible at the polling
+  // edge node for several seconds.
+  setTimeout(() => poll(sessionId), 2000);
 }
 
 function restartPolling() {
@@ -61,9 +62,11 @@ async function poll(sessionId) {
     const res = await fetch(`${WORKER_URL}/check-session?session=${encodeURIComponent(sessionId)}`);
 
     if (res.status === 404) {
-      // Retry the first 3 polls before giving up — handles KV propagation lag
-      // (Cloudflare KV writes are eventually consistent across edge nodes).
-      if (pollCount <= 3) {
+      // Cloudflare KV is eventually consistent across edge nodes — a session
+      // written by /create-payment may not yet be visible from the edge that
+      // serves /check-session.  Keep polling through the full window (same as
+      // 'pending') before showing the error to the user.
+      if (pollCount < MAX_POLLS) {
         scheduleNextPoll(sessionId);
         return;
       }
