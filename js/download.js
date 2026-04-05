@@ -26,6 +26,11 @@ let sessionIdCache = null; // retained for multi-credit re-use
     return;
   }
 
+  if (!sessionId.startsWith('sess_')) {
+    showSessionError('Link Tidak Valid', 'Link download tidak valid. Pastikan menggunakan link lengkap yang dikirim ke email kamu.');
+    return;
+  }
+
   sessionIdCache = sessionId;
   // Start polling for payment confirmation
   showState('waiting-payment');
@@ -60,6 +65,16 @@ async function poll(sessionId) {
 
   try {
     const res = await fetch(`${WORKER_URL}/check-session?session=${encodeURIComponent(sessionId)}`);
+
+    if (res.status === 400) {
+      // Bad request — invalid session ID format; no point retrying
+      showSessionError(
+        'Link Tidak Valid',
+        'Link download tidak valid. Pastikan menggunakan link lengkap yang dikirim ke email kamu.',
+        false
+      );
+      return;
+    }
 
     if (res.status === 404) {
       // Cloudflare KV is eventually consistent across edge nodes — a session

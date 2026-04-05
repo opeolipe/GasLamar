@@ -412,7 +412,22 @@
     }
     #share-btn:hover { border-color: #0F172A; color: #0F172A; }
   </style>
-  <script>if (!sessionStorage.getItem('gaslamar_scoring')) window.location.replace('upload.html');</script>
+  <script>
+    (function() {
+      var scoring = sessionStorage.getItem('gaslamar_scoring');
+      var analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
+      var SESSION_SECS = 7200;
+      var isExpired = analyzeTime > 0 && (Date.now() - analyzeTime) / 1000 > SESSION_SECS;
+      if (!scoring || isExpired) {
+        if (isExpired) {
+          ['gaslamar_scoring','gaslamar_cv_key','gaslamar_analyze_time'].forEach(function(k) {
+            sessionStorage.removeItem(k);
+          });
+        }
+        window.location.replace('upload.html');
+      }
+    })();
+  </script>
 </head>
 <body>
 <div class="container">
