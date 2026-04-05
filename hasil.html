@@ -626,9 +626,25 @@
     const h = Math.floor(remaining / 3600);
     const m = Math.floor((remaining % 3600) / 60);
     const s = remaining % 60;
-    textEl.textContent = h > 0
-      ? `Sesi analisis berlaku ${h}j ${m}m lagi - bayar sebelum kedaluwarsa`
-      : `Sesi analisis berlaku ${m}m ${s}s lagi - bayar sebelum kedaluwarsa`;
+    if (remaining <= 300) {
+      // Under 5 minutes — urgent warning
+      el.style.background = '#FEF2F2';
+      el.style.borderColor = '#FECACA';
+      el.style.color = '#B91C1C';
+      textEl.textContent = `⚠️ Sesi berakhir dalam ${m}m ${s}s — selesaikan pembayaran sekarang!`;
+    } else if (remaining <= 1800) {
+      // Under 30 minutes — amber warning
+      el.style.background = '#FFFBEB';
+      el.style.borderColor = '#FCD34D';
+      el.style.color = '#92400E';
+      textEl.textContent = h > 0
+        ? `Sesi analisis berlaku ${h}j ${m}m lagi - bayar sebelum kedaluwarsa`
+        : `Sesi analisis berlaku ${m}m ${s}s lagi - bayar sebelum kedaluwarsa`;
+    } else {
+      textEl.textContent = h > 0
+        ? `Sesi analisis berlaku ${h}j ${m}m lagi - bayar sebelum kedaluwarsa`
+        : `Sesi analisis berlaku ${m}m ${s}s lagi - bayar sebelum kedaluwarsa`;
+    }
     setTimeout(update, 1000);
   }
   update();

@@ -36,7 +36,9 @@ let sessionIdCache = null; // retained for multi-credit re-use
 
 function startPolling(sessionId) {
   pollCount = 0;
-  poll(sessionId);
+  // Small delay before first poll — gives Cloudflare KV time to propagate
+  // the session write from /create-payment across edge nodes.
+  setTimeout(() => poll(sessionId), 1000);
 }
 
 function restartPolling() {
@@ -59,6 +61,12 @@ async function poll(sessionId) {
     const res = await fetch(`${WORKER_URL}/check-session?session=${encodeURIComponent(sessionId)}`);
 
     if (res.status === 404) {
+      // Retry the first 3 polls before giving up — handles KV propagation lag
+      // (Cloudflare KV writes are eventually consistent across edge nodes).
+      if (pollCount <= 3) {
+        scheduleNextPoll(sessionId);
+        return;
+      }
       showSessionError(
         'Sesi Tidak Ditemukan',
         'Sesi tidak ditemukan. Jika kamu baru saja membayar, tunggu beberapa detik lalu refresh. Jika masalah berlanjut, hubungi support dengan bukti pembayaran.',

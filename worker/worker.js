@@ -94,11 +94,19 @@ function logError(event, data = {}) {
 // ---- File Validation ----
 
 function validateFileData(cvData) {
-  // cvData is JSON string: { type: 'pdf'|'docx', data: base64 }
+  // cvData is JSON string: { type: 'pdf'|'docx'|'txt', data: base64|plaintext }
   try {
     const parsed = JSON.parse(cvData);
     if (!parsed.type || !parsed.data) return { valid: false, error: 'Format data tidak valid' };
 
+    // txt files carry raw text — no magic-byte check needed, just size guard
+    if (parsed.type === 'txt') {
+      if (typeof parsed.data !== 'string') return { valid: false, error: 'Data teks tidak valid' };
+      if (parsed.data.length > 5 * 1024 * 1024) return { valid: false, error: 'Ukuran file melebihi 5MB' };
+      return { valid: true, parsed };
+    }
+
+    // pdf / docx: data is base64-encoded binary — check magic bytes
     const bytes = atob(parsed.data.slice(0, 8));
     const codes = Array.from(bytes).map(c => c.charCodeAt(0));
 
@@ -820,6 +828,7 @@ async function handleCreatePayment(request, env) {
       ip,
       ...(sessionEmail ? { email: sessionEmail } : {}),
     });
+    log('sandbox_session_created', { session_id: sessionId, tier, credits });
     return jsonResponse({ session_id: sessionId, is_sandbox: true }, 200, request, env);
   }
 
@@ -1072,6 +1081,7 @@ async function handleCheckSession(request, env) {
   const session = await getSession(env, sessionId);
 
   if (!session) {
+    logError('check_session_not_found', { session_id: sessionId });
     return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa' }, 404, request, env);
   }
 
