@@ -249,6 +249,60 @@
       color: #3B82F6;
     }
 
+    /* CV Rewrite Preview */
+    .preview-item {
+      background: #F0FDF4;
+      border: 1px solid #BBF7D0;
+      border-left: 3px solid #10B981;
+      border-radius: 12px;
+      padding: 0.85rem 1rem;
+      margin-bottom: 0.6rem;
+    }
+    .preview-item-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: #059669;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.35rem;
+    }
+    .preview-item-text {
+      font-size: 0.88rem;
+      color: #111827;
+      line-height: 1.55;
+    }
+    .preview-blur-wrap {
+      position: relative;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .preview-blur-inner {
+      filter: blur(5px);
+      user-select: none;
+      pointer-events: none;
+    }
+    .preview-blur-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(248,250,252,0.72);
+      padding: 0.5rem;
+    }
+    .preview-lock-pill {
+      background: #0F172A;
+      color: white;
+      border-radius: 60px;
+      padding: 0.6rem 1.1rem;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-align: center;
+      line-height: 1.45;
+      max-width: 280px;
+      box-shadow: 0 4px 16px rgba(15,23,42,0.18);
+    }
+
     /* Pricing grid */
     .pricing-grid {
       display: grid;
@@ -549,6 +603,25 @@
       <h4>🔥 Fokus perbaiki ini dulu</h4>
       <ol id="reco-list"></ol>
       <p style="font-size:0.8rem; color:#92400E; margin-top:0.75rem; font-style:italic;">Ini adalah perubahan dengan dampak terbesar untuk meningkatkan peluang kamu dipanggil interview.</p>
+    </div>
+
+    <!-- CV Rewrite Preview (hidden until scoring.js populates it) -->
+    <div id="rewrite-preview" class="gl-card hidden">
+      <h3 style="font-size:1.05rem; font-weight:700; color:#0F172A; margin-bottom:0.2rem;">✨ Pratinjau perbaikan CV kamu</h3>
+      <p style="font-size:0.8rem; color:#6B7280; margin-bottom:1rem;">AI akan terapkan semua perbaikan ini ke CV kamu secara langsung</p>
+
+      <!-- First improvement: visible -->
+      <div id="preview-item-1"></div>
+
+      <!-- Remaining improvements: blurred with lock overlay -->
+      <div class="preview-blur-wrap">
+        <div class="preview-blur-inner" id="preview-items-rest"></div>
+        <div class="preview-blur-overlay">
+          <div class="preview-lock-pill" id="preview-lock-text">
+            🔒 Lihat semua perbaikan + CV rewrite lengkap setelah pilih paket
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Pricing anchor CTA -->

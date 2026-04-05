@@ -30,6 +30,7 @@
   renderStrengths(scoring.kekuatan || []);
   renderGaps(scoring.gap || []);
   renderRecommendations(scoring.rekomendasi || []);
+  renderRewritePreview(scoring.rekomendasi || [], scoring.gap || []);
   setupShareButton(scoring.skor || 0);
   setupTierRecommendation(scoring.skor || 0);
 })();
@@ -120,6 +121,44 @@ function renderRecommendations(recos) {
       <span>${escapeHtml(r)}</span>
     </li>`
   ).join('');
+}
+
+function renderRewritePreview(rekomendasi, gap) {
+  const section = document.getElementById('rewrite-preview');
+  if (!section) return;
+
+  // Need at least 2 items to have something visible + something blurred
+  const allItems = [...rekomendasi, ...gap];
+  if (allItems.length < 2) return;
+
+  const totalCount = allItems.length;
+
+  // First item — fully visible
+  const first = allItems[0];
+  document.getElementById('preview-item-1').innerHTML = `
+    <div class="preview-item">
+      <div class="preview-item-label">✅ Perbaikan #1 — contoh gratis</div>
+      <div class="preview-item-text">${escapeHtml(first)}</div>
+    </div>`;
+
+  // Remaining items (up to 4) — blurred
+  const rest = allItems.slice(1, 5);
+  document.getElementById('preview-items-rest').innerHTML =
+    rest.map((item, i) => `
+      <div class="preview-item" style="margin-bottom:0.5rem;">
+        <div class="preview-item-label">${i + 2 <= rekomendasi.length ? `✅ Perbaikan #${i + 2}` : '❌ Gap yang diperbaiki'}</div>
+        <div class="preview-item-text">${escapeHtml(item)}</div>
+      </div>`).join('') + `
+    <div style="font-size:0.8rem;color:#6B7280;text-align:center;padding:0.5rem 0 0.25rem;">
+      + rewrite lengkap CV dalam Bahasa Indonesia &amp; Inggris
+    </div>`;
+
+  document.getElementById('preview-lock-text').textContent =
+    `🔒 Lihat semua ${totalCount} perbaikan + CV rewrite lengkap (ID &amp; EN) setelah pilih paket`;
+  document.getElementById('preview-lock-text').innerHTML =
+    `🔒 Lihat semua ${totalCount} perbaikan + CV rewrite lengkap (ID &amp; EN) setelah pilih paket`;
+
+  section.classList.remove('hidden');
 }
 
 function setupShareButton(score) {
