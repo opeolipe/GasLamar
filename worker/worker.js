@@ -444,20 +444,40 @@ ${cvText}
 JOB DESCRIPTION:
 ${jobDesc}
 
-Berikan output JSON:
+Berikan output JSON dengan format TEPAT berikut:
 {
-  "skor": <0-100>,
-  "alasan_skor": "<1 kalimat>",
+  "skor_relevansi": <HARUS tepat salah satu: 0, 10, 20, 30, atau 40>,
+  "skor_requirements": <HARUS tepat salah satu: 0, 10, 20, atau 30>,
+  "skor_kualitas": <HARUS tepat salah satu: 0, 10, atau 20>,
+  "skor_keywords": <HARUS tepat salah satu: 0, 5, atau 10>,
+  "alasan_skor": "<1 kalimat menjelaskan skor keseluruhan>",
   "gap": ["<gap 1>", "<gap 2>", "<gap 3>"],
   "rekomendasi": ["<rekomendasi 1>", "<rekomendasi 2>", "<rekomendasi 3>"],
   "kekuatan": ["<kekuatan 1>", "<kekuatan 2>"]
 }
 
-Skor:
-- 80-100: CV sangat match, kemungkinan besar lolos ATS
-- 60-79: CV cukup match, ada beberapa gap minor
-- 40-59: CV kurang match, perlu improvement signifikan
-- 0-39: CV tidak match, banyak gap kritis
+PANDUAN skor_relevansi (0/10/20/30/40):
+- 40: Role sama atau sangat mirip (PM → Senior PM, Backend Dev → Full Stack Dev)
+- 30: Role terkait, industri sama (product analyst → PM, QA engineer → developer)
+- 20: Industri sama tapi fungsi berbeda (sales → marketing, accountant → finance analyst)
+- 10: Industri berbeda, ada transferable skills nyata (teacher → trainer, journalist → content strategist)
+- 0: Tidak ada relevansi sama sekali (chef → PM, petani → software engineer, montir → data scientist)
+
+PANDUAN skor_requirements (0/10/20/30):
+- 30: Lebih dari 65% requirements eksplisit terpenuhi di CV
+- 20: 33–65% requirements terpenuhi
+- 10: 10–33% requirements terpenuhi
+- 0: Kurang dari 10% requirements terpenuhi
+
+PANDUAN skor_kualitas (0/10/20):
+- 20: CV menggunakan angka nyata (%, Rp, jumlah), terstruktur jelas, bullet informatif
+- 10: CV cukup jelas tapi jarang pakai angka, atau ada bagian yang membingungkan
+- 0: CV sangat pendek (<100 kata), tidak terstruktur, tidak terbaca, atau penuh jargon tanpa substansi
+
+PANDUAN skor_keywords (0/5/10):
+- 10: Lebih dari 50% keyword penting dari job description ada di CV
+- 5: 25–50% keyword relevan ada di CV
+- 0: Kurang dari 25% keyword dari job description ada di CV
 
 Output hanya JSON, tidak ada teks lain.`;
 
@@ -466,7 +486,17 @@ Output hanya JSON, tidak ada teks lain.`;
 
   // Parse JSON — Claude should return clean JSON
   const cleaned = text.replace(/```json\n?|\n?```/g, '').trim();
-  return JSON.parse(cleaned);
+  const scoring = JSON.parse(cleaned);
+
+  // Compute total score deterministically from discrete sub-scores.
+  // Clamp each sub-score to its allowed set to guard against LLM hallucination.
+  const relevansi   = [0, 10, 20, 30, 40].includes(scoring.skor_relevansi)   ? scoring.skor_relevansi   : 0;
+  const requirements = [0, 10, 20, 30].includes(scoring.skor_requirements)   ? scoring.skor_requirements : 0;
+  const kualitas    = [0, 10, 20].includes(scoring.skor_kualitas)             ? scoring.skor_kualitas    : 0;
+  const keywords    = [0, 5, 10].includes(scoring.skor_keywords)              ? scoring.skor_keywords    : 0;
+  scoring.skor      = relevansi + requirements + kualitas + keywords;
+
+  return scoring;
 }
 
 async function tailorCVID(cvText, jobDesc, env) {

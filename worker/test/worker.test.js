@@ -94,7 +94,11 @@ const MOCK_EXTRACTION = {
 
 const MOCK_SCORING = {
   content: [{ text: JSON.stringify({
-    skor: 78,
+    // Sub-scores: server sums these deterministically → skor = 40+20+10+5 = 75
+    skor_relevansi: 40,
+    skor_requirements: 20,
+    skor_kualitas: 10,
+    skor_keywords: 5,
     alasan_skor: 'CV relevan dengan job description.',
     gap: ['Belum ada sertifikasi cloud', 'Kurang pengalaman Docker'],
     rekomendasi: ['Tambah proyek cloud', 'Pelajari Docker'],
@@ -234,7 +238,7 @@ describe('POST /analyze — happy path (mocked Claude)', () => {
     const res = await post('/analyze', { cv: VALID_PDF_CV, job_desc: JOB_DESC }, {}, '10.0.0.1');
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.skor).toBe(78);
+    expect(body.skor).toBe(75); // 40+20+10+5 computed server-side from sub-scores
     expect(body.cv_text_key).toMatch(/^cvtext_/);
 
     // Verify key is stored in KV
