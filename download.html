@@ -175,6 +175,7 @@
   </style>
 </head>
 <body>
+<a href="#download-ready" id="skip-to-main" style="position:absolute;left:-9999px;top:0;z-index:9999;background:#0F172A;color:white;padding:.5rem 1rem;font-size:.85rem;font-weight:600;text-decoration:none;border-radius:0 0 8px 0;" onfocus="this.style.left='0'" onblur="this.style.left='-9999px'">Langsung ke download CV</a>
 
   <!-- 1. Waiting for payment state -->
   <div id="waiting-payment" class="hidden" style="max-width:480px;margin:4rem auto;">
@@ -184,13 +185,13 @@
       <p style="color:#6B7280;font-size:.9rem;margin-bottom:.25rem;">Biasanya 1–2 menit setelah pembayaran berhasil</p>
       <p style="font-size:.75rem;color:#9CA3AF;" id="poll-count-text"></p>
       <div style="margin-top:1.5rem;display:flex;flex-direction:column;gap:.75rem;">
-        <button onclick="restartPolling()" id="check-btn" class="hidden btn-primary" style="width:100%;">
+        <button onclick="restartPolling()" id="check-btn" class="hidden btn-primary" style="width:100%;" aria-label="Cek ulang status pembayaran ke server">
           Cek Ulang Status Pembayaran
         </button>
-        <a href="mailto:support@gaslamar.com" id="contact-btn" class="hidden" style="text-align:center;font-size:.85rem;color:#9CA3AF;text-decoration:none;">
+        <a href="mailto:support@gaslamar.com" id="contact-btn" class="hidden" style="text-align:center;font-size:.85rem;color:#9CA3AF;text-decoration:none;" title="Hubungi tim support GasLamar via email">
           Sudah lebih dari 5 menit? Hubungi Kami
         </a>
-        <button onclick="sandboxConfirmPayment()" id="sandbox-pay-btn" class="hidden btn-sandbox">
+        <button onclick="sandboxConfirmPayment()" id="sandbox-pay-btn" class="hidden btn-sandbox" aria-label="Simulasi konfirmasi pembayaran untuk lingkungan sandbox">
           🧪 Simulasi Pembayaran (Sandbox)
         </button>
       </div>
@@ -205,8 +206,8 @@
       </div>
       <h2 style="font-size:1.3rem;font-weight:700;margin-bottom:.5rem;" id="error-title">Sesi Kedaluwarsa</h2>
       <p style="color:#6B7280;font-size:.9rem;margin-bottom:1.5rem;" id="session-error-msg">Sesi kamu sudah kedaluwarsa. Mulai ulang dari awal.</p>
-      <a href="upload.html" class="btn-primary" id="error-restart-btn">Mulai Ulang</a>
-      <button class="btn-primary hidden" id="error-retry-btn" onclick="retryGeneration()" style="cursor:pointer;border:none;">Coba Lagi</button>
+      <a href="upload.html" class="btn-primary" id="error-restart-btn" title="Mulai ulang dari halaman upload CV">Mulai Ulang</a>
+      <button class="btn-primary hidden" id="error-retry-btn" onclick="retryGeneration()" style="cursor:pointer;border:none;" aria-label="Coba lagi generate CV">Coba Lagi</button>
     </div>
   </div>
 
@@ -237,7 +238,7 @@
       <div class="timer-text" id="gen-timer">⏱️ Estimasi sisa: ~20 detik</div>
       <div class="trust-rotator" id="gen-trust">🔒 CV tidak disimpan — data aman</div>
       <div class="cancel-link">
-        <a href="hasil.html" onclick="return confirm('Batalkan proses penulisan?')">← Batalkan &amp; kembali ke hasil analisis</a>
+        <a href="hasil.html" onclick="return confirm('Batalkan proses penulisan?')" title="Batalkan proses generate dan kembali ke halaman hasil analisis">← Batalkan &amp; kembali ke hasil analisis</a>
       </div>
       <!-- compatibility: download.js reads this for text updates -->
       <span id="generating-text" style="display:none;"></span>
@@ -269,11 +270,11 @@
       <div class="download-grid">
         <div class="lang-section">
           <div class="lang-title">🇮🇩 Bahasa Indonesia</div>
-          <button class="btn-download" onclick="downloadFile('id','docx')">
+          <button class="btn-download" onclick="downloadFile('id','docx')" aria-label="Download CV Bahasa Indonesia format DOCX untuk diedit di Word">
             <span>📄 CV Indonesia — DOCX</span>
             <span class="btn-download-size">Untuk diedit di Word</span>
           </button>
-          <button class="btn-download" onclick="downloadFile('id','pdf')">
+          <button class="btn-download" onclick="downloadFile('id','pdf')" aria-label="Download CV Bahasa Indonesia format PDF siap kirim ke HRD">
             <span>📑 CV Indonesia — PDF</span>
             <span class="btn-download-size">Siap dikirim ke HRD</span>
           </button>
@@ -281,11 +282,11 @@
         <!-- English: hidden until JS reveals it for bilingual tiers -->
         <div class="lang-section hidden" id="en-section">
           <div class="lang-title">🇬🇧 English</div>
-          <button class="btn-download" onclick="downloadFile('en','docx')">
+          <button class="btn-download" onclick="downloadFile('en','docx')" aria-label="Download CV English format DOCX for editing in Word">
             <span>📄 CV English — DOCX</span>
             <span class="btn-download-size">For editing in Word</span>
           </button>
-          <button class="btn-download" onclick="downloadFile('en','pdf')">
+          <button class="btn-download" onclick="downloadFile('en','pdf')" aria-label="Download CV English format PDF for international applications">
             <span>📑 CV English — PDF</span>
             <span class="btn-download-size">For international applications</span>
           </button>
@@ -307,9 +308,9 @@
         <p style="font-weight:700;margin-bottom:0.75rem;">📬 Dapat interview setelah pakai GasLamar?</p>
         <p style="font-size:0.82rem;color:#6B7280;margin-bottom:1rem;">Bantu kami tingkatkan kualitas layanan dengan 1 klik.</p>
         <div id="feedback-buttons" style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;">
-          <button onclick="submitInterviewFeedback('ya')"      style="background:#059669;color:white;border:none;border-radius:60px;padding:0.6rem 1.2rem;font-weight:700;cursor:pointer;font-family:inherit;">✅ Ya, dapat!</button>
-          <button onclick="submitInterviewFeedback('proses')"  style="background:#D97706;color:white;border:none;border-radius:60px;padding:0.6rem 1.2rem;font-weight:700;cursor:pointer;font-family:inherit;">⏳ Masih proses</button>
-          <button onclick="submitInterviewFeedback('tidak')"   style="background:#6B7280;color:white;border:none;border-radius:60px;padding:0.6rem 1.2rem;font-weight:700;cursor:pointer;font-family:inherit;">❌ Belum</button>
+          <button onclick="submitInterviewFeedback('ya')"      style="background:#059669;color:white;border:none;border-radius:60px;padding:0.6rem 1.2rem;font-weight:700;cursor:pointer;font-family:inherit;" aria-label="Ya, saya dapat interview setelah pakai GasLamar">✅ Ya, dapat!</button>
+          <button onclick="submitInterviewFeedback('proses')"  style="background:#D97706;color:white;border:none;border-radius:60px;padding:0.6rem 1.2rem;font-weight:700;cursor:pointer;font-family:inherit;" aria-label="Masih dalam proses interview">⏳ Masih proses</button>
+          <button onclick="submitInterviewFeedback('tidak')"   style="background:#6B7280;color:white;border:none;border-radius:60px;padding:0.6rem 1.2rem;font-weight:700;cursor:pointer;font-family:inherit;" aria-label="Belum mendapat interview">❌ Belum</button>
         </div>
         <p id="feedback-thanks" class="hidden" style="font-size:0.85rem;color:#059669;margin-top:0.75rem;font-weight:600;">Terima kasih! Feedback kamu sangat berarti. 🙏</p>
       </div>
@@ -321,13 +322,13 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
         <div>
           <p style="font-size:.75rem;font-weight:600;color:#6B7280;margin-bottom:.25rem;">Bahasa Indonesia</p>
-          <textarea id="cv-text-id" readonly rows="8" style="width:100%;font-size:.75rem;border:1px solid #FDE68A;border-radius:12px;padding:.5rem;resize:none;background:white;font-family:inherit;"></textarea>
-          <button onclick="copyText('cv-text-id')" style="font-size:.75rem;color:#2563EB;font-weight:600;background:none;border:none;cursor:pointer;margin-top:.25rem;font-family:inherit;">Salin</button>
+          <textarea id="cv-text-id" readonly rows="8" style="width:100%;font-size:.75rem;border:1px solid #FDE68A;border-radius:12px;padding:.5rem;resize:none;background:white;font-family:inherit;" aria-label="Teks CV Bahasa Indonesia — bisa disalin manual"></textarea>
+          <button onclick="copyText('cv-text-id')" style="font-size:.75rem;color:#2563EB;font-weight:600;background:none;border:none;cursor:pointer;margin-top:.25rem;font-family:inherit;" aria-label="Salin teks CV Bahasa Indonesia ke clipboard">Salin</button>
         </div>
         <div id="en-fallback" class="hidden">
           <p style="font-size:.75rem;font-weight:600;color:#6B7280;margin-bottom:.25rem;">English</p>
-          <textarea id="cv-text-en" readonly rows="8" style="width:100%;font-size:.75rem;border:1px solid #FDE68A;border-radius:12px;padding:.5rem;resize:none;background:white;font-family:inherit;"></textarea>
-          <button onclick="copyText('cv-text-en')" style="font-size:.75rem;color:#2563EB;font-weight:600;background:none;border:none;cursor:pointer;margin-top:.25rem;font-family:inherit;">Copy</button>
+          <textarea id="cv-text-en" readonly rows="8" style="width:100%;font-size:.75rem;border:1px solid #FDE68A;border-radius:12px;padding:.5rem;resize:none;background:white;font-family:inherit;" aria-label="CV text in English — can be copied manually"></textarea>
+          <button onclick="copyText('cv-text-en')" style="font-size:.75rem;color:#2563EB;font-weight:600;background:none;border:none;cursor:pointer;margin-top:.25rem;font-family:inherit;" aria-label="Copy English CV text to clipboard">Copy</button>
         </div>
       </div>
     </div>
@@ -339,18 +340,18 @@
         <div class="credits-number"><span id="credits-remaining-count">0</span> kredit tersisa</div>
         <div style="font-size:.72rem;color:#6B7280;margin-top:.15rem;">dari <span id="credits-total-count">0</span> total kredit paket kamu</div>
         <p style="font-size:.8rem;margin-top:.5rem;color:#374151;">CV dasarmu sudah tersimpan - tinggal masukkan job description loker berikutnya.</p>
-        <p style="font-size:.72rem;color:#9CA3AF;margin-top:.25rem;">Mau pakai CV yang berbeda? <a href="upload.html" style="color:#2563EB;text-decoration:none;">Mulai upload baru</a> (memerlukan paket baru)</p>
+        <p style="font-size:.72rem;color:#9CA3AF;margin-top:.25rem;">Mau pakai CV yang berbeda? <a href="upload.html" style="color:#2563EB;text-decoration:none;" title="Upload CV baru (memerlukan paket baru)">Mulai upload baru</a> (memerlukan paket baru)</p>
       </div>
       <div class="next-jd-box">
-        <label style="font-weight:600;font-size:.95rem;display:block;margin-bottom:.75rem;">Job yang kamu targetkan selanjutnya</label>
+        <label for="new-job-desc" style="font-weight:600;font-size:.95rem;display:block;margin-bottom:.75rem;">Job yang kamu targetkan selanjutnya</label>
 
         <!-- Button group matching upload.html -->
         <div style="display:flex;gap:.5rem;margin-bottom:.75rem;flex-wrap:wrap;">
-          <button type="button" id="new-fetch-url-btn"
+          <button type="button" id="new-fetch-url-btn" aria-label="Ambil job description dari URL loker seperti LinkedIn atau Glints"
             style="background:white;border:1.5px solid #E2E8F0;border-radius:60px;padding:.45rem 1rem;font-size:.85rem;font-weight:500;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:.4rem;">
             🔗 Ambil dari URL Loker
           </button>
-          <button type="button" id="new-example-btn"
+          <button type="button" id="new-example-btn" aria-label="Isi job description dengan contoh format yang ideal"
             style="background:white;border:1.5px solid #E2E8F0;border-radius:60px;padding:.45rem 1rem;font-size:.85rem;font-weight:500;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:.4rem;">
             📄 Gunakan contoh
           </button>
@@ -359,16 +360,16 @@
         <!-- URL fetch row -->
         <div id="new-url-fetch-row" style="display:none;margin-bottom:.75rem;">
           <div style="display:flex;gap:.5rem;align-items:center;">
-            <input type="url" id="new-job-url-input"
+            <input type="url" id="new-job-url-input" aria-label="URL halaman lowongan kerja (LinkedIn, Glints, JobStreet, dll)"
               placeholder="https://www.linkedin.com/jobs/view/…"
               style="flex:1;padding:.6rem .8rem;border:1.5px solid #BFDBFE;border-radius:10px;font-size:.9rem;font-family:inherit;outline:none;"
               onfocus="this.style.borderColor='#2563EB'" onblur="this.style.borderColor='#BFDBFE'" />
-            <button type="button" id="new-fetch-submit-btn" onclick="fetchNewJobFromUrl()"
+            <button type="button" id="new-fetch-submit-btn" onclick="fetchNewJobFromUrl()" aria-label="Ambil job description dari URL yang dimasukkan"
               style="background:#2563EB;color:white;border:none;border-radius:10px;padding:.6rem 1rem;font-weight:600;font-size:.85rem;cursor:pointer;white-space:nowrap;font-family:inherit;">
               Ambil
             </button>
-            <button type="button" onclick="document.getElementById('new-url-fetch-row').style.display='none'"
-              style="background:none;border:none;color:#9CA3AF;cursor:pointer;font-size:1.1rem;padding:.4rem;">✕</button>
+            <button type="button" onclick="document.getElementById('new-url-fetch-row').style.display='none'" aria-label="Tutup form URL loker"
+              style="background:none;border:none;color:#9CA3AF;cursor:pointer;font-size:1.1rem;padding:.4rem;" title="Tutup">✕</button>
           </div>
           <p id="new-url-fetch-status" style="font-size:.78rem;color:#6B7280;margin-top:.4rem;min-height:1rem;"></p>
         </div>
@@ -386,7 +387,7 @@
         </div>
         <div id="new-char-warning" style="display:none;font-size:.75rem;color:#D97706;margin-top:.2rem;">Mendekati batas karakter</div>
 
-        <button id="new-job-btn" onclick="generateForNewJob()"
+        <button id="new-job-btn" onclick="generateForNewJob()" aria-label="Generate CV yang disesuaikan untuk loker berikutnya"
           style="background:#2563EB;color:white;border:none;border-radius:60px;padding:.85rem 1.5rem;font-weight:700;width:100%;cursor:pointer;font-family:inherit;font-size:1rem;margin-top:1rem;">
           🚀 Generate CV untuk Loker Ini
         </button>
@@ -399,14 +400,14 @@
       <div style="font-size:1.8rem;margin-bottom:.5rem;">🎉</div>
       <h3 style="font-weight:700;margin-bottom:.5rem;">Semua kredit sudah terpakai!</h3>
       <p style="font-size:.9rem;color:#6B7280;margin-bottom:1.25rem;">Masih ada loker lain yang ingin kamu lamar? Beli paket baru untuk CV yang disesuaikan.</p>
-      <a href="upload.html" style="display:inline-block;background:#0F172A;color:white;font-weight:700;padding:.75rem 1.5rem;border-radius:60px;text-decoration:none;font-size:.95rem;">Upload CV untuk Loker Baru</a>
+      <a href="upload.html" style="display:inline-block;background:#0F172A;color:white;font-weight:700;padding:.75rem 1.5rem;border-radius:60px;text-decoration:none;font-size:.95rem;" title="Upload CV baru untuk loker lain (memerlukan paket baru)">Upload CV untuk Loker Baru</a>
       <p style="font-size:.72rem;color:#9CA3AF;margin-top:.75rem;">Bisa pakai CV yang sama atau upload CV yang sudah diperbarui</p>
     </div>
 
     <!-- CTA: scroll to multi-credit if credits remain, else go to upload -->
     <div style="text-align:center;padding-bottom:2rem;" id="bottom-cta">
       <p style="color:#6B7280;font-size:.9rem;margin-bottom:.75rem;">Melamar ke tempat lain juga?</p>
-      <button onclick="handleTailoringCta()"
+      <button onclick="handleTailoringCta()" aria-label="Tailoring CV untuk melamar ke loker lain"
         style="background:#2563EB;color:white;font-weight:700;padding:.8rem 2rem;border-radius:60px;text-decoration:none;border:none;cursor:pointer;font-family:inherit;font-size:1rem;">
         🔄 Tailoring CV untuk Loker Lain →
       </button>
