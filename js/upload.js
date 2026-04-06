@@ -27,12 +27,18 @@ function handleDrop(e) {
   e.preventDefault();
   document.getElementById('drop-zone').classList.remove('drop-zone-active');
   const file = e.dataTransfer.files[0];
-  if (file) processFile(file);
+  if (file) {
+    if (window.Analytics) Analytics.track('file_selected', { method: 'drag_drop' });
+    processFile(file);
+  }
 }
 
 function handleFileSelect(e) {
   const file = e.target.files[0];
-  if (file) processFile(file);
+  if (file) {
+    if (window.Analytics) Analytics.track('file_selected', { method: 'input' });
+    processFile(file);
+  }
 }
 
 function removeFile() {
@@ -74,16 +80,19 @@ function processFile(file) {
     } else {
       showError('file-error', 'Format tidak didukung. Upload CV dalam format PDF, DOCX, atau TXT (maks 5MB).');
     }
+    if (window.Analytics) Analytics.track('file_validation_failed', { reason: 'wrong_type', file_ext: ext, file_size_kb: Math.round(file.size / 1024) });
     return;
   }
 
   // Validate size
   if (file.size > MAX_FILE_SIZE) {
     showError('file-error', `Ukuran file terlalu besar (${(file.size / 1024 / 1024).toFixed(1)}MB). Maksimal 5MB.`);
+    if (window.Analytics) Analytics.track('file_validation_failed', { reason: 'too_large', file_ext: ext, file_size_kb: Math.round(file.size / 1024) });
     return;
   }
 
   selectedFile = file;
+  sessionStorage.setItem('gaslamar_upload_start', String(Date.now()));
   showFilePreview(file);
   extractTextFromFile(file);
 }
@@ -259,7 +268,13 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
   sessionStorage.setItem('gaslamar_cv_pending', cvText);
   sessionStorage.setItem('gaslamar_jd_pending', jobDesc);
   sessionStorage.setItem('gaslamar_filename', selectedFile ? selectedFile.name : 'CV');
+  sessionStorage.setItem('gaslamar_had_jd', jobDesc.length >= 50 ? '1' : '0');
   sessionStorage.removeItem('gaslamar_jd_draft'); // clear draft on successful submit
+
+  if (window.Analytics) Analytics.track('upload_submitted', {
+    file_ext: '.' + selectedFile.name.split('.').pop().toLowerCase(),
+    jd_length: jobDesc.length,
+  });
 
   window.location.href = 'analyzing.html';
 });

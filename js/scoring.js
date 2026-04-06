@@ -70,6 +70,17 @@ function renderScore(scoring) {
     ring.style.strokeDashoffset = offset;
   }, 100);
 
+  // Analytics
+  if (window.Analytics) {
+    sessionStorage.setItem('gaslamar_score_displayed_at', String(Date.now()));
+    Analytics.track('score_displayed', {
+      score,
+      score_bucket: score >= 70 ? 'high' : score >= 50 ? 'medium' : 'low',
+      has_jd: sessionStorage.getItem('gaslamar_had_jd') === '1',
+      gap_count: (scoring.gap || []).length,
+    });
+  }
+
   // Badge
   const badge = document.getElementById('score-badge');
   if (score > 70) {
@@ -295,6 +306,11 @@ async function submitEmail() {
   btn.disabled = true;
   btn.textContent = '...';
 
+  if (window.Analytics) {
+    Analytics.identify(email, { source: 'score_email_capture' });
+    Analytics.track('email_captured', { source: 'score_page' });
+  }
+
   try {
     const res = await fetch(`${WORKER_URL}/submit-email`, {
       method: 'POST',
@@ -302,6 +318,7 @@ async function submitEmail() {
       body: JSON.stringify({ email })
     });
     if (res.ok) {
+      if (window.Analytics) Analytics.track('email_submit_success', { source: 'score_page' });
       const form = document.getElementById('email-capture-form');
       if (form) {
         form.innerHTML = '<p class="text-sm text-accent font-semibold">✓ Email tersimpan — kami akan kabari kamu soal fitur baru!</p>';
@@ -313,6 +330,7 @@ async function submitEmail() {
     btn.disabled = false;
     btn.textContent = orig;
     if (status) { status.textContent = 'Gagal menyimpan. Coba lagi.'; status.className = 'text-xs text-red-600 mt-1'; }
+    if (window.Analytics) Analytics.trackError('email_submit', { error_message: e.message });
   }
 }
 

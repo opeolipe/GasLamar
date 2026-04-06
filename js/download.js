@@ -108,6 +108,11 @@ async function poll(sessionId) {
       const totalCredits = data.total_credits ?? 1;
       // Sync authoritative tier from server so animation shows the correct package label
       if (data.tier) sessionStorage.setItem('gaslamar_tier', data.tier);
+      if (window.Analytics) Analytics.track('payment_confirmed', {
+        tier: data.tier || undefined,
+        total_credits: totalCredits,
+        poll_attempts: pollCount,
+      });
       // Returning user: already used ≥1 credit — show dashboard without auto-generating
       const isReturning = totalCredits > 1 && creditsRemaining < totalCredits;
       if (isReturning) {
@@ -118,6 +123,7 @@ async function poll(sessionId) {
     } else if (status === 'pending') {
       if (pollCount >= MAX_POLLS) {
         // Stopped polling — show manual check buttons
+        if (window.Analytics) Analytics.track('payment_timeout', { poll_attempts: pollCount });
         document.getElementById('check-btn').classList.remove('hidden');
         document.getElementById('poll-count-text').textContent = 'Klik tombol di bawah untuk cek ulang.';
         setTimeout(() => {
@@ -189,6 +195,9 @@ async function fetchAndGenerateCV(sessionId) {
   showState('generating-cv');
   setProgress(10);
   setGeneratingText('Mengambil data CV...');
+  if (window.Analytics) Analytics.track('cv_generation_started', {
+    tier: sessionStorage.getItem('gaslamar_tier') || undefined,
+  });
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 25000);
@@ -301,6 +310,12 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
 
     // Cache for retries
     cvDataCache = { cv_id, cv_en, tier, total_credits };
+    if (window.Analytics) Analytics.track('cv_generated', {
+      tier,
+      is_bilingual: isBilingual,
+      has_english: !!cv_en,
+      credits_remaining: credits_remaining || 0,
+    });
 
     // Only clear localStorage when all credits are used up
     if (!credits_remaining || credits_remaining <= 0) {
@@ -334,6 +349,7 @@ function downloadFile(lang, format) {
   if (!cvDataCache) return;
 
   const { cv_id, cv_en, tier } = cvDataCache;
+  if (window.Analytics) Analytics.track('cv_downloaded', { tier, language: lang, format });
   const cvText = lang === 'id' ? cv_id : cv_en;
 
   if (!cvText) {
