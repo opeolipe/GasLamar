@@ -232,7 +232,9 @@ function updateCharCount() {
 document.getElementById('upload-form').addEventListener('submit', async (e) => {
   e.preventDefault();
 
-  const jobDesc = document.getElementById('job-desc').value.trim();
+  // Always cap at MAX_JD_CHARS — no JS interception layer is devtools-proof,
+  // so we enforce the limit here at submission regardless of textarea content.
+  const jobDesc = document.getElementById('job-desc').value.trim().slice(0, MAX_JD_CHARS);
 
   // Validate inputs
   if (!selectedFile || !cvText) {
@@ -247,14 +249,6 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
 
   if (jobDesc.length < 50) {
     showError('jd-error', 'Job description terlalu pendek. Paste bagian Requirements dan Responsibilities.');
-    return;
-  }
-
-  if (jobDesc.length > MAX_JD_CHARS) {
-    // Sync counter to show actual length — may be stale if content was injected
-    // programmatically (element.value=… doesn't fire oninput)
-    document.getElementById('char-count').textContent = jobDesc.length.toLocaleString('id-ID');
-    showError('jd-error', `Job description terlalu panjang. Maksimal ${MAX_JD_CHARS.toLocaleString('id-ID')} karakter.`);
     return;
   }
 
