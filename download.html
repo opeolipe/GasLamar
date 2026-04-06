@@ -581,14 +581,19 @@ Requirements:
       warn.style.display = val > 4500 ? 'block' : 'none';
     }
 
-    // ── Bottom CTA: scroll to multi-credit if credits remain, else upload ──
+    // ── Bottom CTA: scroll to multi-credit if credits remain, else show upgrade nudge ──
     function handleTailoringCta() {
       const multiSection = document.getElementById('multi-credit-section');
       if (multiSection && !multiSection.classList.contains('hidden')) {
         multiSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
         setTimeout(() => document.getElementById('new-job-desc').focus(), 600);
-      } else {
-        window.location.href = 'upload.html';
+        return;
+      }
+      // Credits exhausted — show upgrade nudge and scroll to it
+      const upgradeEl = document.getElementById('upgrade-nudge');
+      if (upgradeEl) {
+        upgradeEl.classList.remove('hidden');
+        upgradeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }
 
