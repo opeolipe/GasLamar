@@ -761,7 +761,7 @@ async function verifyMayarWebhook(request, env) {
 // ---- KV Session Helpers ----
 
 const SESSION_TTL = 604800;        // 7 days — single-credit paid sessions (single / coba dulu)
-const SESSION_TTL_MULTI = 1209600; // 14 days — 3-Pack / Job Hunt Pack (reduced from 30d to limit exposure window)
+const SESSION_TTL_MULTI = 2592000; // 30 days — 3-Pack / Job Hunt Pack
 
 // Returns the appropriate TTL based on how many total credits the session has.
 // Multi-credit sessions (total_credits > 1) get 7 days so users can come back
@@ -1218,14 +1218,6 @@ async function handleGetSession(request, env) {
     return jsonResponse({ message: 'Pembayaran belum dikonfirmasi' }, 403, request, env);
   }
 
-  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
-
-  // Log every access to CV data for audit trail — session ID is the auth token,
-  // so any IP mismatch from creation IP is a signal (not a block)
-  const creationIp = session.ip || 'unknown';
-  const ipChanged = creationIp !== 'unknown' && ip !== creationIp;
-  log('get_session_access', { session_id, ip, creation_ip: creationIp, ip_changed: ipChanged, tier: session.tier });
-
   // Only transition paid → generating once; already-generating sessions stay generating
   if (session.status === 'paid') {
     await updateSession(env, session_id, { status: 'generating' });
@@ -1278,17 +1270,6 @@ async function handleGenerate(request, env, ctx) {
     return jsonResponse({ message: 'Sesi tidak valid atau pembayaran belum dikonfirmasi' }, 403, request, env);
   }
 
-  // Per-session generate cooldown — prevents rapid credit draining even if attacker
-  // uses a different IP (bypassing IP rate limit). 30s cooldown between generates
-  // on the same session is unnoticeable to legitimate users but stops automated abuse.
-  const GENERATE_COOLDOWN_MS = 30_000;
-  const lastGenerated = session.last_generated_at || 0;
-  const msSinceLast = Date.now() - lastGenerated;
-  if (lastGenerated && msSinceLast < GENERATE_COOLDOWN_MS) {
-    const waitSec = Math.ceil((GENERATE_COOLDOWN_MS - msSinceLast) / 1000);
-    return jsonResponse({ message: `Tunggu ${waitSec} detik sebelum generate berikutnya.` }, 429, request, env);
-  }
-
   const { cv_text, job_desc: storedJobDesc, tier } = session;
   const effectiveJobDesc = (newJobDesc && newJobDesc.trim()) ? newJobDesc.trim() : storedJobDesc;
 
@@ -1322,12 +1303,12 @@ async function handleGenerate(request, env, ctx) {
       await deleteSession(env, session_id);
     } else {
       // Credits remain — reset to 'paid' for next generation, persist updated job_desc if changed
-      const updates = { status: 'paid', credits_remaining: newCreditsRemaining, last_generated_at: Date.now() };
+      const updates = { status: 'paid', credits_remaining: newCreditsRemaining };
       if (newJobDesc && newJobDesc.trim()) updates.job_desc = effectiveJobDesc;
       await updateSession(env, session_id, updates);
     }
 
-    log('generate_success', { session_id, tier, credits_remaining: newCreditsRemaining, ip });
+    log('generate_success', { session_id, tier, credits_remaining: newCreditsRemaining });
 
     // Fire post-generate email (non-blocking) if score/gaps provided by frontend
     if (ctx && (score !== undefined || gaps !== undefined)) {
