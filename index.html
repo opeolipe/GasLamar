@@ -8,6 +8,11 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
   <!-- Cloudflare Web Analytics -->
   <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "f9c97d82f2a04b9f95e051946eb0525e"}'></script>
+  <!-- PostHog Analytics -->
+  <script>
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]);t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(a!==void 0?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+" (stub)"},o="init be q capture identify alias people.set people.set_once set_config unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys onSessionId setPersonPropertiesForFlags".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+    posthog.init('phc_DmeD8QdyUMMGwZ4GUKnDurFXrquR3APqUKrcEuDbgy3X',{api_host:'https://eu.i.posthog.com',person_profiles:'identified_only',defaults:'2026-01-30'});
+  </script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -483,7 +488,7 @@
   <div class="container">
     <div class="navbar-inner">
       <a href="index.html" class="logo">GasLamar</a>
-      <a href="upload.html" class="btn-nav">Cek CV Saya →</a>
+      <a href="upload.html" class="btn-nav" onclick="window.Analytics&&Analytics.track('landing_cta_clicked',{cta_location:'nav'})">Cek CV Saya →</a>
     </div>
   </div>
 </nav>
@@ -507,7 +512,7 @@
       </div>
 
       <div class="cta-group">
-        <a href="upload.html" class="btn-primary">👉 Cek Skor CV Saya</a>
+        <a href="upload.html" class="btn-primary" onclick="window.Analytics&&Analytics.track('landing_cta_clicked',{cta_location:'hero'})">👉 Cek Skor CV Saya</a>
         <a href="#sample" class="btn-secondary">👀 Lihat contoh hasil nyata</a>
       </div>
       <div style="font-size: 0.78rem; color: #64748B; margin-top: 0.6rem;">Gratis lihat skor &amp; gap &nbsp;•&nbsp; Bayar hanya kalau mau download</div>
@@ -620,7 +625,7 @@
           <li><span class="ck">✓</span> Download DOCX + PDF</li>
           <li class="feat-disabled"><span class="ck">—</span> Bahasa Inggris</li>
         </ul>
-        <a href="upload.html?tier=coba" class="btn-outline-blue">Gunakan versi ini</a>
+        <a href="upload.html?tier=coba" class="btn-outline-blue" onclick="window.Analytics&&Analytics.track('landing_cta_clicked',{cta_location:'pricing',tier_hint:'coba'})">Gunakan versi ini</a>
       </div>
 
       <!-- Single -->
@@ -634,7 +639,7 @@
           <li><span class="ck">✓</span> Skor match + gap analysis</li>
           <li><span class="ck">✓</span> DOCX + PDF (4 file)</li>
         </ul>
-        <a href="upload.html?tier=single" class="btn-outline-blue">Gunakan versi ini</a>
+        <a href="upload.html?tier=single" class="btn-outline-blue" onclick="window.Analytics&&Analytics.track('landing_cta_clicked',{cta_location:'pricing',tier_hint:'single'})">Gunakan versi ini</a>
       </div>
 
       <!-- 3-Pack (featured) -->
@@ -649,7 +654,7 @@
           <li><span class="ck">✓</span> DOCX + PDF per CV (4 file)</li>
           <li><span class="ck">✓</span> Hemat Rp 28.000 vs Single</li>
         </ul>
-        <a href="upload.html?tier=3pack" class="btn-white">Gunakan versi ini</a>
+        <a href="upload.html?tier=3pack" class="btn-white" onclick="window.Analytics&&Analytics.track('landing_cta_clicked',{cta_location:'pricing',tier_hint:'3pack'})">Gunakan versi ini</a>
       </div>
 
       <!-- Job Hunt Pack -->
@@ -663,7 +668,7 @@
           <li><span class="ck">✓</span> DOCX + PDF per CV (4 file)</li>
           <li><span class="ck">✓</span> Hemat Rp 291.000 vs Single</li>
         </ul>
-        <a href="upload.html?tier=jobhunt" class="btn-outline-blue">Gunakan versi ini</a>
+        <a href="upload.html?tier=jobhunt" class="btn-outline-blue" onclick="window.Analytics&&Analytics.track('landing_cta_clicked',{cta_location:'pricing',tier_hint:'jobhunt'})">Gunakan versi ini</a>
       </div>
 
     </div>
@@ -674,7 +679,7 @@
   <div style="background: linear-gradient(110deg, #F1F5F9 0%, #E9EEF5 100%); border-radius: 2rem; padding: 3rem 2rem; text-align: center; margin: 3rem 0;">
     <h2 style="font-size: 1.8rem; font-weight: 700;">Siap bikin CV kamu lebih kuat?</h2>
     <p style="margin: 1rem 0; color: #2D3A5E;">Dapatkan CV yang benar-benar dilihat recruiter — bukan sekadar lolos ATS.</p>
-    <a href="upload.html" class="btn-primary" style="background:#0F172A; padding: 0.9rem 2rem; font-size: 1rem;">👉 Cek Skor CV Saya Sekarang</a>
+    <a href="upload.html" class="btn-primary" style="background:#0F172A; padding: 0.9rem 2rem; font-size: 1rem;" onclick="window.Analytics&&Analytics.track('landing_cta_clicked',{cta_location:'bottom'})">👉 Cek Skor CV Saya Sekarang</a>
     <div style="margin-top: 1rem; font-size: 0.7rem; color: #64748B;">Tanpa daftar &nbsp;•&nbsp; Proses ±30 detik</div>
   </div>
 
@@ -684,5 +689,6 @@
   </footer>
 
 </div>
+<script src="js/analytics.js"></script>
 </body>
 </html>

@@ -32,6 +32,12 @@ function selectTier(tier) {
   if (!TIER_CONFIG[tier]) return;
   selectedTier = tier;
   sessionStorage.setItem('gaslamar_tier', tier);
+  if (window.Analytics) Analytics.track('tier_selected', {
+    tier,
+    tier_price_idr: TIER_CONFIG[tier].price,
+    tier_label: TIER_CONFIG[tier].label,
+    is_bilingual: TIER_CONFIG[tier].bilingual,
+  });
 
   // Update UI — deselect all, select chosen
   document.querySelectorAll('.tier-card').forEach(card => {
@@ -146,6 +152,18 @@ async function proceedToPayment() {
     sessionStorage.setItem('gaslamar_email', capturedEmail);
   }
 
+  if (window.Analytics) {
+    Analytics.identify(capturedEmail, { tier: selectedTier, tier_price_idr: TIER_CONFIG[selectedTier].price });
+    Analytics.track('payment_initiated', {
+      tier: selectedTier,
+      tier_price_idr: TIER_CONFIG[selectedTier].price,
+      time_ms_since_score: (() => {
+        const t = sessionStorage.getItem('gaslamar_score_displayed_at');
+        return t ? Date.now() - parseInt(t, 10) : undefined;
+      })(),
+    });
+  }
+
   // Prevent double payment
   paymentInProgress = true;
   const btn = document.getElementById('pay-btn');
@@ -182,6 +200,11 @@ async function proceedToPayment() {
     }
 
     const { session_id, invoice_url, is_sandbox } = await response.json();
+    if (window.Analytics) Analytics.track('payment_session_created', {
+      tier: selectedTier,
+      tier_price_idr: TIER_CONFIG[selectedTier].price,
+      is_sandbox: !!is_sandbox,
+    });
 
     // Save session to localStorage (backup if user closes tab)
     localStorage.setItem('gaslamar_session', session_id);
@@ -205,6 +228,12 @@ async function proceedToPayment() {
     paymentInProgress = false;
     btn.disabled = false;
     btn.textContent = originalText;
+
+    if (window.Analytics) Analytics.trackError('payment_api', {
+      tier: selectedTier,
+      is_timeout: err.name === 'AbortError',
+      error_message: err.message,
+    });
 
     let msg = 'Terjadi kesalahan. Coba lagi.';
     if (err.name === 'AbortError') {

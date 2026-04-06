@@ -8,6 +8,11 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
   <!-- Cloudflare Web Analytics -->
   <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "f9c97d82f2a04b9f95e051946eb0525e"}'></script>
+  <!-- PostHog Analytics -->
+  <script>
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]);t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(a!==void 0?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+" (stub)"},o="init be q capture identify alias people.set people.set_once set_config unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys onSessionId setPersonPropertiesForFlags".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+    posthog.init('phc_DmeD8QdyUMMGwZ4GUKnDurFXrquR3APqUKrcEuDbgy3X',{api_host:'https://eu.i.posthog.com',person_profiles:'identified_only',defaults:'2026-01-30'});
+  </script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -188,12 +193,13 @@
       margin: 0.75rem 0 0.5rem;
     }
     .btn-icon {
-      background: #F1F5F9;
-      border: none;
+      background: #EFF6FF;
+      border: 1px solid #BFDBFE;
+      color: #1D4ED8;
       border-radius: 40px;
       padding: 0.4rem 1rem;
       font-size: 0.8rem;
-      font-weight: 500;
+      font-weight: 600;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
@@ -201,7 +207,7 @@
       transition: 0.2s;
       font-family: 'Inter', sans-serif;
     }
-    .btn-icon:hover { background: #E2E8F0; }
+    .btn-icon:hover { background: #DBEAFE; }
 
     /* Skip link */
     .skip-link {
@@ -391,6 +397,7 @@
 
       <!-- Job Description -->
       <label>Job yang kamu targetkan <span style="font-weight: 400; color: #5B6E8C;">(opsional tapi disarankan)</span></label>
+      <p style="font-size:0.75rem;color:#6B7280;margin:0.5rem 0 0.25rem;">💡 Coba fitur ini:</p>
       <div class="button-group">
         <button type="button" class="btn-icon" id="fetch-url-btn">🔗 Ambil dari URL Loker</button>
         <button type="button" class="btn-icon" id="example-btn">📄 Gunakan contoh</button>
@@ -459,11 +466,13 @@
       <span>🔒 CV tidak disimpan</span>
       <span>⚡ Proses ±30 detik</span>
       <span>❌ Tidak perlu daftar</span>
+      <span>⏰ Hasil berlaku 2 jam</span>
     </div>
   </div>
 </div>
 
 <script src="js/config.js"></script>
+<script src="js/analytics.js"></script>
 <script src="js/upload.js"></script>
 <script>
   // Show error from analyzing.html if analysis failed
