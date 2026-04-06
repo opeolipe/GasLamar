@@ -28,8 +28,11 @@
 
   renderScore(scoring);
   renderStrengths(scoring.kekuatan || []);
+  renderRedFlags(scoring.red_flags);
   renderGaps(scoring.gap || []);
+  renderHR7Detik(scoring.hr_7_detik);
   renderRecommendations(scoring.rekomendasi || []);
+  renderBeforeAfter(scoring);
   renderRewritePreview(scoring.rekomendasi || [], scoring.gap || []);
   setupShareButton(scoring.skor || 0);
   setupTierRecommendation(scoring.skor || 0);
@@ -54,9 +57,9 @@ function renderScore(scoring) {
   const offset = circumference - (score / 100) * circumference;
 
   // Set color based on score
-  if (score >= 80) {
+  if (score > 70) {
     ring.classList.add('score-high');
-  } else if (score >= 60) {
+  } else if (score >= 50) {
     ring.classList.add('score-medium');
   } else {
     ring.classList.add('score-low');
@@ -69,22 +72,30 @@ function renderScore(scoring) {
 
   // Badge
   const badge = document.getElementById('score-badge');
-  if (score >= 80) {
-    badge.textContent = '🟢 Match Sangat Baik';
+  if (score > 70) {
+    badge.textContent = '🟢 Peluang Interview Tinggi';
     badge.className = 'inline-block px-4 py-1.5 rounded-full text-sm font-bold mb-3 bg-green-100 text-green-700';
-  } else if (score >= 60) {
-    badge.textContent = '🟡 Match Cukup Baik';
+  } else if (score >= 50) {
+    badge.textContent = '🟡 Peluang Interview Sedang';
     badge.className = 'inline-block px-4 py-1.5 rounded-full text-sm font-bold mb-3 bg-yellow-100 text-yellow-700';
-  } else if (score >= 40) {
-    badge.textContent = '🔴 Perlu Improvement';
-    badge.className = 'inline-block px-4 py-1.5 rounded-full text-sm font-bold mb-3 bg-red-100 text-red-700';
   } else {
-    badge.textContent = '🔴 Gap Kritis';
+    badge.textContent = '🔴 Peluang Interview Rendah';
     badge.className = 'inline-block px-4 py-1.5 rounded-full text-sm font-bold mb-3 bg-red-100 text-red-700';
   }
 
   // Reason text
   document.getElementById('score-reason').textContent = reason;
+
+  // Confidence badge
+  const confEl = document.getElementById('confidence-badge');
+  if (confEl && scoring.konfidensitas) {
+    const COLOR = {Tinggi:'#059669',Sedang:'#92400E',Rendah:'#B91C1C'};
+    const BG    = {Tinggi:'#F0FDF4',Sedang:'#FFFBEB',Rendah:'#FEF2F2'};
+    confEl.style.color = COLOR[scoring.konfidensitas] || '#6B7280';
+    confEl.style.background = BG[scoring.konfidensitas] || '#F9FAFB';
+    confEl.textContent = `Konfidensitas analisis: ${scoring.konfidensitas}`;
+    confEl.classList.remove('hidden');
+  }
 }
 
 function renderStrengths(strengths) {
@@ -121,6 +132,35 @@ function renderRecommendations(recos) {
       <span>${escapeHtml(r)}</span>
     </li>`
   ).join('');
+}
+
+function renderRedFlags(redFlags) {
+  if (!redFlags || !redFlags.length) return;
+  const section = document.getElementById('red-flags');
+  const list = document.getElementById('red-flags-list');
+  if (!section || !list) return;
+  list.innerHTML = redFlags.map(f => `<li>🚩 ${escapeHtml(f)}</li>`).join('');
+  section.classList.remove('hidden');
+}
+
+function renderHR7Detik(hr7) {
+  if (!hr7 || (!hr7.kuat?.length && !hr7.diabaikan?.length)) return;
+  const section = document.getElementById('hr-7-detik');
+  if (!section) return;
+  const kuat = document.getElementById('hr-kuat-list');
+  const diabaikan = document.getElementById('hr-diabaikan-list');
+  if (kuat) kuat.innerHTML = (hr7.kuat || []).map(s => `<li>${escapeHtml(s)}</li>`).join('');
+  if (diabaikan) diabaikan.innerHTML = (hr7.diabaikan || []).map(s => `<li>${escapeHtml(s)}</li>`).join('');
+  section.classList.remove('hidden');
+}
+
+function renderBeforeAfter(scoring) {
+  if (!scoring.skor_sesudah) return;
+  const section = document.getElementById('before-after');
+  if (!section) return;
+  document.getElementById('before-score').textContent = `${scoring.skor}%`;
+  document.getElementById('after-score').textContent  = `${scoring.skor_sesudah}%`;
+  section.classList.remove('hidden');
 }
 
 function renderRewritePreview(rekomendasi, gap) {

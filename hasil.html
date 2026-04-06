@@ -448,6 +448,9 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    .score-inner-label { font-size:0.65rem; font-weight:700; color:#6B7280; text-transform:uppercase; letter-spacing:0.07em; text-align:center; margin-bottom:0.1rem; line-height:1.2; }
+    .score-value-row { display:flex; align-items:baseline; justify-content:center; gap:1px; }
+
     /* Share button override */
     #share-btn {
       display: inline-flex;
@@ -562,13 +565,17 @@
               style="transition: stroke-dashoffset 1s ease;"/>
           </svg>
           <div class="score-inner">
-            <span id="score-number" class="score-num">0</span>
-            <span class="score-denom">/ 100</span>
+            <div class="score-inner-label">Peluang<br>Interview</div>
+            <div class="score-value-row">
+              <span id="score-number" class="score-num">0</span>
+              <span class="score-denom">%</span>
+            </div>
           </div>
         </div>
 
         <!-- Badge (set by scoring.js) -->
         <div id="score-badge" class="score-status-badge"></div>
+        <div id="confidence-badge" class="hidden" style="font-size:0.72rem;font-weight:600;border-radius:20px;padding:0.2rem 0.7rem;display:inline-block;margin-top:0.3rem;"></div>
 
         <!-- Progress bar (visual indicator, width driven by CSS variable) -->
         <div class="progress-bar-bg">
@@ -593,9 +600,15 @@
         <ul id="strengths-list"></ul>
       </div>
       <div id="gap-section" class="hidden gap-box">
-        <h4>❌ Yang perlu diperbaiki (prioritas)</h4>
+        <h4>❌ Kenapa kamu belum lolos:</h4>
         <ul id="gap-list"></ul>
       </div>
+    </div>
+
+    <!-- Red flags (hidden by default) -->
+    <div id="red-flags" class="hidden" style="background:#FEF2F2;border:1px solid #FECACA;border-radius:16px;padding:1rem 1.2rem;margin-bottom:1rem;">
+      <h4 style="color:#B91C1C;font-size:0.9rem;font-weight:700;margin-bottom:0.5rem;">🚩 Red Flag Terdeteksi</h4>
+      <ul id="red-flags-list" style="list-style:none;padding:0;margin:0;font-size:0.85rem;color:#7F1D1D;display:flex;flex-direction:column;gap:0.35rem;"></ul>
     </div>
 
     <!-- Recommendations (hidden until scoring.js populates it) -->
@@ -603,6 +616,21 @@
       <h4>🔥 Fokus perbaiki ini dulu</h4>
       <ol id="reco-list"></ol>
       <p style="font-size:0.8rem; color:#92400E; margin-top:0.75rem; font-style:italic;">Ini adalah perubahan dengan dampak terbesar untuk meningkatkan peluang kamu dipanggil interview.</p>
+    </div>
+
+    <!-- HR 7-second view (hidden by default) -->
+    <div id="hr-7-detik" class="gl-card hidden">
+      <h4 style="margin-bottom:0.75rem;">👁️ Ini yang HR lihat dalam 7 detik:</h4>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div>
+          <div style="font-size:0.68rem;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem;">✅ Diperhatikan</div>
+          <ul id="hr-kuat-list" style="list-style:none;padding:0;margin:0;font-size:0.82rem;color:#111827;display:flex;flex-direction:column;gap:0.3rem;"></ul>
+        </div>
+        <div>
+          <div style="font-size:0.68rem;font-weight:700;color:#DC2626;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem;">⏭️ Dilewati</div>
+          <ul id="hr-diabaikan-list" style="list-style:none;padding:0;margin:0;font-size:0.82rem;color:#111827;display:flex;flex-direction:column;gap:0.3rem;"></ul>
+        </div>
+      </div>
     </div>
 
     <!-- CV Rewrite Preview (hidden until scoring.js populates it) -->
@@ -622,6 +650,22 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Before/After score projection (hidden by default) -->
+    <div id="before-after" class="gl-card hidden" style="text-align:center;padding:1.25rem;">
+      <div style="display:flex;align-items:center;justify-content:center;gap:2rem;">
+        <div>
+          <div style="font-size:0.72rem;color:#6B7280;font-weight:600;margin-bottom:0.25rem;">Sebelum</div>
+          <div style="font-size:2.2rem;font-weight:800;color:#EF4444;" id="before-score">0%</div>
+        </div>
+        <div style="font-size:1.8rem;color:#9CA3AF;">&#8594;</div>
+        <div>
+          <div style="font-size:0.72rem;color:#6B7280;font-weight:600;margin-bottom:0.25rem;">Sesudah perbaikan</div>
+          <div style="font-size:2.2rem;font-weight:800;color:#10B981;" id="after-score">0%</div>
+        </div>
+      </div>
+      <p style="font-size:0.75rem;color:#9CA3AF;margin-top:0.5rem;">Estimasi jika semua rekomendasi di atas diikuti</p>
     </div>
 
     <!-- Pricing anchor CTA -->

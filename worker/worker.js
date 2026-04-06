@@ -443,7 +443,7 @@ async function analyzeCV(cvText, jobDesc, env) {
   // Same extracted CV text + job description always yields the same analysis.
   // Cache the result in KV so re-uploads / re-runs are 100% deterministic
   // even across different edge nodes.
-  const cacheKey = `analysis_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
+  const cacheKey = `analysis_v2_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
   const cached = await env.GASLAMAR_SESSIONS.get(cacheKey, { type: 'json' });
   if (cached) return cached;
 
@@ -467,7 +467,11 @@ Berikan output JSON dengan format TEPAT berikut:
   "alasan_skor": "<1 kalimat menjelaskan skor keseluruhan>",
   "gap": ["<gap 1>", "<gap 2>", "<gap 3>"],
   "rekomendasi": ["<rekomendasi 1>", "<rekomendasi 2>", "<rekomendasi 3>"],
-  "kekuatan": ["<kekuatan 1>", "<kekuatan 2>"]
+  "kekuatan": ["<kekuatan 1>", "<kekuatan 2>"],
+  "konfidensitas": <"Rendah"|"Sedang"|"Tinggi">,
+  "skor_sesudah": <kelipatan 5, min skor+10, max 95>,
+  "hr_7_detik": { "kuat": ["...", "..."], "diabaikan": ["...", "..."] },
+  "red_flags": ["..."]
 }
 
 PANDUAN skor_relevansi (0/10/20/30/40):
@@ -493,6 +497,24 @@ PANDUAN skor_keywords (0/5/10):
 - 5: 25–50% keyword relevan ada di CV
 - 0: Kurang dari 25% keyword dari job description ada di CV
 
+PANDUAN konfidensitas (WAJIB, pilih tepat satu):
+- "Tinggi": CV lengkap dan jelas, JD spesifik -- analisis akurat
+- "Sedang": CV atau JD kurang detail -- analisis cukup akurat
+- "Rendah": CV sangat pendek/tidak terbaca, atau JD sangat generik
+
+PANDUAN skor_sesudah:
+Estimasi peluang interview SETELAH user mengimplementasikan semua rekomendasi.
+HARUS kelipatan 5. HARUS minimal skor utama + 10 (maksimal 95).
+
+PANDUAN hr_7_detik:
+- kuat: 2-3 hal yang HR perhatikan POSITIF dalam 7 detik pertama (struktur, headline, relevansi)
+- diabaikan: 1-2 hal yang HR cenderung skip atau bingung (bagian kabur, tidak relevan, terlalu panjang)
+
+PANDUAN red_flags (OPSIONAL -- tambahkan HANYA jika ada, maks 3):
+Flag jika: terlalu banyak "bertanggung jawab" tanpa hasil, tidak ada angka/pencapaian,
+pengalaman tidak relevan sama sekali, atau banyak posisi <1 tahun (job hopping).
+Jika tidak ada red flag nyata -- JANGAN tambahkan field ini.
+
 Output hanya JSON, tidak ada teks lain.`;
 
   const result = await callClaude(env, systemPrompt, 'Analisis sekarang.', 1000);
@@ -509,6 +531,20 @@ Output hanya JSON, tidak ada teks lain.`;
   const kualitas     = [0, 10, 20].includes(scoring.skor_kualitas)             ? scoring.skor_kualitas    : 0;
   const keywords     = [0, 5, 10].includes(scoring.skor_keywords)              ? scoring.skor_keywords    : 0;
   scoring.skor       = relevansi + requirements + kualitas + keywords;
+
+  // Validate new v2 fields
+  const VALID_CONF = ['Rendah', 'Sedang', 'Tinggi'];
+  if (!VALID_CONF.includes(scoring.konfidensitas)) scoring.konfidensitas = 'Sedang';
+
+  const sesudahRaw = Math.round((parseInt(scoring.skor_sesudah) || 0) / 5) * 5;
+  scoring.skor_sesudah = Math.min(95, Math.max(scoring.skor + 10, sesudahRaw));
+
+  if (!scoring.hr_7_detik || typeof scoring.hr_7_detik !== 'object') {
+    delete scoring.hr_7_detik;
+  }
+  if (!Array.isArray(scoring.red_flags) || scoring.red_flags.length === 0) {
+    delete scoring.red_flags;
+  }
 
   // Store in cache (48-hour TTL). Identical CV+JD will always return this result.
   await env.GASLAMAR_SESSIONS.put(cacheKey, JSON.stringify(scoring), { expirationTtl: 172800 });
@@ -1503,6 +1539,12 @@ export default {
 
       if (method === 'POST' && pathname === '/fetch-job-url') {
         return handleFetchJobUrl(request, env);
+      }
+
+      if (method === 'POST' && pathname === '/feedback') {
+        const body = await request.json().catch(() => ({}));
+        log('user_feedback', { type: body.type, answer: body.answer, ip: request.headers.get('CF-Connecting-IP') });
+        return jsonResponse({ ok: true }, 200, request, env);
       }
 
       // Sandbox-only: simulate payment confirmation for testing (blocked in production)
