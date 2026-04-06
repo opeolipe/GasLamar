@@ -106,6 +106,8 @@ async function poll(sessionId) {
       startSessionHeartbeat(sessionId); // keep session alive while user is on the page
       const creditsRemaining = data.credits_remaining ?? 1;
       const totalCredits = data.total_credits ?? 1;
+      // Sync authoritative tier from server so animation shows the correct package label
+      if (data.tier) sessionStorage.setItem('gaslamar_tier', data.tier);
       // Returning user: already used ≥1 credit — show dashboard without auto-generating
       const isReturning = totalCredits > 1 && creditsRemaining < totalCredits;
       if (isReturning) {
