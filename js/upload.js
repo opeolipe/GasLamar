@@ -5,7 +5,7 @@
  */
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const MAX_JD_CHARS = 3000;
+const MAX_JD_CHARS = 5000;
 const MIN_CV_TEXT_LENGTH = 100;
 
 let selectedFile = null;
@@ -45,6 +45,12 @@ function removeFile() {
 }
 
 function processFile(file) {
+  // Clear any stale data from a previous flow before starting fresh
+  ['gaslamar_scoring', 'gaslamar_cv_key', 'gaslamar_cv_pending',
+   'gaslamar_jd_pending', 'gaslamar_filename', 'gaslamar_tier',
+   'gaslamar_email', 'gaslamar_analyze_time',
+  ].forEach(k => sessionStorage.removeItem(k));
+
   hideError('file-error');
   hideError('cv-text-warning');
 
@@ -191,14 +197,33 @@ function arrayBufferToBase64(buffer) {
 
 function updateCharCount() {
   const jd = document.getElementById('job-desc');
+
+  // Enforce hard cap — paste can bypass HTML maxlength on some browsers
+  if (jd.value.length > MAX_JD_CHARS) {
+    jd.value = jd.value.slice(0, MAX_JD_CHARS);
+  }
+
   const count = jd.value.length;
   document.getElementById('char-count').textContent = count.toLocaleString('id-ID');
 
   const warning = document.getElementById('char-warning');
-  if (count > 2500) {
+  const submitBtn = document.getElementById('submit-btn');
+
+  if (count > MAX_JD_CHARS) {
     warning.classList.remove('hidden');
+    showError('jd-error', `Job description terlalu panjang. Maksimal ${MAX_JD_CHARS.toLocaleString('id-ID')} karakter.`);
+    if (submitBtn) submitBtn.disabled = true;
   } else {
-    warning.classList.add('hidden');
+    if (count > 4500) {
+      warning.classList.remove('hidden');
+    } else {
+      warning.classList.add('hidden');
+    }
+    if (submitBtn) submitBtn.disabled = false;
+    // Clear "too short" / "too long" errors as the user types to valid length
+    if (count >= 50) {
+      hideError('jd-error');
+    }
   }
 }
 
@@ -226,6 +251,9 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
   }
 
   if (jobDesc.length > MAX_JD_CHARS) {
+    // Sync counter to show actual length — may be stale if content was injected
+    // programmatically (element.value=… doesn't fire oninput)
+    document.getElementById('char-count').textContent = jobDesc.length.toLocaleString('id-ID');
     showError('jd-error', `Job description terlalu panjang. Maksimal ${MAX_JD_CHARS.toLocaleString('id-ID')} karakter.`);
     return;
   }
@@ -334,16 +362,46 @@ function showError(id, message) {
     el.textContent = message;
     el.classList.remove('hidden');
   }
+  // Visual feedback on submit button: shake + red ring
+  const btn = document.getElementById('submit-btn');
+  if (btn) {
+    btn.classList.remove('btn-error'); // reset to re-trigger animation
+    void btn.offsetWidth; // force reflow
+    btn.classList.add('btn-error');
+  }
 }
 
 function hideError(id) {
   const el = document.getElementById(id);
   if (el) el.classList.add('hidden');
+  // Remove error ring only when no validation errors are visible
+  const anyVisible = ['file-error','jd-error'].some(eid => {
+    const e = document.getElementById(eid);
+    return e && !e.classList.contains('hidden');
+  });
+  if (!anyVisible) {
+    const btn = document.getElementById('submit-btn');
+    if (btn) btn.classList.remove('btn-error');
+  }
 }
 
 // ---- Init: restore tier, JD draft, and CV state ----
 
 (function init() {
+  // Override textarea value setter so MAX_JD_CHARS is enforced even for
+  // programmatic assignments (element.value = '...') — those bypass oninput/paste.
+  const jdEl = document.getElementById('job-desc');
+  const proto = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
+  Object.defineProperty(jdEl, 'value', {
+    get() { return proto.get.call(this); },
+    set(v) {
+      const capped = (typeof v === 'string' && v.length > MAX_JD_CHARS) ? v.slice(0, MAX_JD_CHARS) : v;
+      proto.set.call(this, capped);
+      updateCharCount();
+    },
+    configurable: false,
+  });
+
   // Tier from URL param
   const params = new URLSearchParams(location.search);
   const tier = params.get('tier');
@@ -373,3 +431,30 @@ function hideError(id) {
 document.getElementById('job-desc').addEventListener('input', () => {
   sessionStorage.setItem('gaslamar_jd_draft', document.getElementById('job-desc').value);
 });
+
+// Paste fires BEFORE the value is updated — use requestAnimationFrame so
+// updateCharCount reads the final value (and enforces the hard cap).
+document.getElementById('job-desc').addEventListener('paste', () => {
+  requestAnimationFrame(updateCharCount);
+});
+
+// Re-enable submit when page is restored from BFcache (back-navigation or tab switch).
+// Without this, the button stays disabled if the user navigated away mid-submit.
+window.addEventListener('pageshow', (e) => {
+  if (e.persisted) {
+    const btn = document.getElementById('submit-btn');
+    if (btn) btn.disabled = false;
+  }
+});
+
+// ---- Staging test hook ----
+// Called by staging-cvs.js to inject pre-extracted CV text without going
+// through FileReader (avoids async timing issues with the change event).
+window.injectCVForTesting = function (cvTextJson, file) {
+  cvText = cvTextJson;
+  selectedFile = file;
+  showFilePreview(file);
+  hideError('file-error');
+  const cvWarn = document.getElementById('cv-text-warning');
+  if (cvWarn) cvWarn.classList.add('hidden');
+};

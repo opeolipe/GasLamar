@@ -215,7 +215,7 @@
 </head>
 <body>
 <div class="container">
-  <div class="card">
+  <div class="card" id="analyzeCard">
     <!-- Progress steps -->
     <div class="progress-steps">
       <div class="step completed">1. Upload CV</div>
@@ -275,6 +275,21 @@
   </div>
 </div>
 
+<!-- Inline error state — shown instead of redirecting on analysis failure -->
+<div id="analyze-error" style="display:none;max-width:500px;margin:4rem auto;padding:2rem;background:#FEF2F2;border:1.5px solid #FCA5A5;border-radius:16px;text-align:center;">
+  <div style="font-size:2rem;margin-bottom:0.75rem;">⚠️</div>
+  <h3 style="color:#991B1B;margin:0 0 0.5rem;">Analisis Gagal</h3>
+  <p id="analyze-error-msg" style="color:#B91C1C;font-size:0.9rem;margin-bottom:1.25rem;"></p>
+  <div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;">
+    <button onclick="retryAnalysis()" style="background:#DC2626;color:#fff;border:none;padding:0.6rem 1.25rem;border-radius:10px;font-weight:600;cursor:pointer;font-family:inherit;">
+      Coba Lagi
+    </button>
+    <a href="upload.html" style="background:#F3F4F6;color:#374151;padding:0.6rem 1.25rem;border-radius:10px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;font-size:0.9rem;">
+      Ganti CV / Job
+    </a>
+  </div>
+</div>
+
 <script src="js/config.js"></script>
 <script>
   // Read pending data from sessionStorage
@@ -282,9 +297,13 @@
   const jobDesc   = sessionStorage.getItem('gaslamar_jd_pending');
   const filename  = sessionStorage.getItem('gaslamar_filename') || 'CV Kamu';
 
-  // Redirect back if no data
+  // Redirect if no pending data (direct navigation or page refresh after completion)
   if (!cvData || !jobDesc) {
-    window.location.href = 'upload.html';
+    // If a fresh analysis result already exists, send them to hasil.html
+    const existingScore = sessionStorage.getItem('gaslamar_scoring');
+    const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
+    const isFresh = existingScore && analyzeTime && (Date.now() - analyzeTime) < 7200000;
+    window.location.replace(isFresh ? 'hasil.html' : 'upload.html');
   }
 
   // Show filename
@@ -387,6 +406,7 @@
       // Store results
       sessionStorage.setItem('gaslamar_scoring', JSON.stringify(result));
       sessionStorage.setItem('gaslamar_cv_key', result.cv_text_key || '');
+      sessionStorage.setItem('gaslamar_analyze_time', String(Date.now()));
 
       // Clear pending data
       sessionStorage.removeItem('gaslamar_cv_pending');
@@ -399,7 +419,7 @@
       clearInterval(trustInterval);
       finishAnimation();
 
-      setTimeout(() => { window.location.href = 'hasil.html'; }, 800);
+      setTimeout(() => { window.location.replace('hasil.html'); }, 800);
 
     } catch (err) {
       clearInterval(timerInterval);
@@ -414,9 +434,26 @@
         msg = 'Analisis memakan waktu terlalu lama. Coba lagi.';
       }
 
-      sessionStorage.setItem('gaslamar_upload_error', msg);
-      window.location.href = 'upload.html';
+      document.getElementById('analyze-error-msg').textContent = msg;
+      document.getElementById('analyze-error').style.display = 'block';
+      document.getElementById('analyzeCard').style.display = 'none';
     }
+  }
+
+  function retryAnalysis() {
+    document.getElementById('analyze-error').style.display = 'none';
+    document.getElementById('analyzeCard').style.display = '';
+    completedStep = 0;
+    startTime = Date.now();
+    analysisComplete = false;
+    abortController = new AbortController();
+    // Reset step icons
+    for (let i = 1; i <= totalSteps; i++) {
+      const icon = document.getElementById('step' + i + 'Icon');
+      if (icon) { icon.textContent = '○'; icon.className = 'step-status'; icon.style.color = ''; }
+    }
+    document.getElementById('progressFill').style.width = '0%';
+    runAnalysis();
   }
 
   // Edit back link

@@ -28,8 +28,12 @@
 
   renderScore(scoring);
   renderStrengths(scoring.kekuatan || []);
+  renderRedFlags(scoring.red_flags);
   renderGaps(scoring.gap || []);
+  renderHR7Detik(scoring.hr_7_detik);
   renderRecommendations(scoring.rekomendasi || []);
+  renderBeforeAfter(scoring);
+  renderRewritePreview(scoring.rekomendasi || [], scoring.gap || []);
   setupShareButton(scoring.skor || 0);
   setupTierRecommendation(scoring.skor || 0);
 })();
@@ -53,9 +57,9 @@ function renderScore(scoring) {
   const offset = circumference - (score / 100) * circumference;
 
   // Set color based on score
-  if (score >= 80) {
+  if (score > 70) {
     ring.classList.add('score-high');
-  } else if (score >= 60) {
+  } else if (score >= 50) {
     ring.classList.add('score-medium');
   } else {
     ring.classList.add('score-low');
@@ -68,22 +72,30 @@ function renderScore(scoring) {
 
   // Badge
   const badge = document.getElementById('score-badge');
-  if (score >= 80) {
-    badge.textContent = '🟢 Match Sangat Baik';
+  if (score > 70) {
+    badge.textContent = '🟢 Peluang Interview Tinggi';
     badge.className = 'inline-block px-4 py-1.5 rounded-full text-sm font-bold mb-3 bg-green-100 text-green-700';
-  } else if (score >= 60) {
-    badge.textContent = '🟡 Match Cukup Baik';
+  } else if (score >= 50) {
+    badge.textContent = '🟡 Peluang Interview Sedang';
     badge.className = 'inline-block px-4 py-1.5 rounded-full text-sm font-bold mb-3 bg-yellow-100 text-yellow-700';
-  } else if (score >= 40) {
-    badge.textContent = '🔴 Perlu Improvement';
-    badge.className = 'inline-block px-4 py-1.5 rounded-full text-sm font-bold mb-3 bg-red-100 text-red-700';
   } else {
-    badge.textContent = '🔴 Gap Kritis';
+    badge.textContent = '🔴 Peluang Interview Rendah';
     badge.className = 'inline-block px-4 py-1.5 rounded-full text-sm font-bold mb-3 bg-red-100 text-red-700';
   }
 
   // Reason text
   document.getElementById('score-reason').textContent = reason;
+
+  // Confidence badge
+  const confEl = document.getElementById('confidence-badge');
+  if (confEl && scoring.konfidensitas) {
+    const COLOR = {Tinggi:'#059669',Sedang:'#92400E',Rendah:'#B91C1C'};
+    const BG    = {Tinggi:'#F0FDF4',Sedang:'#FFFBEB',Rendah:'#FEF2F2'};
+    confEl.style.color = COLOR[scoring.konfidensitas] || '#6B7280';
+    confEl.style.background = BG[scoring.konfidensitas] || '#F9FAFB';
+    confEl.textContent = `Konfidensitas analisis: ${scoring.konfidensitas}`;
+    confEl.classList.remove('hidden');
+  }
 }
 
 function renderStrengths(strengths) {
@@ -120,6 +132,73 @@ function renderRecommendations(recos) {
       <span>${escapeHtml(r)}</span>
     </li>`
   ).join('');
+}
+
+function renderRedFlags(redFlags) {
+  if (!redFlags || !redFlags.length) return;
+  const section = document.getElementById('red-flags');
+  const list = document.getElementById('red-flags-list');
+  if (!section || !list) return;
+  list.innerHTML = redFlags.map(f => `<li>🚩 ${escapeHtml(f)}</li>`).join('');
+  section.classList.remove('hidden');
+}
+
+function renderHR7Detik(hr7) {
+  if (!hr7 || (!hr7.kuat?.length && !hr7.diabaikan?.length)) return;
+  const section = document.getElementById('hr-7-detik');
+  if (!section) return;
+  const kuat = document.getElementById('hr-kuat-list');
+  const diabaikan = document.getElementById('hr-diabaikan-list');
+  if (kuat) kuat.innerHTML = (hr7.kuat || []).map(s => `<li>${escapeHtml(s)}</li>`).join('');
+  if (diabaikan) diabaikan.innerHTML = (hr7.diabaikan || []).map(s => `<li>${escapeHtml(s)}</li>`).join('');
+  section.classList.remove('hidden');
+}
+
+function renderBeforeAfter(scoring) {
+  if (!scoring.skor_sesudah) return;
+  const section = document.getElementById('before-after');
+  if (!section) return;
+  document.getElementById('before-score').textContent = `${scoring.skor}%`;
+  document.getElementById('after-score').textContent  = `${scoring.skor_sesudah}%`;
+  section.classList.remove('hidden');
+}
+
+function renderRewritePreview(rekomendasi, gap) {
+  const section = document.getElementById('rewrite-preview');
+  if (!section) return;
+
+  // Need at least 2 items to have something visible + something blurred
+  const allItems = [...rekomendasi, ...gap];
+  if (allItems.length < 2) return;
+
+  const totalCount = allItems.length;
+
+  // First item — fully visible
+  const first = allItems[0];
+  document.getElementById('preview-item-1').innerHTML = `
+    <div class="preview-item">
+      <div class="preview-item-label">✅ Perbaikan #1 — contoh gratis</div>
+      <div class="preview-item-text">${escapeHtml(first)}</div>
+    </div>`;
+
+  // Remaining items (up to 4) — blurred
+  const rest = allItems.slice(1, 5);
+  document.getElementById('preview-items-rest').innerHTML =
+    rest.map((item, i) => `
+      <div class="preview-item" style="margin-bottom:0.5rem;">
+        <div class="preview-item-label">${i + 2 <= rekomendasi.length ? `✅ Perbaikan #${i + 2}` : '❌ Gap yang diperbaiki'}</div>
+        <div class="preview-item-text">${escapeHtml(item)}</div>
+      </div>`).join('') + `
+    <div style="font-size:0.8rem;color:#6B7280;text-align:center;padding:0.5rem 0 0.25rem;">
+      + rewrite lengkap CV dalam Bahasa Indonesia &amp; Inggris
+    </div>`;
+
+  document.getElementById('preview-lock-text').textContent =
+    `🔒 Lihat semua ${totalCount} perbaikan + CV rewrite lengkap (ID &amp; EN) setelah pilih paket`;
+  document.getElementById('preview-lock-text').innerHTML =
+    `🔒 Lihat semua ${totalCount} perbaikan + CV rewrite lengkap (ID &amp; EN) setelah pilih paket`;
+
+  section.classList.remove('hidden');
 }
 
 function setupShareButton(score) {
@@ -170,10 +249,10 @@ function setupTierRecommendation(score) {
   }
 
   el.innerHTML = `
-    <div class="flex items-start gap-3">
-      <span class="text-lg flex-shrink-0">💡</span>
-      <p class="text-sm text-white/90">${msg}
-        <button onclick="selectTier('${tier}')" class="ml-1 underline font-semibold hover:no-underline">Pilih sekarang →</button>
+    <div style="display:flex;align-items:flex-start;gap:0.75rem;">
+      <span style="font-size:1.1rem;flex-shrink:0;">💡</span>
+      <p style="font-size:0.85rem;color:rgba(255,255,255,0.9);margin:0;">${msg}
+        <button onclick="selectTier('${tier}')" style="margin-left:4px;text-decoration:underline;font-weight:600;background:none;border:none;color:inherit;cursor:pointer;font-family:inherit;font-size:inherit;padding:0;">Pilih →</button>
       </p>
     </div>`;
   el.classList.remove('hidden');

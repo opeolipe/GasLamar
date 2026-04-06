@@ -6,9 +6,11 @@
 
 const POLL_INTERVAL = 3000;  // 3 seconds
 const MAX_POLLS = 10;
+const HEARTBEAT_INTERVAL = 3 * 60 * 1000; // 3 minutes
 
 let pollCount = 0;
 let pollTimer = null;
+let heartbeatTimer = null;
 let cvDataCache = null; // { cv_id: string, cv_en: string, tier: string }
 let sessionIdCache = null; // retained for multi-credit re-use
 
@@ -24,6 +26,11 @@ let sessionIdCache = null; // retained for multi-credit re-use
     return;
   }
 
+  if (!sessionId.startsWith('sess_')) {
+    showSessionError('Link Tidak Valid', 'Link download tidak valid. Pastikan menggunakan link lengkap yang dikirim ke email kamu.');
+    return;
+  }
+
   sessionIdCache = sessionId;
   // Start polling for payment confirmation
   showState('waiting-payment');
@@ -34,7 +41,10 @@ let sessionIdCache = null; // retained for multi-credit re-use
 
 function startPolling(sessionId) {
   pollCount = 0;
-  poll(sessionId);
+  // 2s delay before first poll — Cloudflare KV is eventually consistent;
+  // the session written by /create-payment may not be visible at the polling
+  // edge node for several seconds.
+  setTimeout(() => poll(sessionId), 2000);
 }
 
 function restartPolling() {
@@ -56,8 +66,30 @@ async function poll(sessionId) {
   try {
     const res = await fetch(`${WORKER_URL}/check-session?session=${encodeURIComponent(sessionId)}`);
 
+    if (res.status === 400) {
+      // Bad request — invalid session ID format; no point retrying
+      showSessionError(
+        'Link Tidak Valid',
+        'Link download tidak valid. Pastikan menggunakan link lengkap yang dikirim ke email kamu.',
+        false
+      );
+      return;
+    }
+
     if (res.status === 404) {
-      showSessionError('Sesi Kedaluwarsa', 'Sesi kamu sudah kedaluwarsa (30 menit). Mulai ulang dari awal.');
+      // Cloudflare KV is eventually consistent across edge nodes — a session
+      // written by /create-payment may not yet be visible from the edge that
+      // serves /check-session.  Keep polling through the full window (same as
+      // 'pending') before showing the error to the user.
+      if (pollCount < MAX_POLLS) {
+        scheduleNextPoll(sessionId);
+        return;
+      }
+      showSessionError(
+        'Sesi Tidak Ditemukan',
+        'Sesi tidak ditemukan. Jika kamu baru saja membayar, tunggu beberapa detik lalu refresh. Jika masalah berlanjut, hubungi support dengan bukti pembayaran.',
+        false
+      );
       return;
     }
 
@@ -66,12 +98,21 @@ async function poll(sessionId) {
       return;
     }
 
-    const { status } = await res.json();
+    const data = await res.json();
+    const { status } = data;
 
     if (status === 'paid' || status === 'generating') {
-      // Payment confirmed! Fetch CV data and generate
       clearTimeout(pollTimer);
-      await fetchAndGenerateCV(sessionId);
+      startSessionHeartbeat(sessionId); // keep session alive while user is on the page
+      const creditsRemaining = data.credits_remaining ?? 1;
+      const totalCredits = data.total_credits ?? 1;
+      // Returning user: already used ≥1 credit — show dashboard without auto-generating
+      const isReturning = totalCredits > 1 && creditsRemaining < totalCredits;
+      if (isReturning) {
+        showCreditsDashboard(creditsRemaining, totalCredits, data.tier);
+      } else {
+        await fetchAndGenerateCV(sessionId);
+      }
     } else if (status === 'pending') {
       if (pollCount >= MAX_POLLS) {
         // Stopped polling — show manual check buttons
@@ -84,7 +125,12 @@ async function poll(sessionId) {
         scheduleNextPoll(sessionId);
       }
     } else {
-      scheduleNextPoll(sessionId);
+      if (pollCount < MAX_POLLS) {
+        scheduleNextPoll(sessionId);
+      } else {
+        document.getElementById('check-btn').classList.remove('hidden');
+        document.getElementById('poll-count-text').textContent = 'Klik tombol di bawah untuk cek ulang.';
+      }
     }
   } catch (err) {
     if (pollCount < MAX_POLLS) {
@@ -95,6 +141,37 @@ async function poll(sessionId) {
 
 function scheduleNextPoll(sessionId) {
   pollTimer = setTimeout(() => poll(sessionId), POLL_INTERVAL);
+}
+
+// ---- Session Heartbeat ----
+// Pings /session/ping every 3 minutes to refresh KV TTL while user is active.
+
+function startSessionHeartbeat(sessionId) {
+  if (heartbeatTimer) return; // already running
+  heartbeatTimer = setInterval(async () => {
+    try {
+      const res = await fetch(`${WORKER_URL}/session/ping`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId })
+      });
+      if (res.status === 404) {
+        stopSessionHeartbeat();
+        showSessionError(
+          'Sesi Kedaluwarsa',
+          'Sesi kamu sudah kedaluwarsa. Jika kamu sudah membayar, hubungi kami dengan bukti pembayaran.',
+          false
+        );
+      }
+    } catch (_) { /* ignore transient network errors */ }
+  }, HEARTBEAT_INTERVAL);
+}
+
+function stopSessionHeartbeat() {
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
 }
 
 function updatePollUI() {
@@ -125,12 +202,16 @@ async function fetchAndGenerateCV(sessionId) {
     clearTimeout(timeout);
 
     if (res.status === 403) {
-      showSessionError('Akses Ditolak', 'Pembayaran belum dikonfirmasi atau sesi tidak valid.');
+      showSessionError('Akses Ditolak', 'Pembayaran belum dikonfirmasi atau sesi tidak valid.', false);
       return;
     }
 
     if (res.status === 404) {
-      showSessionError('Sesi Kedaluwarsa', 'Sesi kamu sudah kedaluwarsa. Mulai ulang dari awal.');
+      showSessionError(
+        'Sesi Tidak Ditemukan',
+        'Sesi tidak ditemukan atau sudah kedaluwarsa. Jika kamu sudah membayar, hubungi support dengan bukti pembayaran.',
+        false
+      );
       return;
     }
 
@@ -187,16 +268,37 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
     clearTimeout(timeout);
 
     if (!res.ok) {
-      throw new Error(`Gagal generate CV: ${res.status}`);
+      // Parse server error message for better context
+      let serverMsg = `Gagal generate CV (${res.status})`;
+      try {
+        const errData = await res.json();
+        if (errData.message) serverMsg = errData.message;
+      } catch (_) {}
+
+      if (res.status === 404) {
+        showSessionError(
+          'Sesi Tidak Ditemukan',
+          'Sesi tidak ditemukan atau sudah kedaluwarsa. Jika kamu sudah membayar, hubungi support dengan bukti pembayaran.',
+          false
+        );
+        return;
+      }
+      if (res.status === 403) {
+        showSessionError('Akses Ditolak', serverMsg, false);
+        return;
+      }
+      // 500 / 429: server resets session to 'paid' on failure — user can retry
+      showSessionError('Gagal Generate CV', serverMsg + ' Klik "Coba Lagi" untuk mencoba ulang.', true);
+      return;
     }
 
     setProgress(75);
     setGeneratingText('Menyiapkan file download...');
 
-    const { cv_id, cv_en, credits_remaining } = await res.json();
+    const { cv_id, cv_en, credits_remaining, total_credits } = await res.json();
 
     // Cache for retries
-    cvDataCache = { cv_id, cv_en, tier };
+    cvDataCache = { cv_id, cv_en, tier, total_credits };
 
     // Only clear localStorage when all credits are used up
     if (!credits_remaining || credits_remaining <= 0) {
@@ -210,6 +312,7 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
     // Show download UI
     setTimeout(() => {
       setProgress(100);
+      stopSessionHeartbeat(); // CV is ready — no need to keep extending session
       showDownloadReady(cv_id, cv_en, tier, isBilingual, credits_remaining || 0);
     }, 500);
 
@@ -241,6 +344,31 @@ function downloadFile(lang, format) {
   } else if (format === 'pdf') {
     generatePDF(cvText, lang, tier);
   }
+}
+
+// ---- File Download Helper ----
+
+function triggerDownload(blob, filename, mimeType) {
+  const url = URL.createObjectURL(new Blob([blob], { type: mimeType }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ---- Candidate Name Extraction ----
+
+function extractCandidateName(cvText) {
+  if (!cvText) return null;
+  // First short non-blank line is typically the candidate's name
+  const firstLine = cvText.split('\n').map(l => l.trim()).find(l => l.length > 1 && l.length < 60);
+  if (!firstLine) return null;
+  // Sanitize: keep alphanumeric, spaces, hyphens only; collapse spaces to hyphens
+  const sanitized = firstLine.replace(/[^a-zA-Z0-9\s\-]/g, '').trim().replace(/\s+/g, '-').slice(0, 30);
+  return sanitized || null;
 }
 
 // ---- Line Parsing ----
@@ -312,8 +440,10 @@ function generateDOCX(cvText, lang, tier) {
     });
 
     Packer.toBlob(doc).then(blob => {
-      const langLabel = lang === 'id' ? 'Indonesia' : 'English';
-      triggerDownload(blob, `CV-${langLabel}-GasLamar.docx`, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      const langLabel = lang === 'id' ? 'ID' : 'EN';
+      const candidateName = extractCandidateName(cvText);
+      const filename = candidateName ? `CV-${candidateName}-${langLabel}-GasLamar.docx` : `CV-${langLabel}-GasLamar.docx`;
+      triggerDownload(blob, filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     });
 
   } catch (err) {
@@ -390,8 +520,10 @@ function generatePDF(cvText, lang, tier) {
       }
     }
 
-    const langLabel = lang === 'id' ? 'Indonesia' : 'English';
-    doc.save(`CV-${langLabel}-GasLamar.pdf`);
+    const langLabel = lang === 'id' ? 'ID' : 'EN';
+    const candidateName = extractCandidateName(cvText);
+    const filename = candidateName ? `CV-${candidateName}-${langLabel}-GasLamar.pdf` : `CV-${langLabel}-GasLamar.pdf`;
+    doc.save(filename);
 
   } catch (err) {
     console.error('PDF generation error:', err);
@@ -412,10 +544,19 @@ function showState(id) {
   if (target) target.classList.remove('hidden');
 }
 
-function showSessionError(title, message) {
+function showSessionError(title, message, retryable = false) {
   showState('session-error');
   document.getElementById('error-title').textContent = title;
   document.getElementById('session-error-msg').textContent = message;
+  const retryBtn = document.getElementById('error-retry-btn');
+  const restartBtn = document.getElementById('error-restart-btn');
+  if (retryBtn) retryBtn.classList.toggle('hidden', !retryable);
+  if (restartBtn) restartBtn.classList.toggle('hidden', retryable);
+}
+
+function retryGeneration() {
+  if (!sessionIdCache) { window.location.reload(); return; }
+  fetchAndGenerateCV(sessionIdCache);
 }
 
 function setProgress(pct) {
@@ -426,6 +567,27 @@ function setProgress(pct) {
 function setGeneratingText(text) {
   const el = document.getElementById('generating-text');
   if (el) el.textContent = text;
+}
+
+function showCreditsDashboard(creditsRemaining, totalCredits, tier) {
+  showState('download-ready');
+  // No previous CV — hide the download grid
+  const grid = document.getElementById('download-grid');
+  if (grid) grid.classList.add('hidden');
+  // Also hide the success header since nothing was generated yet
+  const successHeader = document.querySelector('#download-ready > .card:nth-child(2) > div:first-child');
+  if (successHeader) successHeader.style.display = 'none';
+  // Show multi-credit section
+  const multiSection = document.getElementById('multi-credit-section');
+  if (multiSection) {
+    const creditsEl = document.getElementById('credits-remaining-count');
+    if (creditsEl) creditsEl.textContent = creditsRemaining;
+    const totalEl = document.getElementById('credits-total-count');
+    if (totalEl) totalEl.textContent = totalCredits;
+    multiSection.classList.remove('hidden');
+  }
+  // Cache tier for generateForNewJob
+  cvDataCache = { cv_id: null, cv_en: null, tier: tier || 'single' };
 }
 
 function showDownloadReady(cvId, cvEn, tier, isBilingual, creditsRemaining) {
@@ -447,7 +609,14 @@ function showDownloadReady(cvId, cvEn, tier, isBilingual, creditsRemaining) {
   const creditsEl = document.getElementById('credits-remaining-count');
   if (multiSection && creditsRemaining > 0) {
     if (creditsEl) creditsEl.textContent = creditsRemaining;
+    const totalEl = document.getElementById('credits-total-count');
+    if (totalEl) totalEl.textContent = cvDataCache?.total_credits ?? (creditsRemaining + 1);
     multiSection.classList.remove('hidden');
+  }
+  // Show upgrade nudge when all credits are used
+  if (creditsRemaining <= 0) {
+    const upgradeEl = document.getElementById('upgrade-nudge');
+    if (upgradeEl) upgradeEl.classList.remove('hidden');
   }
 
   // Detect if mobile (for fallback hint)
@@ -477,8 +646,8 @@ async function generateForNewJob() {
     textarea.focus();
     return;
   }
-  if (newJobDesc.length > 3000) {
-    alert('Job description terlalu panjang (maks 3.000 karakter).');
+  if (newJobDesc.length > 5000) {
+    alert('Job description terlalu panjang (maks 5.000 karakter).');
     return;
   }
 

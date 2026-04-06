@@ -14,17 +14,24 @@ const TIER_CONFIG = {
 let selectedTier = null;
 let paymentInProgress = false;
 
-// Auto-select tier from sessionStorage (set by URL param on landing/upload)
-(function initTier() {
-  const stored = sessionStorage.getItem('gaslamar_tier');
-  if (stored && TIER_CONFIG[stored]) {
-    selectTier(stored);
+// Show amber email section with single/coba copy by default (before any tier is selected)
+document.addEventListener('DOMContentLoaded', () => {
+  updateEmailSection('single');
+  // Clear email error state as user types, and update hint
+  const emailInput = document.getElementById('email-input');
+  if (emailInput) {
+    emailInput.addEventListener('input', () => {
+      const errEl = document.getElementById('email-error');
+      if (errEl) errEl.style.display = 'none';
+      emailInput.style.borderColor = '';
+      updatePayHint();
+    });
   }
-})();
-
+});
 function selectTier(tier) {
   if (!TIER_CONFIG[tier]) return;
   selectedTier = tier;
+  sessionStorage.setItem('gaslamar_tier', tier);
 
   // Update UI — deselect all, select chosen
   document.querySelectorAll('.tier-card').forEach(card => {
@@ -40,6 +47,69 @@ function selectTier(tier) {
     btn.disabled = false;
     btn.textContent = `Bayar Rp ${config.price.toLocaleString('id-ID')} — ${config.label} →`;
   }
+
+  // Transform email section based on tier
+  updateEmailSection(tier);
+
+  updatePayHint();
+}
+
+function updatePayHint() {
+  const hint = document.getElementById('pay-hint');
+  if (!hint) return;
+  const email = document.getElementById('email-input')?.value.trim() || '';
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  if (!selectedTier) {
+    hint.textContent = 'Pilih paket di atas untuk melanjutkan';
+    hint.style.display = 'block';
+  } else if (!emailValid) {
+    hint.textContent = 'Masukkan email yang valid untuk melanjutkan';
+    hint.style.display = 'block';
+  } else {
+    hint.style.display = 'none';
+  }
+}
+
+function updateEmailSection(tier) {
+  const card = document.getElementById('email-card');
+  const defaultView = document.getElementById('email-default');
+  const multiView = document.getElementById('email-multi');
+  const input = document.getElementById('email-input');
+  if (!card || !defaultView || !multiView || !input) return;
+
+  // All tiers now show the prominent amber email section
+  const slot = document.getElementById('email-multi-slot');
+  if (slot && !slot.contains(input)) slot.appendChild(input);
+  card.style.borderColor = '#F59E0B';
+  card.style.background = '#FFFBEB';
+  defaultView.style.display = 'none';
+  multiView.style.display = 'block';
+
+  const titleEl = document.getElementById('email-multi-title');
+  const bodyEl = document.getElementById('email-multi-body');
+  const helperEl = document.getElementById('email-helper');
+
+  if (tier === '3pack') {
+    if (titleEl) titleEl.innerHTML = 'Masukkan email aktif kamu <span style="color:#DC2626;">*</span>';
+    if (bodyEl) bodyEl.innerHTML = 'Kami kirim 1 link akses ke email kamu.<br>Pakai link ini untuk generate CV yang sudah disesuaikan hingga <strong>3 lowongan berbeda</strong> dalam 30 hari — tanpa perlu login.';
+    if (helperEl) helperEl.textContent = '🔒 Link pribadi kamu — bisa dipakai ulang kapan saja selama 30 hari';
+  } else if (tier === 'jobhunt') {
+    if (titleEl) titleEl.innerHTML = 'Masukkan email aktif kamu <span style="color:#DC2626;">*</span>';
+    if (bodyEl) bodyEl.innerHTML = 'Kami kirim 1 link akses ke email kamu.<br>Gunakan link ini untuk generate CV yang sudah dioptimasi hingga <strong>10 lowongan berbeda</strong> dalam 30 hari — tanpa login.';
+    if (helperEl) helperEl.textContent = '⚡ 1 link untuk semua lamaran kamu selama 30 hari';
+  } else {
+    // single / coba dulu
+    if (titleEl) titleEl.innerHTML = 'Masukkan email untuk menerima link download CV kamu <span style="color:#DC2626;">*</span>';
+    if (bodyEl) bodyEl.innerHTML = 'Kami kirim 1 link akses ke email kamu setelah pembayaran berhasil.<br>Link berlaku selama <strong>7 hari</strong> — tanpa perlu login.';
+    if (helperEl) helperEl.textContent = '🔒 Link download pribadimu — tersedia selama 7 hari';
+  }
+
+  input.placeholder = 'contoh@email.com';
+  input.style.cssText = 'width:100%;padding:0.75rem 1rem;border:1.5px solid #D97706;border-radius:10px;font-size:0.95rem;box-sizing:border-box;';
+
+  // Clear any previous error
+  const errEl = document.getElementById('email-error');
+  if (errEl) errEl.style.display = 'none';
 }
 
 async function proceedToPayment() {
@@ -53,9 +123,28 @@ async function proceedToPayment() {
     return;
   }
 
-  // Optional: pick up email entered in the capture form on this page
+  // Email required for all tiers
   const emailInput = document.getElementById('email-input');
-  const capturedEmail = emailInput && emailInput.value.trim() || null;
+  const capturedEmail = emailInput ? emailInput.value.trim() : '';
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(capturedEmail);
+
+  if (!emailValid) {
+    const errEl = document.getElementById('email-error');
+    if (errEl) errEl.style.display = 'block';
+    if (emailInput) {
+      emailInput.style.borderColor = '#DC2626';
+      emailInput.focus();
+    }
+    return;
+  }
+  const errEl = document.getElementById('email-error');
+  if (errEl) errEl.style.display = 'none';
+  if (emailInput) emailInput.style.borderColor = '';
+
+  // Store email in sessionStorage for use on download page
+  if (capturedEmail && emailValid) {
+    sessionStorage.setItem('gaslamar_email', capturedEmail);
+  }
 
   // Prevent double payment
   paymentInProgress = true;
@@ -92,7 +181,7 @@ async function proceedToPayment() {
       throw new Error(errMsg);
     }
 
-    const { session_id, invoice_url } = await response.json();
+    const { session_id, invoice_url, is_sandbox } = await response.json();
 
     // Save session to localStorage (backup if user closes tab)
     localStorage.setItem('gaslamar_session', session_id);
@@ -101,9 +190,15 @@ async function proceedToPayment() {
     // Save to sessionStorage too
     sessionStorage.setItem('gaslamar_session', session_id);
 
-    // Redirect to Mayar payment page
-    btn.textContent = 'Mengalihkan ke halaman pembayaran...';
-    window.location.href = invoice_url;
+    if (is_sandbox) {
+      // Sandbox: skip Mayar, go directly to download page with Simulasi Pembayaran button
+      btn.textContent = 'Mengalihkan...';
+      window.location.href = `${window.location.origin}/download.html?session=${encodeURIComponent(session_id)}`;
+    } else {
+      // Production: redirect to real Mayar payment page
+      btn.textContent = 'Mengalihkan ke halaman pembayaran...';
+      window.location.href = invoice_url;
+    }
 
   } catch (err) {
     clearTimeout(timeout);

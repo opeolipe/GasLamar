@@ -26,6 +26,7 @@ const ALLOWED_ORIGINS = [
   'https://gaslamar.com',
   'https://www.gaslamar.com',
   'https://gaslamar.pages.dev',
+  'https://staging.gaslamar.pages.dev',
 ];
 
 // Add localhost for local development
@@ -93,11 +94,19 @@ function logError(event, data = {}) {
 // ---- File Validation ----
 
 function validateFileData(cvData) {
-  // cvData is JSON string: { type: 'pdf'|'docx', data: base64 }
+  // cvData is JSON string: { type: 'pdf'|'docx'|'txt', data: base64|plaintext }
   try {
     const parsed = JSON.parse(cvData);
     if (!parsed.type || !parsed.data) return { valid: false, error: 'Format data tidak valid' };
 
+    // txt files carry raw text — no magic-byte check needed, just size guard
+    if (parsed.type === 'txt') {
+      if (typeof parsed.data !== 'string') return { valid: false, error: 'Data teks tidak valid' };
+      if (parsed.data.length > 5 * 1024 * 1024) return { valid: false, error: 'Ukuran file melebihi 5MB' };
+      return { valid: true, parsed };
+    }
+
+    // pdf / docx: data is base64-encoded binary — check magic bytes
     const bytes = atob(parsed.data.slice(0, 8));
     const codes = Array.from(bytes).map(c => c.charCodeAt(0));
 
@@ -140,7 +149,16 @@ async function extractCVText(cvData, env) {
       return { success: true, text };
     }
 
-    // Use Claude to extract text from the document
+    // DOCX: extract text locally via ZIP+XML parsing (no API call needed)
+    if (parsed.type === 'docx') {
+      const text = await extractTextFromDOCX(parsed.data);
+      if (text.length < 100) {
+        return { success: false, error: 'CV kamu tidak bisa dibaca. Pastikan CV berisi teks, bukan tabel gambar atau file hasil scan.' };
+      }
+      return { success: true, text };
+    }
+
+    // PDF: use Claude document API
     const response = await callClaude(
       env,
       'Ekstrak semua teks dari dokumen CV ini. Output hanya teks mentah tanpa formatting tambahan.',
@@ -156,8 +174,59 @@ async function extractCVText(cvData, env) {
 
     return { success: true, text };
   } catch (e) {
-    return { success: false, error: 'Gagal memproses file CV' };
+    console.error('[extractCVText]', e.message);
+    return { success: false, error: 'Gagal memproses file CV: ' + e.message };
   }
+}
+
+// ---- DOCX text extraction (client-side ZIP+XML parsing) ----
+
+async function extractTextFromDOCX(base64Data) {
+  const binaryStr = atob(base64Data);
+  const bytes = new Uint8Array(binaryStr.length);
+  for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+
+  const target = 'word/document.xml';
+
+  for (let i = 0; i < bytes.length - 30; i++) {
+    // ZIP local file header signature: PK\x03\x04
+    if (bytes[i] !== 0x50 || bytes[i+1] !== 0x4B || bytes[i+2] !== 0x03 || bytes[i+3] !== 0x04) continue;
+
+    const comprMethod   = bytes[i+8]  | (bytes[i+9]  << 8);
+    const compressedSz  = bytes[i+18] | (bytes[i+19] << 8) | (bytes[i+20] << 16) | (bytes[i+21] << 24);
+    const filenameLen   = bytes[i+26] | (bytes[i+27] << 8);
+    const extraLen      = bytes[i+28] | (bytes[i+29] << 8);
+
+    const filename = new TextDecoder().decode(bytes.slice(i + 30, i + 30 + filenameLen));
+    if (filename !== target) continue;
+
+    const dataStart = i + 30 + filenameLen + extraLen;
+    const compressed = bytes.slice(dataStart, dataStart + compressedSz);
+
+    let xmlBytes;
+    if (comprMethod === 0) {
+      xmlBytes = compressed; // stored, no compression
+    } else if (comprMethod === 8) {
+      // raw DEFLATE (ZIP uses no zlib header)
+      const ds = new DecompressionStream('deflate-raw');
+      const writer = ds.writable.getWriter();
+      writer.write(compressed);
+      writer.close();
+      xmlBytes = new Uint8Array(await new Response(ds.readable).arrayBuffer());
+    } else {
+      throw new Error('Unsupported DOCX compression method: ' + comprMethod);
+    }
+
+    const xmlText = new TextDecoder('utf-8').decode(xmlBytes);
+    // Extract text from <w:t> elements, preserving space runs
+    const parts = [];
+    const re = /<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g;
+    let m;
+    while ((m = re.exec(xmlText)) !== null) parts.push(m[1]);
+    return parts.join(' ').replace(/\s+/g, ' ').trim();
+  }
+
+  throw new Error('word/document.xml not found in DOCX');
 }
 
 // ---- Claude API ----
@@ -179,30 +248,32 @@ async function callClaude(env, systemPrompt, userContent, maxTokens = 2000) {
       // Plain text — send directly as text message
       messages.push({ role: 'user', content: userContent.data });
     } else {
-      const mediaType = userContent.type === 'pdf'
-        ? 'application/pdf'
-        : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      // PDF document block (DOCX is handled before reaching callClaude)
       messages.push({
         role: 'user',
         content: [{
           type: 'document',
-          source: { type: 'base64', media_type: mediaType, data: userContent.data }
+          source: { type: 'base64', media_type: 'application/pdf', data: userContent.data }
         }]
       });
     }
   }
 
+  const headers = {
+    'Content-Type': 'application/json',
+    'x-api-key': apiKey,
+    'anthropic-version': '2023-06-01',
+    'anthropic-beta': 'pdfs-2024-09-25',
+  };
+
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
+      headers,
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: maxTokens,
+        temperature: 0,
         system: systemPrompt,
         messages,
       }),
@@ -224,9 +295,161 @@ async function callClaude(env, systemPrompt, userContent, maxTokens = 2000) {
   }
 }
 
-async function analyzeCV(cvText, jobDesc, env) {
-  const systemPrompt = `Kamu adalah HR expert Indonesia dengan 10 tahun pengalaman merekrut.
+// ---- AI Skill constants ----
 
+const SKILL_ANALYZE = `PERAN: Kamu adalah HR expert Indonesia senior dengan 10+ tahun pengalaman merekrut.
+Bukan AI generik - kamu bicara seperti HR berpengalaman yang jujur dan helpful.
+
+BAHASA & TONE:
+- Semua output dalam Bahasa Indonesia. Istilah teknis Inggris boleh (React, agile, API).
+- Hindari "Indoglish" (misalnya "kamu perlu improve skill" -> "kamu perlu tingkatkan skill ini").
+- Jangan tulis "Based on my analysis..." - langsung to the point.
+- Gunakan kalimat pendek, natural, seperti bicara ke teman kerja.
+
+KARAKTER YANG DILARANG:
+- Tidak boleh pakai em-dash (tanda hubung panjang). Pakai tanda hubung biasa (-) atau susun ulang kalimat.
+- Tidak boleh spasi ganda.
+- Tidak boleh simbol Unicode aneh - pakai ASCII standar saja.
+- Tidak boleh HURUF KAPITAL SEMUA untuk penekanan (kecuali akronim: HRD, ATS, API).
+
+PENANGANAN ANGKA (KRITIS):
+- Kalau CV sudah punya angka: pertahankan dan sarankan cara perkuatnya.
+- Kalau CV tidak punya angka: JANGAN mengarang angka palsu. Gunakan placeholder seperti "Coba tambahkan angka - misalnya meningkatkan efisiensi X% dalam Y bulan".
+- Jangan pernah fabrikasi pencapaian yang tidak ada di CV asli.
+
+DETEKSI INDUSTRI - sesuaikan tone:
+- Tech/IT: direct, teknikal, sebut tools dan proyek spesifik
+- Finance/Accounting: formal, tekankan kepatuhan dan sertifikasi (PSAK, SAP)
+- Creative/Marketing: energik, fokus hasil kampanye dan tools
+- Government: sangat formal, detail, gunakan istilah Indonesia
+- Fresh Graduate: optimistis, fokus potensi dan pendidikan
+
+DETEKSI SENIORITY dari jumlah tahun pengalaman:
+- Entry (<2 thn): 1 halaman, kalimat sederhana, tekankan potensi
+- Mid (2-7 thn): 1-2 halaman, fokus pencapaian dan angka
+- Senior (>7 thn): 2-3 halaman, tekankan kepemimpinan dan strategi
+
+EDGE CASES:
+- CV sangat pendek (<100 kata): tandai sebagai "CV sangat singkat, mungkin tidak lengkap"
+- CV sangat panjang (>5 halaman): beri catatan bahwa ini terlalu panjang untuk ATS
+- CV bukan Bahasa Indonesia/Inggris: analisis tetap dilanjutkan, tambahkan catatan bahwa GasLamar optimal untuk CV berbahasa Indonesia atau Inggris
+
+YANG TIDAK BOLEH DILAKUKAN:
+- Mengarang angka atau pencapaian yang tidak ada di CV
+- Menggunakan em-dash
+- Menulis "Based on my analysis as an AI..."
+- Jargon korporat AI seperti "leverage synergies", "paradigm shift"
+- Kalimat panjang bertele-tele - potong dan sederhanakan`;
+
+const SKILL_TAILOR_ID = `PERAN: Kamu adalah career coach Indonesia yang menulis CV profesional.
+Rewrite harus terdengar seperti ditulis manusia kompeten - bukan AI.
+
+HUMAN TONE (KRITIS):
+Hindari:
+- "Bertanggung jawab penuh atas implementasi strategi digital yang komprehensif..."
+- "Mengorkestrasikan kolaborasi lintas fungsi untuk mensinergikan tujuan departemen..."
+- Kata tidak natural: orchestrated, spearheaded, leveraged - pakai "memimpin", "memulai", "menggunakan"
+
+Gunakan:
+- Kalimat pendek dan langsung: "Saya bikin strategi konten Instagram. Dalam 3 bulan, engagement naik 40%."
+- Kata kerja aktif sederhana: pimpin, bangun, bantu, tingkatkan
+- Struktur: Aksi + Konteks + Dampak
+
+ANGKA:
+- PDF final: HANYA angka yang sudah ada di CV asli. Jangan fabrikasi.
+- DOCX: boleh tambahkan placeholder seperti [contoh: meningkat X%]
+
+ATS-READY (WAJIB):
+- Layout satu kolom - tidak ada tabel, kolom ganda, text box
+- Font standar: Arial, Calibri, Helvetica, Times New Roman, Inter
+- Bullet: tanda hubung (-) atau asterisk (*) saja
+- Heading standar: "PENGALAMAN KERJA", "PENDIDIKAN", "KEAHLIAN"
+- Tanggal: format "Jan 2020 - Mar 2023"
+- Tidak ada grafik, ikon, QR code, progress bar skill
+- Tidak ada informasi penting di header/footer
+
+SENIORITY - sesuaikan panjang dan style:
+- Entry: 1 halaman, kalimat sederhana, tekankan pendidikan dan potensi
+- Mid: 1-2 halaman, fokus pencapaian terukur
+- Senior: 2-3 halaman, tekankan kepemimpinan, strategi, anggaran
+
+AUTENTISITAS:
+- Jangan salin frasa dari job description secara verbatim - paraphrase
+- Pertahankan pengalaman dan pencapaian unik milik pengguna
+- Kalau kalimat terasa "terlalu sempurna" atau generik - tulis ulang lebih personal
+
+YANG TIDAK BOLEH:
+- Em-dash di mana pun
+- Angka palsu di PDF
+- Jargon AI seperti "bersinergi", "memanfaatkan paradigma"
+- Layout multi-kolom atau tabel
+- Hapus konteks penting demi mempersingkat`;
+
+const SKILL_TAILOR_EN = `ROLE: You are a professional career coach writing CVs for Indonesian job seekers targeting international roles.
+The rewrite must sound like it was written by a competent human - not AI.
+
+HUMAN TONE (CRITICAL):
+Avoid:
+- "Orchestrated cross-functional collaboration to synergize departmental objectives..."
+- "Leveraged paradigm-shifting strategies to drive operational excellence..."
+- Unnatural verbs: orchestrated, spearheaded - use "led", "started", "built", "managed"
+
+Use:
+- Short, direct sentences: "Led mobile app development. Shipped 2 weeks ahead of schedule."
+- Active, everyday verbs: managed, built, helped, improved
+- Structure: Action + Context + Impact
+- US English consistently (default)
+
+NUMBERS:
+- PDF (final): ONLY numbers from the user's original CV. Never fabricate.
+- DOCX: may add placeholders like [e.g., improved by X%]
+
+ATS-READY (MANDATORY):
+- Single-column layout - no tables, multi-column, text boxes
+- Standard fonts: Arial, Calibri, Helvetica, Times New Roman, Inter
+- Bullets: dash (-) or asterisk (*) only
+- Standard headings: "WORK EXPERIENCE", "EDUCATION", "SKILLS"
+- Dates: "Jan 2020 - Mar 2023" format
+- No graphics, icons, QR codes, skill progress bars
+- No critical information in headers/footers
+
+SENIORITY:
+- Entry: 1 page, simple sentences, emphasize education and potential
+- Mid: 1-2 pages, focus on measurable achievements
+- Senior: 2-3 pages, emphasize leadership, strategy, budget responsibility
+
+AUTHENTICITY:
+- Never copy phrases verbatim from job description - paraphrase
+- Preserve the user's unique experiences and achievements
+- If a sentence feels generic or "too perfect" - rewrite to be more personal
+
+NEVER:
+- Em-dash anywhere
+- Fabricated numbers in PDF
+- AI jargon: "synergize", "leverage paradigms", "spearhead transformation"
+- Multi-column layout or tables
+- Remove important context just to shorten the CV`;
+
+// ---- AI Analysis ----
+
+/** Compute a hex SHA-256 of text (first 32 chars used as KV key segment). */
+async function sha256Hex(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
+}
+
+async function analyzeCV(cvText, jobDesc, env) {
+  // --- Content-hash cache ---
+  // Same extracted CV text + job description always yields the same analysis.
+  // Cache the result in KV so re-uploads / re-runs are 100% deterministic
+  // even across different edge nodes.
+  const cacheKey = `analysis_v2_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
+  const cached = await env.GASLAMAR_SESSIONS.get(cacheKey, { type: 'json' });
+  if (cached) return cached;
+
+  const systemPrompt = `${SKILL_ANALYZE}
+
+--- TASK ---
 Analisis CV berikut terhadap job description ini:
 
 CV:
@@ -235,20 +458,62 @@ ${cvText}
 JOB DESCRIPTION:
 ${jobDesc}
 
-Berikan output JSON:
+Berikan output JSON dengan format TEPAT berikut:
 {
-  "skor": <0-100>,
-  "alasan_skor": "<1 kalimat>",
+  "skor_relevansi": <HARUS tepat salah satu: 0, 10, 20, 30, atau 40>,
+  "skor_requirements": <HARUS tepat salah satu: 0, 10, 20, atau 30>,
+  "skor_kualitas": <HARUS tepat salah satu: 0, 10, atau 20>,
+  "skor_keywords": <HARUS tepat salah satu: 0, 5, atau 10>,
+  "alasan_skor": "<1 kalimat menjelaskan skor keseluruhan>",
   "gap": ["<gap 1>", "<gap 2>", "<gap 3>"],
   "rekomendasi": ["<rekomendasi 1>", "<rekomendasi 2>", "<rekomendasi 3>"],
-  "kekuatan": ["<kekuatan 1>", "<kekuatan 2>"]
+  "kekuatan": ["<kekuatan 1>", "<kekuatan 2>"],
+  "konfidensitas": <"Rendah"|"Sedang"|"Tinggi">,
+  "skor_sesudah": <kelipatan 5, min skor+10, max 95>,
+  "hr_7_detik": { "kuat": ["...", "..."], "diabaikan": ["...", "..."] },
+  "red_flags": ["..."]
 }
 
-Skor:
-- 80-100: CV sangat match, kemungkinan besar lolos ATS
-- 60-79: CV cukup match, ada beberapa gap minor
-- 40-59: CV kurang match, perlu improvement signifikan
-- 0-39: CV tidak match, banyak gap kritis
+PANDUAN skor_relevansi (0/10/20/30/40):
+- 40: Role sama atau sangat mirip (PM → Senior PM, Backend Dev → Full Stack Dev)
+- 30: Role terkait, industri sama (product analyst → PM, QA engineer → developer)
+- 20: Industri sama tapi fungsi berbeda (sales → marketing, accountant → finance analyst)
+- 10: Industri berbeda, ada transferable skills nyata (teacher → trainer, journalist → content strategist)
+- 0: Tidak ada relevansi sama sekali (chef → PM, petani → software engineer, montir → data scientist)
+
+PANDUAN skor_requirements (0/10/20/30):
+- 30: Lebih dari 65% requirements eksplisit terpenuhi di CV
+- 20: 33–65% requirements terpenuhi
+- 10: 10–33% requirements terpenuhi
+- 0: Kurang dari 10% requirements terpenuhi
+
+PANDUAN skor_kualitas (0/10/20):
+- 20: CV menggunakan angka nyata (%, Rp, jumlah), terstruktur jelas, bullet informatif
+- 10: CV cukup jelas tapi jarang pakai angka, atau ada bagian yang membingungkan
+- 0: CV sangat pendek (<100 kata), tidak terstruktur, tidak terbaca, atau penuh jargon tanpa substansi
+
+PANDUAN skor_keywords (0/5/10):
+- 10: Lebih dari 50% keyword penting dari job description ada di CV
+- 5: 25–50% keyword relevan ada di CV
+- 0: Kurang dari 25% keyword dari job description ada di CV
+
+PANDUAN konfidensitas (WAJIB, pilih tepat satu):
+- "Tinggi": CV lengkap dan jelas, JD spesifik -- analisis akurat
+- "Sedang": CV atau JD kurang detail -- analisis cukup akurat
+- "Rendah": CV sangat pendek/tidak terbaca, atau JD sangat generik
+
+PANDUAN skor_sesudah:
+Estimasi peluang interview SETELAH user mengimplementasikan semua rekomendasi.
+HARUS kelipatan 5. HARUS minimal skor utama + 10 (maksimal 95).
+
+PANDUAN hr_7_detik:
+- kuat: 2-3 hal yang HR perhatikan POSITIF dalam 7 detik pertama (struktur, headline, relevansi)
+- diabaikan: 1-2 hal yang HR cenderung skip atau bingung (bagian kabur, tidak relevan, terlalu panjang)
+
+PANDUAN red_flags (OPSIONAL -- tambahkan HANYA jika ada, maks 3):
+Flag jika: terlalu banyak "bertanggung jawab" tanpa hasil, tidak ada angka/pencapaian,
+pengalaman tidak relevan sama sekali, atau banyak posisi <1 tahun (job hopping).
+Jika tidak ada red flag nyata -- JANGAN tambahkan field ini.
 
 Output hanya JSON, tidak ada teks lain.`;
 
@@ -257,16 +522,42 @@ Output hanya JSON, tidak ada teks lain.`;
 
   // Parse JSON — Claude should return clean JSON
   const cleaned = text.replace(/```json\n?|\n?```/g, '').trim();
-  return JSON.parse(cleaned);
+  const scoring = JSON.parse(cleaned);
+
+  // Compute total score deterministically from discrete sub-scores.
+  // Clamp each sub-score to its allowed set to guard against LLM hallucination.
+  const relevansi    = [0, 10, 20, 30, 40].includes(scoring.skor_relevansi)   ? scoring.skor_relevansi   : 0;
+  const requirements = [0, 10, 20, 30].includes(scoring.skor_requirements)    ? scoring.skor_requirements : 0;
+  const kualitas     = [0, 10, 20].includes(scoring.skor_kualitas)             ? scoring.skor_kualitas    : 0;
+  const keywords     = [0, 5, 10].includes(scoring.skor_keywords)              ? scoring.skor_keywords    : 0;
+  scoring.skor       = relevansi + requirements + kualitas + keywords;
+
+  // Validate new v2 fields
+  const VALID_CONF = ['Rendah', 'Sedang', 'Tinggi'];
+  if (!VALID_CONF.includes(scoring.konfidensitas)) scoring.konfidensitas = 'Sedang';
+
+  const sesudahRaw = Math.round((parseInt(scoring.skor_sesudah) || 0) / 5) * 5;
+  scoring.skor_sesudah = Math.min(95, Math.max(scoring.skor + 10, sesudahRaw));
+
+  if (!scoring.hr_7_detik || typeof scoring.hr_7_detik !== 'object') {
+    delete scoring.hr_7_detik;
+  }
+  if (!Array.isArray(scoring.red_flags) || scoring.red_flags.length === 0) {
+    delete scoring.red_flags;
+  }
+
+  // Store in cache (48-hour TTL). Identical CV+JD will always return this result.
+  await env.GASLAMAR_SESSIONS.put(cacheKey, JSON.stringify(scoring), { expirationTtl: 172800 });
+
+  return scoring;
 }
 
 async function tailorCVID(cvText, jobDesc, env) {
-  const systemPrompt = `Kamu adalah career coach Indonesia yang membantu pencari kerja menulis CV profesional.
+  const systemPrompt = `${SKILL_TAILOR_ID}
 
+--- TASK ---
 Tailoring CV ini untuk job description berikut.
 PENTING: Jangan ubah fakta, hanya reframe dan highlight yang relevan.
-Bahasa harus natural dan human — bukan terkesan ditulis AI.
-Format ATS-friendly: tidak ada tabel, tidak ada kolom, tidak ada gambar.
 
 CV ASLI:
 ${cvText}
@@ -288,12 +579,11 @@ Output hanya teks CV, tidak ada komentar atau penjelasan tambahan.`;
 }
 
 async function tailorCVEN(cvText, jobDesc, env) {
-  const systemPrompt = `You are a professional career coach helping Indonesian job seekers write international CVs.
+  const systemPrompt = `${SKILL_TAILOR_EN}
 
+--- TASK ---
 Translate and tailor this CV for the job description below.
-IMPORTANT: Do not change facts — only reframe and highlight what's relevant.
-Language must sound natural and human — not AI-generated.
-ATS-friendly format: no tables, no columns, no images.
+IMPORTANT: Do not change facts - only reframe and highlight what's relevant.
 
 ORIGINAL CV (in Indonesian):
 ${cvText}
@@ -470,7 +760,7 @@ async function verifyMayarWebhook(request, env) {
 
 // ---- KV Session Helpers ----
 
-const SESSION_TTL = 86400;         // 24 hours — single-credit paid sessions (30min was too short: webhook delays + slow connections)
+const SESSION_TTL = 604800;        // 7 days — single-credit paid sessions (single / coba dulu)
 const SESSION_TTL_MULTI = 2592000; // 30 days — 3-Pack / Job Hunt Pack
 
 // Returns the appropriate TTL based on how many total credits the session has.
@@ -532,8 +822,8 @@ async function handleAnalyze(request, env) {
     return jsonResponse({ message: 'CV dan job description wajib diisi' }, 400, request, env);
   }
 
-  if (job_desc.length > 3000) {
-    return jsonResponse({ message: 'Job description terlalu panjang (maks 3.000 karakter)' }, 400, request, env);
+  if (job_desc.length > 5000) {
+    return jsonResponse({ message: 'Job description terlalu panjang (maks 5.000 karakter)' }, 400, request, env);
   }
 
   // Validate file
@@ -555,8 +845,8 @@ async function handleAnalyze(request, env) {
     const cvTextKey = `cvtext_${crypto.randomUUID()}`;
     await env.GASLAMAR_SESSIONS.put(cvTextKey, JSON.stringify({
       text: extraction.text,
-      job_desc: job_desc.slice(0, 3000)
-    }), { expirationTtl: 3600 });
+      job_desc: job_desc.slice(0, 5000)
+    }), { expirationTtl: 7200 }); // 2 hours — gives users time to review hasil before paying
 
     return jsonResponse({ ...scoring, cv_text_key: cvTextKey }, 200, request, env);
   } catch (e) {
@@ -607,6 +897,41 @@ async function handleCreatePayment(request, env) {
   // Create session
   const sessionId = `sess_${crypto.randomUUID()}`;
 
+  const credits = TIER_CREDITS[tier] ?? 1;
+
+  // Sandbox: skip Mayar entirely — session goes straight to pending, frontend uses /sandbox/pay
+  if (env.ENVIRONMENT !== 'production') {
+    await env.GASLAMAR_SESSIONS.delete(cv_text_key);
+
+    const sessionData = {
+      cv_text: stored.text,
+      job_desc: stored.job_desc,
+      tier,
+      status: 'pending',
+      credits_remaining: credits,
+      total_credits: credits,
+      ip,
+      ...(sessionEmail ? { email: sessionEmail } : {}),
+    };
+
+    // Write with read-back verification — KV is eventually consistent across
+    // edge nodes, so we verify the write landed before returning to the client.
+    let verified = false;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      await createSession(env, sessionId, sessionData);
+      const check = await getSession(env, sessionId);
+      if (check) { verified = true; break; }
+      logError('sandbox_session_write_unverified', { session_id: sessionId, attempt });
+    }
+    if (!verified) {
+      logError('sandbox_session_create_failed', { session_id: sessionId, tier });
+      return jsonResponse({ message: 'Gagal membuat sesi. Coba lagi.' }, 500, request, env);
+    }
+
+    log('sandbox_session_created', { session_id: sessionId, tier, credits });
+    return jsonResponse({ session_id: sessionId, is_sandbox: true }, 200, request, env);
+  }
+
   try {
     // Create Mayar invoice first — if this fails, cv_text_key is still intact and user can retry
     const { invoice_id, invoice_url } = await createMayarInvoice(sessionId, tier, env);
@@ -615,7 +940,6 @@ async function handleCreatePayment(request, env) {
     await env.GASLAMAR_SESSIONS.delete(cv_text_key);
 
     // Store session in KV using pre-extracted text from /analyze
-    const credits = TIER_CREDITS[tier] ?? 1;
     await createSession(env, sessionId, {
       cv_text: stored.text,
       job_desc: stored.job_desc,
@@ -824,6 +1148,28 @@ async function handleMayarWebhook(request, env, ctx) {
   return new Response('OK', { status: 200 });
 }
 
+async function handleSessionPing(request, env) {
+  let body;
+  try { body = await request.json(); } catch (_) {
+    return jsonResponse({ message: 'Request body tidak valid' }, 400, request, env);
+  }
+
+  const { session_id } = body;
+  if (!session_id || !session_id.startsWith('sess_')) {
+    return jsonResponse({ message: 'Session ID tidak valid' }, 400, request, env);
+  }
+
+  const session = await getSession(env, session_id);
+  if (!session) {
+    return jsonResponse({ ok: false, expired: true }, 404, request, env);
+  }
+
+  // Re-write to refresh KV TTL while user is still active on the page
+  await updateSession(env, session_id, { last_active: Date.now() });
+
+  return jsonResponse({ ok: true, status: session.status }, 200, request, env);
+}
+
 async function handleCheckSession(request, env) {
   const url = new URL(request.url);
   const sessionId = url.searchParams.get('session');
@@ -835,10 +1181,16 @@ async function handleCheckSession(request, env) {
   const session = await getSession(env, sessionId);
 
   if (!session) {
+    logError('check_session_not_found', { session_id: sessionId });
     return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa' }, 404, request, env);
   }
 
-  return jsonResponse({ status: session.status }, 200, request, env);
+  return jsonResponse({
+    status: session.status,
+    credits_remaining: session.credits_remaining ?? 1,
+    total_credits: session.total_credits ?? 1,
+    tier: session.tier,
+  }, 200, request, env);
 }
 
 async function handleGetSession(request, env) {
@@ -861,13 +1213,15 @@ async function handleGetSession(request, env) {
     return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa' }, 404, request, env);
   }
 
-  // Strict status check — only allow 'paid'
-  if (session.status !== 'paid') {
+  // Allow 'paid' (first time) or 'generating' (retry after failed /generate)
+  if (session.status !== 'paid' && session.status !== 'generating') {
     return jsonResponse({ message: 'Pembayaran belum dikonfirmasi' }, 403, request, env);
   }
 
-  // Mark as generating to prevent race conditions
-  await updateSession(env, session_id, { status: 'generating' });
+  // Only transition paid → generating once; already-generating sessions stay generating
+  if (session.status === 'paid') {
+    await updateSession(env, session_id, { status: 'generating' });
+  }
 
   return jsonResponse({
     cv: session.cv_text,
@@ -901,8 +1255,8 @@ async function handleGenerate(request, env, ctx) {
 
   // Optional new job_desc for multi-credit re-use (3-Pack / JobHunt)
   if (newJobDesc !== undefined) {
-    if (typeof newJobDesc !== 'string' || newJobDesc.length > 3000) {
-      return jsonResponse({ message: 'Job description terlalu panjang (maks 3.000 karakter)' }, 400, request, env);
+    if (typeof newJobDesc !== 'string' || newJobDesc.length > 5000) {
+      return jsonResponse({ message: 'Job description terlalu panjang (maks 5.000 karakter)' }, 400, request, env);
     }
   }
 
@@ -963,7 +1317,7 @@ async function handleGenerate(request, env, ctx) {
       }));
     }
 
-    return jsonResponse({ cv_id: cvId, cv_en: cvEn, credits_remaining: newCreditsRemaining }, 200, request, env);
+    return jsonResponse({ cv_id: cvId, cv_en: cvEn, credits_remaining: newCreditsRemaining, total_credits: session.total_credits ?? 1 }, 200, request, env);
   } catch (e) {
     // On failure, reset to 'paid' so user can retry (don't consume the credit)
     logError('generate_failed', { session_id, error: e.message });
@@ -1013,6 +1367,127 @@ async function handleSubmitEmail(request, env) {
   return jsonResponse({ ok: true }, 200, request, env);
 }
 
+// ---- Sandbox Test Helper ----
+
+async function handleSandboxPay(request, env, ctx) {
+  let body;
+  try { body = await request.json(); } catch { return jsonResponse({ message: 'Invalid JSON' }, 400, request, env); }
+
+  const { session_id } = body;
+  if (!session_id || !session_id.startsWith('sess_')) {
+    return jsonResponse({ message: 'Invalid session_id' }, 400, request, env);
+  }
+
+  const session = await getSession(env, session_id);
+  if (!session) return jsonResponse({ message: 'Session not found' }, 404, request, env);
+  if (session.status === 'paid') return jsonResponse({ ok: true, already_paid: true }, 200, request, env);
+
+  await updateSession(env, session_id, { status: 'paid', paid_at: Date.now() });
+  console.log({ event: 'sandbox_payment_confirmed', sessionId: session_id });
+
+  // Send payment confirmation email (same as production Mayar webhook path)
+  if (ctx) {
+    ctx.waitUntil(
+      sendPaymentConfirmationEmail(session_id, env).catch((e) => {
+        logError('sandbox_email_failed', { session_id, error: e.message });
+      })
+    );
+  }
+
+  return jsonResponse({ ok: true }, 200, request, env);
+}
+
+// ---- Fetch Job URL ----
+
+async function handleFetchJobUrl(request, env) {
+  const { url } = await request.json().catch(() => ({}));
+
+  if (!url || typeof url !== 'string') {
+    return jsonResponse({ message: 'Parameter url wajib diisi' }, 400, request, env);
+  }
+
+  // Only allow http/https
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return jsonResponse({ message: 'URL tidak valid' }, 400, request, env);
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    return jsonResponse({ message: 'URL harus menggunakan https' }, 400, request, env);
+  }
+
+  // Fetch the page with a browser-like User-Agent
+  let pageRes;
+  try {
+    pageRes = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Cache-Control': 'no-cache',
+      },
+      redirect: 'follow',
+    });
+  } catch (err) {
+    return jsonResponse({ message: 'Tidak bisa mengakses URL tersebut. Coba copy-paste manual.' }, 422, request, env);
+  }
+
+  if (!pageRes.ok) {
+    return jsonResponse({ message: `Halaman tidak bisa diakses (${pageRes.status}). Coba copy-paste manual.` }, 422, request, env);
+  }
+
+  const contentType = pageRes.headers.get('content-type') || '';
+  if (!contentType.includes('text/html')) {
+    return jsonResponse({ message: 'URL bukan halaman web (HTML). Coba copy-paste manual.' }, 422, request, env);
+  }
+
+  // Extract text using HTMLRewriter — extract all text from <body>, rely on JD markers below
+  // to trim nav/header noise. Avoid el.onEndTag() which throws on void elements.
+  const chunks = [];
+
+  await new HTMLRewriter()
+    .on('script, style, noscript', {
+      text() { /* drop script/style text */ },
+    })
+    .on('body', {
+      text(text) {
+        const t = text.text.replace(/\s+/g, ' ');
+        if (t.trim()) chunks.push(t);
+      },
+    })
+    .transform(pageRes)
+    .text();
+
+  let raw = chunks.join(' ').replace(/\s{3,}/g, '\n\n').trim();
+
+  if (!raw || raw.length < 50) {
+    return jsonResponse({ message: 'Tidak bisa mengekstrak teks dari halaman ini. Coba copy-paste manual.' }, 422, request, env);
+  }
+
+  // LinkedIn-specific: job descriptions are buried after a lot of nav text.
+  // Try to find a sensible starting point by looking for common JD markers.
+  const JD_MARKERS = [
+    'About the job', 'Job Description', 'Deskripsi pekerjaan',
+    'Requirements', 'Qualifications', 'Responsibilities',
+    'Kualifikasi', 'Persyaratan', 'Tanggung Jawab',
+    'About this role', 'What you\'ll do', 'What we\'re looking for',
+  ];
+  let trimStart = 0;
+  for (const marker of JD_MARKERS) {
+    const idx = raw.indexOf(marker);
+    if (idx !== -1 && idx < raw.length * 0.6) {
+      trimStart = idx;
+      break;
+    }
+  }
+  if (trimStart > 0) raw = raw.slice(trimStart);
+
+  if (raw.length > 5000) raw = raw.slice(0, 5000);
+
+  return jsonResponse({ job_desc: raw }, 200, request, env);
+}
+
 // ---- Main Handler ----
 
 export default {
@@ -1042,6 +1517,10 @@ export default {
         return handleMayarWebhook(request, env, ctx);
       }
 
+      if (method === 'POST' && pathname === '/session/ping') {
+        return handleSessionPing(request, env);
+      }
+
       if (method === 'GET' && pathname === '/check-session') {
         return handleCheckSession(request, env);
       }
@@ -1056,6 +1535,32 @@ export default {
 
       if (method === 'POST' && pathname === '/submit-email') {
         return handleSubmitEmail(request, env);
+      }
+
+      if (method === 'POST' && pathname === '/fetch-job-url') {
+        return handleFetchJobUrl(request, env);
+      }
+
+      if (method === 'POST' && pathname === '/feedback') {
+        const body = await request.json().catch(() => ({}));
+        log('user_feedback', { type: body.type, answer: body.answer, ip: request.headers.get('CF-Connecting-IP') });
+        return jsonResponse({ ok: true }, 200, request, env);
+      }
+
+      // Sandbox-only: simulate payment confirmation for testing (blocked in production)
+      if (method === 'POST' && pathname === '/sandbox/pay') {
+        if (env.ENVIRONMENT === 'production') {
+          return jsonResponse({ message: 'Not found' }, 404, request, env);
+        }
+        return handleSandboxPay(request, env, ctx);
+      }
+
+      // Sandbox detection probe — returns 200 in sandbox, 404 in production
+      if (method === 'GET' && pathname === '/sandbox/status') {
+        if (env.ENVIRONMENT === 'production') {
+          return new Response(null, { status: 404, headers: getCorsHeaders(request, env) });
+        }
+        return jsonResponse({ sandbox: true }, 200, request, env);
       }
 
       if (pathname === '/health') {

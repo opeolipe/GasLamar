@@ -94,7 +94,11 @@ const MOCK_EXTRACTION = {
 
 const MOCK_SCORING = {
   content: [{ text: JSON.stringify({
-    skor: 78,
+    // Sub-scores: server sums these deterministically → skor = 40+20+10+5 = 75
+    skor_relevansi: 40,
+    skor_requirements: 20,
+    skor_kualitas: 10,
+    skor_keywords: 5,
     alasan_skor: 'CV relevan dengan job description.',
     gap: ['Belum ada sertifikasi cloud', 'Kurang pengalaman Docker'],
     rekomendasi: ['Tambah proyek cloud', 'Pelajari Docker'],
@@ -171,11 +175,11 @@ describe('POST /analyze — validation', () => {
     expect(res.status).toBe(400);
   });
 
-  it('rejects job_desc > 3000 chars → 400', async () => {
-    const res = await post('/analyze', { cv: VALID_PDF_CV, job_desc: 'x'.repeat(3001) });
+  it('rejects job_desc > 5000 chars → 400', async () => {
+    const res = await post('/analyze', { cv: VALID_PDF_CV, job_desc: 'x'.repeat(5001) });
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.message).toContain('3.000');
+    expect(body.message).toContain('5.000');
   });
 
   it('rejects PDF with wrong magic bytes → 400', async () => {
@@ -234,7 +238,7 @@ describe('POST /analyze — happy path (mocked Claude)', () => {
     const res = await post('/analyze', { cv: VALID_PDF_CV, job_desc: JOB_DESC }, {}, '10.0.0.1');
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.skor).toBe(78);
+    expect(body.skor).toBe(75); // 40+20+10+5 computed server-side from sub-scores
     expect(body.cv_text_key).toMatch(/^cvtext_/);
 
     // Verify key is stored in KV
@@ -300,6 +304,34 @@ describe('POST /create-payment — one-time key consumption', () => {
     expect(res2.status).toBe(400);
     const body2 = await res2.json();
     expect(body2.message).toContain('kedaluwarsa');
+  });
+});
+
+describe('POST /session/ping', () => {
+  it('rejects missing body → 400', async () => {
+    const res = await post('/session/ping', {});
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects invalid session_id format → 400', async () => {
+    const res = await post('/session/ping', { session_id: 'invalid' });
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 404 for unknown session', async () => {
+    const res = await post('/session/ping', { session_id: 'sess_nonexistent' });
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.expired).toBe(true);
+  });
+
+  it('returns ok:true and refreshes session for known session', async () => {
+    const sessionId = await seedSession('paid', 'single');
+    const res = await post('/session/ping', { session_id: sessionId });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.status).toBe('paid');
   });
 });
 
@@ -694,11 +726,11 @@ describe('Multi-credit session — total_credits preserved through updateSession
 });
 
 describe('POST /generate — job_desc override validation', () => {
-  it('rejects job_desc over 3000 chars → 400', async () => {
+  it('rejects job_desc over 5000 chars → 400', async () => {
     const sessionId = await seedSession('generating', 'single');
     const res = await post('/generate', {
       session_id: sessionId,
-      job_desc: 'x'.repeat(3001),
+      job_desc: 'x'.repeat(5001),
     }, {}, '10.1.0.1');
     expect(res.status).toBe(400);
     const body = await res.json();

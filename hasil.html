@@ -249,6 +249,60 @@
       color: #3B82F6;
     }
 
+    /* CV Rewrite Preview */
+    .preview-item {
+      background: #F0FDF4;
+      border: 1px solid #BBF7D0;
+      border-left: 3px solid #10B981;
+      border-radius: 12px;
+      padding: 0.85rem 1rem;
+      margin-bottom: 0.6rem;
+    }
+    .preview-item-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: #059669;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.35rem;
+    }
+    .preview-item-text {
+      font-size: 0.88rem;
+      color: #111827;
+      line-height: 1.55;
+    }
+    .preview-blur-wrap {
+      position: relative;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .preview-blur-inner {
+      filter: blur(5px);
+      user-select: none;
+      pointer-events: none;
+    }
+    .preview-blur-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(248,250,252,0.72);
+      padding: 0.5rem;
+    }
+    .preview-lock-pill {
+      background: #0F172A;
+      color: white;
+      border-radius: 60px;
+      padding: 0.6rem 1.1rem;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-align: center;
+      line-height: 1.45;
+      max-width: 280px;
+      box-shadow: 0 4px 16px rgba(15,23,42,0.18);
+    }
+
     /* Pricing grid */
     .pricing-grid {
       display: grid;
@@ -267,11 +321,11 @@
       position: relative;
     }
     .pricing-card:hover { border-color: #CBD5E1; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
-    .pricing-card.popular { border: 2px solid #0F172A; }
+    .pricing-card.popular { border: 1.5px solid #CBD5E1; }
     .pricing-card.selected {
-      border-color: #0F172A !important;
-      border-width: 2px;
+      border: 2px solid #0F172A !important;
       background: #F8FAFC;
+      box-shadow: 0 0 0 3px rgba(15,23,42,0.10);
     }
     .popular-badge {
       position: absolute;
@@ -291,6 +345,7 @@
     .pkg-desc { font-size: 0.7rem; color: #5B6E8C; margin: 0.5rem 0; }
 
     /* Pay button */
+    #cta-area { margin-top: 1rem; }
     #pay-btn {
       background: #0F172A;
       color: white;
@@ -303,7 +358,6 @@
       transition: 0.2s;
       font-family: 'Inter', sans-serif;
       font-size: 1rem;
-      margin-top: 0.5rem;
     }
     #pay-btn:hover:not(:disabled) { background: #1E293B; }
     #pay-btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -394,6 +448,9 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    .score-inner-label { font-size:0.65rem; font-weight:700; color:#6B7280; text-transform:uppercase; letter-spacing:0.07em; text-align:center; margin-bottom:0.1rem; line-height:1.2; }
+    .score-value-row { display:flex; align-items:baseline; justify-content:center; gap:1px; }
+
     /* Share button override */
     #share-btn {
       display: inline-flex;
@@ -412,7 +469,51 @@
     }
     #share-btn:hover { border-color: #0F172A; color: #0F172A; }
   </style>
-  <script>if (!sessionStorage.getItem('gaslamar_scoring')) window.location.replace('upload.html');</script>
+  <script>
+    (function() {
+      var KEYS = ['gaslamar_scoring','gaslamar_cv_key','gaslamar_analyze_time'];
+      function clearAndRedirect() {
+        KEYS.forEach(function(k) { sessionStorage.removeItem(k); });
+        window.location.replace('upload.html');
+      }
+
+      // Reject any URL-level session parameter that doesn't match our format.
+      // hasil.html is a sessionStorage-only page; a foreign sessionId in the URL
+      // means someone is sharing/forging a link — clear local data and redirect.
+      var params = new URLSearchParams(location.search);
+      var urlSession = params.get('session') || params.get('sessionId');
+      if (urlSession !== null && !urlSession.startsWith('cvtext_')) {
+        clearAndRedirect(); return;
+      }
+
+      var rawScoring = sessionStorage.getItem('gaslamar_scoring');
+      var cvKey = sessionStorage.getItem('gaslamar_cv_key') || '';
+      var analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
+      var SESSION_SECS = 7200;
+
+      // Must have scoring data
+      if (!rawScoring) { clearAndRedirect(); return; }
+
+      // Scoring must be valid JSON with a numeric skor
+      var parsed;
+      try { parsed = JSON.parse(rawScoring); } catch(e) { clearAndRedirect(); return; }
+      var skor = parseInt(parsed && parsed.skor);
+      if (isNaN(skor) || skor < 0 || skor > 100) { clearAndRedirect(); return; }
+
+      // cv_key must have the expected format (cvtext_<uuid>) if present
+      if (cvKey && !cvKey.startsWith('cvtext_')) { clearAndRedirect(); return; }
+
+      // Session must not be older than 2 hours
+      var isExpired = analyzeTime > 0 && (Date.now() - analyzeTime) / 1000 > SESSION_SECS;
+      if (isExpired) { clearAndRedirect(); return; }
+
+      // analyze_time must be present (guards against manually injected data)
+      if (!analyzeTime) { clearAndRedirect(); return; }
+
+      // If a valid cvtext_ key is in the URL, it must match what's in sessionStorage
+      if (urlSession && urlSession !== cvKey) { clearAndRedirect(); return; }
+    })();
+  </script>
 </head>
 <body>
 <div class="container">
@@ -445,6 +546,11 @@
       </div>
     </div>
 
+    <!-- Session countdown -->
+    <div id="session-countdown" style="text-align:center;margin-bottom:1rem;font-size:0.78rem;color:#92400E;background:#FFFBEB;border:1px solid #FDE68A;border-radius:12px;padding:0.5rem 1rem;">
+      ⏳ <span id="countdown-text">Menghitung...</span>
+    </div>
+
     <!-- Score card -->
     <div class="gl-card">
       <div class="score-section">
@@ -459,18 +565,17 @@
               style="transition: stroke-dashoffset 1s ease;"/>
           </svg>
           <div class="score-inner">
-            <span id="score-number" class="score-num">0</span>
-            <span class="score-denom">/ 100</span>
+            <div class="score-inner-label">Peluang<br>Interview</div>
+            <div class="score-value-row">
+              <span id="score-number" class="score-num">0</span>
+              <span class="score-denom">%</span>
+            </div>
           </div>
         </div>
 
         <!-- Badge (set by scoring.js) -->
         <div id="score-badge" class="score-status-badge"></div>
-
-        <!-- Benchmark comparison -->
-        <div style="display:inline-flex; align-items:center; gap:6px; background:#F1F5F9; border-radius:40px; padding:0.25rem 0.9rem; font-size:0.75rem; color:#5B6E8C; margin-top:0.4rem; font-weight:500;">
-          Rata-rata kandidat: <strong>72</strong> &nbsp;·&nbsp; Kamu di bawah sebagian besar pelamar
-        </div>
+        <div id="confidence-badge" class="hidden" style="font-size:0.72rem;font-weight:600;border-radius:20px;padding:0.2rem 0.7rem;display:inline-block;margin-top:0.3rem;"></div>
 
         <!-- Progress bar (visual indicator, width driven by CSS variable) -->
         <div class="progress-bar-bg">
@@ -495,9 +600,15 @@
         <ul id="strengths-list"></ul>
       </div>
       <div id="gap-section" class="hidden gap-box">
-        <h4>❌ Yang perlu diperbaiki (prioritas)</h4>
+        <h4>❌ Kenapa kamu belum lolos:</h4>
         <ul id="gap-list"></ul>
       </div>
+    </div>
+
+    <!-- Red flags (hidden by default) -->
+    <div id="red-flags" class="hidden" style="background:#FEF2F2;border:1px solid #FECACA;border-radius:16px;padding:1rem 1.2rem;margin-bottom:1rem;">
+      <h4 style="color:#B91C1C;font-size:0.9rem;font-weight:700;margin-bottom:0.5rem;">🚩 Red Flag Terdeteksi</h4>
+      <ul id="red-flags-list" style="list-style:none;padding:0;margin:0;font-size:0.85rem;color:#7F1D1D;display:flex;flex-direction:column;gap:0.35rem;"></ul>
     </div>
 
     <!-- Recommendations (hidden until scoring.js populates it) -->
@@ -507,23 +618,54 @@
       <p style="font-size:0.8rem; color:#92400E; margin-top:0.75rem; font-style:italic;">Ini adalah perubahan dengan dampak terbesar untuk meningkatkan peluang kamu dipanggil interview.</p>
     </div>
 
-    <!-- Before/After proof example (static) -->
-    <div class="example-box">
-      <div class="example-title">Contoh perbaikan dari CV kamu</div>
-      <div class="before-after">
-        <div class="before-card">
-          <div class="badge-before">SEBELUM (generic)</div>
-          <div style="font-size:0.85rem;">"Pengalaman Product Manager di Mekari selama 3 tahun, bertanggung jawab terhadap pengembangan fitur dan koordinasi dengan tim."</div>
+    <!-- HR 7-second view (hidden by default) -->
+    <div id="hr-7-detik" class="gl-card hidden">
+      <h4 style="margin-bottom:0.75rem;">👁️ Ini yang HR lihat dalam 7 detik:</h4>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div>
+          <div style="font-size:0.68rem;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem;">✅ Diperhatikan</div>
+          <ul id="hr-kuat-list" style="list-style:none;padding:0;margin:0;font-size:0.82rem;color:#111827;display:flex;flex-direction:column;gap:0.3rem;"></ul>
         </div>
-        <div class="after-card">
-          <div class="badge-after">✅ Versi yang lebih kuat (tailored)</div>
-          <div style="font-size:0.85rem;">"Lead product roadmap untuk 3 fitur inti B2B SaaS, meningkatkan user retention 18% dalam 6 bulan melalui data-driven prioritization &amp; eksperimen A/B."</div>
+        <div>
+          <div style="font-size:0.68rem;font-weight:700;color:#DC2626;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem;">⏭️ Dilewati</div>
+          <ul id="hr-diabaikan-list" style="list-style:none;padding:0;margin:0;font-size:0.82rem;color:#111827;display:flex;flex-direction:column;gap:0.3rem;"></ul>
         </div>
       </div>
-      <div class="blurred-preview">
-        🔒 Masih ada 7+ rekomendasi penting lainnya
+    </div>
+
+    <!-- CV Rewrite Preview (hidden until scoring.js populates it) -->
+    <div id="rewrite-preview" class="gl-card hidden">
+      <h3 style="font-size:1.05rem; font-weight:700; color:#0F172A; margin-bottom:0.2rem;">✨ Pratinjau perbaikan CV kamu</h3>
+      <p style="font-size:0.8rem; color:#6B7280; margin-bottom:1rem;">AI akan terapkan semua perbaikan ini ke CV kamu secara langsung</p>
+
+      <!-- First improvement: visible -->
+      <div id="preview-item-1"></div>
+
+      <!-- Remaining improvements: blurred with lock overlay -->
+      <div class="preview-blur-wrap">
+        <div class="preview-blur-inner" id="preview-items-rest"></div>
+        <div class="preview-blur-overlay">
+          <div class="preview-lock-pill" id="preview-lock-text">
+            🔒 Lihat semua perbaikan + CV rewrite lengkap setelah pilih paket
+          </div>
+        </div>
       </div>
-      <div class="unlock-text">Termasuk rewrite bullet lain, penambahan keyword, dan struktur CV yang lebih kuat</div>
+    </div>
+
+    <!-- Before/After score projection (hidden by default) -->
+    <div id="before-after" class="gl-card hidden" style="text-align:center;padding:1.25rem;">
+      <div style="display:flex;align-items:center;justify-content:center;gap:2rem;">
+        <div>
+          <div style="font-size:0.72rem;color:#6B7280;font-weight:600;margin-bottom:0.25rem;">Sebelum</div>
+          <div style="font-size:2.2rem;font-weight:800;color:#EF4444;" id="before-score">0%</div>
+        </div>
+        <div style="font-size:1.8rem;color:#9CA3AF;">&#8594;</div>
+        <div>
+          <div style="font-size:0.72rem;color:#6B7280;font-weight:600;margin-bottom:0.25rem;">Sesudah perbaikan</div>
+          <div style="font-size:2.2rem;font-weight:800;color:#10B981;" id="after-score">0%</div>
+        </div>
+      </div>
+      <p style="font-size:0.75rem;color:#9CA3AF;margin-top:0.5rem;">Estimasi jika semua rekomendasi di atas diikuti</p>
     </div>
 
     <!-- Pricing anchor CTA -->
@@ -567,28 +709,51 @@
         </div>
       </div>
 
-      <div id="cta-area">
-        <button id="pay-btn" onclick="proceedToPayment()" disabled>
-          ✨ Lihat CV hasil rewrite lengkap
-        </button>
-      </div>
+    </div>
 
-      <div class="trust-footer">
-        💳 Pembayaran aman via Mayar · VA, QRIS, e-wallet · Tidak puas? Hubungi kami di support@gaslamar.com
+    <!-- Email capture (transforms based on selected tier) -->
+    <div class="gl-card" id="email-card">
+      <!-- Default view: single / coba tiers -->
+      <div id="email-default">
+        <div style="font-weight:600; margin-bottom:0.5rem;">Email untuk konfirmasi pembayaran</div>
+        <div class="email-input-group" id="email-default-slot">
+          <input type="email" id="email-input" placeholder="email kamu" autocomplete="email">
+        </div>
+        <p id="email-status" style="font-size:0.7rem; margin-top:0.5rem; color:#6B7280;"></p>
+      </div>
+      <!-- Multi-credit view: 3pack / jobhunt — shown via JS on tier select -->
+      <div id="email-multi" style="display:none;">
+        <div style="display:flex; align-items:flex-start; gap:0.75rem;">
+          <span style="font-size:1.5rem; line-height:1;">📧</span>
+          <div style="flex:1;">
+            <div id="email-multi-title" style="font-weight:700; font-size:1rem; margin-bottom:0.5rem;">
+              Masukkan email aktif kamu <span style="color:#DC2626;">*</span>
+            </div>
+            <p id="email-multi-body" style="font-size:0.85rem; color:#92400E; margin-bottom:0.75rem; line-height:1.6;"></p>
+            <div id="email-multi-slot"></div>
+            <p id="email-helper" style="font-size:0.75rem; color:#92400E; font-weight:500; margin-top:0.5rem;"></p>
+            <p style="font-size:0.75rem; color:#9CA3AF; margin-top:0.3rem;">Kami tidak akan spam email kamu</p>
+            <p style="font-size:0.8rem; color:#6B7280; margin-top:0.6rem;">💡 Tidak perlu buat akun — cukup pakai link dari email kamu</p>
+            <p id="email-error" style="display:none; color:#DC2626; font-size:0.82rem; margin-top:0.5rem; font-weight:500;">
+              ⚠️ Email wajib diisi — kami kirim link CV kamu ke sini
+            </p>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Email capture -->
-    <div class="gl-card">
-      <div class="email-capture-box">
-        <div style="font-weight:600;">Mau dapat tips CV &amp; contoh rewrite gratis?</div>
-        <div id="email-capture-form" class="email-input-group">
-          <input type="email" id="email-input" placeholder="email kamu" autocomplete="email">
-          <button id="email-submit-btn" class="btn-send-email" onclick="submitEmail()">Kirim ke saya</button>
-        </div>
-        <p id="email-status" style="font-size:0.7rem; margin-top:0.5rem; color:#6B7280;"></p>
-        <p style="font-size:0.7rem; margin-top:0.3rem; color:#9CA3AF;">Tidak spam. Hanya insight &amp; update penting.</p>
-      </div>
+    <!-- Pay button + trust footer — below email input -->
+    <div id="cta-area">
+      <button id="pay-btn" onclick="proceedToPayment()" disabled>
+        ✨ Lihat CV hasil rewrite lengkap
+      </button>
+      <p id="pay-hint" style="font-size:0.8rem;color:#6B7280;text-align:center;margin-top:0.5rem;">
+        Pilih paket di atas untuk melanjutkan
+      </p>
+    </div>
+
+    <div class="trust-footer">
+      💳 Pembayaran aman via Mayar · VA, QRIS, e-wallet · Tidak puas? Hubungi kami di support@gaslamar.com
     </div>
 
     <!-- Restart -->
@@ -603,5 +768,48 @@
 <script src="js/config.js"></script>
 <script src="js/scoring.js"></script>
 <script src="js/payment.js"></script>
+<script>
+(function startCountdown() {
+  const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
+  const el = document.getElementById('session-countdown');
+  const textEl = document.getElementById('countdown-text');
+  if (!analyzeTime || !el || !textEl) { if (el) el.style.display = 'none'; return; }
+  const SESSION_SECS = 7200; // matches worker cvtext_ TTL (2h)
+  function update() {
+    const remaining = SESSION_SECS - Math.floor((Date.now() - analyzeTime) / 1000);
+    if (remaining <= 0) {
+      textEl.textContent = 'Sesi analisis sudah kedaluwarsa - hasil ini masih bisa kamu lihat, tapi tidak bisa lanjut bayar.';
+      el.style.background = '#FEF2F2';
+      el.style.borderColor = '#FECACA';
+      el.style.color = '#B91C1C';
+      return;
+    }
+    const h = Math.floor(remaining / 3600);
+    const m = Math.floor((remaining % 3600) / 60);
+    const s = remaining % 60;
+    if (remaining <= 300) {
+      // Under 5 minutes — urgent warning
+      el.style.background = '#FEF2F2';
+      el.style.borderColor = '#FECACA';
+      el.style.color = '#B91C1C';
+      textEl.textContent = `⚠️ Sesi berakhir dalam ${m}m ${s}s — selesaikan pembayaran sekarang!`;
+    } else if (remaining <= 1800) {
+      // Under 30 minutes — amber warning
+      el.style.background = '#FFFBEB';
+      el.style.borderColor = '#FCD34D';
+      el.style.color = '#92400E';
+      textEl.textContent = h > 0
+        ? `Sesi analisis berlaku ${h}j ${m}m lagi - bayar sebelum kedaluwarsa`
+        : `Sesi analisis berlaku ${m}m ${s}s lagi - bayar sebelum kedaluwarsa`;
+    } else {
+      textEl.textContent = h > 0
+        ? `Sesi analisis berlaku ${h}j ${m}m lagi - bayar sebelum kedaluwarsa`
+        : `Sesi analisis berlaku ${m}m ${s}s lagi - bayar sebelum kedaluwarsa`;
+    }
+    setTimeout(update, 1000);
+  }
+  update();
+})();
+</script>
 </body>
 </html>
