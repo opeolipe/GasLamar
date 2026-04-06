@@ -102,6 +102,11 @@ function showFilePreview(file) {
   document.getElementById('drop-preview').classList.remove('hidden');
   document.getElementById('file-name').textContent = file.name;
   document.getElementById('file-size').textContent = formatFileSize(file.size);
+  // Mark step 1 complete, activate step 2
+  const s1 = document.getElementById('step-1');
+  const s2 = document.getElementById('step-2');
+  if (s1) { s1.classList.remove('active'); s1.classList.add('completed'); }
+  if (s2) s2.classList.add('active');
 }
 
 function formatFileSize(bytes) {

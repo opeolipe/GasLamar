@@ -51,17 +51,21 @@
     .step {
       flex: 1;
       text-align: center;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       font-weight: 500;
       color: #9CA3AF;
       position: relative;
       background: white;
       z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
     }
-    .step.active {
-      color: #0F172A;
-      font-weight: 700;
-    }
+    .step-label { font-size: 0.82rem; }
+    .step-desc { font-size: 0.68rem; color: #C4CDD8; font-weight: 400; }
+    .step.active .step-label { color: #0F172A; font-weight: 700; }
+    .step.active .step-desc { color: #94A3B8; }
     .step.active::before {
       content: "●";
       display: block;
@@ -76,6 +80,9 @@
       margin-bottom: 4px;
       color: #D1D5DB;
     }
+    .step.completed::before { content: "✓"; color: #10B981; font-weight: 700; font-style: normal; }
+    .step.completed .step-label { color: #10B981; }
+    .step.completed .step-desc { color: #6EE7B7; }
     .step-line {
       position: absolute;
       top: 12px;
@@ -85,6 +92,25 @@
       background: #E5E7EB;
       z-index: 0;
     }
+
+    /* Tooltips (ported from hasil.html) */
+    .gl-tip { position:relative; display:inline-flex; align-items:center; cursor:help; margin-left:4px; vertical-align:middle; }
+    .gl-tip-icon { font-size:0.65rem; font-weight:700; color:#94A3B8; background:#F1F5F9; border-radius:50%; width:15px; height:15px; display:inline-flex; align-items:center; justify-content:center; line-height:1; flex-shrink:0; }
+    .gl-tip-bubble { visibility:hidden; opacity:0; position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%); background:#1E293B; color:#fff; font-size:0.75rem; font-weight:400; border-radius:8px; padding:0.5rem 0.75rem; width:220px; text-align:center; z-index:200; transition:opacity .15s; pointer-events:none; line-height:1.4; text-transform:none; letter-spacing:normal; }
+    .gl-tip:hover .gl-tip-bubble, .gl-tip:focus-within .gl-tip-bubble { visibility:visible; opacity:1; }
+
+    /* JD helper card */
+    .jd-helper-card {
+      background: #F0F7FF;
+      border: 1.5px solid #BFDBFE;
+      border-radius: 16px;
+      padding: 1rem 1.25rem;
+      margin: 0.75rem 0;
+    }
+    .jd-helper-title { font-size: 0.85rem; font-weight: 700; color: #1E40AF; margin-bottom: 0.2rem; }
+    .jd-helper-sub { font-size: 0.75rem; color: #4B6FA5; margin-bottom: 0.75rem; }
+    .btn-icon-lg { flex-direction: column; align-items: flex-start; padding: 0.6rem 1rem; border-radius: 12px; gap: 2px; }
+    .btn-icon-hint { font-size: 0.68rem; font-weight: 400; color: #6B8CC7; }
 
     /* Form labels */
     label {
@@ -346,9 +372,18 @@
 
     <!-- Progress steps -->
     <div class="progress-steps">
-      <div class="step active">1. Upload CV</div>
-      <div class="step">2. Job Desc</div>
-      <div class="step">3. Hasil Analisis</div>
+      <div class="step active" id="step-1">
+        <span class="step-label">1. Upload CV</span>
+        <span class="step-desc">PDF / DOCX · maks 5MB</span>
+      </div>
+      <div class="step" id="step-2">
+        <span class="step-label">2. Job Desc</span>
+        <span class="step-desc">opsional · naikkan akurasi 3×</span>
+      </div>
+      <div class="step" id="step-3">
+        <span class="step-label">3. Analisis</span>
+        <span class="step-desc">±30 detik</span>
+      </div>
       <div class="step-line"></div>
     </div>
 
@@ -396,11 +431,20 @@
       </div>
 
       <!-- Job Description -->
-      <label>Job yang kamu targetkan <span style="font-weight: 400; color: #5B6E8C;">(opsional tapi disarankan)</span></label>
-      <p style="font-size:0.75rem;color:#6B7280;margin:0.5rem 0 0.25rem;">💡 Coba fitur ini:</p>
-      <div class="button-group">
-        <button type="button" class="btn-icon" id="fetch-url-btn">🔗 Ambil dari URL Loker</button>
-        <button type="button" class="btn-icon" id="example-btn">📄 Gunakan contoh</button>
+      <label>Job yang kamu targetkan <span style="font-weight: 400; color: #5B6E8C;">(opsional tapi disarankan)</span><span class="gl-tip" tabindex="0"><span class="gl-tip-icon">?</span><span class="gl-tip-bubble">Paste bagian "Requirements" atau "Qualifications" dari lowongan. Ini membuat analisis 3× lebih akurat dan relevan.</span></span></label>
+      <div class="jd-helper-card">
+        <div class="jd-helper-title">💡 Belum punya Job Description?</div>
+        <div class="jd-helper-sub">Pilih salah satu cara di bawah — atau paste manual langsung ke kotak teks</div>
+        <div class="button-group">
+          <button type="button" class="btn-icon btn-icon-lg" id="fetch-url-btn">
+            🔗 Ambil dari URL Loker
+            <span class="btn-icon-hint">LinkedIn, Glints, JobStreet…</span>
+          </button>
+          <button type="button" class="btn-icon btn-icon-lg" id="example-btn">
+            📄 Gunakan contoh
+            <span class="btn-icon-hint">Lihat format yang ideal</span>
+          </button>
+        </div>
       </div>
 
       <!-- URL fetch row (hidden until button clicked) -->
@@ -433,7 +477,7 @@
       <div id="jd-error" class="error-msg hidden"></div>
 
       <div class="skip-link">
-        <a href="#" id="skip-jd-link">Lewati (hasil akan lebih umum &amp; kurang akurat)</a>
+        <a href="#" id="skip-jd-link">Lewati<span class="gl-tip" tabindex="0" style="margin-left:3px;"><span class="gl-tip-icon">?</span><span class="gl-tip-bubble">Tanpa job desc, hasil analisis akan umum dan tidak dibandingkan ke lowongan spesifik. Skor mungkin kurang akurat.</span></span> <span style="font-weight:400;">(hasil akan lebih umum &amp; kurang akurat)</span></a>
       </div>
 
       <!-- Scroll hint -->
