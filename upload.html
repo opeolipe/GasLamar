@@ -558,12 +558,14 @@ Requirements:
     updateCharCount();
   });
 
-  // Skip JD link — fill with generic text and auto-submit
+  // Skip JD link — only fill generic text if textarea is empty, then submit
   document.getElementById('skip-jd-link').addEventListener('click', (e) => {
     e.preventDefault();
-    document.getElementById('job-desc').value =
-      'Analisis umum tanpa job description spesifik. Evaluasi kekuatan dan kelemahan CV secara keseluruhan.';
-    updateCharCount();
+    const jdField = document.getElementById('job-desc');
+    if (!jdField.value.trim()) {
+      jdField.value = 'Analisis umum tanpa job description spesifik. Evaluasi kekuatan dan kelemahan CV secara keseluruhan.';
+      updateCharCount();
+    }
     document.getElementById('upload-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
   });
 </script>
