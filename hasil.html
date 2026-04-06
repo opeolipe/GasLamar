@@ -450,6 +450,11 @@
 
     .score-inner-label { font-size:0.65rem; font-weight:700; color:#6B7280; text-transform:uppercase; letter-spacing:0.07em; text-align:center; margin-bottom:0.1rem; line-height:1.2; }
     .score-value-row { display:flex; align-items:baseline; justify-content:center; gap:1px; }
+    /* Tooltips */
+    .gl-tip { position:relative; display:inline-flex; align-items:center; cursor:help; margin-left:4px; vertical-align:middle; }
+    .gl-tip-icon { font-size:0.65rem; font-weight:700; color:#94A3B8; background:#F1F5F9; border-radius:50%; width:15px; height:15px; display:inline-flex; align-items:center; justify-content:center; line-height:1; flex-shrink:0; }
+    .gl-tip-bubble { visibility:hidden; opacity:0; position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%); background:#1E293B; color:#fff; font-size:0.75rem; font-weight:400; border-radius:8px; padding:0.5rem 0.75rem; width:220px; text-align:center; z-index:200; transition:opacity .15s; pointer-events:none; line-height:1.4; text-transform:none; letter-spacing:normal; }
+    .gl-tip:hover .gl-tip-bubble, .gl-tip:focus-within .gl-tip-bubble { visibility:visible; opacity:1; }
 
     /* Share button override */
     #share-btn {
@@ -565,7 +570,12 @@
               style="transition: stroke-dashoffset 1s ease;"/>
           </svg>
           <div class="score-inner">
-            <div class="score-inner-label">Peluang<br>Interview</div>
+            <div class="score-inner-label">Peluang Interview
+              <span class="gl-tip" tabindex="0">
+                <span class="gl-tip-icon">?</span>
+                <span class="gl-tip-bubble">Estimasi peluang kamu dipanggil HR berdasarkan seberapa cocok CV-mu dengan lowongan. Skor 70+ = peluang tinggi.</span>
+              </span>
+            </div>
             <div class="score-value-row">
               <span id="score-number" class="score-num">0</span>
               <span class="score-denom">%</span>
@@ -600,7 +610,12 @@
         <ul id="strengths-list"></ul>
       </div>
       <div id="gap-section" class="hidden gap-box">
-        <h4>❌ Kenapa kamu belum lolos:</h4>
+        <h4>❌ Kenapa kamu belum lolos:
+          <span class="gl-tip" tabindex="0">
+            <span class="gl-tip-icon">?</span>
+            <span class="gl-tip-bubble">Gap = hal yang dicari rekruter tapi belum terlihat di CV-mu. Tambahkan ini untuk naikkan skor.</span>
+          </span>
+        </h4>
         <ul id="gap-list"></ul>
       </div>
     </div>
@@ -620,7 +635,12 @@
 
     <!-- HR 7-second view (hidden by default) -->
     <div id="hr-7-detik" class="gl-card hidden">
-      <h4 style="margin-bottom:0.75rem;">👁️ Ini yang HR lihat dalam 7 detik:</h4>
+      <h4 style="margin-bottom:0.75rem;">👁️ Ini yang HR lihat dalam 7 detik:
+        <span class="gl-tip" tabindex="0">
+          <span class="gl-tip-icon">?</span>
+          <span class="gl-tip-bubble">Riset menunjukkan HR hanya melihat CV 6-7 detik sebelum memutuskan lanjut atau tidak. Ini bagian yang paling diperhatikan.</span>
+        </span>
+      </h4>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
         <div>
           <div style="font-size:0.68rem;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem;">✅ Diperhatikan</div>
@@ -665,7 +685,12 @@
           <div style="font-size:2.2rem;font-weight:800;color:#10B981;" id="after-score">0%</div>
         </div>
       </div>
-      <p style="font-size:0.75rem;color:#9CA3AF;margin-top:0.5rem;">Estimasi jika semua rekomendasi di atas diikuti</p>
+      <p style="font-size:0.75rem;color:#9CA3AF;margin-top:0.5rem;">Estimasi jika semua rekomendasi di atas diikuti
+        <span class="gl-tip" tabindex="0" style="vertical-align:middle;">
+          <span class="gl-tip-icon">?</span>
+          <span class="gl-tip-bubble">Ini estimasi — hasil aktual bergantung pada implementasi dan rekruter yang membaca CV-mu.</span>
+        </span>
+      </p>
     </div>
 
     <!-- Pricing anchor CTA -->
