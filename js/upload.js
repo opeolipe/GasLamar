@@ -207,15 +207,23 @@ function updateCharCount() {
   document.getElementById('char-count').textContent = count.toLocaleString('id-ID');
 
   const warning = document.getElementById('char-warning');
-  if (count > 4500) {
-    warning.classList.remove('hidden');
-  } else {
-    warning.classList.add('hidden');
-  }
+  const submitBtn = document.getElementById('submit-btn');
 
-  // Clear "too short" / "too long" errors as the user types to valid length
-  if (count >= 50 && count <= MAX_JD_CHARS) {
-    hideError('jd-error');
+  if (count > MAX_JD_CHARS) {
+    warning.classList.remove('hidden');
+    showError('jd-error', `Job description terlalu panjang. Maksimal ${MAX_JD_CHARS.toLocaleString('id-ID')} karakter.`);
+    if (submitBtn) submitBtn.disabled = true;
+  } else {
+    if (count > 4500) {
+      warning.classList.remove('hidden');
+    } else {
+      warning.classList.add('hidden');
+    }
+    if (submitBtn) submitBtn.disabled = false;
+    // Clear "too short" / "too long" errors as the user types to valid length
+    if (count >= 50) {
+      hideError('jd-error');
+    }
   }
 }
 
@@ -391,7 +399,7 @@ function hideError(id) {
       proto.set.call(this, capped);
       updateCharCount();
     },
-    configurable: true,
+    configurable: false,
   });
 
   // Tier from URL param
