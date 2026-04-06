@@ -365,6 +365,70 @@
     }
     .skip-to-content:focus { left: 0; }
 
+    /* Card header */
+    .card-header { margin-bottom: 1.5rem; }
+    .card-title { font-size: 1.4rem; font-weight: 700; margin-bottom: 0.3rem; }
+    .card-subtitle { font-size: 0.9rem; color: #5B6E8C; }
+
+    /* Dropzone internals */
+    .dropzone-icon { font-size: 2rem; margin-bottom: 8px; }
+    .dropzone-text { font-weight: 500; }
+    .dropzone-divider { font-size: 0.8rem; color: #5B6E8C; margin: 8px 0; }
+    .btn-pick-file {
+      background: #0F172A; color: white; border: none; border-radius: 40px;
+      padding: 0.4rem 1rem; font-weight: 500; cursor: pointer; font-family: inherit;
+    }
+    .dropzone-hint { font-size: 0.7rem; color: #6B7280; margin-top: 12px; }
+
+    /* File preview */
+    .file-info-text { text-align: left; }
+    .file-name-display { font-weight: 600; font-size: 0.9rem; }
+    .file-size-display { font-size: 0.75rem; color: #6B7280; }
+
+    /* Label helpers */
+    .label-optional { font-weight: 400; color: #5B6E8C; }
+    .label-note { font-weight: 400; }
+    .skip-link .gl-tip { margin-left: 3px; }
+
+    /* URL fetch section */
+    .url-fetch-row { display: none; margin-bottom: 0.75rem; }
+    .url-fetch-inner { display: flex; gap: 0.5rem; align-items: center; }
+    .url-fetch-input {
+      flex: 1; padding: 0.6rem 0.8rem; border: 1.5px solid #BFDBFE;
+      border-radius: 10px; font-size: 0.9rem; font-family: inherit; outline: none;
+      transition: border-color 0.15s;
+    }
+    .url-fetch-input:focus { border-color: #2563EB; }
+    .btn-fetch-submit {
+      background: #2563EB; color: white; border: none; border-radius: 10px;
+      padding: 0.6rem 1rem; font-weight: 600; font-size: 0.85rem;
+      cursor: pointer; white-space: nowrap; font-family: inherit;
+    }
+    .btn-close-icon {
+      background: none; border: none; color: #9CA3AF;
+      cursor: pointer; font-size: 1.1rem; padding: 0.4rem;
+    }
+    .url-fetch-status { font-size: 0.78rem; color: #6B7280; margin-top: 0.4rem; min-height: 1rem; }
+
+    /* Char warning */
+    .char-warning-text { font-size: 0.75rem; color: #D97706; margin-top: 0.3rem; }
+
+    /* Scroll hint */
+    #scroll-hint { margin-top: 0.75rem; }
+    .scroll-hint-svg { display: block; margin: 0 auto 4px; }
+
+    /* Loading state */
+    .loading-inner { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 0.5rem; }
+    .loading-text { font-weight: 600; }
+    .progress-pct-text { font-size: 0.7rem; color: #6B7280; margin-top: 0.3rem; }
+
+    /* Upload error banner (dynamically created) */
+    .upload-error-banner {
+      background: #FEF2F2; border: 1px solid #FECACA; color: #B91C1C;
+      border-radius: 16px; padding: 0.8rem 1.2rem; font-size: 0.85rem;
+      margin-bottom: 1rem;
+    }
+
     /* Back link */
     .back-link {
       display: inline-block;
@@ -382,9 +446,9 @@
   <a href="index.html" class="back-link" title="Kembali ke halaman utama GasLamar">← Kembali ke beranda</a>
 
   <div class="card">
-    <div style="margin-bottom: 1.5rem;">
-      <h2 style="font-size: 1.4rem; font-weight: 700; margin-bottom: 0.3rem;">Upload CV kamu</h2>
-      <p style="font-size: 0.9rem; color: #5B6E8C;">Kami akan analisis dan bandingkan dengan job yang kamu targetkan</p>
+    <div class="card-header">
+      <h2 class="card-title">Upload CV kamu</h2>
+      <p class="card-subtitle">Kami akan analisis dan bandingkan dengan job yang kamu targetkan</p>
     </div>
 
     <!-- Progress steps -->
@@ -416,22 +480,20 @@
         ondrop="handleDrop(event)">
 
         <div id="drop-idle">
-          <div style="font-size: 2rem; margin-bottom: 8px;">📁</div>
-          <div style="font-weight: 500;">Drag &amp; drop CV di sini</div>
-          <div style="font-size: 0.8rem; color: #5B6E8C; margin: 8px 0;">atau</div>
-          <button type="button" aria-label="Pilih file CV dari komputer kamu" onclick="event.stopPropagation(); document.getElementById('cv-file').click()"
-            style="background: #0F172A; color: white; border: none; border-radius: 40px; padding: 0.4rem 1rem; font-weight: 500; cursor: pointer; font-family: inherit;">Pilih file</button>
-          <input type="file" id="cv-file" aria-label="Upload file CV (PDF atau DOCX, maks 5MB)" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
-            style="display: none;" onchange="handleFileSelect(event)">
-          <div style="font-size: 0.7rem; color: #6B7280; margin-top: 12px;">PDF atau DOCX &nbsp;•&nbsp; maks 5MB</div>
+          <div class="dropzone-icon">📁</div>
+          <div class="dropzone-text">Drag &amp; drop CV di sini</div>
+          <div class="dropzone-divider">atau</div>
+          <button type="button" class="btn-pick-file" aria-label="Pilih file CV dari komputer kamu" onclick="event.stopPropagation(); document.getElementById('cv-file').click()">Pilih file</button>
+          <input type="file" id="cv-file" class="hidden" aria-label="Upload file CV (PDF atau DOCX, maks 5MB)" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" onchange="handleFileSelect(event)">
+          <div class="dropzone-hint">PDF atau DOCX &nbsp;•&nbsp; maks 5MB</div>
         </div>
 
         <div id="drop-preview" class="hidden">
           <div class="file-info-inner">
             <span class="file-icon">📄</span>
-            <div style="text-align:left;">
-              <div style="font-weight: 600; font-size: 0.9rem;" id="file-name"></div>
-              <div style="font-size: 0.75rem; color: #6B7280;" id="file-size"></div>
+            <div class="file-info-text">
+              <div class="file-name-display" id="file-name"></div>
+              <div class="file-size-display" id="file-size"></div>
             </div>
           </div>
           <button type="button" class="replace-btn" aria-label="Ganti file CV yang sudah dipilih" onclick="event.stopPropagation(); removeFile()">Ganti file</button>
@@ -443,12 +505,12 @@
       <div id="cv-text-warning" class="warning-note hidden">
         <strong>CV tidak bisa dibaca.</strong> CV kamu sepertinya file gambar atau hasil scan. Coba download ulang CV kamu dari Canva/Word sebagai PDF teks, lalu upload lagi.
       </div>
-      <div class="warning-note" style="margin-top: 0.8rem;">
+      <div class="warning-note">
         ⚠️ Gunakan CV berbentuk teks (bukan scan/foto) agar analisis lebih akurat
       </div>
 
       <!-- Job Description -->
-      <label for="job-desc">Job yang kamu targetkan <span style="font-weight: 400; color: #5B6E8C;">(opsional tapi disarankan)</span><span class="gl-tip" tabindex="0"><span class="gl-tip-icon">?</span><span class="gl-tip-bubble">Paste bagian "Requirements" atau "Qualifications" dari lowongan. Ini membuat analisis 3× lebih akurat dan relevan.</span></span></label>
+      <label for="job-desc">Job yang kamu targetkan <span class="label-optional">(opsional tapi disarankan)</span><span class="gl-tip" tabindex="0"><span class="gl-tip-icon">?</span><span class="gl-tip-bubble">Paste bagian "Requirements" atau "Qualifications" dari lowongan. Ini membuat analisis 3× lebih akurat dan relevan.</span></span></label>
       <div class="jd-helper-card">
         <div class="jd-helper-title">💡 Belum punya Job Description?</div>
         <div class="jd-helper-sub">Pilih salah satu cara di bawah — atau paste manual langsung ke kotak teks</div>
@@ -465,22 +527,15 @@
       </div>
 
       <!-- URL fetch row (hidden until button clicked) -->
-      <div id="url-fetch-row" style="display:none; margin-bottom:0.75rem;">
-        <div style="display:flex; gap:0.5rem; align-items:center;">
-          <input type="url" id="job-url-input" aria-label="URL halaman lowongan kerja (LinkedIn, Glints, JobStreet, dll)"
+      <div id="url-fetch-row" class="url-fetch-row">
+        <div class="url-fetch-inner">
+          <input type="url" id="job-url-input" class="url-fetch-input" aria-label="URL halaman lowongan kerja (LinkedIn, Glints, JobStreet, dll)"
             placeholder="https://www.linkedin.com/jobs/view/…"
-            style="flex:1; padding:0.6rem 0.8rem; border:1.5px solid #BFDBFE; border-radius:10px; font-size:0.9rem; font-family:inherit; outline:none;"
-            onfocus="this.style.borderColor='#2563EB'"
-            onblur="this.style.borderColor='#BFDBFE'"
           />
-          <button type="button" id="fetch-url-submit-btn" aria-label="Ambil job description dari URL yang dimasukkan" onclick="fetchJobFromUrl()"
-            style="background:#2563EB; color:white; border:none; border-radius:10px; padding:0.6rem 1rem; font-weight:600; font-size:0.85rem; cursor:pointer; white-space:nowrap; font-family:inherit;">
-            Ambil
-          </button>
-          <button type="button" aria-label="Tutup form URL loker" onclick="closeUrlFetch()"
-            style="background:none; border:none; color:#9CA3AF; cursor:pointer; font-size:1.1rem; padding:0.4rem;" title="Tutup">✕</button>
+          <button type="button" id="fetch-url-submit-btn" class="btn-fetch-submit" aria-label="Ambil job description dari URL yang dimasukkan" onclick="fetchJobFromUrl()">Ambil</button>
+          <button type="button" class="btn-close-icon" aria-label="Tutup form URL loker" onclick="closeUrlFetch()" title="Tutup">✕</button>
         </div>
-        <p id="url-fetch-status" style="font-size:0.78rem; color:#6B7280; margin-top:0.4rem; min-height:1rem;"></p>
+        <p id="url-fetch-status" class="url-fetch-status"></p>
       </div>
 
       <div class="textarea-wrapper">
@@ -490,16 +545,16 @@
           oninput="updateCharCount()"></textarea>
         <div class="char-counter"><span id="char-count">0</span> / 5.000 karakter</div>
       </div>
-      <div id="char-warning" class="hidden" style="font-size: 0.75rem; color: #D97706; margin-top: 0.3rem;">Mendekati batas karakter</div>
+      <div id="char-warning" class="char-warning-text hidden">Mendekati batas karakter</div>
       <div id="jd-error" class="error-msg hidden"></div>
 
       <div class="skip-link">
-        <a href="#" id="skip-jd-link">Lewati<span class="gl-tip" tabindex="0" style="margin-left:3px;"><span class="gl-tip-icon">?</span><span class="gl-tip-bubble">Tanpa job desc, hasil analisis akan umum dan tidak dibandingkan ke lowongan spesifik. Skor mungkin kurang akurat.</span></span> <span style="font-weight:400;">(hasil akan lebih umum &amp; kurang akurat)</span></a>
+        <a href="#" id="skip-jd-link">Lewati<span class="gl-tip" tabindex="0"><span class="gl-tip-icon">?</span><span class="gl-tip-bubble">Tanpa job desc, hasil analisis akan umum dan tidak dibandingkan ke lowongan spesifik. Skor mungkin kurang akurat.</span></span> <span class="label-note">(hasil akan lebih umum &amp; kurang akurat)</span></a>
       </div>
 
       <!-- Scroll hint -->
-      <div id="scroll-hint" style="margin-top: 0.75rem;">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="display:block;margin:0 auto 4px;"><polyline points="6 9 12 15 18 9"/></svg>
+      <div id="scroll-hint">
+        <svg class="scroll-hint-svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
         <span>Scroll untuk tombol analisis</span>
       </div>
 
@@ -510,14 +565,14 @@
 
       <!-- Loading state (shown briefly before redirect to analyzing.html) -->
       <div id="loading-state" class="hidden">
-        <div style="display:inline-flex; align-items:center; gap:8px; margin-bottom: 0.5rem;">
+        <div class="loading-inner">
           <div class="spinner"></div>
-          <span id="loading-text" style="font-weight:600;">Menyiapkan analisis...</span>
+          <span id="loading-text" class="loading-text">Menyiapkan analisis...</span>
         </div>
         <div class="progress-bar-bg">
           <div id="progress-bar"></div>
         </div>
-        <p style="font-size:0.7rem;color:#6B7280;margin-top:0.3rem;"><span id="progress-pct">0</span>%</p>
+        <p class="progress-pct-text"><span id="progress-pct">0</span>%</p>
       </div>
 
     </form>
@@ -541,7 +596,7 @@
   if (_analyzeErr) {
     sessionStorage.removeItem('gaslamar_upload_error');
     const _errEl = document.createElement('div');
-    _errEl.style.cssText = 'background:#FEF2F2;border:1px solid #FECACA;color:#B91C1C;border-radius:16px;padding:0.8rem 1.2rem;font-size:0.85rem;margin-bottom:1rem;font-family:inherit;';
+    _errEl.className = 'upload-error-banner';
     _errEl.textContent = '⚠️ Analisis gagal: ' + _analyzeErr;
     document.querySelector('.card').insertBefore(_errEl, document.querySelector('.card').firstChild);
   }
