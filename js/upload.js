@@ -380,6 +380,20 @@ function hideError(id) {
 // ---- Init: restore tier, JD draft, and CV state ----
 
 (function init() {
+  // Override textarea value setter so MAX_JD_CHARS is enforced even for
+  // programmatic assignments (element.value = '...') — those bypass oninput/paste.
+  const jdEl = document.getElementById('job-desc');
+  const proto = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
+  Object.defineProperty(jdEl, 'value', {
+    get() { return proto.get.call(this); },
+    set(v) {
+      const capped = (typeof v === 'string' && v.length > MAX_JD_CHARS) ? v.slice(0, MAX_JD_CHARS) : v;
+      proto.set.call(this, capped);
+      updateCharCount();
+    },
+    configurable: true,
+  });
+
   // Tier from URL param
   const params = new URLSearchParams(location.search);
   const tier = params.get('tier');
