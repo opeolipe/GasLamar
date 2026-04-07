@@ -196,6 +196,15 @@ describe('POST /analyze — validation', () => {
     expect(res.status).not.toBe(400); // passed file validation
   });
 
+  it('returns user-friendly error for malformed DOCX missing word/document.xml → 422', async () => {
+    // VALID_DOCX_CV has PK magic bytes but no word/document.xml entry
+    const res = await post('/analyze', { cv: VALID_DOCX_CV, job_desc: JOB_DESC });
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.message).not.toContain('word/document.xml');
+    expect(body.message).toMatch(/rusak|tidak lengkap|upload.*berbeda/i);
+  });
+
   it('rejects file over 5MB → 400', async () => {
     // ~7MB base64-encoded payload (5MB * 4/3 ≈ 6.7MB)
     const bigData = btoa('A'.repeat(1024 * 1024 * 5 + 1));

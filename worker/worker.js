@@ -214,7 +214,7 @@ async function extractTextFromDOCX(base64Data) {
       writer.close();
       xmlBytes = new Uint8Array(await new Response(ds.readable).arrayBuffer());
     } else {
-      throw new Error('Unsupported DOCX compression method: ' + comprMethod);
+      throw new Error('File CV tampak rusak atau tidak lengkap. Coba upload file yang berbeda.');
     }
 
     const xmlText = new TextDecoder('utf-8').decode(xmlBytes);
@@ -226,7 +226,7 @@ async function extractTextFromDOCX(base64Data) {
     return parts.join(' ').replace(/\s+/g, ' ').trim();
   }
 
-  throw new Error('word/document.xml not found in DOCX');
+  throw new Error('File CV tampak rusak atau tidak lengkap. Coba upload file yang berbeda.');
 }
 
 // ---- Claude API ----
