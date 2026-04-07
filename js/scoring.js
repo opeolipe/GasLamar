@@ -5,6 +5,10 @@
 
 (function initScoring() {
   const raw = sessionStorage.getItem('gaslamar_scoring');
+  // Remove immediately — scoring lives in JS memory only, not in sessionStorage.
+  // This prevents browser extensions and devtools from reading the analysis data
+  // at rest. hasil-guard.js already validated it exists before we get here.
+  sessionStorage.removeItem('gaslamar_scoring');
 
   if (!raw) {
     // No data — redirect back

@@ -192,15 +192,36 @@ async function extractTextFromDOCX(base64Data) {
     // ZIP local file header signature: PK\x03\x04
     if (bytes[i] !== 0x50 || bytes[i+1] !== 0x4B || bytes[i+2] !== 0x03 || bytes[i+3] !== 0x04) continue;
 
-    const comprMethod   = bytes[i+8]  | (bytes[i+9]  << 8);
-    const compressedSz  = bytes[i+18] | (bytes[i+19] << 8) | (bytes[i+20] << 16) | (bytes[i+21] << 24);
-    const filenameLen   = bytes[i+26] | (bytes[i+27] << 8);
-    const extraLen      = bytes[i+28] | (bytes[i+29] << 8);
+    const flags        = bytes[i+6]  | (bytes[i+7]  << 8);
+    const comprMethod  = bytes[i+8]  | (bytes[i+9]  << 8);
+    let   compressedSz = (bytes[i+18] | (bytes[i+19] << 8) | (bytes[i+20] << 16) | (bytes[i+21] << 24)) >>> 0;
+    const filenameLen  = bytes[i+26] | (bytes[i+27] << 8);
+    const extraLen     = bytes[i+28] | (bytes[i+29] << 8);
 
     const filename = new TextDecoder().decode(bytes.slice(i + 30, i + 30 + filenameLen));
     if (filename !== target) continue;
 
     const dataStart = i + 30 + filenameLen + extraLen;
+
+    // Bit 3 of general-purpose flags = data descriptor mode: Word, LibreOffice, and Google Docs
+    // all set this flag, meaning compressedSz in the local header is 0 and the real size is
+    // written in a data descriptor record (PK\x07\x08) AFTER the compressed data.
+    // Scan forward to find either the data descriptor or the next local file header.
+    if ((flags & 0x08) || compressedSz === 0) {
+      let end = dataStart;
+      while (end < bytes.length - 4) {
+        if (bytes[end] === 0x50 && bytes[end+1] === 0x4B) {
+          // Data descriptor signature (PK\x07\x08) or next local file header (PK\x03\x04)
+          if ((bytes[end+2] === 0x07 && bytes[end+3] === 0x08) ||
+              (bytes[end+2] === 0x03 && bytes[end+3] === 0x04)) {
+            break;
+          }
+        }
+        end++;
+      }
+      compressedSz = end - dataStart;
+    }
+
     const compressed = bytes.slice(dataStart, dataStart + compressedSz);
 
     let xmlBytes;

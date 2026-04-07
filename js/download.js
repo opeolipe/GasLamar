@@ -9,6 +9,7 @@ const MAX_POLLS = 10;
 const HEARTBEAT_INTERVAL = 3 * 60 * 1000; // 3 minutes
 
 let pollCount = 0;
+let notFoundCount = 0; // consecutive 404s — separate from pollCount for faster invalid-session detection
 let pollTimer = null;
 let heartbeatTimer = null;
 let cvDataCache = null; // { cv_id: string, cv_en: string, tier: string }
@@ -45,6 +46,7 @@ let sessionSecretCache = null; // retained for X-Session-Secret header
 
 function startPolling(sessionId) {
   pollCount = 0;
+  notFoundCount = 0;
   // 2s delay before first poll — Cloudflare KV is eventually consistent;
   // the session written by /create-payment may not be visible at the polling
   // edge node for several seconds.
@@ -81,21 +83,24 @@ async function poll(sessionId) {
     }
 
     if (res.status === 404) {
-      // Cloudflare KV is eventually consistent across edge nodes — a session
-      // written by /create-payment may not yet be visible from the edge that
-      // serves /check-session.  Keep polling through the full window (same as
-      // 'pending') before showing the error to the user.
-      if (pollCount < MAX_POLLS) {
+      notFoundCount++;
+      // Cloudflare KV is eventually consistent — allow up to 4 consecutive 404s
+      // (~12 seconds) before declaring the session invalid. This is enough time
+      // for KV propagation after a real payment, while failing fast for
+      // invalid/expired tokens instead of making the user wait 30 seconds.
+      if (notFoundCount < 4) {
+        updatePollUI();
         scheduleNextPoll(sessionId);
         return;
       }
       showSessionError(
-        'Sesi Tidak Ditemukan',
-        'Sesi tidak ditemukan. Jika kamu baru saja membayar, tunggu beberapa detik lalu refresh. Jika masalah berlanjut, hubungi support dengan bukti pembayaran.',
+        'Sesi Tidak Valid atau Kedaluwarsa',
+        'Sesi tidak ditemukan. Jika kamu baru saja membayar, coba refresh halaman ini. Jika masalah berlanjut, hubungi support@gaslamar.com dengan bukti pembayaran.',
         false
       );
       return;
     }
+    notFoundCount = 0; // reset on any non-404 response
 
     if (!res.ok) {
       scheduleNextPoll(sessionId);
@@ -189,8 +194,11 @@ function stopSessionHeartbeat() {
 
 function updatePollUI() {
   const el = document.getElementById('poll-count-text');
-  if (el) {
-    el.textContent = `Memeriksa status... (${pollCount}/${MAX_POLLS})`;
+  if (!el) return;
+  if (notFoundCount > 0) {
+    el.textContent = `Sesi belum ditemukan, mencoba lagi... (${notFoundCount}/4)`;
+  } else {
+    el.textContent = `Memeriksa status pembayaran...`;
   }
 }
 
