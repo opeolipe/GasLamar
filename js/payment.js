@@ -220,6 +220,8 @@ async function proceedToPayment() {
 
     // Save to sessionStorage too
     sessionStorage.setItem('gaslamar_session', session_id);
+    // cv_text_key has been consumed server-side — remove from session
+    sessionStorage.removeItem('gaslamar_cv_key');
 
     if (is_sandbox) {
       // Sandbox: skip Mayar, go directly to download page with Simulasi Pembayaran button

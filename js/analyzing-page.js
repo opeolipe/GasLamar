@@ -112,9 +112,10 @@ async function runAnalysis() {
 
     const result = await response.json();
 
-    // Store results
-    sessionStorage.setItem('gaslamar_scoring', JSON.stringify(result));
-    sessionStorage.setItem('gaslamar_cv_key', result.cv_text_key || '');
+    // Store results — strip cv_text_key from scoring blob (stored separately as gaslamar_cv_key)
+    const { cv_text_key: _cvKey, ...scoringOnly } = result;
+    sessionStorage.setItem('gaslamar_scoring', JSON.stringify(scoringOnly));
+    sessionStorage.setItem('gaslamar_cv_key', _cvKey || '');
     sessionStorage.setItem('gaslamar_analyze_time', String(Date.now()));
     if (window.Analytics) Analytics.track('analysis_completed', {
       score: result.skor || null,
