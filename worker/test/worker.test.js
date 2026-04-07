@@ -36,6 +36,53 @@ function makeDOCXBase64() {
   return btoa(bin);
 }
 
+/**
+ * DOCX with bit 3 (data descriptor) set in general-purpose flags — the format
+ * produced by Microsoft Word, LibreOffice, and Google Docs. The local file
+ * header has compressedSz=0; the real size follows in a PK\x07\x08 record.
+ */
+function makeDOCXDataDescriptorBase64() {
+  const xml = '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+    + '<w:body>'
+    + '<w:p><w:r><w:t>Budi Santoso — Software Engineer</w:t></w:r></w:p>'
+    + '<w:p><w:r><w:t>Pengalaman 5 tahun React Node.js TypeScript AWS PostgreSQL Redis</w:t></w:r></w:p>'
+    + '<w:p><w:r><w:t>PT Teknologi Maju 2019-2024 membangun REST API microservices dashboard analytics</w:t></w:r></w:p>'
+    + '</w:body></w:document>';
+  const xmlBytes = new TextEncoder().encode(xml);
+  const filenameBytes = new TextEncoder().encode('word/document.xml');
+  const u32le = n => [n & 0xFF, (n >> 8) & 0xFF, (n >> 16) & 0xFF, (n >> 24) & 0xFF];
+
+  const header = new Uint8Array([
+    0x50, 0x4B, 0x03, 0x04,          // local file header signature
+    0x14, 0x00,                       // version needed: 2.0
+    0x08, 0x00,                       // general-purpose flags: bit 3 = data descriptor
+    0x00, 0x00,                       // compression method: stored
+    0x00, 0x00, 0x00, 0x00,           // last mod time/date
+    0x00, 0x00, 0x00, 0x00,           // CRC-32: 0 (in data descriptor)
+    0x00, 0x00, 0x00, 0x00,           // compressed size: 0 (in data descriptor)
+    0x00, 0x00, 0x00, 0x00,           // uncompressed size: 0 (in data descriptor)
+    filenameBytes.length & 0xFF, 0x00,// filename length
+    0x00, 0x00,                       // extra field length
+  ]);
+  const descriptor = new Uint8Array([
+    0x50, 0x4B, 0x07, 0x08,          // data descriptor signature
+    0x00, 0x00, 0x00, 0x00,           // CRC-32
+    ...u32le(xmlBytes.length),        // compressed size
+    ...u32le(xmlBytes.length),        // uncompressed size
+  ]);
+
+  const out = new Uint8Array(header.length + filenameBytes.length + xmlBytes.length + descriptor.length);
+  let off = 0;
+  out.set(header, off);        off += header.length;
+  out.set(filenameBytes, off); off += filenameBytes.length;
+  out.set(xmlBytes, off);      off += xmlBytes.length;
+  out.set(descriptor, off);
+
+  let bin = '';
+  for (const b of out) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+
 const VALID_PDF_CV = JSON.stringify({ type: 'pdf', data: makePdfBase64() });
 const VALID_DOCX_CV = JSON.stringify({ type: 'docx', data: makeDOCXBase64() });
 const INVALID_CV = JSON.stringify({ type: 'pdf', data: btoa('not a real pdf at all') });
@@ -194,6 +241,17 @@ describe('POST /analyze — validation', () => {
     // We just verify the magic-byte check passes (returns 422/500 from Claude, not 400)
     const res = await post('/analyze', { cv: VALID_DOCX_CV, job_desc: JOB_DESC });
     expect(res.status).not.toBe(400); // passed file validation
+  });
+
+  it('extracts text from DOCX with data descriptor flag (Word/Google Docs format)', async () => {
+    // Bit 3 of general-purpose flags set → compressedSz=0 in local header.
+    // Previously crashed with "Called close() on a decompression stream with incomplete data".
+    const cv = JSON.stringify({ type: 'docx', data: makeDOCXDataDescriptorBase64() });
+    const res = await post('/analyze', { cv, job_desc: JOB_DESC });
+    // Must NOT be 400 (bad magic) or 422 (extraction failed) —
+    // will be 500 because there's no Claude API key in the test env.
+    expect(res.status).not.toBe(400);
+    expect(res.status).not.toBe(422);
   });
 
   it('returns user-friendly error for malformed DOCX missing word/document.xml → 422', async () => {
