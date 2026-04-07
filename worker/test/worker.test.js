@@ -746,3 +746,115 @@ describe('POST /generate — job_desc override validation', () => {
     expect(body.message).toMatch(/terlalu panjang/i);
   });
 });
+
+// ---- Session secret validation tests ----
+
+/** Helper: compute SHA-256 as 64-char hex (mirrors worker's sha256Full). */
+async function sha256Full(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** Seed a session with a bound secret hash. Returns { sessionId, secret }. */
+async function seedSessionWithSecret(status = 'paid', tier = 'single') {
+  const sessionId = `sess_${crypto.randomUUID()}`;
+  const secret = crypto.randomUUID();
+  const secretHash = await sha256Full(secret);
+  await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
+    cv_text: 'Budi Santoso\nSoftware Engineer\n\nPENGALAMAN\nDeveloper PT XYZ\n- Node.js\n- React\n\nPENDIDIKAN\nS1 Informatika',
+    job_desc: JOB_DESC,
+    tier,
+    status,
+    created_at: Date.now(),
+    ip: '1.2.3.4',
+    session_secret_hash: secretHash,
+  }), { expirationTtl: 1800 });
+  return { sessionId, secret };
+}
+
+describe('Session secret — POST /get-session', () => {
+  it('returns 403 when secret is missing and session has a hash', async () => {
+    const { sessionId } = await seedSessionWithSecret('paid');
+    const res = await post('/get-session', { session_id: sessionId });
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.message).toMatch(/akses ditolak|token sesi/i);
+  });
+
+  it('returns 403 when wrong secret is provided', async () => {
+    const { sessionId } = await seedSessionWithSecret('paid');
+    const res = await post('/get-session', { session_id: sessionId }, { 'X-Session-Secret': 'wrong-secret' });
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.message).toMatch(/akses ditolak|token sesi/i);
+  });
+
+  it('returns 200 when correct secret is provided', async () => {
+    const { sessionId, secret } = await seedSessionWithSecret('paid');
+    const res = await post('/get-session', { session_id: sessionId }, { 'X-Session-Secret': secret });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.cv).toBeTruthy();
+    expect(body.tier).toBe('single');
+  });
+
+  it('returns 200 for legacy sessions without a stored hash (no secret required)', async () => {
+    // seedSession creates sessions without session_secret_hash — backward compat
+    const sessionId = await seedSession('paid', 'single');
+    const res = await post('/get-session', { session_id: sessionId });
+    expect(res.status).toBe(200);
+  });
+});
+
+describe('Session secret — POST /generate', () => {
+  it('returns 403 when secret is missing and session has a hash', async () => {
+    const { sessionId } = await seedSessionWithSecret('generating');
+    const res = await post('/generate', { session_id: sessionId }, {}, '10.4.0.1');
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.message).toMatch(/akses ditolak|token sesi/i);
+  });
+
+  it('returns 403 when wrong secret is provided', async () => {
+    const { sessionId } = await seedSessionWithSecret('generating');
+    const res = await post('/generate', { session_id: sessionId }, { 'X-Session-Secret': 'wrong' }, '10.4.0.2');
+    expect(res.status).toBe(403);
+  });
+
+  it('still returns 403 (status not generating) for paid session with correct secret', async () => {
+    // /generate requires status=generating; a paid session with correct secret still 403s for wrong status
+    const { sessionId, secret } = await seedSessionWithSecret('paid');
+    const res = await post('/generate', { session_id: sessionId }, { 'X-Session-Secret': secret }, '10.4.0.3');
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.message).toMatch(/generating|belum dikonfirmasi/i);
+  });
+});
+
+describe('Session secret — POST /session/ping', () => {
+  it('returns 403 when secret is missing and session has a hash', async () => {
+    const { sessionId } = await seedSessionWithSecret('paid');
+    const res = await post('/session/ping', { session_id: sessionId });
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 403 when wrong secret is provided', async () => {
+    const { sessionId } = await seedSessionWithSecret('paid');
+    const res = await post('/session/ping', { session_id: sessionId }, { 'X-Session-Secret': 'bad' });
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 200 with correct secret', async () => {
+    const { sessionId, secret } = await seedSessionWithSecret('paid');
+    const res = await post('/session/ping', { session_id: sessionId }, { 'X-Session-Secret': secret });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+  });
+
+  it('returns 200 for legacy sessions without stored hash (backward compat)', async () => {
+    const sessionId = await seedSession('paid', 'single');
+    const res = await post('/session/ping', { session_id: sessionId });
+    expect(res.status).toBe(200);
+  });
+});

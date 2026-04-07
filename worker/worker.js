@@ -44,7 +44,7 @@ function getCorsHeaders(request, env) {
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Session-Secret',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',
   };
@@ -436,6 +436,30 @@ NEVER:
 async function sha256Hex(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
+}
+
+/** Compute full 64-char hex SHA-256 (used for session secret binding). */
+async function sha256Full(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Verify the X-Session-Secret header against the stored hash.
+ * - If the session has no stored hash (legacy session), returns true (backward compat).
+ * - If the session has a hash but no secret is provided, returns false.
+ * - Uses constant-time comparison to prevent timing attacks.
+ */
+async function verifySessionSecret(session, providedSecret) {
+  if (!session.session_secret_hash) return true; // legacy session — no hash stored
+  if (!providedSecret) return false;
+  const hash = await sha256Full(providedSecret);
+  if (hash.length !== session.session_secret_hash.length) return false;
+  let diff = 0;
+  for (let i = 0; i < hash.length; i++) {
+    diff |= hash.charCodeAt(i) ^ session.session_secret_hash.charCodeAt(i);
+  }
+  return diff === 0;
 }
 
 async function analyzeCV(cvText, jobDesc, env) {
@@ -869,7 +893,7 @@ async function handleCreatePayment(request, env) {
     return jsonResponse({ message: 'Request body tidak valid' }, 400, request, env);
   }
 
-  const { tier, cv_text_key, email: rawEmail } = body;
+  const { tier, cv_text_key, email: rawEmail, session_secret: rawSecret } = body;
 
   // Optional email — basic validation, silently ignore if malformed
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -899,6 +923,11 @@ async function handleCreatePayment(request, env) {
 
   const credits = TIER_CREDITS[tier] ?? 1;
 
+  // Compute secret hash — only store it if the client provided a secret
+  const secretHash = (rawSecret && typeof rawSecret === 'string' && rawSecret.length <= 256)
+    ? await sha256Full(rawSecret)
+    : null;
+
   // Sandbox: skip Mayar entirely — session goes straight to pending, frontend uses /sandbox/pay
   if (env.ENVIRONMENT !== 'production') {
     await env.GASLAMAR_SESSIONS.delete(cv_text_key);
@@ -912,6 +941,7 @@ async function handleCreatePayment(request, env) {
       total_credits: credits,
       ip,
       ...(sessionEmail ? { email: sessionEmail } : {}),
+      ...(secretHash ? { session_secret_hash: secretHash } : {}),
     };
 
     // Write with read-back verification — KV is eventually consistent across
@@ -950,6 +980,7 @@ async function handleCreatePayment(request, env) {
       total_credits: credits,
       ip,
       ...(sessionEmail ? { email: sessionEmail } : {}),
+      ...(secretHash ? { session_secret_hash: secretHash } : {}),
     });
 
     return jsonResponse({ session_id: sessionId, invoice_url }, 200, request, env);
@@ -1164,6 +1195,12 @@ async function handleSessionPing(request, env) {
     return jsonResponse({ ok: false, expired: true }, 404, request, env);
   }
 
+  // Verify session secret (new sessions require it; legacy sessions without hash skip this check)
+  const providedSecret = request.headers.get('X-Session-Secret');
+  if (!await verifySessionSecret(session, providedSecret)) {
+    return jsonResponse({ ok: false, expired: false, message: 'Akses ditolak: token sesi tidak valid' }, 403, request, env);
+  }
+
   // Re-write to refresh KV TTL while user is still active on the page
   await updateSession(env, session_id, { last_active: Date.now() });
 
@@ -1211,6 +1248,12 @@ async function handleGetSession(request, env) {
 
   if (!session) {
     return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa' }, 404, request, env);
+  }
+
+  // Verify session secret (new sessions require it; legacy sessions without hash skip this check)
+  const providedSecret = request.headers.get('X-Session-Secret');
+  if (!await verifySessionSecret(session, providedSecret)) {
+    return jsonResponse({ message: 'Akses ditolak: token sesi tidak valid' }, 403, request, env);
   }
 
   // Allow 'paid' (first time) or 'generating' (retry after failed /generate)
@@ -1266,6 +1309,13 @@ async function handleGenerate(request, env, ctx) {
   if (!session) {
     return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa' }, 404, request, env);
   }
+
+  // Verify session secret (new sessions require it; legacy sessions without hash skip this check)
+  const providedSecret = request.headers.get('X-Session-Secret');
+  if (!await verifySessionSecret(session, providedSecret)) {
+    return jsonResponse({ message: 'Akses ditolak: token sesi tidak valid' }, 403, request, env);
+  }
+
   if (session.status !== 'generating') {
     return jsonResponse({ message: 'Sesi tidak valid atau pembayaran belum dikonfirmasi' }, 403, request, env);
   }

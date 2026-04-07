@@ -171,6 +171,12 @@ async function proceedToPayment() {
   btn.disabled = true;
   btn.textContent = 'Membuat invoice...';
 
+  // Generate a cryptographically random secret — stored client-side and used
+  // to bind subsequent requests (get-session, generate) to this browser session.
+  // The worker stores only SHA-256(secret), so possession of the session ID
+  // alone is insufficient to access CV data.
+  const sessionSecret = crypto.randomUUID();
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 25000);
 
@@ -181,6 +187,7 @@ async function proceedToPayment() {
       body: JSON.stringify({
         tier: selectedTier,
         cv_text_key: cvTextKey,
+        session_secret: sessionSecret,
         ...(capturedEmail ? { email: capturedEmail } : {}),
       }),
       signal: controller.signal
@@ -209,6 +216,8 @@ async function proceedToPayment() {
     // Save session to localStorage (backup if user closes tab)
     localStorage.setItem('gaslamar_session', session_id);
     localStorage.setItem('gaslamar_tier', selectedTier);
+    // Bind secret to this session ID — used by download.js to authorize requests
+    localStorage.setItem('gaslamar_secret_' + session_id, sessionSecret);
 
     // Save to sessionStorage too
     sessionStorage.setItem('gaslamar_session', session_id);
