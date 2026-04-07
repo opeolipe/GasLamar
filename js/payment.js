@@ -22,8 +22,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (emailInput) {
     emailInput.addEventListener('input', () => {
       const errEl = document.getElementById('email-error');
-      if (errEl) errEl.style.display = 'none';
-      emailInput.style.borderColor = '';
+      if (errEl) errEl.classList.add('hidden');
+      emailInput.classList.remove('input-error');
       updatePayHint();
     });
   }
@@ -67,12 +67,12 @@ function updatePayHint() {
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   if (!selectedTier) {
     hint.textContent = 'Pilih paket di atas untuk melanjutkan';
-    hint.style.display = 'block';
+    hint.classList.remove('hidden');
   } else if (!emailValid) {
     hint.textContent = 'Masukkan email yang valid untuk melanjutkan';
-    hint.style.display = 'block';
+    hint.classList.remove('hidden');
   } else {
-    hint.style.display = 'none';
+    hint.classList.add('hidden');
   }
 }
 
@@ -86,10 +86,9 @@ function updateEmailSection(tier) {
   // All tiers now show the prominent amber email section
   const slot = document.getElementById('email-multi-slot');
   if (slot && !slot.contains(input)) slot.appendChild(input);
-  card.style.borderColor = '#F59E0B';
-  card.style.background = '#FFFBEB';
-  defaultView.style.display = 'none';
-  multiView.style.display = 'block';
+  card.classList.add('email-card-active');
+  defaultView.classList.add('hidden');
+  multiView.classList.remove('hidden');
 
   const titleEl = document.getElementById('email-multi-title');
   const bodyEl = document.getElementById('email-multi-body');
@@ -111,11 +110,11 @@ function updateEmailSection(tier) {
   }
 
   input.placeholder = 'contoh@email.com';
-  input.style.cssText = 'width:100%;padding:0.75rem 1rem;border:1.5px solid #D97706;border-radius:10px;font-size:0.95rem;box-sizing:border-box;';
+  input.classList.add('email-input-active');
 
   // Clear any previous error
   const errEl = document.getElementById('email-error');
-  if (errEl) errEl.style.display = 'none';
+  if (errEl) errEl.classList.add('hidden');
 }
 
 async function proceedToPayment() {
@@ -136,16 +135,16 @@ async function proceedToPayment() {
 
   if (!emailValid) {
     const errEl = document.getElementById('email-error');
-    if (errEl) errEl.style.display = 'block';
+    if (errEl) errEl.classList.remove('hidden');
     if (emailInput) {
-      emailInput.style.borderColor = '#DC2626';
+      emailInput.classList.add('input-error');
       emailInput.focus();
     }
     return;
   }
   const errEl = document.getElementById('email-error');
-  if (errEl) errEl.style.display = 'none';
-  if (emailInput) emailInput.style.borderColor = '';
+  if (errEl) errEl.classList.add('hidden');
+  if (emailInput) emailInput.classList.remove('input-error');
 
   // Store email in sessionStorage for use on download page
   if (capturedEmail && emailValid) {
