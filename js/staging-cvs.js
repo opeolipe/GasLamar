@@ -430,8 +430,8 @@ Microsoft Office, JIRA, Confluence, Trello, Figma (basic), Google Analytics (bas
     // Green flash on the card
     const card = document.getElementById(`stg-card-${cvId}`);
     if (card) {
-      card.style.outline = '2px solid #10B981';
-      setTimeout(() => { card.style.outline = ''; }, 1200);
+      card.classList.add('stg-card-active');
+      setTimeout(() => { card.classList.remove('stg-card-active'); }, 1200);
     }
 
     // Scroll to JD
@@ -444,47 +444,81 @@ Microsoft Office, JIRA, Confluence, Trello, Figma (basic), Google Analytics (bas
     const container = document.querySelector('.container');
     if (!container) return;
 
+    // Inject scoped styles once
+    const style = document.createElement('style');
+    style.textContent = `
+      #staging-panel {
+        max-width: 880px; margin: 0 auto 1rem; border-radius: 20px;
+        background: #FFF7ED; border: 1.5px solid #FB923C; overflow: hidden;
+        font-family: 'Inter', sans-serif;
+      }
+      #stg-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0.75rem 1.25rem; cursor: pointer; user-select: none;
+      }
+      .stg-header-left { display: flex; align-items: center; gap: 0.5rem; }
+      .stg-badge {
+        background: #EA580C; color: white; font-size: 0.7rem; font-weight: 700;
+        padding: 0.15rem 0.5rem; border-radius: 6px;
+      }
+      .stg-title { font-size: 0.9rem; font-weight: 600; color: #9A3412; }
+      #stg-caret { font-size: 0.8rem; color: #EA580C; }
+      #stg-body { display: none; padding: 0 1.25rem 1.25rem; }
+      .stg-hint { font-size: 0.75rem; color: #92400E; margin: 0 0 0.9rem; }
+      .stg-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.6rem;
+      }
+      .stg-card {
+        background: white; border: 1px solid #FED7AA; border-radius: 12px;
+        padding: 0.7rem 0.9rem; transition: outline 0.15s;
+      }
+      .stg-card-top { display: flex; align-items: flex-start; gap: 0.5rem; }
+      .stg-emoji { font-size: 1.2rem; line-height: 1.2; }
+      .stg-content { flex: 1; min-width: 0; }
+      .stg-label { font-size: 0.82rem; font-weight: 700; color: #111827; }
+      .stg-desc {
+        font-size: 0.72rem; color: #6B7280; margin-top: 0.1rem;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .stg-btn-row { display: flex; gap: 0.4rem; margin-top: 0.55rem; }
+      .stg-btn {
+        flex: 1; background: #FFF7ED; border: 1px solid #FB923C; color: #9A3412;
+        border-radius: 8px; padding: 0.3rem 0; font-size: 0.75rem; font-weight: 600;
+        cursor: pointer; font-family: inherit;
+      }
+      .stg-card-active { outline: 2px solid #10B981; }
+    `;
+    document.head.appendChild(style);
+
     const panel = document.createElement('div');
     panel.id = 'staging-panel';
-    panel.style.cssText = [
-      'max-width:880px', 'margin:0 auto 1rem', 'border-radius:20px',
-      'background:#FFF7ED', 'border:1.5px solid #FB923C', 'overflow:hidden',
-      "font-family:'Inter',sans-serif",
-    ].join(';');
 
     panel.innerHTML = `
-      <div id="stg-header"
-        style="display:flex;align-items:center;justify-content:space-between;padding:0.75rem 1.25rem;cursor:pointer;user-select:none;">
-        <div style="display:flex;align-items:center;gap:0.5rem;">
-          <span style="background:#EA580C;color:white;font-size:0.7rem;font-weight:700;padding:0.15rem 0.5rem;border-radius:6px;">STAGING</span>
-          <span style="font-size:0.9rem;font-weight:600;color:#9A3412;">🧪 Test CVs — 8 edge case templates</span>
+      <div id="stg-header">
+        <div class="stg-header-left">
+          <span class="stg-badge">STAGING</span>
+          <span class="stg-title">🧪 Test CVs — 8 edge case templates</span>
         </div>
-        <span id="stg-caret" style="font-size:0.8rem;color:#EA580C;">▼ expand</span>
+        <span id="stg-caret">▼ expand</span>
       </div>
-      <div id="stg-body" style="display:none;padding:0 1.25rem 1.25rem;">
-        <p style="font-size:0.75rem;color:#92400E;margin:0 0 0.9rem;">
+      <div id="stg-body">
+        <p class="stg-hint">
           Click <strong>Load ID</strong> or <strong>Load EN</strong> to auto-fill CV + JD.<br>
           CV1 is intentionally &lt;100 chars — triggers server-side scan rejection.
         </p>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0.6rem;">
+        <div class="stg-grid">
           ${CV_META.map(m => `
-            <div id="stg-card-${m.id}" style="background:white;border:1px solid #FED7AA;border-radius:12px;padding:0.7rem 0.9rem;transition:outline 0.15s;">
-              <div style="display:flex;align-items:flex-start;gap:0.5rem;">
-                <span style="font-size:1.2rem;line-height:1.2;">${m.emoji}</span>
-                <div style="flex:1;min-width:0;">
-                  <div style="font-size:0.82rem;font-weight:700;color:#111827;">CV${m.id} — ${m.label}</div>
-                  <div style="font-size:0.72rem;color:#6B7280;margin-top:0.1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${m.desc}">${m.desc}</div>
+            <div id="stg-card-${m.id}" class="stg-card">
+              <div class="stg-card-top">
+                <span class="stg-emoji">${m.emoji}</span>
+                <div class="stg-content">
+                  <div class="stg-label">CV${m.id} — ${m.label}</div>
+                  <div class="stg-desc" title="${m.desc}">${m.desc}</div>
                 </div>
               </div>
-              <div style="display:flex;gap:0.4rem;margin-top:0.55rem;">
-                <button onclick="loadTestCV(${m.id},'id')"
-                  style="flex:1;background:#FFF7ED;border:1px solid #FB923C;color:#9A3412;border-radius:8px;padding:0.3rem 0;font-size:0.75rem;font-weight:600;cursor:pointer;font-family:inherit;">
-                  Load ID
-                </button>
-                <button onclick="loadTestCV(${m.id},'en')"
-                  style="flex:1;background:#FFF7ED;border:1px solid #FB923C;color:#9A3412;border-radius:8px;padding:0.3rem 0;font-size:0.75rem;font-weight:600;cursor:pointer;font-family:inherit;">
-                  Load EN
-                </button>
+              <div class="stg-btn-row">
+                <button class="stg-btn" data-cv="${m.id}" data-lang="id">Load ID</button>
+                <button class="stg-btn" data-cv="${m.id}" data-lang="en">Load EN</button>
               </div>
             </div>
           `).join('')}
@@ -497,6 +531,12 @@ Microsoft Office, JIRA, Confluence, Trello, Figma (basic), Google Analytics (bas
       const open = body.style.display === 'none';
       body.style.display = open ? 'block' : 'none';
       caret.textContent = open ? '▲ collapse' : '▼ expand';
+    });
+
+    // Single delegated listener — replaces per-button onclick handlers
+    panel.addEventListener('click', (e) => {
+      const btn = e.target.closest('.stg-btn[data-cv]');
+      if (btn) loadTestCV(Number(btn.dataset.cv), btn.dataset.lang);
     });
 
     container.insertBefore(panel, container.firstChild);
