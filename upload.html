@@ -426,6 +426,14 @@
       margin-bottom: 1rem;
     }
 
+    /* Submit hint — shown when button is disabled due to no file */
+    .submit-hint {
+      text-align: center;
+      font-size: 0.78rem;
+      color: #9CA3AF;
+      margin-top: 0.4rem;
+    }
+
     /* Back link */
     .back-link {
       display: inline-block;
@@ -552,9 +560,10 @@
       </div>
 
       <!-- Submit -->
-      <button type="submit" id="submit-btn" class="btn-primary" aria-label="Mulai analisis CV kamu">
+      <button type="submit" id="submit-btn" class="btn-primary" disabled aria-label="Mulai analisis CV kamu">
         👉 Analisis CV Saya
       </button>
+      <p id="submit-hint" class="submit-hint">📄 Upload CV kamu dulu sebelum analisis</p>
 
       <!-- Loading state (shown briefly before redirect to analyzing.html) -->
       <div id="loading-state" class="hidden">
