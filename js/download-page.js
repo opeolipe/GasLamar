@@ -73,39 +73,6 @@ new MutationObserver(() => {
   updateGenSteps(pct);
 }).observe(document.getElementById('progress-bar'), { attributes: true, attributeFilter: ['style'] });
 
-// ── Sandbox detection ──
-(function checkSandbox() {
-  fetch(WORKER_URL + '/sandbox/status')
-    .then(r => { if (r.ok) document.getElementById('sandbox-pay-btn').classList.remove('hidden'); })
-    .catch(() => {});
-})();
-
-async function sandboxConfirmPayment() {
-  const btn = document.getElementById('sandbox-pay-btn');
-  const params = new URLSearchParams(location.search);
-  const sessionId = params.get('session') || localStorage.getItem('gaslamar_session');
-  if (!sessionId) return;
-  btn.disabled = true;
-  btn.textContent = 'Mengkonfirmasi...';
-  try {
-    const res = await fetch(WORKER_URL + '/sandbox/pay', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id: sessionId })
-    });
-    if (res.ok) {
-      btn.textContent = '✓ Dikonfirmasi — memuat CV...';
-      restartPolling();
-    } else {
-      btn.textContent = '🧪 Simulasi Pembayaran (Sandbox)';
-      btn.disabled = false;
-    }
-  } catch {
-    btn.textContent = '🧪 Simulasi Pembayaran (Sandbox)';
-    btn.disabled = false;
-  }
-}
-
 // ── Multi-credit: URL fetch for next job ──
 document.getElementById('new-fetch-url-btn').addEventListener('click', () => {
   const row = document.getElementById('new-url-fetch-row');
@@ -202,7 +169,6 @@ function submitInterviewFeedback(answer) {
 
 // ── Event bindings for inline handlers removed from HTML ──
 document.getElementById('check-btn').addEventListener('click', restartPolling);
-document.getElementById('sandbox-pay-btn').addEventListener('click', sandboxConfirmPayment);
 document.getElementById('error-retry-btn').addEventListener('click', retryGeneration);
 
 // "Batalkan" link — confirm before navigating back
