@@ -271,7 +271,7 @@ async function callClaude(env, systemPrompt, userContent, maxTokens = 2000) {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: env.ENVIRONMENT === 'production' ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001',
         max_tokens: maxTokens,
         temperature: 0,
         system: systemPrompt,
