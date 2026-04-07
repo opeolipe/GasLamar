@@ -172,23 +172,120 @@
       transition: background .2s;
     }
     .btn-sandbox:hover { background: #FCD34D; }
+
+    /* ── Skip link ── */
+    .skip-to-main {
+      position: absolute; left: -9999px; top: 0; z-index: 9999;
+      background: #0F172A; color: white; padding: .5rem 1rem;
+      font-size: .85rem; font-weight: 600; text-decoration: none; border-radius: 0 0 8px 0;
+    }
+    .skip-to-main:focus { left: 0; }
+
+    /* ── State containers ── */
+    .state-sm { max-width: 480px; margin: 4rem auto; }
+    .state-md { max-width: 720px; margin: 0 auto; }
+    .state-lg { max-width: 980px; margin: 0 auto; }
+    .card-center  { text-align: center; }
+    .card-compact { padding-bottom: 1rem; }
+
+    /* ── Common state text ── */
+    .state-title       { font-size: 1.3rem; font-weight: 700; margin-bottom: .5rem; }
+    .state-subtitle    { color: #6B7280; font-size: .9rem; margin-bottom: .25rem; }
+    .state-subtitle-err { color: #6B7280; font-size: .9rem; margin-bottom: 1.5rem; }
+    .state-meta        { font-size: .75rem; color: #9CA3AF; }
+    .state-actions     { margin-top: 1.5rem; display: flex; flex-direction: column; gap: .75rem; }
+    .btn-full          { width: 100%; }
+    .contact-link      { text-align: center; font-size: .85rem; color: #9CA3AF; text-decoration: none; }
+
+    /* ── Error icon box ── */
+    .error-icon-box {
+      width: 64px; height: 64px; background: #FEF2F2; border-radius: 20px;
+      display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;
+    }
+
+    /* ── Generating state ── */
+    .gen-center { text-align: center; margin: 1rem 0 1.5rem; }
+    .gen-title  { margin-top: .75rem; font-weight: 700; }
+    .gen-sub    { color: #5B6E8C; font-size: .85rem; margin-top: .25rem; }
+    .progress-bar-fill { background: #2563EB; width: 0%; height: 100%; border-radius: 100px; transition: width .3s ease; }
+
+    /* ── Download ready ── */
+    .download-header   { text-align: center; margin-bottom: 2rem; }
+    .download-title    { font-size: 1.8rem; font-weight: 700; color: #1E3A8A; margin: .5rem 0 .25rem; }
+    .download-subtitle { color: #5B6E8C; }
+
+    /* ── Interview feedback ── */
+    .feedback-card    { text-align: center; padding: 1.5rem; margin-top: 1rem; }
+    .feedback-title   { font-weight: 700; margin-bottom: .75rem; }
+    .feedback-sub     { font-size: .82rem; color: #6B7280; margin-bottom: 1rem; }
+    .feedback-buttons { display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap; }
+    .btn-feedback       { border: none; border-radius: 60px; padding: .6rem 1.2rem; font-weight: 700; cursor: pointer; font-family: inherit; color: white; }
+    .btn-feedback-yes   { background: #059669; }
+    .btn-feedback-maybe { background: #D97706; }
+    .btn-feedback-no    { background: #6B7280; }
+    .feedback-thanks  { font-size: .85rem; color: #059669; margin-top: .75rem; font-weight: 600; }
+
+    /* ── Mobile fallback ── */
+    .mobile-fallback-box { background: #FEFCE8; border: 1px solid #FDE68A; border-radius: 20px; padding: 1.2rem; margin-bottom: 1.5rem; }
+    .fallback-title      { font-size: .85rem; font-weight: 600; color: #92400E; margin-bottom: .75rem; }
+    .fallback-grid       { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .fallback-lang-label { font-size: .75rem; font-weight: 600; color: #6B7280; margin-bottom: .25rem; }
+    .textarea-fallback   { width: 100%; font-size: .75rem; border: 1px solid #FDE68A; border-radius: 12px; padding: .5rem; resize: none; background: white; font-family: inherit; }
+    .btn-copy-text       { font-size: .75rem; color: #2563EB; font-weight: 600; background: none; border: none; cursor: pointer; margin-top: .25rem; font-family: inherit; }
+
+    /* ── Credits box content ── */
+    .credits-label { font-size: .8rem; }
+    .credits-total { font-size: .72rem; color: #6B7280; margin-top: .15rem; }
+    .credits-desc  { font-size: .8rem; margin-top: .5rem; color: #374151; }
+    .credits-note  { font-size: .72rem; color: #9CA3AF; margin-top: .25rem; }
+    .credits-note a { color: #2563EB; text-decoration: none; }
+
+    /* ── Next-JD section ── */
+    .next-jd-label { font-weight: 600; font-size: .95rem; display: block; margin-bottom: .75rem; }
+    .jd-btn-group  { display: flex; gap: .5rem; margin-bottom: .75rem; flex-wrap: wrap; }
+    .btn-helper    { background: white; border: 1.5px solid #E2E8F0; border-radius: 60px; padding: .45rem 1rem; font-size: .85rem; font-weight: 500; cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: .4rem; }
+    .url-fetch-row   { display: none; margin-bottom: .75rem; }
+    .url-fetch-inner { display: flex; gap: .5rem; align-items: center; }
+    .url-input       { flex: 1; padding: .6rem .8rem; border: 1.5px solid #BFDBFE; border-radius: 10px; font-size: .9rem; font-family: inherit; outline: none; transition: border-color .15s; }
+    .url-input:focus { border-color: #2563EB; }
+    .btn-url-submit  { background: #2563EB; color: white; border: none; border-radius: 10px; padding: .6rem 1rem; font-weight: 600; font-size: .85rem; cursor: pointer; white-space: nowrap; font-family: inherit; }
+    .btn-close-icon  { background: none; border: none; color: #9CA3AF; cursor: pointer; font-size: 1.1rem; padding: .4rem; }
+    .url-status      { font-size: .78rem; color: #6B7280; margin-top: .4rem; min-height: 1rem; }
+    .textarea-wrapper-rel { position: relative; }
+    .new-jd-input    { width: 100%; border: 1.5px solid #E2E8F0; border-radius: 16px; padding: 1rem; font-family: inherit; font-size: .9rem; resize: vertical; display: block; box-sizing: border-box; outline: none; transition: border-color .15s; }
+    .new-jd-input:focus { border-color: #2563EB; }
+    .char-counter    { text-align: right; font-size: .7rem; color: #6B7280; margin-top: .3rem; }
+    .char-warning-text { font-size: .75rem; color: #D97706; margin-top: .2rem; }
+    .btn-generate    { background: #2563EB; color: white; border: none; border-radius: 60px; padding: .85rem 1.5rem; font-weight: 700; width: 100%; cursor: pointer; font-family: inherit; font-size: 1rem; margin-top: 1rem; }
+    .trust-footer-mt { margin-top: 1.5rem; }
+
+    /* ── Upgrade nudge ── */
+    .upgrade-icon  { font-size: 1.8rem; margin-bottom: .5rem; }
+    .upgrade-title { font-weight: 700; margin-bottom: .5rem; }
+    .upgrade-sub   { font-size: .9rem; color: #6B7280; margin-bottom: 1.25rem; }
+    .btn-upload-new { display: inline-block; background: #0F172A; color: white; font-weight: 700; padding: .75rem 1.5rem; border-radius: 60px; text-decoration: none; font-size: .95rem; }
+    .upgrade-note  { font-size: .72rem; color: #9CA3AF; margin-top: .75rem; }
+
+    /* ── Bottom CTA ── */
+    .bottom-cta      { text-align: center; padding-bottom: 2rem; }
+    .bottom-cta-text { color: #6B7280; font-size: .9rem; margin-bottom: .75rem; }
   </style>
 </head>
 <body>
-<a href="#download-ready" id="skip-to-main" style="position:absolute;left:-9999px;top:0;z-index:9999;background:#0F172A;color:white;padding:.5rem 1rem;font-size:.85rem;font-weight:600;text-decoration:none;border-radius:0 0 8px 0;" onfocus="this.style.left='0'" onblur="this.style.left='-9999px'">Langsung ke download CV</a>
+<a href="#download-ready" id="skip-to-main" class="skip-to-main">Langsung ke download CV</a>
 
   <!-- 1. Waiting for payment state -->
-  <div id="waiting-payment" class="hidden" style="max-width:480px;margin:4rem auto;">
-    <div class="card" style="text-align:center;">
+  <div id="waiting-payment" class="hidden state-sm">
+    <div class="card card-center">
       <div class="spinner"></div>
-      <h2 style="font-size:1.3rem;font-weight:700;margin-bottom:.5rem;">Menunggu Konfirmasi Pembayaran</h2>
-      <p style="color:#6B7280;font-size:.9rem;margin-bottom:.25rem;">Biasanya 1–2 menit setelah pembayaran berhasil</p>
-      <p style="font-size:.75rem;color:#9CA3AF;" id="poll-count-text"></p>
-      <div style="margin-top:1.5rem;display:flex;flex-direction:column;gap:.75rem;">
-        <button onclick="restartPolling()" id="check-btn" class="hidden btn-primary" style="width:100%;" aria-label="Cek ulang status pembayaran ke server">
+      <h2 class="state-title">Menunggu Konfirmasi Pembayaran</h2>
+      <p class="state-subtitle">Biasanya 1–2 menit setelah pembayaran berhasil</p>
+      <p class="state-meta" id="poll-count-text"></p>
+      <div class="state-actions">
+        <button onclick="restartPolling()" id="check-btn" class="hidden btn-primary btn-full" aria-label="Cek ulang status pembayaran ke server">
           Cek Ulang Status Pembayaran
         </button>
-        <a href="mailto:support@gaslamar.com" id="contact-btn" class="hidden" style="text-align:center;font-size:.85rem;color:#9CA3AF;text-decoration:none;" title="Hubungi tim support GasLamar via email">
+        <a href="mailto:support@gaslamar.com" id="contact-btn" class="hidden contact-link" title="Hubungi tim support GasLamar via email">
           Sudah lebih dari 5 menit? Hubungi Kami
         </a>
         <button onclick="sandboxConfirmPayment()" id="sandbox-pay-btn" class="hidden btn-sandbox" aria-label="Simulasi konfirmasi pembayaran untuk lingkungan sandbox">
@@ -199,20 +296,20 @@
   </div>
 
   <!-- 2. Session expired / error state -->
-  <div id="session-error" class="hidden" style="max-width:480px;margin:4rem auto;">
-    <div class="card" style="text-align:center;">
-      <div style="width:64px;height:64px;background:#FEF2F2;border-radius:20px;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">
+  <div id="session-error" class="hidden state-sm">
+    <div class="card card-center">
+      <div class="error-icon-box">
         <svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M12 8v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#EF4444" stroke-width="2" stroke-linecap="round"/></svg>
       </div>
-      <h2 style="font-size:1.3rem;font-weight:700;margin-bottom:.5rem;" id="error-title">Sesi Kedaluwarsa</h2>
-      <p style="color:#6B7280;font-size:.9rem;margin-bottom:1.5rem;" id="session-error-msg">Sesi kamu sudah kedaluwarsa. Mulai ulang dari awal.</p>
+      <h2 class="state-title" id="error-title">Sesi Kedaluwarsa</h2>
+      <p class="state-subtitle-err" id="session-error-msg">Sesi kamu sudah kedaluwarsa. Mulai ulang dari awal.</p>
       <a href="upload.html" class="btn-primary" id="error-restart-btn" title="Mulai ulang dari halaman upload CV">Mulai Ulang</a>
-      <button class="btn-primary hidden" id="error-retry-btn" onclick="retryGeneration()" style="cursor:pointer;border:none;" aria-label="Coba lagi generate CV">Coba Lagi</button>
+      <button class="btn-primary hidden" id="error-retry-btn" onclick="retryGeneration()" aria-label="Coba lagi generate CV">Coba Lagi</button>
     </div>
   </div>
 
   <!-- 3. Generating CV state -->
-  <div id="generating-cv" class="hidden" style="max-width:720px;margin:0 auto;">
+  <div id="generating-cv" class="hidden state-md">
     <div class="card">
       <div class="progress-steps">
         <div class="step completed">1. Upload</div>
@@ -221,13 +318,13 @@
         <div class="step-line"></div>
       </div>
       <div class="file-badge">📄 <strong id="gen-filename">CV kamu</strong> · <span id="gen-tier">Single</span></div>
-      <div style="text-align:center;margin:1rem 0 1.5rem;">
+      <div class="gen-center">
         <div class="pulse-icon">✍️✨</div>
-        <h3 style="margin-top:.75rem;font-weight:700;">AI sedang menulis CV tailored untuk kamu...</h3>
-        <p style="color:#5B6E8C;font-size:.85rem;margin-top:.25rem;">Biasanya 15–25 detik · Jangan tutup halaman</p>
+        <h3 class="gen-title">AI sedang menulis CV tailored untuk kamu...</h3>
+        <p class="gen-sub">Biasanya 15–25 detik · Jangan tutup halaman</p>
       </div>
       <div class="progress-bar-wrap">
-        <div id="progress-bar" style="background:#2563EB;width:0%;height:100%;border-radius:100px;transition:width .3s ease;"></div>
+        <div id="progress-bar" class="progress-bar-fill"></div>
       </div>
       <div class="step-list">
         <div class="step-item"><span class="step-icon pending" id="gsi-1">○</span><span>📝 Menyesuaikan dengan job description &amp; CV asli</span></div>
@@ -241,15 +338,15 @@
         <a href="hasil.html" onclick="return confirm('Batalkan proses penulisan?')" title="Batalkan proses generate dan kembali ke halaman hasil analisis">← Batalkan &amp; kembali ke hasil analisis</a>
       </div>
       <!-- compatibility: download.js reads this for text updates -->
-      <span id="generating-text" style="display:none;"></span>
+      <span id="generating-text" class="hidden"></span>
     </div>
   </div>
 
   <!-- 4. Download ready state -->
-  <div id="download-ready" class="hidden" style="max-width:980px;margin:0 auto;">
+  <div id="download-ready" class="hidden state-lg">
 
     <!-- progress steps -->
-    <div class="card" style="padding-bottom:1rem;">
+    <div class="card card-compact">
       <div class="progress-steps compact">
         <div class="step completed">1. Upload</div>
         <div class="step completed">2. Hasil</div>
@@ -260,10 +357,10 @@
 
     <!-- main download card -->
     <div class="card">
-      <div style="text-align:center;margin-bottom:2rem;">
+      <div class="download-header">
         <div class="success-icon">🎉</div>
-        <h2 style="font-size:1.8rem;font-weight:700;color:#1E3A8A;margin:.5rem 0 .25rem;">CV Kamu Sudah Siap!</h2>
-        <p style="color:#5B6E8C;">Klik tombol di bawah untuk download file CV kamu</p>
+        <h2 class="download-title">CV Kamu Sudah Siap!</h2>
+        <p class="download-subtitle">Klik tombol di bawah untuk download file CV kamu</p>
       </div>
 
       <!-- download grid: ID always shown; EN shown for bilingual tiers via JS -->
@@ -304,31 +401,31 @@
       </div>
 
       <!-- Interview outcome feedback -->
-      <div id="interview-feedback" class="card" style="text-align:center;padding:1.5rem;margin-top:1rem;">
-        <p style="font-weight:700;margin-bottom:0.75rem;">📬 Dapat interview setelah pakai GasLamar?</p>
-        <p style="font-size:0.82rem;color:#6B7280;margin-bottom:1rem;">Bantu kami tingkatkan kualitas layanan dengan 1 klik.</p>
-        <div id="feedback-buttons" style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;">
-          <button onclick="submitInterviewFeedback('ya')"      style="background:#059669;color:white;border:none;border-radius:60px;padding:0.6rem 1.2rem;font-weight:700;cursor:pointer;font-family:inherit;" aria-label="Ya, saya dapat interview setelah pakai GasLamar">✅ Ya, dapat!</button>
-          <button onclick="submitInterviewFeedback('proses')"  style="background:#D97706;color:white;border:none;border-radius:60px;padding:0.6rem 1.2rem;font-weight:700;cursor:pointer;font-family:inherit;" aria-label="Masih dalam proses interview">⏳ Masih proses</button>
-          <button onclick="submitInterviewFeedback('tidak')"   style="background:#6B7280;color:white;border:none;border-radius:60px;padding:0.6rem 1.2rem;font-weight:700;cursor:pointer;font-family:inherit;" aria-label="Belum mendapat interview">❌ Belum</button>
+      <div id="interview-feedback" class="card feedback-card">
+        <p class="feedback-title">📬 Dapat interview setelah pakai GasLamar?</p>
+        <p class="feedback-sub">Bantu kami tingkatkan kualitas layanan dengan 1 klik.</p>
+        <div id="feedback-buttons" class="feedback-buttons">
+          <button onclick="submitInterviewFeedback('ya')"     class="btn-feedback btn-feedback-yes"   aria-label="Ya, saya dapat interview setelah pakai GasLamar">✅ Ya, dapat!</button>
+          <button onclick="submitInterviewFeedback('proses')" class="btn-feedback btn-feedback-maybe" aria-label="Masih dalam proses interview">⏳ Masih proses</button>
+          <button onclick="submitInterviewFeedback('tidak')"  class="btn-feedback btn-feedback-no"    aria-label="Belum mendapat interview">❌ Belum</button>
         </div>
-        <p id="feedback-thanks" class="hidden" style="font-size:0.85rem;color:#059669;margin-top:0.75rem;font-weight:600;">Terima kasih! Feedback kamu sangat berarti. 🙏</p>
+        <p id="feedback-thanks" class="hidden feedback-thanks">Terima kasih! Feedback kamu sangat berarti. 🙏</p>
       </div>
     </div>
 
     <!-- Mobile fallback — plain text (hidden, revealed on mobile or error) -->
-    <div id="mobile-fallback" class="hidden" style="background:#FEFCE8;border:1px solid #FDE68A;border-radius:20px;padding:1.2rem;margin-bottom:1.5rem;">
-      <p style="font-size:.85rem;font-weight:600;color:#92400E;margin-bottom:.75rem;">Tidak bisa download? Salin teks CV di bawah ini</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+    <div id="mobile-fallback" class="hidden mobile-fallback-box">
+      <p class="fallback-title">Tidak bisa download? Salin teks CV di bawah ini</p>
+      <div class="fallback-grid">
         <div>
-          <p style="font-size:.75rem;font-weight:600;color:#6B7280;margin-bottom:.25rem;">Bahasa Indonesia</p>
-          <textarea id="cv-text-id" readonly rows="8" style="width:100%;font-size:.75rem;border:1px solid #FDE68A;border-radius:12px;padding:.5rem;resize:none;background:white;font-family:inherit;" aria-label="Teks CV Bahasa Indonesia — bisa disalin manual"></textarea>
-          <button onclick="copyText('cv-text-id')" style="font-size:.75rem;color:#2563EB;font-weight:600;background:none;border:none;cursor:pointer;margin-top:.25rem;font-family:inherit;" aria-label="Salin teks CV Bahasa Indonesia ke clipboard">Salin</button>
+          <p class="fallback-lang-label">Bahasa Indonesia</p>
+          <textarea id="cv-text-id" readonly rows="8" class="textarea-fallback" aria-label="Teks CV Bahasa Indonesia — bisa disalin manual"></textarea>
+          <button onclick="copyText('cv-text-id')" class="btn-copy-text" aria-label="Salin teks CV Bahasa Indonesia ke clipboard">Salin</button>
         </div>
         <div id="en-fallback" class="hidden">
-          <p style="font-size:.75rem;font-weight:600;color:#6B7280;margin-bottom:.25rem;">English</p>
-          <textarea id="cv-text-en" readonly rows="8" style="width:100%;font-size:.75rem;border:1px solid #FDE68A;border-radius:12px;padding:.5rem;resize:none;background:white;font-family:inherit;" aria-label="CV text in English — can be copied manually"></textarea>
-          <button onclick="copyText('cv-text-en')" style="font-size:.75rem;color:#2563EB;font-weight:600;background:none;border:none;cursor:pointer;margin-top:.25rem;font-family:inherit;" aria-label="Copy English CV text to clipboard">Copy</button>
+          <p class="fallback-lang-label">English</p>
+          <textarea id="cv-text-en" readonly rows="8" class="textarea-fallback" aria-label="CV text in English — can be copied manually"></textarea>
+          <button onclick="copyText('cv-text-en')" class="btn-copy-text" aria-label="Copy English CV text to clipboard">Copy</button>
         </div>
       </div>
     </div>
@@ -336,79 +433,65 @@
     <!-- Multi-credit: generate for next job (3-Pack / JobHunt) -->
     <div id="multi-credit-section" class="hidden card">
       <div class="credits-box">
-        <span style="font-size:.8rem;">✨ Kamu masih punya</span>
+        <span class="credits-label">✨ Kamu masih punya</span>
         <div class="credits-number"><span id="credits-remaining-count">0</span> kredit tersisa</div>
-        <div style="font-size:.72rem;color:#6B7280;margin-top:.15rem;">dari <span id="credits-total-count">0</span> total kredit paket kamu</div>
-        <p style="font-size:.8rem;margin-top:.5rem;color:#374151;">CV dasarmu sudah tersimpan - tinggal masukkan job description loker berikutnya.</p>
-        <p style="font-size:.72rem;color:#9CA3AF;margin-top:.25rem;">Mau pakai CV yang berbeda? <a href="upload.html" style="color:#2563EB;text-decoration:none;" title="Upload CV baru (memerlukan paket baru)">Mulai upload baru</a> (memerlukan paket baru)</p>
+        <div class="credits-total">dari <span id="credits-total-count">0</span> total kredit paket kamu</div>
+        <p class="credits-desc">CV dasarmu sudah tersimpan - tinggal masukkan job description loker berikutnya.</p>
+        <p class="credits-note">Mau pakai CV yang berbeda? <a href="upload.html" title="Upload CV baru (memerlukan paket baru)">Mulai upload baru</a> (memerlukan paket baru)</p>
       </div>
       <div class="next-jd-box">
-        <label for="new-job-desc" style="font-weight:600;font-size:.95rem;display:block;margin-bottom:.75rem;">Job yang kamu targetkan selanjutnya</label>
+        <label for="new-job-desc" class="next-jd-label">Job yang kamu targetkan selanjutnya</label>
 
         <!-- Button group matching upload.html -->
-        <div style="display:flex;gap:.5rem;margin-bottom:.75rem;flex-wrap:wrap;">
-          <button type="button" id="new-fetch-url-btn" aria-label="Ambil job description dari URL loker seperti LinkedIn atau Glints"
-            style="background:white;border:1.5px solid #E2E8F0;border-radius:60px;padding:.45rem 1rem;font-size:.85rem;font-weight:500;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:.4rem;">
+        <div class="jd-btn-group">
+          <button type="button" id="new-fetch-url-btn" class="btn-helper" aria-label="Ambil job description dari URL loker seperti LinkedIn atau Glints">
             🔗 Ambil dari URL Loker
           </button>
-          <button type="button" id="new-example-btn" aria-label="Isi job description dengan contoh format yang ideal"
-            style="background:white;border:1.5px solid #E2E8F0;border-radius:60px;padding:.45rem 1rem;font-size:.85rem;font-weight:500;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:.4rem;">
+          <button type="button" id="new-example-btn" class="btn-helper" aria-label="Isi job description dengan contoh format yang ideal">
             📄 Gunakan contoh
           </button>
         </div>
 
         <!-- URL fetch row -->
-        <div id="new-url-fetch-row" style="display:none;margin-bottom:.75rem;">
-          <div style="display:flex;gap:.5rem;align-items:center;">
-            <input type="url" id="new-job-url-input" aria-label="URL halaman lowongan kerja (LinkedIn, Glints, JobStreet, dll)"
-              placeholder="https://www.linkedin.com/jobs/view/…"
-              style="flex:1;padding:.6rem .8rem;border:1.5px solid #BFDBFE;border-radius:10px;font-size:.9rem;font-family:inherit;outline:none;"
-              onfocus="this.style.borderColor='#2563EB'" onblur="this.style.borderColor='#BFDBFE'" />
-            <button type="button" id="new-fetch-submit-btn" onclick="fetchNewJobFromUrl()" aria-label="Ambil job description dari URL yang dimasukkan"
-              style="background:#2563EB;color:white;border:none;border-radius:10px;padding:.6rem 1rem;font-weight:600;font-size:.85rem;cursor:pointer;white-space:nowrap;font-family:inherit;">
-              Ambil
-            </button>
-            <button type="button" onclick="document.getElementById('new-url-fetch-row').style.display='none'" aria-label="Tutup form URL loker"
-              style="background:none;border:none;color:#9CA3AF;cursor:pointer;font-size:1.1rem;padding:.4rem;" title="Tutup">✕</button>
+        <div id="new-url-fetch-row" class="url-fetch-row">
+          <div class="url-fetch-inner">
+            <input type="url" id="new-job-url-input" class="url-input" aria-label="URL halaman lowongan kerja (LinkedIn, Glints, JobStreet, dll)"
+              placeholder="https://www.linkedin.com/jobs/view/…" />
+            <button type="button" id="new-fetch-submit-btn" class="btn-url-submit" onclick="fetchNewJobFromUrl()" aria-label="Ambil job description dari URL yang dimasukkan">Ambil</button>
+            <button type="button" class="btn-close-icon" onclick="document.getElementById('new-url-fetch-row').style.display='none'" aria-label="Tutup form URL loker" title="Tutup">✕</button>
           </div>
-          <p id="new-url-fetch-status" style="font-size:.78rem;color:#6B7280;margin-top:.4rem;min-height:1rem;"></p>
+          <p id="new-url-fetch-status" class="url-status"></p>
         </div>
 
         <!-- Textarea with char counter -->
-        <div style="position:relative;">
-          <textarea id="new-job-desc" rows="5" maxlength="5000"
+        <div class="textarea-wrapper-rel">
+          <textarea id="new-job-desc" rows="5" maxlength="5000" class="new-jd-input"
             placeholder="Paste bagian Requirements dan Responsibilities dari loker selanjutnya..."
-            oninput="updateNewCharCount()"
-            style="width:100%;border:1.5px solid #E2E8F0;border-radius:16px;padding:1rem;font-family:inherit;font-size:.9rem;resize:vertical;display:block;box-sizing:border-box;outline:none;"
-            onfocus="this.style.borderColor='#2563EB'" onblur="this.style.borderColor='#E2E8F0'"></textarea>
-          <div style="text-align:right;font-size:.7rem;color:#6B7280;margin-top:.3rem;">
-            <span id="new-char-count">0</span> / 5.000 karakter
-          </div>
+            oninput="updateNewCharCount()"></textarea>
+          <div class="char-counter"><span id="new-char-count">0</span> / 5.000 karakter</div>
         </div>
-        <div id="new-char-warning" style="display:none;font-size:.75rem;color:#D97706;margin-top:.2rem;">Mendekati batas karakter</div>
+        <div id="new-char-warning" class="char-warning-text hidden">Mendekati batas karakter</div>
 
-        <button id="new-job-btn" onclick="generateForNewJob()" aria-label="Generate CV yang disesuaikan untuk loker berikutnya"
-          style="background:#2563EB;color:white;border:none;border-radius:60px;padding:.85rem 1.5rem;font-weight:700;width:100%;cursor:pointer;font-family:inherit;font-size:1rem;margin-top:1rem;">
+        <button id="new-job-btn" class="btn-generate" onclick="generateForNewJob()" aria-label="Generate CV yang disesuaikan untuk loker berikutnya">
           🚀 Generate CV untuk Loker Ini
         </button>
       </div>
-      <div class="trust-footer" style="margin-top:1.5rem;">🔒 CV aslimu tersimpan aman · Link berlaku 30 hari · Generate kapan saja tanpa login</div>
+      <div class="trust-footer trust-footer-mt">🔒 CV aslimu tersimpan aman · Link berlaku 30 hari · Generate kapan saja tanpa login</div>
     </div>
 
     <!-- 0-credits upgrade nudge (shown after last credit is used) -->
-    <div id="upgrade-nudge" class="hidden card" style="text-align:center;padding:1.5rem;">
-      <div style="font-size:1.8rem;margin-bottom:.5rem;">🎉</div>
-      <h3 style="font-weight:700;margin-bottom:.5rem;">Semua kredit sudah terpakai!</h3>
-      <p style="font-size:.9rem;color:#6B7280;margin-bottom:1.25rem;">Masih ada loker lain yang ingin kamu lamar? Beli paket baru untuk CV yang disesuaikan.</p>
-      <a href="upload.html" style="display:inline-block;background:#0F172A;color:white;font-weight:700;padding:.75rem 1.5rem;border-radius:60px;text-decoration:none;font-size:.95rem;" title="Upload CV baru untuk loker lain (memerlukan paket baru)">Upload CV untuk Loker Baru</a>
-      <p style="font-size:.72rem;color:#9CA3AF;margin-top:.75rem;">Bisa pakai CV yang sama atau upload CV yang sudah diperbarui</p>
+    <div id="upgrade-nudge" class="hidden card card-center">
+      <div class="upgrade-icon">🎉</div>
+      <h3 class="upgrade-title">Semua kredit sudah terpakai!</h3>
+      <p class="upgrade-sub">Masih ada loker lain yang ingin kamu lamar? Beli paket baru untuk CV yang disesuaikan.</p>
+      <a href="upload.html" class="btn-upload-new" title="Upload CV baru untuk loker lain (memerlukan paket baru)">Upload CV untuk Loker Baru</a>
+      <p class="upgrade-note">Bisa pakai CV yang sama atau upload CV yang sudah diperbarui</p>
     </div>
 
     <!-- CTA: scroll to multi-credit if credits remain, else go to upload -->
-    <div style="text-align:center;padding-bottom:2rem;" id="bottom-cta">
-      <p style="color:#6B7280;font-size:.9rem;margin-bottom:.75rem;">Melamar ke tempat lain juga?</p>
-      <button onclick="handleTailoringCta()" aria-label="Tailoring CV untuk melamar ke loker lain"
-        style="background:#2563EB;color:white;font-weight:700;padding:.8rem 2rem;border-radius:60px;text-decoration:none;border:none;cursor:pointer;font-family:inherit;font-size:1rem;">
+    <div class="bottom-cta" id="bottom-cta">
+      <p class="bottom-cta-text">Melamar ke tempat lain juga?</p>
+      <button onclick="handleTailoringCta()" class="btn-generate" aria-label="Tailoring CV untuk melamar ke loker lain">
         🔄 Tailoring CV untuk Loker Lain →
       </button>
     </div>
@@ -418,201 +501,7 @@
   <script src="js/config.js"></script>
   <script src="js/analytics.js"></script>
   <script src="js/download.js"></script>
-  <script>
-    // ── Generating animation ──
-    const GEN_TRUST_MSGS = [
-      '🔒 CV tidak disimpan — data aman',
-      '🎯 Setiap bullet disesuaikan dengan lowonganmu',
-      '📧 Link download akan dikirim ke email kamu',
-    ];
-    let _genTrustIdx = 0, _genTrustTimer = null, _genTimerTimer = null, _genStartTime = null;
+  <script src="js/download-page.js"></script>
 
-    function startGeneratingAnimation() {
-      const filename = sessionStorage.getItem('gaslamar_filename') || 'CV kamu';
-      const tier = sessionStorage.getItem('gaslamar_tier') || 'single';
-      const tierLabel = { coba:'Coba Dulu', single:'Single', '3pack':'3-Pack', jobhunt:'Job Hunt Pack' }[tier] || tier;
-      document.getElementById('gen-filename').textContent = filename;
-      document.getElementById('gen-tier').textContent = 'Paket: ' + tierLabel;
-
-      _genStartTime = Date.now();
-      _genTrustTimer = setInterval(() => {
-        _genTrustIdx = (_genTrustIdx + 1) % GEN_TRUST_MSGS.length;
-        const el = document.getElementById('gen-trust');
-        el.style.opacity = '0';
-        setTimeout(() => { el.textContent = GEN_TRUST_MSGS[_genTrustIdx]; el.style.opacity = '1'; }, 150);
-      }, 5000);
-      const EST = 22;
-      _genTimerTimer = setInterval(() => {
-        const elapsed = (Date.now() - _genStartTime) / 1000;
-        const rem = Math.max(0, Math.ceil(EST - elapsed));
-        const el = document.getElementById('gen-timer');
-        if (rem <= 0) { el.textContent = '✅ CV siap! Memuat file...'; clearInterval(_genTimerTimer); }
-        else el.textContent = `⏱️ Estimasi sisa: ~${rem} detik`;
-      }, 1000);
-    }
-
-    function stopGeneratingAnimation() {
-      clearInterval(_genTrustTimer);
-      clearInterval(_genTimerTimer);
-    }
-
-    // Map progress % → step icons
-    function updateGenSteps(pct) {
-      const thresholds = [10, 40, 70, 90];
-      for (let i = 1; i <= 4; i++) {
-        const el = document.getElementById('gsi-' + i);
-        if (!el) continue;
-        if (pct >= thresholds[i-1] + 20) {
-          el.textContent = '✓'; el.className = 'step-icon done';
-        } else if (pct >= thresholds[i-1]) {
-          el.textContent = '⟳'; el.className = 'step-icon spin';
-        } else {
-          el.textContent = '○'; el.className = 'step-icon pending';
-        }
-      }
-    }
-
-    // Use MutationObserver to hook into download.js state changes without patching functions
-    // (function patching causes hoisting bugs — MutationObserver is safe)
-
-    // Watch generating-cv visibility → start/stop animation
-    new MutationObserver(() => {
-      const el = document.getElementById('generating-cv');
-      if (!el.classList.contains('hidden')) startGeneratingAnimation();
-      else stopGeneratingAnimation();
-    }).observe(document.getElementById('generating-cv'), { attributes: true, attributeFilter: ['class'] });
-
-    // Watch progress-bar width → update step icons
-    new MutationObserver(() => {
-      const pct = parseFloat(document.getElementById('progress-bar').style.width) || 0;
-      updateGenSteps(pct);
-    }).observe(document.getElementById('progress-bar'), { attributes: true, attributeFilter: ['style'] });
-
-    // ── Sandbox detection ──
-    (function checkSandbox() {
-      fetch(WORKER_URL + '/sandbox/status')
-        .then(r => { if (r.ok) document.getElementById('sandbox-pay-btn').classList.remove('hidden'); })
-        .catch(() => {});
-    })();
-
-    async function sandboxConfirmPayment() {
-      const btn = document.getElementById('sandbox-pay-btn');
-      const params = new URLSearchParams(location.search);
-      const sessionId = params.get('session') || localStorage.getItem('gaslamar_session');
-      if (!sessionId) return;
-      btn.disabled = true;
-      btn.textContent = 'Mengkonfirmasi...';
-      try {
-        const res = await fetch(WORKER_URL + '/sandbox/pay', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ session_id: sessionId })
-        });
-        if (res.ok) {
-          btn.textContent = '✓ Dikonfirmasi — memuat CV...';
-          restartPolling();
-        } else {
-          btn.textContent = '🧪 Simulasi Pembayaran (Sandbox)';
-          btn.disabled = false;
-        }
-      } catch {
-        btn.textContent = '🧪 Simulasi Pembayaran (Sandbox)';
-        btn.disabled = false;
-      }
-    }
-
-    // ── Multi-credit: URL fetch for next job ──
-    document.getElementById('new-fetch-url-btn').addEventListener('click', () => {
-      const row = document.getElementById('new-url-fetch-row');
-      row.style.display = 'block';
-      document.getElementById('new-job-url-input').focus();
-    });
-
-    document.getElementById('new-job-url-input').addEventListener('keydown', e => {
-      if (e.key === 'Enter') fetchNewJobFromUrl();
-    });
-
-    document.getElementById('new-example-btn').addEventListener('click', () => {
-      document.getElementById('new-job-desc').value = `Posisi: Software Engineer
-
-Requirements:
-- S1 Teknik Informatika atau terkait
-- 2+ tahun pengalaman sebagai Software Engineer
-- Menguasai JavaScript / TypeScript dan salah satu framework (React, Vue, Node.js)
-- Pengalaman dengan REST API dan version control (Git)
-- Kemampuan problem-solving yang baik dan senang belajar hal baru`;
-      updateNewCharCount();
-    });
-
-    async function fetchNewJobFromUrl() {
-      const urlInput = document.getElementById('new-job-url-input');
-      const statusEl = document.getElementById('new-url-fetch-status');
-      const submitBtn = document.getElementById('new-fetch-submit-btn');
-      const url = urlInput.value.trim();
-      if (!url) { urlInput.focus(); return; }
-
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Mengambil...';
-      statusEl.style.color = '#6B7280';
-      statusEl.textContent = '⏳ Mengambil job description...';
-
-      try {
-        const res = await fetch(`${WORKER_URL}/fetch-job-url`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          statusEl.style.color = '#DC2626';
-          statusEl.textContent = '⚠️ ' + (data.message || 'Gagal mengambil. Coba copy-paste manual.');
-        } else {
-          document.getElementById('new-job-desc').value = data.job_desc;
-          updateNewCharCount();
-          statusEl.style.color = '#059669';
-          statusEl.textContent = '✅ Job description berhasil diambil. Periksa dan edit seperlunya.';
-        }
-      } catch {
-        statusEl.style.color = '#DC2626';
-        statusEl.textContent = '⚠️ Tidak bisa terhubung ke server. Coba lagi.';
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Ambil';
-      }
-    }
-
-    function updateNewCharCount() {
-      const val = document.getElementById('new-job-desc').value.length;
-      document.getElementById('new-char-count').textContent = val.toLocaleString('id-ID');
-      const warn = document.getElementById('new-char-warning');
-      warn.style.display = val > 4500 ? 'block' : 'none';
-    }
-
-    // ── Bottom CTA: scroll to multi-credit if credits remain, else show upgrade nudge ──
-    function handleTailoringCta() {
-      const multiSection = document.getElementById('multi-credit-section');
-      if (multiSection && !multiSection.classList.contains('hidden')) {
-        multiSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        setTimeout(() => document.getElementById('new-job-desc').focus(), 600);
-        return;
-      }
-      // Credits exhausted — show upgrade nudge and scroll to it
-      const upgradeEl = document.getElementById('upgrade-nudge');
-      if (upgradeEl) {
-        upgradeEl.classList.remove('hidden');
-        upgradeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }
-
-    function submitInterviewFeedback(answer) {
-      document.getElementById('feedback-buttons').classList.add('hidden');
-      document.getElementById('feedback-thanks').classList.remove('hidden');
-      fetch(`${WORKER_URL}/feedback`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'interview_outcome', answer })
-      }).catch(() => {});
-    }
-  </script>
 </body>
 </html>
