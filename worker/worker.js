@@ -490,7 +490,20 @@ async function analyzeCV(cvText, jobDesc, env) {
   // even across different edge nodes.
   const cacheKey = `analysis_v2_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
   const cached = await env.GASLAMAR_SESSIONS.get(cacheKey, { type: 'json' });
-  if (cached) return cached;
+  if (cached) {
+    // Re-derive skor from discrete sub-scores even on cache hit.
+    // Old cache entries may have a LLM-generated skor (e.g. 66) that bypassed
+    // the clamping added later. Re-applying it here fixes stale entries without
+    // needing a cache version bump.
+    if (typeof cached.skor_relevansi !== 'undefined') {
+      const r  = [0, 10, 20, 30, 40].includes(cached.skor_relevansi)    ? cached.skor_relevansi    : 0;
+      const rq = [0, 10, 20, 30].includes(cached.skor_requirements)     ? cached.skor_requirements : 0;
+      const k  = [0, 10, 20].includes(cached.skor_kualitas)             ? cached.skor_kualitas     : 0;
+      const kw = [0, 5, 10].includes(cached.skor_keywords)              ? cached.skor_keywords     : 0;
+      cached.skor = r + rq + k + kw;
+    }
+    return cached;
+  }
 
   const systemPrompt = `${SKILL_ANALYZE}
 
