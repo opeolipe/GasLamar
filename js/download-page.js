@@ -23,8 +23,8 @@ function startGeneratingAnimation() {
   _genTrustTimer = setInterval(() => {
     _genTrustIdx = (_genTrustIdx + 1) % GEN_TRUST_MSGS.length;
     const el = document.getElementById('gen-trust');
-    el.style.opacity = '0';
-    setTimeout(() => { el.textContent = GEN_TRUST_MSGS[_genTrustIdx]; el.style.opacity = '1'; }, 150);
+    el.classList.add('trust-rotator-out');
+    setTimeout(() => { el.textContent = GEN_TRUST_MSGS[_genTrustIdx]; el.classList.remove('trust-rotator-out'); }, 150);
   }, 5000);
   const EST = 22;
   _genTimerTimer = setInterval(() => {
@@ -138,7 +138,7 @@ async function fetchNewJobFromUrl() {
 
   submitBtn.disabled = true;
   submitBtn.textContent = 'Mengambil...';
-  statusEl.style.color = '#6B7280';
+  statusEl.className = 'url-status';
   statusEl.textContent = '⏳ Mengambil job description...';
 
   try {
@@ -149,16 +149,16 @@ async function fetchNewJobFromUrl() {
     });
     const data = await res.json();
     if (!res.ok) {
-      statusEl.style.color = '#DC2626';
+      statusEl.className = 'url-status url-status-err';
       statusEl.textContent = '⚠️ ' + (data.message || 'Gagal mengambil. Coba copy-paste manual.');
     } else {
       document.getElementById('new-job-desc').value = data.job_desc;
       updateNewCharCount();
-      statusEl.style.color = '#059669';
+      statusEl.className = 'url-status url-status-ok';
       statusEl.textContent = '✅ Job description berhasil diambil. Periksa dan edit seperlunya.';
     }
   } catch {
-    statusEl.style.color = '#DC2626';
+    statusEl.className = 'url-status url-status-err';
     statusEl.textContent = '⚠️ Tidak bisa terhubung ke server. Coba lagi.';
   } finally {
     submitBtn.disabled = false;

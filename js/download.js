@@ -601,7 +601,7 @@ function showCreditsDashboard(creditsRemaining, totalCredits, tier) {
   if (grid) grid.classList.add('hidden');
   // Also hide the success header since nothing was generated yet
   const successHeader = document.querySelector('#download-ready > .card:nth-child(2) > div:first-child');
-  if (successHeader) successHeader.style.display = 'none';
+  if (successHeader) successHeader.classList.add('hidden');
   // Show multi-credit section
   const multiSection = document.getElementById('multi-credit-section');
   if (multiSection) {
