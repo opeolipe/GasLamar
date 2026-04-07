@@ -5,17 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow" />
   <title>Hasil Analisis CV · GasLamar</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
   <!-- Tailwind kept for backward-compat with scoring.js/payment.js injected classes -->
   <link rel="stylesheet" href="css/tailwind.css" />
   <link rel="stylesheet" href="css/style.css" />
   <!-- Cloudflare Web Analytics -->
   <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "f9c97d82f2a04b9f95e051946eb0525e"}'></script>
-  <!-- PostHog Analytics -->
-  <script>
-    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]);t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(a!==void 0?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+" (stub)"},o="init be q capture identify alias people.set people.set_once set_config unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys onSessionId setPersonPropertiesForFlags".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
-    posthog.init('phc_DmeD8QdyUMMGwZ4GUKnDurFXrquR3APqUKrcEuDbgy3X',{api_host:'https://eu.i.posthog.com',person_profiles:'identified_only',defaults:'2026-01-30'});
-  </script>
+  <script src="js/posthog-init.js"></script>
   <style>
     * { box-sizing: border-box; }
 
@@ -373,6 +370,7 @@
       color: white;
       border-radius: 16px;
       padding: 1rem 1.2rem;
+      margin-top: 1rem;
       margin-bottom: 1rem;
       font-size: 0.85rem;
     }
@@ -476,78 +474,124 @@
       cursor: pointer;
       transition: 0.2s;
       font-family: 'Inter', sans-serif;
+      margin-top: 1rem;
     }
     #share-btn:hover { border-color: #0F172A; color: #0F172A; }
+
+    /* === Consolidated classes (replaces inline styles) === */
+
+    /* Visually hidden */
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+
+    /* Loading text */
+    .loading-title { font-weight:600; font-size:1.1rem; }
+    .loading-sub { color:#5B6E8C; font-size:0.85rem; margin-top:0.5rem; }
+
+    /* Error state */
+    #results-error { text-align:center; padding:3rem 2rem; }
+    .error-emoji { font-size:2.5rem; margin-bottom:1rem; }
+    .error-heading { font-weight:700; font-size:1.3rem; margin-bottom:0.5rem; }
+    .error-desc { color:#5B6E8C; font-size:0.9rem; margin-bottom:1.5rem; }
+    .btn-restart { display:inline-block; background:#0F172A; color:white; font-weight:700; padding:0.75rem 1.5rem; border-radius:60px; text-decoration:none; }
+
+    /* Progress card variant */
+    .card-steps { padding-bottom:1.2rem; margin-bottom:1rem; }
+
+    /* Session countdown */
+    .session-countdown { text-align:center; margin-bottom:1rem; font-size:0.78rem; color:#92400E; background:#FFFBEB; border:1px solid #FDE68A; border-radius:12px; padding:0.5rem 1rem; }
+
+    /* Score ring animation */
+    #score-ring { transition:stroke-dashoffset 1s ease; }
+
+    /* Confidence badge */
+    .confidence-badge { font-size:0.72rem; font-weight:600; border-radius:20px; padding:0.2rem 0.7rem; display:inline-block; margin-top:0.3rem; }
+
+    /* Score reason */
+    .score-reason { font-size:0.85rem; color:#5B6E8C; max-width:400px; margin:0.5rem auto; }
+
+    /* Red flags */
+    .red-flags-box { background:#FEF2F2; border:1px solid #FECACA; border-radius:16px; padding:1rem 1.2rem; margin-bottom:1rem; }
+    .red-flags-title { color:#B91C1C; font-size:0.9rem; font-weight:700; margin-bottom:0.5rem; }
+    .red-flags-list { list-style:none; padding:0; margin:0; font-size:0.85rem; color:#7F1D1D; display:flex; flex-direction:column; gap:0.35rem; }
+
+    /* Recommendation note */
+    .reco-note { font-size:0.8rem; color:#92400E; margin-top:0.75rem; font-style:italic; }
+
+    /* HR 7-second section */
+    #hr-7-detik > h4 { margin-bottom:0.75rem; }
+    .hr7-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+    .hr7-label-ok { font-size:0.68rem; font-weight:700; color:#059669; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.4rem; }
+    .hr7-label-err { font-size:0.68rem; font-weight:700; color:#DC2626; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.4rem; }
+    .hr7-list { list-style:none; padding:0; margin:0; font-size:0.82rem; color:#111827; display:flex; flex-direction:column; gap:0.3rem; }
+
+    /* CV Rewrite section */
+    .rewrite-title { font-size:1.05rem; font-weight:700; color:#0F172A; margin-bottom:0.2rem; }
+    .rewrite-sub { font-size:0.8rem; color:#6B7280; margin-bottom:1rem; }
+
+    /* Before/After card */
+    .ba-card { text-align:center; padding:1.25rem; }
+    .ba-row { display:flex; align-items:center; justify-content:center; gap:2rem; }
+    .ba-label { font-size:0.72rem; color:#6B7280; font-weight:600; margin-bottom:0.25rem; }
+    .ba-score-before { font-size:2.2rem; font-weight:800; color:#EF4444; }
+    .ba-arrow { font-size:1.8rem; color:#9CA3AF; }
+    .ba-score-after { font-size:2.2rem; font-weight:800; color:#10B981; }
+    .ba-disclaimer { font-size:0.75rem; color:#9CA3AF; margin-top:0.5rem; }
+
+    /* Pricing CTA heading */
+    .pricing-cta-head { text-align:center; margin-bottom:0.5rem; }
+    .pricing-cta-title { font-size:1.4rem; font-weight:800; color:#0F172A; }
+    .pricing-card-h3 { text-align:center; margin-bottom:0.5rem; font-size:1.3rem; font-weight:700; }
+    .pricing-card-sub { text-align:center; font-size:0.9rem; color:#4B5563; }
+
+    /* Email section */
+    .email-label { font-weight:600; margin-bottom:0.5rem; }
+    .email-status-p { font-size:0.7rem; margin-top:0.5rem; color:#6B7280; }
+    .email-multi-inner { display:flex; align-items:flex-start; gap:0.75rem; }
+    .email-multi-icon { font-size:1.5rem; line-height:1; }
+    .email-multi-content { flex:1; }
+    .email-multi-title { font-weight:700; font-size:1rem; margin-bottom:0.5rem; }
+    .email-multi-body { font-size:0.85rem; color:#92400E; margin-bottom:0.75rem; line-height:1.6; }
+    .email-helper { font-size:0.75rem; color:#92400E; font-weight:500; margin-top:0.5rem; }
+    .email-spam { font-size:0.75rem; color:#9CA3AF; margin-top:0.3rem; }
+    .email-no-acct { font-size:0.8rem; color:#6B7280; margin-top:0.6rem; }
+    .email-err-msg { color:#DC2626; font-size:0.82rem; margin-top:0.5rem; font-weight:500; }
+    .email-card-active { border-color:#F59E0B !important; background:#FFFBEB !important; }
+    .email-input-active { width:100%; padding:0.75rem 1rem; border:1.5px solid #D97706; border-radius:10px; font-size:0.95rem; box-sizing:border-box; }
+    .input-error { border-color:#DC2626 !important; }
+
+    /* Pay hint */
+    .pay-hint { font-size:0.8rem; color:#6B7280; text-align:center; margin-top:0.5rem; }
+
+    /* Restart link */
+    .restart-wrap { text-align:center; margin-bottom:2rem; }
+    .restart-link { font-size:0.85rem; color:#9CA3AF; text-decoration:none; }
   </style>
-  <script>
-    (function() {
-      var KEYS = ['gaslamar_scoring','gaslamar_cv_key','gaslamar_analyze_time'];
-      function clearAndRedirect() {
-        KEYS.forEach(function(k) { sessionStorage.removeItem(k); });
-        window.location.replace('upload.html');
-      }
-
-      // Reject any URL-level session parameter that doesn't match our format.
-      // hasil.html is a sessionStorage-only page; a foreign sessionId in the URL
-      // means someone is sharing/forging a link — clear local data and redirect.
-      var params = new URLSearchParams(location.search);
-      var urlSession = params.get('session') || params.get('sessionId');
-      if (urlSession !== null && !urlSession.startsWith('cvtext_')) {
-        clearAndRedirect(); return;
-      }
-
-      var rawScoring = sessionStorage.getItem('gaslamar_scoring');
-      var cvKey = sessionStorage.getItem('gaslamar_cv_key') || '';
-      var analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
-      var SESSION_SECS = 7200;
-
-      // Must have scoring data
-      if (!rawScoring) { clearAndRedirect(); return; }
-
-      // Scoring must be valid JSON with a numeric skor
-      var parsed;
-      try { parsed = JSON.parse(rawScoring); } catch(e) { clearAndRedirect(); return; }
-      var skor = parseInt(parsed && parsed.skor);
-      if (isNaN(skor) || skor < 0 || skor > 100) { clearAndRedirect(); return; }
-
-      // cv_key must have the expected format (cvtext_<uuid>) if present
-      if (cvKey && !cvKey.startsWith('cvtext_')) { clearAndRedirect(); return; }
-
-      // Session must not be older than 2 hours
-      var isExpired = analyzeTime > 0 && (Date.now() - analyzeTime) / 1000 > SESSION_SECS;
-      if (isExpired) { clearAndRedirect(); return; }
-
-      // analyze_time must be present (guards against manually injected data)
-      if (!analyzeTime) { clearAndRedirect(); return; }
-
-      // If a valid cvtext_ key is in the URL, it must match what's in sessionStorage
-      if (urlSession && urlSession !== cvKey) { clearAndRedirect(); return; }
-    })();
-  </script>
+  <script src="js/hasil-guard.js"></script>
 </head>
 <body>
+<h1 class="sr-only">Hasil Analisis CV</h1>
 <div class="container">
 
   <!-- Loading state (hidden by scoring.js once data is available) -->
   <div id="results-loading" class="gl-card">
     <div class="loading-spinner"></div>
-    <p style="font-weight:600; font-size:1.1rem;">Memuat hasil analisis...</p>
-    <p style="color:#5B6E8C; font-size:0.85rem; margin-top:0.5rem;">Sebentar lagi</p>
+    <p class="loading-title">Memuat hasil analisis...</p>
+    <p class="loading-sub">Sebentar lagi</p>
   </div>
 
   <!-- Error state -->
-  <div id="results-error" class="gl-card hidden" style="text-align:center; padding: 3rem 2rem;">
-    <div style="font-size:2.5rem; margin-bottom:1rem;">⚠️</div>
-    <h2 style="font-weight:700; font-size:1.3rem; margin-bottom:0.5rem;">Analisis Gagal</h2>
-    <p id="error-message" style="color:#5B6E8C; font-size:0.9rem; margin-bottom:1.5rem;">Terjadi kesalahan. Coba lagi.</p>
-    <a href="upload.html" style="display:inline-block; background:#0F172A; color:white; font-weight:700; padding:0.75rem 1.5rem; border-radius:60px; text-decoration:none;">Coba Lagi</a>
+  <div id="results-error" class="gl-card hidden">
+    <div class="error-emoji">⚠️</div>
+    <h2 class="error-heading">Analisis Gagal</h2>
+    <p id="error-message" class="error-desc">Terjadi kesalahan. Coba lagi.</p>
+    <a href="upload.html" class="btn-restart">Coba Lagi</a>
   </div>
 
   <!-- Main results content (shown by scoring.js) -->
   <div id="results-content" class="hidden">
 
     <!-- Progress steps -->
-    <div class="gl-card" style="padding-bottom: 1.2rem; margin-bottom: 1rem;">
+    <div class="gl-card card-steps">
       <div class="progress-steps">
         <div class="gl-step completed">1. Upload CV</div>
         <div class="gl-step completed">2. Job Desc</div>
@@ -557,7 +601,7 @@
     </div>
 
     <!-- Session countdown -->
-    <div id="session-countdown" style="text-align:center;margin-bottom:1rem;font-size:0.78rem;color:#92400E;background:#FFFBEB;border:1px solid #FDE68A;border-radius:12px;padding:0.5rem 1rem;">
+    <div id="session-countdown" class="session-countdown">
       ⏳ <span id="countdown-text">Menghitung...</span>
     </div>
 
@@ -571,8 +615,7 @@
           <svg viewBox="0 0 190 190">
             <circle cx="95" cy="95" r="85" fill="none" stroke="#E5E7EB" stroke-width="12"/>
             <circle id="score-ring" cx="95" cy="95" r="85" fill="none" stroke="#0F172A" stroke-width="12"
-              stroke-dasharray="534" stroke-dashoffset="534" stroke-linecap="round"
-              style="transition: stroke-dashoffset 1s ease;"/>
+              stroke-dasharray="534" stroke-dashoffset="534" stroke-linecap="round"/>
           </svg>
           <div class="score-inner">
             <div class="score-inner-label">Peluang Interview
@@ -590,7 +633,7 @@
 
         <!-- Badge (set by scoring.js) -->
         <div id="score-badge" class="score-status-badge"></div>
-        <div id="confidence-badge" class="hidden" style="font-size:0.72rem;font-weight:600;border-radius:20px;padding:0.2rem 0.7rem;display:inline-block;margin-top:0.3rem;"></div>
+        <div id="confidence-badge" class="hidden confidence-badge"></div>
 
         <!-- Progress bar (visual indicator, width driven by CSS variable) -->
         <div class="progress-bar-bg">
@@ -598,10 +641,10 @@
         </div>
 
         <!-- Reason text -->
-        <p id="score-reason" style="font-size:0.85rem; color:#5B6E8C; max-width:400px; margin:0.5rem auto;"></p>
+        <p id="score-reason" class="score-reason"></p>
 
         <!-- Share button -->
-        <button id="share-btn" style="margin-top:1rem;">
+        <button id="share-btn">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
           <span>Bagikan Skor</span>
         </button>
@@ -626,42 +669,42 @@
     </div>
 
     <!-- Red flags (hidden by default) -->
-    <div id="red-flags" class="hidden" style="background:#FEF2F2;border:1px solid #FECACA;border-radius:16px;padding:1rem 1.2rem;margin-bottom:1rem;">
-      <h4 style="color:#B91C1C;font-size:0.9rem;font-weight:700;margin-bottom:0.5rem;">🚩 Red Flag Terdeteksi</h4>
-      <ul id="red-flags-list" style="list-style:none;padding:0;margin:0;font-size:0.85rem;color:#7F1D1D;display:flex;flex-direction:column;gap:0.35rem;"></ul>
+    <div id="red-flags" class="hidden red-flags-box">
+      <h4 class="red-flags-title">🚩 Red Flag Terdeteksi</h4>
+      <ul id="red-flags-list" class="red-flags-list"></ul>
     </div>
 
     <!-- Recommendations (hidden until scoring.js populates it) -->
     <div id="reco-section" class="priority-box hidden">
       <h4>🔥 Fokus perbaiki ini dulu</h4>
       <ol id="reco-list"></ol>
-      <p style="font-size:0.8rem; color:#92400E; margin-top:0.75rem; font-style:italic;">Ini adalah perubahan dengan dampak terbesar untuk meningkatkan peluang kamu dipanggil interview.</p>
+      <p class="reco-note">Ini adalah perubahan dengan dampak terbesar untuk meningkatkan peluang kamu dipanggil interview.</p>
     </div>
 
     <!-- HR 7-second view (hidden by default) -->
     <div id="hr-7-detik" class="gl-card hidden">
-      <h4 style="margin-bottom:0.75rem;">👁️ Ini yang HR lihat dalam 7 detik:
+      <h4>👁️ Ini yang HR lihat dalam 7 detik:
         <span class="gl-tip" tabindex="0">
           <span class="gl-tip-icon">?</span>
           <span class="gl-tip-bubble">Riset menunjukkan HR hanya melihat CV 6-7 detik sebelum memutuskan lanjut atau tidak. Ini bagian yang paling diperhatikan.</span>
         </span>
       </h4>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+      <div class="hr7-grid">
         <div>
-          <div style="font-size:0.68rem;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem;">✅ Diperhatikan</div>
-          <ul id="hr-kuat-list" style="list-style:none;padding:0;margin:0;font-size:0.82rem;color:#111827;display:flex;flex-direction:column;gap:0.3rem;"></ul>
+          <div class="hr7-label-ok">✅ Diperhatikan</div>
+          <ul id="hr-kuat-list" class="hr7-list"></ul>
         </div>
         <div>
-          <div style="font-size:0.68rem;font-weight:700;color:#DC2626;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem;">⏭️ Dilewati</div>
-          <ul id="hr-diabaikan-list" style="list-style:none;padding:0;margin:0;font-size:0.82rem;color:#111827;display:flex;flex-direction:column;gap:0.3rem;"></ul>
+          <div class="hr7-label-err">⏭️ Dilewati</div>
+          <ul id="hr-diabaikan-list" class="hr7-list"></ul>
         </div>
       </div>
     </div>
 
     <!-- CV Rewrite Preview (hidden until scoring.js populates it) -->
     <div id="rewrite-preview" class="gl-card hidden">
-      <h3 style="font-size:1.05rem; font-weight:700; color:#0F172A; margin-bottom:0.2rem;">✨ Pratinjau perbaikan CV kamu</h3>
-      <p style="font-size:0.8rem; color:#6B7280; margin-bottom:1rem;">AI akan terapkan semua perbaikan ini ke CV kamu secara langsung</p>
+      <h3 class="rewrite-title">✨ Pratinjau perbaikan CV kamu</h3>
+      <p class="rewrite-sub">AI akan terapkan semua perbaikan ini ke CV kamu secara langsung</p>
 
       <!-- First improvement: visible -->
       <div id="preview-item-1"></div>
@@ -678,20 +721,20 @@
     </div>
 
     <!-- Before/After score projection (hidden by default) -->
-    <div id="before-after" class="gl-card hidden" style="text-align:center;padding:1.25rem;">
-      <div style="display:flex;align-items:center;justify-content:center;gap:2rem;">
+    <div id="before-after" class="gl-card hidden ba-card">
+      <div class="ba-row">
         <div>
-          <div style="font-size:0.72rem;color:#6B7280;font-weight:600;margin-bottom:0.25rem;">Sebelum</div>
-          <div style="font-size:2.2rem;font-weight:800;color:#EF4444;" id="before-score">0%</div>
+          <div class="ba-label">Sebelum</div>
+          <div class="ba-score-before" id="before-score">0%</div>
         </div>
-        <div style="font-size:1.8rem;color:#9CA3AF;">&#8594;</div>
+        <div class="ba-arrow">&#8594;</div>
         <div>
-          <div style="font-size:0.72rem;color:#6B7280;font-weight:600;margin-bottom:0.25rem;">Sesudah perbaikan</div>
-          <div style="font-size:2.2rem;font-weight:800;color:#10B981;" id="after-score">0%</div>
+          <div class="ba-label">Sesudah perbaikan</div>
+          <div class="ba-score-after" id="after-score">0%</div>
         </div>
       </div>
-      <p style="font-size:0.75rem;color:#9CA3AF;margin-top:0.5rem;">Estimasi jika semua rekomendasi di atas diikuti
-        <span class="gl-tip" tabindex="0" style="vertical-align:middle;">
+      <p class="ba-disclaimer">Estimasi jika semua rekomendasi di atas diikuti
+        <span class="gl-tip" tabindex="0">
           <span class="gl-tip-icon">?</span>
           <span class="gl-tip-bubble">Ini estimasi — hasil aktual bergantung pada implementasi dan rekruter yang membaca CV-mu.</span>
         </span>
@@ -699,40 +742,40 @@
     </div>
 
     <!-- Pricing anchor CTA -->
-    <div style="text-align:center; margin-bottom:0.5rem;">
-      <h3 style="font-size:1.4rem; font-weight:800; color:#0F172A;">👉 Perbaiki CV saya sekarang</h3>
+    <div class="pricing-cta-head">
+      <h3 class="pricing-cta-title">👉 Perbaiki CV saya sekarang</h3>
     </div>
 
     <!-- Pricing card -->
     <div class="gl-card">
-      <h3 style="text-align:center; margin-bottom:0.5rem; font-size:1.3rem; font-weight:700;">Pilih versi CV yang ingin kamu gunakan</h3>
-      <p style="text-align:center; font-size:0.9rem; color:#4B5563;">Sekali bayar — langsung download CV yang sudah diperbaiki</p>
+      <h3 class="pricing-card-h3">Pilih versi CV yang ingin kamu gunakan</h3>
+      <p class="pricing-card-sub">Sekali bayar — langsung download CV yang sudah diperbaiki</p>
 
       <!-- Tier recommendation (injected by scoring.js based on score) -->
-      <div id="tier-recommendation" class="hidden" style="margin-top:1rem;"></div>
+      <div id="tier-recommendation" class="hidden"></div>
 
       <div class="pricing-grid">
         <!-- Coba Dulu -->
-        <div class="pricing-card tier-card" data-tier="coba" onclick="selectTier('coba')">
+        <div class="pricing-card tier-card" data-tier="coba">
           <div class="pkg-name">Coba Dulu</div>
           <div class="pkg-price">Rp 29k</div>
           <div class="pkg-desc">1 CV · Bahasa Indonesia</div>
         </div>
         <!-- Single -->
-        <div class="pricing-card tier-card" data-tier="single" onclick="selectTier('single')">
+        <div class="pricing-card tier-card" data-tier="single">
           <div class="pkg-name">Single</div>
           <div class="pkg-price">Rp 59k</div>
           <div class="pkg-desc">1 CV · Bilingual ID + EN</div>
         </div>
         <!-- 3-Pack (popular) -->
-        <div class="pricing-card popular tier-card" data-tier="3pack" onclick="selectTier('3pack')">
+        <div class="pricing-card popular tier-card" data-tier="3pack">
           <div class="popular-badge">⭐ PALING LARIS</div>
           <div class="pkg-name">3-Pack</div>
           <div class="pkg-price">Rp 149k</div>
           <div class="pkg-desc">3 CV · Bilingual ID + EN</div>
         </div>
         <!-- Job Hunt Pack -->
-        <div class="pricing-card tier-card" data-tier="jobhunt" onclick="selectTier('jobhunt')">
+        <div class="pricing-card tier-card" data-tier="jobhunt">
           <div class="pkg-name">Job Hunt Pack</div>
           <div class="pkg-price">Rp 299k</div>
           <div class="pkg-desc">10 CV · Bilingual ID + EN</div>
@@ -745,26 +788,26 @@
     <div class="gl-card" id="email-card">
       <!-- Default view: single / coba tiers -->
       <div id="email-default">
-        <div style="font-weight:600; margin-bottom:0.5rem;">Email untuk konfirmasi pembayaran</div>
+        <div class="email-label">Email untuk konfirmasi pembayaran</div>
         <div class="email-input-group" id="email-default-slot">
           <input type="email" id="email-input" placeholder="email kamu" autocomplete="email">
         </div>
-        <p id="email-status" style="font-size:0.7rem; margin-top:0.5rem; color:#6B7280;"></p>
+        <p id="email-status" class="email-status-p"></p>
       </div>
       <!-- Multi-credit view: 3pack / jobhunt — shown via JS on tier select -->
-      <div id="email-multi" style="display:none;">
-        <div style="display:flex; align-items:flex-start; gap:0.75rem;">
-          <span style="font-size:1.5rem; line-height:1;">📧</span>
-          <div style="flex:1;">
-            <div id="email-multi-title" style="font-weight:700; font-size:1rem; margin-bottom:0.5rem;">
+      <div id="email-multi" class="hidden">
+        <div class="email-multi-inner">
+          <span class="email-multi-icon">📧</span>
+          <div class="email-multi-content">
+            <div id="email-multi-title" class="email-multi-title">
               Masukkan email aktif kamu <span style="color:#DC2626;">*</span>
             </div>
-            <p id="email-multi-body" style="font-size:0.85rem; color:#92400E; margin-bottom:0.75rem; line-height:1.6;"></p>
+            <p id="email-multi-body" class="email-multi-body"></p>
             <div id="email-multi-slot"></div>
-            <p id="email-helper" style="font-size:0.75rem; color:#92400E; font-weight:500; margin-top:0.5rem;"></p>
-            <p style="font-size:0.75rem; color:#9CA3AF; margin-top:0.3rem;">Kami tidak akan spam email kamu</p>
-            <p style="font-size:0.8rem; color:#6B7280; margin-top:0.6rem;">💡 Tidak perlu buat akun — cukup pakai link dari email kamu</p>
-            <p id="email-error" style="display:none; color:#DC2626; font-size:0.82rem; margin-top:0.5rem; font-weight:500;">
+            <p id="email-helper" class="email-helper"></p>
+            <p class="email-spam">Kami tidak akan spam email kamu</p>
+            <p class="email-no-acct">💡 Tidak perlu buat akun — cukup pakai link dari email kamu</p>
+            <p id="email-error" class="hidden email-err-msg">
               ⚠️ Email wajib diisi — kami kirim link CV kamu ke sini
             </p>
           </div>
@@ -774,10 +817,10 @@
 
     <!-- Pay button + trust footer — below email input -->
     <div id="cta-area">
-      <button id="pay-btn" onclick="proceedToPayment()" disabled>
+      <button id="pay-btn" disabled>
         ✨ Lihat CV hasil rewrite lengkap
       </button>
-      <p id="pay-hint" style="font-size:0.8rem;color:#6B7280;text-align:center;margin-top:0.5rem;">
+      <p id="pay-hint" class="pay-hint">
         Pilih paket di atas untuk melanjutkan
       </p>
     </div>
@@ -787,8 +830,8 @@
     </div>
 
     <!-- Restart -->
-    <div style="text-align:center; margin-bottom: 2rem;">
-      <a href="upload.html" style="font-size:0.85rem; color:#9CA3AF; text-decoration:none;">← Upload CV lain</a>
+    <div class="restart-wrap">
+      <a href="upload.html" class="restart-link">← Upload CV lain</a>
     </div>
 
   </div><!-- end results-content -->
@@ -799,48 +842,6 @@
 <script src="js/analytics.js"></script>
 <script src="js/scoring.js"></script>
 <script src="js/payment.js"></script>
-<script>
-(function startCountdown() {
-  const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
-  const el = document.getElementById('session-countdown');
-  const textEl = document.getElementById('countdown-text');
-  if (!analyzeTime || !el || !textEl) { if (el) el.style.display = 'none'; return; }
-  const SESSION_SECS = 7200; // matches worker cvtext_ TTL (2h)
-  function update() {
-    const remaining = SESSION_SECS - Math.floor((Date.now() - analyzeTime) / 1000);
-    if (remaining <= 0) {
-      textEl.textContent = 'Sesi analisis sudah kedaluwarsa - hasil ini masih bisa kamu lihat, tapi tidak bisa lanjut bayar.';
-      el.style.background = '#FEF2F2';
-      el.style.borderColor = '#FECACA';
-      el.style.color = '#B91C1C';
-      return;
-    }
-    const h = Math.floor(remaining / 3600);
-    const m = Math.floor((remaining % 3600) / 60);
-    const s = remaining % 60;
-    if (remaining <= 300) {
-      // Under 5 minutes — urgent warning
-      el.style.background = '#FEF2F2';
-      el.style.borderColor = '#FECACA';
-      el.style.color = '#B91C1C';
-      textEl.textContent = `⚠️ Sesi berakhir dalam ${m}m ${s}s — selesaikan pembayaran sekarang!`;
-    } else if (remaining <= 1800) {
-      // Under 30 minutes — amber warning
-      el.style.background = '#FFFBEB';
-      el.style.borderColor = '#FCD34D';
-      el.style.color = '#92400E';
-      textEl.textContent = h > 0
-        ? `Sesi analisis berlaku ${h}j ${m}m lagi - bayar sebelum kedaluwarsa`
-        : `Sesi analisis berlaku ${m}m ${s}s lagi - bayar sebelum kedaluwarsa`;
-    } else {
-      textEl.textContent = h > 0
-        ? `Sesi analisis berlaku ${h}j ${m}m lagi - bayar sebelum kedaluwarsa`
-        : `Sesi analisis berlaku ${m}m ${s}s lagi - bayar sebelum kedaluwarsa`;
-    }
-    setTimeout(update, 1000);
-  }
-  update();
-})();
-</script>
+<script src="js/hasil-page.js"></script>
 </body>
 </html>

@@ -5,14 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="robots" content="noindex, nofollow" />
   <title>Upload CV · GasLamar</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
   <!-- Cloudflare Web Analytics -->
   <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "f9c97d82f2a04b9f95e051946eb0525e"}'></script>
-  <!-- PostHog Analytics -->
-  <script>
-    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]);t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(a!==void 0?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+" (stub)"},o="init be q capture identify alias people.set people.set_once set_config unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys onSessionId setPersonPropertiesForFlags".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
-    posthog.init('phc_DmeD8QdyUMMGwZ4GUKnDurFXrquR3APqUKrcEuDbgy3X',{api_host:'https://eu.i.posthog.com',person_profiles:'identified_only',defaults:'2026-01-30'});
-  </script>
+  <script src="js/posthog-init.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -51,17 +48,21 @@
     .step {
       flex: 1;
       text-align: center;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       font-weight: 500;
       color: #9CA3AF;
       position: relative;
       background: white;
       z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
     }
-    .step.active {
-      color: #0F172A;
-      font-weight: 700;
-    }
+    .step-label { font-size: 0.82rem; }
+    .step-desc { font-size: 0.68rem; color: #C4CDD8; font-weight: 400; }
+    .step.active .step-label { color: #0F172A; font-weight: 700; }
+    .step.active .step-desc { color: #94A3B8; }
     .step.active::before {
       content: "●";
       display: block;
@@ -76,6 +77,9 @@
       margin-bottom: 4px;
       color: #D1D5DB;
     }
+    .step.completed::before { content: "✓"; color: #10B981; font-weight: 700; font-style: normal; }
+    .step.completed .step-label { color: #10B981; }
+    .step.completed .step-desc { color: #6EE7B7; }
     .step-line {
       position: absolute;
       top: 12px;
@@ -85,6 +89,25 @@
       background: #E5E7EB;
       z-index: 0;
     }
+
+    /* Tooltips (ported from hasil.html) */
+    .gl-tip { position:relative; display:inline-flex; align-items:center; cursor:help; margin-left:4px; vertical-align:middle; }
+    .gl-tip-icon { font-size:0.65rem; font-weight:700; color:#94A3B8; background:#F1F5F9; border-radius:50%; width:15px; height:15px; display:inline-flex; align-items:center; justify-content:center; line-height:1; flex-shrink:0; }
+    .gl-tip-bubble { visibility:hidden; opacity:0; position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%); background:#1E293B; color:#fff; font-size:0.75rem; font-weight:400; border-radius:8px; padding:0.5rem 0.75rem; width:220px; text-align:center; z-index:200; transition:opacity .15s; pointer-events:none; line-height:1.4; text-transform:none; letter-spacing:normal; }
+    .gl-tip:hover .gl-tip-bubble, .gl-tip:focus-within .gl-tip-bubble { visibility:visible; opacity:1; }
+
+    /* JD helper card */
+    .jd-helper-card {
+      background: #F0F7FF;
+      border: 1.5px solid #BFDBFE;
+      border-radius: 16px;
+      padding: 1rem 1.25rem;
+      margin: 0.75rem 0;
+    }
+    .jd-helper-title { font-size: 0.85rem; font-weight: 700; color: #1E40AF; margin-bottom: 0.2rem; }
+    .jd-helper-sub { font-size: 0.75rem; color: #4B6FA5; margin-bottom: 0.75rem; }
+    .btn-icon-lg { flex-direction: column; align-items: flex-start; padding: 0.6rem 1rem; border-radius: 12px; gap: 2px; }
+    .btn-icon-hint { font-size: 0.68rem; font-weight: 400; color: #6B8CC7; }
 
     /* Form labels */
     label {
@@ -172,6 +195,7 @@
       resize: vertical;
       transition: 0.2s;
       color: #111827;
+      unicode-bidi: plaintext;
     }
     textarea:focus {
       outline: none;
@@ -323,6 +347,94 @@
       50% { transform: translateY(-4px); }
     }
 
+    /* Skip to content */
+    .skip-to-content {
+      position: absolute;
+      left: -9999px;
+      top: 0;
+      z-index: 9999;
+      background: #0F172A;
+      color: white;
+      padding: 0.5rem 1rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      border-radius: 0 0 8px 0;
+    }
+    .skip-to-content:focus { left: 0; }
+
+    /* Card header */
+    .card-header { margin-bottom: 1.5rem; }
+    .card-title { font-size: 1.4rem; font-weight: 700; margin-bottom: 0.3rem; }
+    .card-subtitle { font-size: 0.9rem; color: #5B6E8C; }
+
+    /* Dropzone internals */
+    .dropzone-icon { font-size: 2rem; margin-bottom: 8px; }
+    .dropzone-text { font-weight: 500; }
+    .dropzone-divider { font-size: 0.8rem; color: #5B6E8C; margin: 8px 0; }
+    .btn-pick-file {
+      background: #0F172A; color: white; border: none; border-radius: 40px;
+      padding: 0.4rem 1rem; font-weight: 500; cursor: pointer; font-family: inherit;
+    }
+    .dropzone-hint { font-size: 0.7rem; color: #6B7280; margin-top: 12px; }
+
+    /* File preview */
+    .file-info-text { text-align: left; }
+    .file-name-display { font-weight: 600; font-size: 0.9rem; }
+    .file-size-display { font-size: 0.75rem; color: #6B7280; }
+
+    /* Label helpers */
+    .label-optional { font-weight: 400; color: #5B6E8C; }
+    .label-note { font-weight: 400; }
+    .skip-link .gl-tip { margin-left: 3px; }
+
+    /* URL fetch section */
+    .url-fetch-row { display: none; margin-bottom: 0.75rem; }
+    .url-fetch-inner { display: flex; gap: 0.5rem; align-items: center; }
+    .url-fetch-input {
+      flex: 1; padding: 0.6rem 0.8rem; border: 1.5px solid #BFDBFE;
+      border-radius: 10px; font-size: 0.9rem; font-family: inherit; outline: none;
+      transition: border-color 0.15s;
+    }
+    .url-fetch-input:focus { border-color: #2563EB; }
+    .btn-fetch-submit {
+      background: #2563EB; color: white; border: none; border-radius: 10px;
+      padding: 0.6rem 1rem; font-weight: 600; font-size: 0.85rem;
+      cursor: pointer; white-space: nowrap; font-family: inherit;
+    }
+    .btn-close-icon {
+      background: none; border: none; color: #9CA3AF;
+      cursor: pointer; font-size: 1.1rem; padding: 0.4rem;
+    }
+    .url-fetch-status { font-size: 0.78rem; color: #6B7280; margin-top: 0.4rem; min-height: 1rem; }
+
+    /* Char warning */
+    .char-warning-text { font-size: 0.75rem; color: #D97706; margin-top: 0.3rem; }
+
+    /* Scroll hint */
+    #scroll-hint { margin-top: 0.75rem; }
+    .scroll-hint-svg { display: block; margin: 0 auto 4px; }
+
+    /* Loading state */
+    .loading-inner { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 0.5rem; }
+    .loading-text { font-weight: 600; }
+    .progress-pct-text { font-size: 0.7rem; color: #6B7280; margin-top: 0.3rem; }
+
+    /* Upload error banner (dynamically created) */
+    .upload-error-banner {
+      background: #FEF2F2; border: 1px solid #FECACA; color: #B91C1C;
+      border-radius: 16px; padding: 0.8rem 1.2rem; font-size: 0.85rem;
+      margin-bottom: 1rem;
+    }
+
+    /* Submit hint — shown when button is disabled due to no file */
+    .submit-hint {
+      text-align: center;
+      font-size: 0.78rem;
+      color: #9CA3AF;
+      margin-top: 0.4rem;
+    }
+
     /* Back link */
     .back-link {
       display: inline-block;
@@ -335,54 +447,58 @@
   </style>
 </head>
 <body>
+<a href="#upload-form" class="skip-to-content">Langsung ke form upload</a>
 <div class="container">
-  <a href="index.html" class="back-link">← Kembali ke beranda</a>
+  <a href="index.html" class="back-link" title="Kembali ke halaman utama GasLamar">← Kembali ke beranda</a>
 
   <div class="card">
-    <div style="margin-bottom: 1.5rem;">
-      <h2 style="font-size: 1.4rem; font-weight: 700; margin-bottom: 0.3rem;">Upload CV kamu</h2>
-      <p style="font-size: 0.9rem; color: #5B6E8C;">Kami akan analisis dan bandingkan dengan job yang kamu targetkan</p>
+    <div class="card-header">
+      <h1 class="card-title">Upload CV kamu</h1>
+      <p class="card-subtitle">Kami akan analisis dan bandingkan dengan job yang kamu targetkan</p>
     </div>
 
     <!-- Progress steps -->
     <div class="progress-steps">
-      <div class="step active">1. Upload CV</div>
-      <div class="step">2. Job Desc</div>
-      <div class="step">3. Hasil Analisis</div>
+      <div class="step active" id="step-1">
+        <span class="step-label">1. Upload CV</span>
+        <span class="step-desc">PDF / DOCX · maks 5MB</span>
+      </div>
+      <div class="step" id="step-2">
+        <span class="step-label">2. Job Desc</span>
+        <span class="step-desc">opsional · naikkan akurasi 3×</span>
+      </div>
+      <div class="step" id="step-3">
+        <span class="step-label">3. Analisis</span>
+        <span class="step-desc">±30 detik</span>
+      </div>
       <div class="step-line"></div>
     </div>
 
     <form id="upload-form">
 
       <!-- CV Upload -->
-      <label>📄 1. Upload CV Kamu</label>
+      <label for="cv-file">📄 1. Upload CV Kamu</label>
 
-      <div id="drop-zone" class="dropzone"
-        onclick="if(!event.target.closest('#drop-preview')) document.getElementById('cv-file').click()"
-        ondragover="handleDragOver(event)"
-        ondragleave="handleDragLeave(event)"
-        ondrop="handleDrop(event)">
+      <div id="drop-zone" class="dropzone">
 
         <div id="drop-idle">
-          <div style="font-size: 2rem; margin-bottom: 8px;">📁</div>
-          <div style="font-weight: 500;">Drag &amp; drop CV di sini</div>
-          <div style="font-size: 0.8rem; color: #5B6E8C; margin: 8px 0;">atau</div>
-          <button type="button" onclick="event.stopPropagation(); document.getElementById('cv-file').click()"
-            style="background: #0F172A; color: white; border: none; border-radius: 40px; padding: 0.4rem 1rem; font-weight: 500; cursor: pointer; font-family: inherit;">Pilih file</button>
-          <input type="file" id="cv-file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
-            style="display: none;" onchange="handleFileSelect(event)">
-          <div style="font-size: 0.7rem; color: #6B7280; margin-top: 12px;">PDF atau DOCX &nbsp;•&nbsp; maks 5MB</div>
+          <div class="dropzone-icon">📁</div>
+          <div class="dropzone-text">Drag &amp; drop CV di sini</div>
+          <div class="dropzone-divider">atau</div>
+          <button type="button" class="btn-pick-file" aria-label="Pilih file CV dari komputer kamu">Pilih file</button>
+          <input type="file" id="cv-file" class="hidden" aria-label="Upload file CV (PDF atau DOCX, maks 5MB)" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain">
+          <div class="dropzone-hint">PDF atau DOCX &nbsp;•&nbsp; maks 5MB</div>
         </div>
 
         <div id="drop-preview" class="hidden">
           <div class="file-info-inner">
             <span class="file-icon">📄</span>
-            <div style="text-align:left;">
-              <div style="font-weight: 600; font-size: 0.9rem;" id="file-name"></div>
-              <div style="font-size: 0.75rem; color: #6B7280;" id="file-size"></div>
+            <div class="file-info-text">
+              <div class="file-name-display" id="file-name"></div>
+              <div class="file-size-display" id="file-size"></div>
             </div>
           </div>
-          <button type="button" class="replace-btn" onclick="event.stopPropagation(); removeFile()">Ganti file</button>
+          <button type="button" class="replace-btn" aria-label="Ganti file CV yang sudah dipilih">Ganti file</button>
         </div>
       </div>
 
@@ -391,72 +507,75 @@
       <div id="cv-text-warning" class="warning-note hidden">
         <strong>CV tidak bisa dibaca.</strong> CV kamu sepertinya file gambar atau hasil scan. Coba download ulang CV kamu dari Canva/Word sebagai PDF teks, lalu upload lagi.
       </div>
-      <div class="warning-note" style="margin-top: 0.8rem;">
+      <div class="warning-note">
         ⚠️ Gunakan CV berbentuk teks (bukan scan/foto) agar analisis lebih akurat
       </div>
 
       <!-- Job Description -->
-      <label>Job yang kamu targetkan <span style="font-weight: 400; color: #5B6E8C;">(opsional tapi disarankan)</span></label>
-      <p style="font-size:0.75rem;color:#6B7280;margin:0.5rem 0 0.25rem;">💡 Coba fitur ini:</p>
-      <div class="button-group">
-        <button type="button" class="btn-icon" id="fetch-url-btn">🔗 Ambil dari URL Loker</button>
-        <button type="button" class="btn-icon" id="example-btn">📄 Gunakan contoh</button>
+      <label for="job-desc">Job yang kamu targetkan <span class="label-optional">(opsional tapi disarankan)</span><span class="gl-tip" tabindex="0"><span class="gl-tip-icon">?</span><span class="gl-tip-bubble">Paste bagian "Requirements" atau "Qualifications" dari lowongan. Ini membuat analisis 3× lebih akurat dan relevan.</span></span></label>
+      <div class="jd-helper-card">
+        <div class="jd-helper-title">💡 Belum punya Job Description?</div>
+        <div class="jd-helper-sub">Pilih salah satu cara di bawah — atau paste manual langsung ke kotak teks</div>
+        <div class="button-group">
+          <button type="button" class="btn-icon btn-icon-lg" id="fetch-url-btn" aria-label="Ambil job description dari URL loker seperti LinkedIn, Glints, atau JobStreet">
+            🔗 Ambil dari URL Loker
+            <span class="btn-icon-hint">LinkedIn, Glints, JobStreet…</span>
+          </button>
+          <button type="button" class="btn-icon btn-icon-lg" id="example-btn" aria-label="Isi job description dengan contoh format yang ideal">
+            📄 Gunakan contoh
+            <span class="btn-icon-hint">Lihat format yang ideal</span>
+          </button>
+        </div>
       </div>
 
       <!-- URL fetch row (hidden until button clicked) -->
-      <div id="url-fetch-row" style="display:none; margin-bottom:0.75rem;">
-        <div style="display:flex; gap:0.5rem; align-items:center;">
-          <input type="url" id="job-url-input"
+      <div id="url-fetch-row" class="url-fetch-row">
+        <div class="url-fetch-inner">
+          <input type="url" id="job-url-input" class="url-fetch-input" aria-label="URL halaman lowongan kerja (LinkedIn, Glints, JobStreet, dll)"
             placeholder="https://www.linkedin.com/jobs/view/…"
-            style="flex:1; padding:0.6rem 0.8rem; border:1.5px solid #BFDBFE; border-radius:10px; font-size:0.9rem; font-family:inherit; outline:none;"
-            onfocus="this.style.borderColor='#2563EB'"
-            onblur="this.style.borderColor='#BFDBFE'"
           />
-          <button type="button" id="fetch-url-submit-btn" onclick="fetchJobFromUrl()"
-            style="background:#2563EB; color:white; border:none; border-radius:10px; padding:0.6rem 1rem; font-weight:600; font-size:0.85rem; cursor:pointer; white-space:nowrap; font-family:inherit;">
-            Ambil
-          </button>
-          <button type="button" onclick="closeUrlFetch()"
-            style="background:none; border:none; color:#9CA3AF; cursor:pointer; font-size:1.1rem; padding:0.4rem;" title="Tutup">✕</button>
+          <button type="button" id="fetch-url-submit-btn" class="btn-fetch-submit" aria-label="Ambil job description dari URL yang dimasukkan">Ambil</button>
+          <button type="button" class="btn-close-icon" aria-label="Tutup form URL loker" title="Tutup">✕</button>
         </div>
-        <p id="url-fetch-status" style="font-size:0.78rem; color:#6B7280; margin-top:0.4rem; min-height:1rem;"></p>
+        <p id="url-fetch-status" class="url-fetch-status"></p>
       </div>
 
       <div class="textarea-wrapper">
         <textarea id="job-desc" rows="6"
           placeholder="Paste bagian requirements / responsibilities dari job yang kamu lamar…"
           maxlength="5000"
-          oninput="updateCharCount()"></textarea>
+></textarea>
         <div class="char-counter"><span id="char-count">0</span> / 5.000 karakter</div>
       </div>
-      <div id="char-warning" class="hidden" style="font-size: 0.75rem; color: #D97706; margin-top: 0.3rem;">Mendekati batas karakter</div>
+      <div id="char-warning" class="char-warning-text hidden">Mendekati batas karakter</div>
       <div id="jd-error" class="error-msg hidden"></div>
 
       <div class="skip-link">
-        <a href="#" id="skip-jd-link">Lewati (hasil akan lebih umum &amp; kurang akurat)</a>
+        <a href="#" id="skip-jd-link">Lewati<span class="gl-tip" tabindex="0"><span class="gl-tip-icon">?</span><span class="gl-tip-bubble">Tanpa job desc, hasil analisis akan umum dan tidak dibandingkan ke lowongan spesifik. Skor mungkin kurang akurat.</span></span> <span class="label-note">(hasil akan lebih umum &amp; kurang akurat)</span></a>
       </div>
 
       <!-- Scroll hint -->
-      <div id="scroll-hint" style="margin-top: 0.75rem;">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="display:block;margin:0 auto 4px;"><polyline points="6 9 12 15 18 9"/></svg>
+      <div id="scroll-hint">
+        <svg class="scroll-hint-svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
         <span>Scroll untuk tombol analisis</span>
       </div>
 
       <!-- Submit -->
-      <button type="submit" id="submit-btn" class="btn-primary">
+      <button type="submit" id="submit-btn" class="btn-primary" disabled aria-label="Mulai analisis CV kamu">
         👉 Analisis CV Saya
       </button>
+      <p id="submit-hint" class="submit-hint">📄 Upload CV kamu dulu sebelum analisis</p>
 
       <!-- Loading state (shown briefly before redirect to analyzing.html) -->
       <div id="loading-state" class="hidden">
-        <div style="display:inline-flex; align-items:center; gap:8px; margin-bottom: 0.5rem;">
+        <div class="loading-inner">
           <div class="spinner"></div>
-          <span id="loading-text" style="font-weight:600;">Menyiapkan analisis...</span>
+          <span id="loading-text" class="loading-text">Menyiapkan analisis...</span>
         </div>
         <div class="progress-bar-bg">
           <div id="progress-bar"></div>
         </div>
-        <p style="font-size:0.7rem;color:#6B7280;margin-top:0.3rem;"><span id="progress-pct">0</span>%</p>
+        <p class="progress-pct-text"><span id="progress-pct">0</span>%</p>
       </div>
 
     </form>
@@ -474,121 +593,6 @@
 <script src="js/config.js"></script>
 <script src="js/analytics.js"></script>
 <script src="js/upload.js"></script>
-<script>
-  // Show error from analyzing.html if analysis failed
-  const _analyzeErr = sessionStorage.getItem('gaslamar_upload_error');
-  if (_analyzeErr) {
-    sessionStorage.removeItem('gaslamar_upload_error');
-    const _errEl = document.createElement('div');
-    _errEl.style.cssText = 'background:#FEF2F2;border:1px solid #FECACA;color:#B91C1C;border-radius:16px;padding:0.8rem 1.2rem;font-size:0.85rem;margin-bottom:1rem;font-family:inherit;';
-    _errEl.textContent = '⚠️ Analisis gagal: ' + _analyzeErr;
-    document.querySelector('.card').insertBefore(_errEl, document.querySelector('.card').firstChild);
-  }
-
-  // Hide scroll hint once submit button scrolls into view
-  const _scrollHint = document.getElementById('scroll-hint');
-  const _submitBtn = document.getElementById('submit-btn');
-  if (_scrollHint && _submitBtn && 'IntersectionObserver' in window) {
-    const _obs = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting) { _scrollHint.classList.add('hidden'); _obs.disconnect(); }
-    }, { threshold: 0.5 });
-    _obs.observe(_submitBtn);
-  }
-
-  // Fetch job description from URL
-  document.getElementById('fetch-url-btn').addEventListener('click', () => {
-    const row = document.getElementById('url-fetch-row');
-    row.style.display = 'block';
-    document.getElementById('job-url-input').focus();
-  });
-
-  function closeUrlFetch() {
-    document.getElementById('url-fetch-row').style.display = 'none';
-    document.getElementById('url-fetch-status').textContent = '';
-    document.getElementById('job-url-input').value = '';
-  }
-
-  async function fetchJobFromUrl() {
-    const urlInput = document.getElementById('job-url-input');
-    const statusEl = document.getElementById('url-fetch-status');
-    const submitBtn = document.getElementById('fetch-url-submit-btn');
-    const url = urlInput.value.trim();
-
-    if (!url) { urlInput.focus(); return; }
-
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Mengambil...';
-    statusEl.style.color = '#6B7280';
-    statusEl.textContent = '⏳ Mengambil job description...';
-
-    try {
-      const res = await fetch(`${WORKER_URL}/fetch-job-url`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        statusEl.style.color = '#DC2626';
-        statusEl.textContent = '⚠️ ' + (data.message || 'Gagal mengambil. Coba copy-paste manual.');
-      } else {
-        document.getElementById('job-desc').value = data.job_desc;
-        updateCharCount();
-        statusEl.style.color = '#059669';
-        statusEl.textContent = '✅ Job description berhasil diambil. Periksa dan edit seperlunya.';
-      }
-    } catch {
-      statusEl.style.color = '#DC2626';
-      statusEl.textContent = '⚠️ Tidak bisa terhubung ke server. Coba lagi.';
-    } finally {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Ambil';
-    }
-  }
-
-  // Allow Enter key in URL input to trigger fetch
-  document.getElementById('job-url-input').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') fetchJobFromUrl();
-  });
-
-  // Use example
-  document.getElementById('example-btn').addEventListener('click', () => {
-    const exampleText = `Posisi: Product Manager
-
-Requirements:
-- S1 semua jurusan dengan IPK ≥ 3.0
-- 3+ tahun pengalaman sebagai Product Manager
-- Familiar dengan Agile/Scrum
-- Kemampuan analisis data (SQL adalah nilai tambah)
-- Komunikasi yang baik dan problem solving`;
-    document.getElementById('job-desc').value = exampleText;
-    updateCharCount();
-  });
-
-  // Skip JD link — only fill generic text if textarea is empty, then submit
-  document.getElementById('skip-jd-link').addEventListener('click', (e) => {
-    e.preventDefault();
-    const jdField = document.getElementById('job-desc');
-    if (!jdField.value.trim()) {
-      jdField.value = 'Analisis umum tanpa job description spesifik. Evaluasi kekuatan dan kelemahan CV secara keseluruhan.';
-      updateCharCount();
-    }
-    document.getElementById('upload-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-  });
-</script>
-
-<!-- Staging test panel — only loads on staging/localhost, no-op in production -->
-<script>
-  (function() {
-    const h = window.location.hostname;
-    if (h.includes('staging') || h === 'localhost' || h === '127.0.0.1') {
-      const s = document.createElement('script');
-      s.src = 'js/staging-cvs.js';
-      document.body.appendChild(s);
-    }
-  })();
-</script>
+<script src="js/upload-page.js"></script>
 </body>
 </html>

@@ -48,6 +48,7 @@ function removeFile() {
   document.getElementById('drop-preview').classList.add('hidden');
   document.getElementById('cv-file').value = '';
   hideError('file-error');
+  syncSubmitBtn();
 }
 
 function processFile(file) {
@@ -94,6 +95,7 @@ function processFile(file) {
   selectedFile = file;
   sessionStorage.setItem('gaslamar_upload_start', String(Date.now()));
   showFilePreview(file);
+  syncSubmitBtn();
   extractTextFromFile(file);
 }
 
@@ -102,6 +104,11 @@ function showFilePreview(file) {
   document.getElementById('drop-preview').classList.remove('hidden');
   document.getElementById('file-name').textContent = file.name;
   document.getElementById('file-size').textContent = formatFileSize(file.size);
+  // Mark step 1 complete, activate step 2
+  const s1 = document.getElementById('step-1');
+  const s2 = document.getElementById('step-2');
+  if (s1) { s1.classList.remove('active'); s1.classList.add('completed'); }
+  if (s2) s2.classList.add('active');
 }
 
 function formatFileSize(bytes) {
@@ -202,6 +209,19 @@ function arrayBufferToBase64(buffer) {
   return btoa(binary);
 }
 
+// ---- Submit Button State ----
+// Single source of truth: disabled when no file is selected OR JD is over the limit.
+
+function syncSubmitBtn() {
+  const btn = document.getElementById('submit-btn');
+  const hint = document.getElementById('submit-hint');
+  if (!btn) return;
+  const hasFile = !!selectedFile;
+  const jdTooLong = document.getElementById('job-desc').value.length > MAX_JD_CHARS;
+  btn.disabled = !hasFile || jdTooLong;
+  if (hint) hint.style.display = (!hasFile && !jdTooLong) ? '' : 'none';
+}
+
 // ---- Character Counter ----
 
 function updateCharCount() {
@@ -221,19 +241,18 @@ function updateCharCount() {
   if (count > MAX_JD_CHARS) {
     warning.classList.remove('hidden');
     showError('jd-error', `Job description terlalu panjang. Maksimal ${MAX_JD_CHARS.toLocaleString('id-ID')} karakter.`);
-    if (submitBtn) submitBtn.disabled = true;
   } else {
     if (count > 4500) {
       warning.classList.remove('hidden');
     } else {
       warning.classList.add('hidden');
     }
-    if (submitBtn) submitBtn.disabled = false;
     // Clear "too short" / "too long" errors as the user types to valid length
     if (count >= 50) {
       hideError('jd-error');
     }
   }
+  syncSubmitBtn();
 }
 
 // ---- Form Submit ----
@@ -411,10 +430,12 @@ function hideError(id) {
     configurable: false,
   });
 
-  // Tier from URL param
+  // Tier from URL param — only store known-valid values; ignore garbage
   const params = new URLSearchParams(location.search);
   const tier = params.get('tier');
-  if (tier) sessionStorage.setItem('gaslamar_tier', tier);
+  if (['coba', 'single', '3pack', 'jobhunt'].includes(tier)) {
+    sessionStorage.setItem('gaslamar_tier', tier);
+  }
 
   // Restore JD draft
   const savedJd = sessionStorage.getItem('gaslamar_jd_draft');
@@ -434,6 +455,8 @@ function hideError(id) {
     document.getElementById('file-name').textContent = pendingName;
     document.getElementById('file-size').textContent = '(sudah diproses)';
   }
+
+  syncSubmitBtn();
 })();
 
 // Save JD draft on every keystroke
@@ -447,13 +470,10 @@ document.getElementById('job-desc').addEventListener('paste', () => {
   requestAnimationFrame(updateCharCount);
 });
 
-// Re-enable submit when page is restored from BFcache (back-navigation or tab switch).
+// Re-sync submit button when page is restored from BFcache (back-navigation or tab switch).
 // Without this, the button stays disabled if the user navigated away mid-submit.
 window.addEventListener('pageshow', (e) => {
-  if (e.persisted) {
-    const btn = document.getElementById('submit-btn');
-    if (btn) btn.disabled = false;
-  }
+  if (e.persisted) syncSubmitBtn();
 });
 
 // ---- Staging test hook ----
@@ -463,6 +483,7 @@ window.injectCVForTesting = function (cvTextJson, file) {
   cvText = cvTextJson;
   selectedFile = file;
   showFilePreview(file);
+  syncSubmitBtn();
   hideError('file-error');
   const cvWarn = document.getElementById('cv-text-warning');
   if (cvWarn) cvWarn.classList.add('hidden');

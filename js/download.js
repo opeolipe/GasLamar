@@ -13,6 +13,7 @@ let pollTimer = null;
 let heartbeatTimer = null;
 let cvDataCache = null; // { cv_id: string, cv_en: string, tier: string }
 let sessionIdCache = null; // retained for multi-credit re-use
+let sessionSecretCache = null; // retained for X-Session-Secret header
 
 // ---- Init ----
 
@@ -32,6 +33,9 @@ let sessionIdCache = null; // retained for multi-credit re-use
   }
 
   sessionIdCache = sessionId;
+  // Read the client secret bound to this session (stored by payment.js)
+  sessionSecretCache = localStorage.getItem('gaslamar_secret_' + sessionId);
+
   // Start polling for payment confirmation
   showState('waiting-payment');
   startPolling(sessionId);
@@ -158,9 +162,10 @@ function startSessionHeartbeat(sessionId) {
   if (heartbeatTimer) return; // already running
   heartbeatTimer = setInterval(async () => {
     try {
+      const secretHeaders = sessionSecretCache ? { 'X-Session-Secret': sessionSecretCache } : {};
       const res = await fetch(`${WORKER_URL}/session/ping`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...secretHeaders },
         body: JSON.stringify({ session_id: sessionId })
       });
       if (res.status === 404) {
@@ -203,9 +208,10 @@ async function fetchAndGenerateCV(sessionId) {
   const timeout = setTimeout(() => controller.abort(), 25000);
 
   try {
+    const secretHeaders = sessionSecretCache ? { 'X-Session-Secret': sessionSecretCache } : {};
     const res = await fetch(`${WORKER_URL}/get-session`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...secretHeaders },
       body: JSON.stringify({ session_id: sessionId }),
       signal: controller.signal
     });
@@ -269,9 +275,10 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
       if (Array.isArray(scoring.gaps) && scoring.gaps.length) reqBody.gaps = scoring.gaps.slice(0, 3);
     } catch (_) { /* ignore */ }
 
+    const secretHeaders = sessionSecretCache ? { 'X-Session-Secret': sessionSecretCache } : {};
     const res = await fetch(`${WORKER_URL}/generate`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...secretHeaders },
       body: JSON.stringify(reqBody),
       signal: controller.signal
     });
@@ -594,7 +601,7 @@ function showCreditsDashboard(creditsRemaining, totalCredits, tier) {
   if (grid) grid.classList.add('hidden');
   // Also hide the success header since nothing was generated yet
   const successHeader = document.querySelector('#download-ready > .card:nth-child(2) > div:first-child');
-  if (successHeader) successHeader.style.display = 'none';
+  if (successHeader) successHeader.classList.add('hidden');
   // Show multi-credit section
   const multiSection = document.getElementById('multi-credit-section');
   if (multiSection) {
@@ -675,9 +682,10 @@ async function generateForNewJob() {
 
   try {
     // Step 1: call /get-session to unlock 'generating' status
+    const secretHeaders = sessionSecretCache ? { 'X-Session-Secret': sessionSecretCache } : {};
     const gsRes = await fetch(`${WORKER_URL}/get-session`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...secretHeaders },
       body: JSON.stringify({ session_id: sessionIdCache })
     });
 

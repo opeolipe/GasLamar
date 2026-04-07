@@ -22,8 +22,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (emailInput) {
     emailInput.addEventListener('input', () => {
       const errEl = document.getElementById('email-error');
-      if (errEl) errEl.style.display = 'none';
-      emailInput.style.borderColor = '';
+      if (errEl) errEl.classList.add('hidden');
+      emailInput.classList.remove('input-error');
       updatePayHint();
     });
   }
@@ -67,12 +67,12 @@ function updatePayHint() {
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   if (!selectedTier) {
     hint.textContent = 'Pilih paket di atas untuk melanjutkan';
-    hint.style.display = 'block';
+    hint.classList.remove('hidden');
   } else if (!emailValid) {
     hint.textContent = 'Masukkan email yang valid untuk melanjutkan';
-    hint.style.display = 'block';
+    hint.classList.remove('hidden');
   } else {
-    hint.style.display = 'none';
+    hint.classList.add('hidden');
   }
 }
 
@@ -86,10 +86,9 @@ function updateEmailSection(tier) {
   // All tiers now show the prominent amber email section
   const slot = document.getElementById('email-multi-slot');
   if (slot && !slot.contains(input)) slot.appendChild(input);
-  card.style.borderColor = '#F59E0B';
-  card.style.background = '#FFFBEB';
-  defaultView.style.display = 'none';
-  multiView.style.display = 'block';
+  card.classList.add('email-card-active');
+  defaultView.classList.add('hidden');
+  multiView.classList.remove('hidden');
 
   const titleEl = document.getElementById('email-multi-title');
   const bodyEl = document.getElementById('email-multi-body');
@@ -111,11 +110,11 @@ function updateEmailSection(tier) {
   }
 
   input.placeholder = 'contoh@email.com';
-  input.style.cssText = 'width:100%;padding:0.75rem 1rem;border:1.5px solid #D97706;border-radius:10px;font-size:0.95rem;box-sizing:border-box;';
+  input.classList.add('email-input-active');
 
   // Clear any previous error
   const errEl = document.getElementById('email-error');
-  if (errEl) errEl.style.display = 'none';
+  if (errEl) errEl.classList.add('hidden');
 }
 
 async function proceedToPayment() {
@@ -136,16 +135,16 @@ async function proceedToPayment() {
 
   if (!emailValid) {
     const errEl = document.getElementById('email-error');
-    if (errEl) errEl.style.display = 'block';
+    if (errEl) errEl.classList.remove('hidden');
     if (emailInput) {
-      emailInput.style.borderColor = '#DC2626';
+      emailInput.classList.add('input-error');
       emailInput.focus();
     }
     return;
   }
   const errEl = document.getElementById('email-error');
-  if (errEl) errEl.style.display = 'none';
-  if (emailInput) emailInput.style.borderColor = '';
+  if (errEl) errEl.classList.add('hidden');
+  if (emailInput) emailInput.classList.remove('input-error');
 
   // Store email in sessionStorage for use on download page
   if (capturedEmail && emailValid) {
@@ -171,6 +170,12 @@ async function proceedToPayment() {
   btn.disabled = true;
   btn.textContent = 'Membuat invoice...';
 
+  // Generate a cryptographically random secret — stored client-side and used
+  // to bind subsequent requests (get-session, generate) to this browser session.
+  // The worker stores only SHA-256(secret), so possession of the session ID
+  // alone is insufficient to access CV data.
+  const sessionSecret = crypto.randomUUID();
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 25000);
 
@@ -181,6 +186,7 @@ async function proceedToPayment() {
       body: JSON.stringify({
         tier: selectedTier,
         cv_text_key: cvTextKey,
+        session_secret: sessionSecret,
         ...(capturedEmail ? { email: capturedEmail } : {}),
       }),
       signal: controller.signal
@@ -209,9 +215,13 @@ async function proceedToPayment() {
     // Save session to localStorage (backup if user closes tab)
     localStorage.setItem('gaslamar_session', session_id);
     localStorage.setItem('gaslamar_tier', selectedTier);
+    // Bind secret to this session ID — used by download.js to authorize requests
+    localStorage.setItem('gaslamar_secret_' + session_id, sessionSecret);
 
     // Save to sessionStorage too
     sessionStorage.setItem('gaslamar_session', session_id);
+    // cv_text_key has been consumed server-side — remove from session
+    sessionStorage.removeItem('gaslamar_cv_key');
 
     if (is_sandbox) {
       // Sandbox: skip Mayar, go directly to download page with Simulasi Pembayaran button

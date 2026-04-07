@@ -5,14 +5,29 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>GasLamar · Ubah CV Jadi Lebih Relevan &amp; HR-Friendly</title>
   <meta name="description" content="AI CV tailoring + scoring untuk pencari kerja Indonesia. Upload CV, lihat skor match vs job description, download CV bilingual dalam 2 menit." />
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "GasLamar",
+    "url": "https://gaslamar.com",
+    "description": "AI CV tailoring + scoring untuk pencari kerja Indonesia. Upload CV, lihat skor match vs job description, download CV bilingual dalam 2 menit.",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Web Browser",
+    "inLanguage": "id-ID",
+    "offers": {
+      "@type": "AggregateOffer",
+      "lowPrice": "29000",
+      "highPrice": "299000",
+      "priceCurrency": "IDR"
+    }
+  }
+  </script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
   <!-- Cloudflare Web Analytics -->
   <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "f9c97d82f2a04b9f95e051946eb0525e"}'></script>
-  <!-- PostHog Analytics -->
-  <script>
-    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]);t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(a!==void 0?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+" (stub)"},o="init be q capture identify alias people.set people.set_once set_config unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys onSessionId setPersonPropertiesForFlags".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
-    posthog.init('phc_DmeD8QdyUMMGwZ4GUKnDurFXrquR3APqUKrcEuDbgy3X',{api_host:'https://eu.i.posthog.com',person_profiles:'identified_only',defaults:'2026-01-30'});
-  </script>
+  <script src="js/posthog-init.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -479,6 +494,29 @@
       color: #5B6E8C;
       font-size: 0.8rem;
     }
+
+    /* ── Inline style extractions ── */
+    .hl-warm { background: linear-gradient(120deg, #FFE4C4, #FFD6B0); padding: 0 4px; -webkit-background-clip: unset; background-clip: unset; color: #92400E; }
+    .hero-sub { font-size: 0.78rem; color: #64748B; margin-top: 0.6rem; }
+    .sample-label { font-size: 0.75rem; color: #5B6E8C; margin-bottom: 0.5rem; text-align: center; font-weight: 500; }
+    .sample-err-box { background: #FEF2F2; padding: 0.6rem; border-radius: 12px; font-size: 0.85rem; }
+    .mock-label-ok { color: #15803D; }
+    .mock-improved { font-weight: 500; }
+    .sample-tip { margin-top: 1rem; font-size: 0.7rem; background: #EFF6FF; border-radius: 12px; padding: 0.4rem 0.8rem; text-align: center; }
+    .improved-bullet-mt { margin-top: 0.8rem; }
+    .bullet-item-ok { border-left-color: #10B981; margin-top: 0.8rem; }
+    .metric-badge-ok { background: #DCFCE7; }
+    .reco-note { text-align: center; margin-top: 2rem; }
+    .reco-text { color: #475569; }
+    .feat-title { font-size: 1.2rem; margin-bottom: 0.5rem; }
+    .feat-desc { font-size: 0.85rem; color: #4B5563; }
+    .cta-section { background: linear-gradient(110deg, #F1F5F9 0%, #E9EEF5 100%); border-radius: 2rem; padding: 3rem 2rem; text-align: center; margin: 3rem 0; }
+    .cta-title { font-size: 1.8rem; font-weight: 700; }
+    .cta-sub { margin: 1rem 0; color: #2D3A5E; }
+    .btn-cta-bottom { background: #0F172A; padding: 0.9rem 2rem; font-size: 1rem; }
+    .cta-note { margin-top: 1rem; font-size: 0.7rem; color: #64748B; }
+    .footer-note { margin-top: 0.5rem; }
+    .reco-note-inner { margin-top: 1rem; }
   </style>
 </head>
 <body>
@@ -488,7 +526,7 @@
   <div class="container">
     <div class="navbar-inner">
       <a href="index.html" class="logo">GasLamar</a>
-      <a href="upload.html" class="btn-nav" onclick="window.Analytics&&Analytics.track('landing_cta_clicked',{cta_location:'nav'})">Cek CV Saya →</a>
+      <a href="upload.html" class="btn-nav" data-cta-location="nav">Cek CV Saya →</a>
     </div>
   </div>
 </nav>
@@ -498,7 +536,7 @@
   <!-- HERO -->
   <div class="hero">
     <div class="hero-left">
-      <h1>CV kamu mungkin bagus…<br>tapi HR cuma butuh <span style="background: linear-gradient(120deg, #FFE4C4, #FFD6B0); padding: 0 4px; -webkit-background-clip: unset; background-clip: unset; color: #92400E;">6 detik buat reject.</span></h1>
+      <h1>CV kamu mungkin bagus…<br>tapi HR cuma butuh <span class="hl-warm">6 detik buat reject.</span></h1>
 
       <div class="subhead">
         Cek seberapa cocok CV kamu dengan job yang kamu lamar, lihat gap-nya, dan langsung dapat versi CV yang lebih kuat — dalam 2 menit.
@@ -512,15 +550,15 @@
       </div>
 
       <div class="cta-group">
-        <a href="upload.html" class="btn-primary" onclick="window.Analytics&&Analytics.track('landing_cta_clicked',{cta_location:'hero'})">👉 Cek Skor CV Saya</a>
+        <a href="upload.html" class="btn-primary" data-cta-location="hero">👉 Cek Skor CV Saya</a>
         <a href="#sample" class="btn-secondary">👀 Lihat contoh hasil nyata</a>
       </div>
-      <div style="font-size: 0.78rem; color: #64748B; margin-top: 0.6rem;">Gratis lihat skor &amp; gap &nbsp;•&nbsp; Bayar hanya kalau mau download</div>
+      <div class="hero-sub">Gratis lihat skor &amp; gap &nbsp;•&nbsp; Bayar hanya kalau mau download</div>
 
     </div>
 
     <div class="hero-right">
-      <div style="font-size: 0.75rem; color: #5B6E8C; margin-bottom: 0.5rem; text-align: center; font-weight: 500;">Contoh hasil analisis nyata</div>
+      <div class="sample-label">Contoh hasil analisis nyata</div>
       <div class="mock-card">
         <div class="mock-header">
           <div class="score-badge"><span class="score-number">68</span> / 100</div>
@@ -536,15 +574,15 @@
         </div>
         <div class="mock-item">
           <div class="mock-label">⚠️ Weak Bullet (before)</div>
-          <div style="background:#FEF2F2; padding:0.6rem; border-radius: 12px; font-size:0.85rem;">
+          <div class="sample-err-box">
             "Bertanggung jawab mengembangkan fitur frontend."
           </div>
         </div>
         <div class="improved-snippet">
-          <div class="mock-label" style="color:#15803D;">✅ Improved Version (tailored)</div>
-          <div style="font-weight: 500;">"Mengembangkan 4 fitur frontend menggunakan React Hooks, menurunkan load time 30%."</div>
+          <div class="mock-label mock-label-ok">✅ Improved Version (tailored)</div>
+          <div class="mock-improved">"Mengembangkan 4 fitur frontend menggunakan React Hooks, menurunkan load time 30%."</div>
         </div>
-        <div style="margin-top: 1rem; font-size: 0.7rem; background:#EFF6FF; border-radius: 12px; padding: 0.4rem 0.8rem; text-align: center;">
+        <div class="sample-tip">
           🔍 Lihat 3 rekomendasi lain + CV rewrite setelah upload
         </div>
       </div>
@@ -570,20 +608,20 @@
           <strong>🎯 Spesifik &amp; terukur:</strong><br>
           "Meningkatkan engagement Instagram 45% dalam 3 bulan dengan strategi konten data-driven &amp; A/B testing."
         </div>
-        <div class="improved-bullet" style="margin-top: 0.8rem;">
+        <div class="improved-bullet improved-bullet-mt">
           <strong>⚙️ Keyword SEO yang dicari recruiter:</strong><br>
           "Google Analytics, Meta Ads, Content Strategy, ROI reporting"
         </div>
-        <div class="bullet-item" style="border-left-color: #10B981; margin-top: 0.8rem;">
+        <div class="bullet-item bullet-item-ok">
           <strong>📈 Hasil konkret</strong><br>
           "Mengelola campaign dengan ROI +32% dibanding kuartal sebelumnya."
         </div>
-        <div style="margin-top: 1rem;"><span class="metric-badge" style="background:#DCFCE7;">🔥 Skor naik jadi 87/100 · Rekomendasi prioritas</span></div>
+        <div class="reco-note-inner"><span class="metric-badge metric-badge-ok">🔥 Skor naik jadi 87/100 · Rekomendasi prioritas</span></div>
       </div>
     </div>
 
-    <div style="text-align: center; margin-top: 2rem;">
-      <p style="color:#475569;">🔍 Semua rekomendasi berdasarkan <strong>job description</strong> yang kamu targetkan</p>
+    <div class="reco-note">
+      <p class="reco-text">🔍 Semua rekomendasi berdasarkan <strong>job description</strong> yang kamu targetkan</p>
     </div>
   </div>
 
@@ -591,18 +629,18 @@
   <div class="value-prop-grid">
     <div class="value-card">
       <div class="value-emoji">🎯</div>
-      <h3 style="font-size: 1.2rem; margin-bottom: 0.5rem;">Disesuaikan dengan job</h3>
-      <p style="font-size: 0.85rem; color:#4B5563;">Bukan saran umum — setiap analisis berdasarkan lowongan yang kamu lamar</p>
+      <h3 class="feat-title">Disesuaikan dengan job</h3>
+      <p class="feat-desc">Bukan saran umum — setiap analisis berdasarkan lowongan yang kamu lamar</p>
     </div>
     <div class="value-card">
       <div class="value-emoji">🌍</div>
-      <h3 style="font-size: 1.2rem; margin-bottom: 0.5rem;">CV bilingual siap kirim</h3>
-      <p style="font-size: 0.85rem; color:#4B5563;">Bahasa Indonesia &amp; Inggris dalam satu flow — siap untuk lokal &amp; multinational</p>
+      <h3 class="feat-title">CV bilingual siap kirim</h3>
+      <p class="feat-desc">Bahasa Indonesia &amp; Inggris dalam satu flow — siap untuk lokal &amp; multinational</p>
     </div>
     <div class="value-card">
       <div class="value-emoji">⚡</div>
-      <h3 style="font-size: 1.2rem; margin-bottom: 0.5rem;">Langsung diperbaiki</h3>
-      <p style="font-size: 0.85rem; color:#4B5563;">Tidak perlu edit manual — langsung dapat versi CV yang lebih kuat</p>
+      <h3 class="feat-title">Langsung diperbaiki</h3>
+      <p class="feat-desc">Tidak perlu edit manual — langsung dapat versi CV yang lebih kuat</p>
     </div>
   </div>
 
@@ -625,7 +663,7 @@
           <li><span class="ck">✓</span> Download DOCX + PDF</li>
           <li class="feat-disabled"><span class="ck">—</span> Bahasa Inggris</li>
         </ul>
-        <a href="upload.html?tier=coba" class="btn-outline-blue" onclick="window.Analytics&&Analytics.track('landing_cta_clicked',{cta_location:'pricing',tier_hint:'coba'})">Gunakan versi ini</a>
+        <a href="upload.html?tier=coba" class="btn-outline-blue" data-cta-location="pricing" data-tier-hint="coba">Gunakan versi ini</a>
       </div>
 
       <!-- Single -->
@@ -639,7 +677,7 @@
           <li><span class="ck">✓</span> Skor match + gap analysis</li>
           <li><span class="ck">✓</span> DOCX + PDF (4 file)</li>
         </ul>
-        <a href="upload.html?tier=single" class="btn-outline-blue" onclick="window.Analytics&&Analytics.track('landing_cta_clicked',{cta_location:'pricing',tier_hint:'single'})">Gunakan versi ini</a>
+        <a href="upload.html?tier=single" class="btn-outline-blue" data-cta-location="pricing" data-tier-hint="single">Gunakan versi ini</a>
       </div>
 
       <!-- 3-Pack (featured) -->
@@ -654,7 +692,7 @@
           <li><span class="ck">✓</span> DOCX + PDF per CV (4 file)</li>
           <li><span class="ck">✓</span> Hemat Rp 28.000 vs Single</li>
         </ul>
-        <a href="upload.html?tier=3pack" class="btn-white" onclick="window.Analytics&&Analytics.track('landing_cta_clicked',{cta_location:'pricing',tier_hint:'3pack'})">Gunakan versi ini</a>
+        <a href="upload.html?tier=3pack" class="btn-white" data-cta-location="pricing" data-tier-hint="3pack">Gunakan versi ini</a>
       </div>
 
       <!-- Job Hunt Pack -->
@@ -668,7 +706,7 @@
           <li><span class="ck">✓</span> DOCX + PDF per CV (4 file)</li>
           <li><span class="ck">✓</span> Hemat Rp 291.000 vs Single</li>
         </ul>
-        <a href="upload.html?tier=jobhunt" class="btn-outline-blue" onclick="window.Analytics&&Analytics.track('landing_cta_clicked',{cta_location:'pricing',tier_hint:'jobhunt'})">Gunakan versi ini</a>
+        <a href="upload.html?tier=jobhunt" class="btn-outline-blue" data-cta-location="pricing" data-tier-hint="jobhunt">Gunakan versi ini</a>
       </div>
 
     </div>
@@ -676,19 +714,20 @@
   </div>
 
   <!-- FINAL CTA -->
-  <div style="background: linear-gradient(110deg, #F1F5F9 0%, #E9EEF5 100%); border-radius: 2rem; padding: 3rem 2rem; text-align: center; margin: 3rem 0;">
-    <h2 style="font-size: 1.8rem; font-weight: 700;">Siap bikin CV kamu lebih kuat?</h2>
-    <p style="margin: 1rem 0; color: #2D3A5E;">Dapatkan CV yang benar-benar dilihat recruiter — bukan sekadar lolos ATS.</p>
-    <a href="upload.html" class="btn-primary" style="background:#0F172A; padding: 0.9rem 2rem; font-size: 1rem;" onclick="window.Analytics&&Analytics.track('landing_cta_clicked',{cta_location:'bottom'})">👉 Cek Skor CV Saya Sekarang</a>
-    <div style="margin-top: 1rem; font-size: 0.7rem; color: #64748B;">Tanpa daftar &nbsp;•&nbsp; Proses ±30 detik</div>
+  <div class="cta-section">
+    <h2 class="cta-title">Siap bikin CV kamu lebih kuat?</h2>
+    <p class="cta-sub">Dapatkan CV yang benar-benar dilihat recruiter — bukan sekadar lolos ATS.</p>
+    <a href="upload.html" class="btn-primary btn-cta-bottom" data-cta-location="bottom">👉 Cek Skor CV Saya Sekarang</a>
+    <div class="cta-note">Tanpa daftar &nbsp;•&nbsp; Proses ±30 detik</div>
   </div>
 
   <footer>
     <p>© 2026 GasLamar — CV optimizer yang berpikir seperti HR, bukan sekadar AI generik.</p>
-    <p style="margin-top: 0.5rem;">🔒 Privasi utama: CV tidak disimpan, tanpa registrasi, hasil download hanya untukmu.</p>
+    <p class="footer-note">🔒 Privasi utama: CV tidak disimpan, tanpa registrasi, hasil download hanya untukmu.</p>
   </footer>
 
 </div>
 <script src="js/analytics.js"></script>
+<script src="js/index-page.js"></script>
 </body>
 </html>
