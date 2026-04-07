@@ -193,3 +193,41 @@ function submitInterviewFeedback(answer) {
     body: JSON.stringify({ type: 'interview_outcome', answer })
   }).catch(() => {});
 }
+
+// ── Event bindings for inline handlers removed from HTML ──
+document.getElementById('check-btn').addEventListener('click', restartPolling);
+document.getElementById('sandbox-pay-btn').addEventListener('click', sandboxConfirmPayment);
+document.getElementById('error-retry-btn').addEventListener('click', retryGeneration);
+
+// "Batalkan" link — confirm before navigating back
+const _cancelGenLink = document.getElementById('cancel-gen-link');
+if (_cancelGenLink) {
+  _cancelGenLink.addEventListener('click', function(e) {
+    if (!confirm('Batalkan proses penulisan?')) e.preventDefault();
+  });
+}
+
+// Download buttons — use data-lang and data-fmt attributes
+document.querySelectorAll('.btn-download[data-lang]').forEach(function(btn) {
+  btn.addEventListener('click', function() { downloadFile(btn.dataset.lang, btn.dataset.fmt); });
+});
+
+// Interview feedback buttons
+document.querySelector('[data-feedback="ya"]').addEventListener('click',     () => submitInterviewFeedback('ya'));
+document.querySelector('[data-feedback="proses"]').addEventListener('click', () => submitInterviewFeedback('proses'));
+document.querySelector('[data-feedback="tidak"]').addEventListener('click',  () => submitInterviewFeedback('tidak'));
+
+// Copy plain-text fallback buttons
+document.getElementById('copy-id-btn').addEventListener('click', () => copyText('cv-text-id'));
+document.getElementById('copy-en-btn').addEventListener('click', () => copyText('cv-text-en'));
+
+// Multi-credit section
+document.getElementById('new-fetch-submit-btn').addEventListener('click', fetchNewJobFromUrl);
+document.getElementById('new-url-close-btn').addEventListener('click', () => {
+  document.getElementById('new-url-fetch-row').style.display = 'none';
+});
+document.getElementById('new-job-desc').addEventListener('input', updateNewCharCount);
+document.getElementById('new-job-btn').addEventListener('click', generateForNewJob);
+
+// Bottom CTA
+document.getElementById('bottom-cta-btn').addEventListener('click', handleTailoringCta);

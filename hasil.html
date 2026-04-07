@@ -11,11 +11,7 @@
   <link rel="stylesheet" href="css/style.css" />
   <!-- Cloudflare Web Analytics -->
   <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "f9c97d82f2a04b9f95e051946eb0525e"}'></script>
-  <!-- PostHog Analytics -->
-  <script>
-    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]);t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(a!==void 0?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+" (stub)"},o="init be q capture identify alias people.set people.set_once set_config unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys onSessionId setPersonPropertiesForFlags".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
-    posthog.init('phc_DmeD8QdyUMMGwZ4GUKnDurFXrquR3APqUKrcEuDbgy3X',{api_host:'https://eu.i.posthog.com',person_profiles:'identified_only',defaults:'2026-01-30'});
-  </script>
+  <script src="js/posthog-init.js"></script>
   <style>
     * { box-sizing: border-box; }
 
@@ -479,51 +475,7 @@
     }
     #share-btn:hover { border-color: #0F172A; color: #0F172A; }
   </style>
-  <script>
-    (function() {
-      var KEYS = ['gaslamar_scoring','gaslamar_cv_key','gaslamar_analyze_time'];
-      function clearAndRedirect() {
-        KEYS.forEach(function(k) { sessionStorage.removeItem(k); });
-        window.location.replace('upload.html');
-      }
-
-      // Reject any URL-level session parameter that doesn't match our format.
-      // hasil.html is a sessionStorage-only page; a foreign sessionId in the URL
-      // means someone is sharing/forging a link — clear local data and redirect.
-      var params = new URLSearchParams(location.search);
-      var urlSession = params.get('session') || params.get('sessionId');
-      if (urlSession !== null && !urlSession.startsWith('cvtext_')) {
-        clearAndRedirect(); return;
-      }
-
-      var rawScoring = sessionStorage.getItem('gaslamar_scoring');
-      var cvKey = sessionStorage.getItem('gaslamar_cv_key') || '';
-      var analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
-      var SESSION_SECS = 7200;
-
-      // Must have scoring data
-      if (!rawScoring) { clearAndRedirect(); return; }
-
-      // Scoring must be valid JSON with a numeric skor
-      var parsed;
-      try { parsed = JSON.parse(rawScoring); } catch(e) { clearAndRedirect(); return; }
-      var skor = parseInt(parsed && parsed.skor);
-      if (isNaN(skor) || skor < 0 || skor > 100) { clearAndRedirect(); return; }
-
-      // cv_key must have the expected format (cvtext_<uuid>) if present
-      if (cvKey && !cvKey.startsWith('cvtext_')) { clearAndRedirect(); return; }
-
-      // Session must not be older than 2 hours
-      var isExpired = analyzeTime > 0 && (Date.now() - analyzeTime) / 1000 > SESSION_SECS;
-      if (isExpired) { clearAndRedirect(); return; }
-
-      // analyze_time must be present (guards against manually injected data)
-      if (!analyzeTime) { clearAndRedirect(); return; }
-
-      // If a valid cvtext_ key is in the URL, it must match what's in sessionStorage
-      if (urlSession && urlSession !== cvKey) { clearAndRedirect(); return; }
-    })();
-  </script>
+  <script src="js/hasil-guard.js"></script>
 </head>
 <body>
 <div class="container">
@@ -713,26 +665,26 @@
 
       <div class="pricing-grid">
         <!-- Coba Dulu -->
-        <div class="pricing-card tier-card" data-tier="coba" onclick="selectTier('coba')">
+        <div class="pricing-card tier-card" data-tier="coba">
           <div class="pkg-name">Coba Dulu</div>
           <div class="pkg-price">Rp 29k</div>
           <div class="pkg-desc">1 CV · Bahasa Indonesia</div>
         </div>
         <!-- Single -->
-        <div class="pricing-card tier-card" data-tier="single" onclick="selectTier('single')">
+        <div class="pricing-card tier-card" data-tier="single">
           <div class="pkg-name">Single</div>
           <div class="pkg-price">Rp 59k</div>
           <div class="pkg-desc">1 CV · Bilingual ID + EN</div>
         </div>
         <!-- 3-Pack (popular) -->
-        <div class="pricing-card popular tier-card" data-tier="3pack" onclick="selectTier('3pack')">
+        <div class="pricing-card popular tier-card" data-tier="3pack">
           <div class="popular-badge">⭐ PALING LARIS</div>
           <div class="pkg-name">3-Pack</div>
           <div class="pkg-price">Rp 149k</div>
           <div class="pkg-desc">3 CV · Bilingual ID + EN</div>
         </div>
         <!-- Job Hunt Pack -->
-        <div class="pricing-card tier-card" data-tier="jobhunt" onclick="selectTier('jobhunt')">
+        <div class="pricing-card tier-card" data-tier="jobhunt">
           <div class="pkg-name">Job Hunt Pack</div>
           <div class="pkg-price">Rp 299k</div>
           <div class="pkg-desc">10 CV · Bilingual ID + EN</div>
@@ -774,7 +726,7 @@
 
     <!-- Pay button + trust footer — below email input -->
     <div id="cta-area">
-      <button id="pay-btn" onclick="proceedToPayment()" disabled>
+      <button id="pay-btn" disabled>
         ✨ Lihat CV hasil rewrite lengkap
       </button>
       <p id="pay-hint" style="font-size:0.8rem;color:#6B7280;text-align:center;margin-top:0.5rem;">
@@ -799,48 +751,6 @@
 <script src="js/analytics.js"></script>
 <script src="js/scoring.js"></script>
 <script src="js/payment.js"></script>
-<script>
-(function startCountdown() {
-  const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
-  const el = document.getElementById('session-countdown');
-  const textEl = document.getElementById('countdown-text');
-  if (!analyzeTime || !el || !textEl) { if (el) el.style.display = 'none'; return; }
-  const SESSION_SECS = 7200; // matches worker cvtext_ TTL (2h)
-  function update() {
-    const remaining = SESSION_SECS - Math.floor((Date.now() - analyzeTime) / 1000);
-    if (remaining <= 0) {
-      textEl.textContent = 'Sesi analisis sudah kedaluwarsa - hasil ini masih bisa kamu lihat, tapi tidak bisa lanjut bayar.';
-      el.style.background = '#FEF2F2';
-      el.style.borderColor = '#FECACA';
-      el.style.color = '#B91C1C';
-      return;
-    }
-    const h = Math.floor(remaining / 3600);
-    const m = Math.floor((remaining % 3600) / 60);
-    const s = remaining % 60;
-    if (remaining <= 300) {
-      // Under 5 minutes — urgent warning
-      el.style.background = '#FEF2F2';
-      el.style.borderColor = '#FECACA';
-      el.style.color = '#B91C1C';
-      textEl.textContent = `⚠️ Sesi berakhir dalam ${m}m ${s}s — selesaikan pembayaran sekarang!`;
-    } else if (remaining <= 1800) {
-      // Under 30 minutes — amber warning
-      el.style.background = '#FFFBEB';
-      el.style.borderColor = '#FCD34D';
-      el.style.color = '#92400E';
-      textEl.textContent = h > 0
-        ? `Sesi analisis berlaku ${h}j ${m}m lagi - bayar sebelum kedaluwarsa`
-        : `Sesi analisis berlaku ${m}m ${s}s lagi - bayar sebelum kedaluwarsa`;
-    } else {
-      textEl.textContent = h > 0
-        ? `Sesi analisis berlaku ${h}j ${m}m lagi - bayar sebelum kedaluwarsa`
-        : `Sesi analisis berlaku ${m}m ${s}s lagi - bayar sebelum kedaluwarsa`;
-    }
-    setTimeout(update, 1000);
-  }
-  update();
-})();
-</script>
+<script src="js/hasil-page.js"></script>
 </body>
 </html>

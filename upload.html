@@ -8,11 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
   <!-- Cloudflare Web Analytics -->
   <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "f9c97d82f2a04b9f95e051946eb0525e"}'></script>
-  <!-- PostHog Analytics -->
-  <script>
-    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]);t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(a!==void 0?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+" (stub)"},o="init be q capture identify alias people.set people.set_once set_config unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys onSessionId setPersonPropertiesForFlags".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
-    posthog.init('phc_DmeD8QdyUMMGwZ4GUKnDurFXrquR3APqUKrcEuDbgy3X',{api_host:'https://eu.i.posthog.com',person_profiles:'identified_only',defaults:'2026-01-30'});
-  </script>
+  <script src="js/posthog-init.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -473,18 +469,14 @@
       <!-- CV Upload -->
       <label for="cv-file">📄 1. Upload CV Kamu</label>
 
-      <div id="drop-zone" class="dropzone"
-        onclick="if(!event.target.closest('#drop-preview')) document.getElementById('cv-file').click()"
-        ondragover="handleDragOver(event)"
-        ondragleave="handleDragLeave(event)"
-        ondrop="handleDrop(event)">
+      <div id="drop-zone" class="dropzone">
 
         <div id="drop-idle">
           <div class="dropzone-icon">📁</div>
           <div class="dropzone-text">Drag &amp; drop CV di sini</div>
           <div class="dropzone-divider">atau</div>
-          <button type="button" class="btn-pick-file" aria-label="Pilih file CV dari komputer kamu" onclick="event.stopPropagation(); document.getElementById('cv-file').click()">Pilih file</button>
-          <input type="file" id="cv-file" class="hidden" aria-label="Upload file CV (PDF atau DOCX, maks 5MB)" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" onchange="handleFileSelect(event)">
+          <button type="button" class="btn-pick-file" aria-label="Pilih file CV dari komputer kamu">Pilih file</button>
+          <input type="file" id="cv-file" class="hidden" aria-label="Upload file CV (PDF atau DOCX, maks 5MB)" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain">
           <div class="dropzone-hint">PDF atau DOCX &nbsp;•&nbsp; maks 5MB</div>
         </div>
 
@@ -496,7 +488,7 @@
               <div class="file-size-display" id="file-size"></div>
             </div>
           </div>
-          <button type="button" class="replace-btn" aria-label="Ganti file CV yang sudah dipilih" onclick="event.stopPropagation(); removeFile()">Ganti file</button>
+          <button type="button" class="replace-btn" aria-label="Ganti file CV yang sudah dipilih">Ganti file</button>
         </div>
       </div>
 
@@ -532,8 +524,8 @@
           <input type="url" id="job-url-input" class="url-fetch-input" aria-label="URL halaman lowongan kerja (LinkedIn, Glints, JobStreet, dll)"
             placeholder="https://www.linkedin.com/jobs/view/…"
           />
-          <button type="button" id="fetch-url-submit-btn" class="btn-fetch-submit" aria-label="Ambil job description dari URL yang dimasukkan" onclick="fetchJobFromUrl()">Ambil</button>
-          <button type="button" class="btn-close-icon" aria-label="Tutup form URL loker" onclick="closeUrlFetch()" title="Tutup">✕</button>
+          <button type="button" id="fetch-url-submit-btn" class="btn-fetch-submit" aria-label="Ambil job description dari URL yang dimasukkan">Ambil</button>
+          <button type="button" class="btn-close-icon" aria-label="Tutup form URL loker" title="Tutup">✕</button>
         </div>
         <p id="url-fetch-status" class="url-fetch-status"></p>
       </div>
@@ -542,7 +534,7 @@
         <textarea id="job-desc" rows="6"
           placeholder="Paste bagian requirements / responsibilities dari job yang kamu lamar…"
           maxlength="5000"
-          oninput="updateCharCount()"></textarea>
+></textarea>
         <div class="char-counter"><span id="char-count">0</span> / 5.000 karakter</div>
       </div>
       <div id="char-warning" class="char-warning-text hidden">Mendekati batas karakter</div>
@@ -590,121 +582,6 @@
 <script src="js/config.js"></script>
 <script src="js/analytics.js"></script>
 <script src="js/upload.js"></script>
-<script>
-  // Show error from analyzing.html if analysis failed
-  const _analyzeErr = sessionStorage.getItem('gaslamar_upload_error');
-  if (_analyzeErr) {
-    sessionStorage.removeItem('gaslamar_upload_error');
-    const _errEl = document.createElement('div');
-    _errEl.className = 'upload-error-banner';
-    _errEl.textContent = '⚠️ Analisis gagal: ' + _analyzeErr;
-    document.querySelector('.card').insertBefore(_errEl, document.querySelector('.card').firstChild);
-  }
-
-  // Hide scroll hint once submit button scrolls into view
-  const _scrollHint = document.getElementById('scroll-hint');
-  const _submitBtn = document.getElementById('submit-btn');
-  if (_scrollHint && _submitBtn && 'IntersectionObserver' in window) {
-    const _obs = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting) { _scrollHint.classList.add('hidden'); _obs.disconnect(); }
-    }, { threshold: 0.5 });
-    _obs.observe(_submitBtn);
-  }
-
-  // Fetch job description from URL
-  document.getElementById('fetch-url-btn').addEventListener('click', () => {
-    const row = document.getElementById('url-fetch-row');
-    row.style.display = 'block';
-    document.getElementById('job-url-input').focus();
-  });
-
-  function closeUrlFetch() {
-    document.getElementById('url-fetch-row').style.display = 'none';
-    document.getElementById('url-fetch-status').textContent = '';
-    document.getElementById('job-url-input').value = '';
-  }
-
-  async function fetchJobFromUrl() {
-    const urlInput = document.getElementById('job-url-input');
-    const statusEl = document.getElementById('url-fetch-status');
-    const submitBtn = document.getElementById('fetch-url-submit-btn');
-    const url = urlInput.value.trim();
-
-    if (!url) { urlInput.focus(); return; }
-
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Mengambil...';
-    statusEl.style.color = '#6B7280';
-    statusEl.textContent = '⏳ Mengambil job description...';
-
-    try {
-      const res = await fetch(`${WORKER_URL}/fetch-job-url`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        statusEl.style.color = '#DC2626';
-        statusEl.textContent = '⚠️ ' + (data.message || 'Gagal mengambil. Coba copy-paste manual.');
-      } else {
-        document.getElementById('job-desc').value = data.job_desc;
-        updateCharCount();
-        statusEl.style.color = '#059669';
-        statusEl.textContent = '✅ Job description berhasil diambil. Periksa dan edit seperlunya.';
-      }
-    } catch {
-      statusEl.style.color = '#DC2626';
-      statusEl.textContent = '⚠️ Tidak bisa terhubung ke server. Coba lagi.';
-    } finally {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Ambil';
-    }
-  }
-
-  // Allow Enter key in URL input to trigger fetch
-  document.getElementById('job-url-input').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') fetchJobFromUrl();
-  });
-
-  // Use example
-  document.getElementById('example-btn').addEventListener('click', () => {
-    const exampleText = `Posisi: Product Manager
-
-Requirements:
-- S1 semua jurusan dengan IPK ≥ 3.0
-- 3+ tahun pengalaman sebagai Product Manager
-- Familiar dengan Agile/Scrum
-- Kemampuan analisis data (SQL adalah nilai tambah)
-- Komunikasi yang baik dan problem solving`;
-    document.getElementById('job-desc').value = exampleText;
-    updateCharCount();
-  });
-
-  // Skip JD link — only fill generic text if textarea is empty, then submit
-  document.getElementById('skip-jd-link').addEventListener('click', (e) => {
-    e.preventDefault();
-    const jdField = document.getElementById('job-desc');
-    if (!jdField.value.trim()) {
-      jdField.value = 'Analisis umum tanpa job description spesifik. Evaluasi kekuatan dan kelemahan CV secara keseluruhan.';
-      updateCharCount();
-    }
-    document.getElementById('upload-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-  });
-</script>
-
-<!-- Staging test panel — only loads on staging/localhost, no-op in production -->
-<script>
-  (function() {
-    const h = window.location.hostname;
-    if (h.includes('staging') || h === 'localhost' || h === '127.0.0.1') {
-      const s = document.createElement('script');
-      s.src = 'js/staging-cvs.js';
-      document.body.appendChild(s);
-    }
-  })();
-</script>
+<script src="js/upload-page.js"></script>
 </body>
 </html>
