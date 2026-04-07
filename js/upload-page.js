@@ -1,3 +1,10 @@
+// Detects the first strongly-directional character and sets dir="rtl"|"ltr".
+// RTL ranges: Arabic, Hebrew, Thaana, Syriac, and broad RTL category.
+function setTextDir(el) {
+  const RTL = /[\u0591-\u07FF\u200F\u202B\u202E\uFB1D-\uFDFD\uFE70-\uFEFC]/;
+  el.dir = RTL.test(el.value) ? 'rtl' : 'ltr';
+}
+
 // Show error from analyzing.html if analysis failed
 const _analyzeErr = sessionStorage.getItem('gaslamar_upload_error');
 if (_analyzeErr) {
@@ -119,7 +126,10 @@ document.querySelector('.replace-btn').addEventListener('click', function(e) {
 });
 document.getElementById('fetch-url-submit-btn').addEventListener('click', fetchJobFromUrl);
 document.querySelector('#url-fetch-row .btn-close-icon').addEventListener('click', closeUrlFetch);
-document.getElementById('job-desc').addEventListener('input', updateCharCount);
+document.getElementById('job-desc').addEventListener('input', function() {
+  updateCharCount();
+  setTextDir(this);
+});
 // Staging test panel — only loads on staging/localhost, no-op in production
 (function() {
   const h = window.location.hostname;

@@ -1,3 +1,9 @@
+// Detects the first strongly-directional character and sets dir="rtl"|"ltr".
+function setTextDir(el) {
+  const RTL = /[\u0591-\u07FF\u200F\u202B\u202E\uFB1D-\uFDFD\uFE70-\uFEFC]/;
+  el.dir = RTL.test(el.value) ? 'rtl' : 'ltr';
+}
+
 // ── Generating animation ──
 const GEN_TRUST_MSGS = [
   '🔒 CV tidak disimpan — data aman',
@@ -226,7 +232,10 @@ document.getElementById('new-fetch-submit-btn').addEventListener('click', fetchN
 document.getElementById('new-url-close-btn').addEventListener('click', () => {
   document.getElementById('new-url-fetch-row').style.display = 'none';
 });
-document.getElementById('new-job-desc').addEventListener('input', updateNewCharCount);
+document.getElementById('new-job-desc').addEventListener('input', function() {
+  updateNewCharCount();
+  setTextDir(this);
+});
 document.getElementById('new-job-btn').addEventListener('click', generateForNewJob);
 
 // Bottom CTA
