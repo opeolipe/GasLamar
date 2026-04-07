@@ -430,10 +430,12 @@ function hideError(id) {
     configurable: false,
   });
 
-  // Tier from URL param
+  // Tier from URL param — only store known-valid values; ignore garbage
   const params = new URLSearchParams(location.search);
   const tier = params.get('tier');
-  if (tier) sessionStorage.setItem('gaslamar_tier', tier);
+  if (['coba', 'single', '3pack', 'jobhunt'].includes(tier)) {
+    sessionStorage.setItem('gaslamar_tier', tier);
+  }
 
   // Restore JD draft
   const savedJd = sessionStorage.getItem('gaslamar_jd_draft');
