@@ -131,7 +131,11 @@ async function checkRateLimitKV(env, ip, limit = 3, windowSecs = 60, prefix = 'a
 // All rate-limited endpoints must use this instead of a plain jsonResponse 429.
 function rateLimitResponse(request, env) {
   return corsResponse(
-    JSON.stringify({ message: 'Terlalu banyak permintaan. Coba lagi dalam 1 menit.' }),
+    JSON.stringify({
+      error: 'Too many requests',
+      message: 'Terlalu banyak permintaan. Coba lagi dalam 1 menit.',
+      retryAfter: 60,
+    }),
     429,
     { 'Content-Type': 'application/json', 'Retry-After': '60' },
     request,
