@@ -83,6 +83,50 @@ async function checkRateLimit(env, limiterBinding, ip) {
   return success;
 }
 
+/**
+ * KV-based rate limiter — works independently of Cloudflare binding configuration.
+ * Uses GASLAMAR_SESSIONS KV with a TTL-keyed counter so entries auto-expire.
+ * Returns true if the request is under the limit, false if it should be rejected.
+ * Fails open (allows request) if KV is unavailable.
+ */
+async function checkRateLimitKV(env, ip, limit = 3, windowSecs = 60, prefix = 'analyze') {
+  const key = `rate_limit_${prefix}_${ip}`;
+  try {
+    const raw = await env.GASLAMAR_SESSIONS.get(key);
+    const now = Math.floor(Date.now() / 1000);
+
+    if (raw) {
+      const data = JSON.parse(raw);
+      if (now - data.start < windowSecs) {
+        // Still within the window
+        if (data.count >= limit) {
+          log('rate_limit_kv_hit', { prefix, ip, count: data.count, limit });
+          return false;
+        }
+        // Increment counter — preserve original TTL by recalculating remaining seconds
+        const remaining = windowSecs - (now - data.start);
+        await env.GASLAMAR_SESSIONS.put(
+          key,
+          JSON.stringify({ start: data.start, count: data.count + 1 }),
+          { expirationTtl: Math.max(1, remaining) }
+        );
+        return true;
+      }
+    }
+
+    // First request in a new window
+    await env.GASLAMAR_SESSIONS.put(
+      key,
+      JSON.stringify({ start: now, count: 1 }),
+      { expirationTtl: windowSecs }
+    );
+    return true;
+  } catch (e) {
+    logError('rate_limit_kv_error', { prefix, ip, error: e.message });
+    return true; // fail open — don't block legitimate users on KV errors
+  }
+}
+
 // Returns a properly-formed 429 with Retry-After header (RFC 7231 §7.1.3).
 // All rate-limited endpoints must use this instead of a plain jsonResponse 429.
 function rateLimitResponse(request, env) {
@@ -951,8 +995,14 @@ async function deleteSession(env, sessionId) {
 async function handleAnalyze(request, env) {
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
 
-  const allowed = await checkRateLimit(env, env.RATE_LIMITER_ANALYZE, ip);
-  if (!allowed) {
+  // Primary: Cloudflare native binding (atomic, no TOCTOU). Falls through if binding absent.
+  // Secondary: KV-based counter — reliable even when the binding is misconfigured.
+  // Both must allow the request for it to proceed.
+  const [bindingOk, kvOk] = await Promise.all([
+    checkRateLimit(env, env.RATE_LIMITER_ANALYZE, ip),
+    checkRateLimitKV(env, ip, 3, 60, 'analyze'),
+  ]);
+  if (!bindingOk || !kvOk) {
     return rateLimitResponse(request, env);
   }
 
