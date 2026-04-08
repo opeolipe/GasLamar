@@ -83,6 +83,18 @@ async function checkRateLimit(env, limiterBinding, ip) {
   return success;
 }
 
+// Returns a properly-formed 429 with Retry-After header (RFC 7231 §7.1.3).
+// All rate-limited endpoints must use this instead of a plain jsonResponse 429.
+function rateLimitResponse(request, env) {
+  return corsResponse(
+    JSON.stringify({ message: 'Terlalu banyak permintaan. Coba lagi dalam 1 menit.' }),
+    429,
+    { 'Content-Type': 'application/json', 'Retry-After': '60' },
+    request,
+    env
+  );
+}
+
 // ---- Structured Logging ----
 function log(event, data = {}) {
   console.log(JSON.stringify({ event, ts: Date.now(), ...data }));
@@ -868,7 +880,7 @@ async function handleAnalyze(request, env) {
 
   const allowed = await checkRateLimit(env, env.RATE_LIMITER_ANALYZE, ip);
   if (!allowed) {
-    return jsonResponse({ message: 'Terlalu banyak permintaan. Coba lagi dalam 1 menit.' }, 429, request, env);
+    return rateLimitResponse(request, env);
   }
 
   let body;
@@ -921,7 +933,7 @@ async function handleCreatePayment(request, env) {
 
   const allowed = await checkRateLimit(env, env.RATE_LIMITER_PAYMENT, ip);
   if (!allowed) {
-    return jsonResponse({ message: 'Terlalu banyak permintaan. Coba lagi dalam 1 menit.' }, 429, request, env);
+    return rateLimitResponse(request, env);
   }
 
   let body;
@@ -1318,7 +1330,7 @@ async function handleGenerate(request, env, ctx) {
 
   const allowed = await checkRateLimit(env, env.RATE_LIMITER_GENERATE, ip);
   if (!allowed) {
-    return jsonResponse({ message: 'Terlalu banyak permintaan. Coba lagi dalam 1 menit.' }, 429, request, env);
+    return rateLimitResponse(request, env);
   }
 
   let body;
@@ -1422,7 +1434,7 @@ async function handleSubmitEmail(request, env) {
   // Reuse payment rate limiter (5 req/min per IP)
   const allowed = await checkRateLimit(env, env.RATE_LIMITER_PAYMENT, ip);
   if (!allowed) {
-    return jsonResponse({ message: 'Terlalu banyak permintaan. Coba lagi dalam 1 menit.' }, 429, request, env);
+    return rateLimitResponse(request, env);
   }
 
   let body;
@@ -1488,6 +1500,10 @@ async function handleSandboxPay(request, env, ctx) {
 // ---- Fetch Job URL ----
 
 async function handleFetchJobUrl(request, env) {
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const allowed = await checkRateLimit(env, env.RATE_LIMITER_ANALYZE, ip);
+  if (!allowed) return rateLimitResponse(request, env);
+
   const { url } = await request.json().catch(() => ({}));
 
   if (!url || typeof url !== 'string') {

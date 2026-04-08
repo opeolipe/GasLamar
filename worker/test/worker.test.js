@@ -374,6 +374,25 @@ describe('POST /create-payment — one-time key consumption', () => {
   });
 });
 
+describe('Rate limiting — Retry-After header', () => {
+  // Use a unique IP so this suite never conflicts with others
+  const RL_IP = '10.99.0.1';
+
+  it('returns 429 with Retry-After: 60 after exhausting /create-payment limit (5/min)', async () => {
+    // Exhaust the 5-req/min limit for RATE_LIMITER_PAYMENT using this IP.
+    // Each call returns 400 (missing body) but still consumes a rate-limit slot.
+    for (let i = 0; i < 5; i++) {
+      await post('/create-payment', {}, {}, RL_IP);
+    }
+    // 6th request must be rate-limited
+    const res = await post('/create-payment', {}, {}, RL_IP);
+    expect(res.status).toBe(429);
+    expect(res.headers.get('Retry-After')).toBe('60');
+    const body = await res.json();
+    expect(body.message).toContain('Terlalu banyak');
+  });
+});
+
 describe('POST /session/ping', () => {
   it('rejects missing body → 400', async () => {
     const res = await post('/session/ping', {});
