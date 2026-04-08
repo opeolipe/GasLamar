@@ -264,7 +264,7 @@ async function extractTextFromDOCX(base64Data) {
 
 // ---- Claude API ----
 
-async function callClaude(env, systemPrompt, userContent, maxTokens = 2000) {
+async function callClaude(env, systemPrompt, userContent, maxTokens = 2000, model = null) {
   const apiKey = env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('API key tidak tersedia');
 
@@ -292,11 +292,14 @@ async function callClaude(env, systemPrompt, userContent, maxTokens = 2000) {
     }
   }
 
+  const selectedModel = model || (env.ENVIRONMENT === 'production' ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001');
+
   const headers = {
     'Content-Type': 'application/json',
     'x-api-key': apiKey,
     'anthropic-version': '2023-06-01',
-    'anthropic-beta': 'pdfs-2024-09-25',
+    // Only send PDF beta header for models that support it (not Haiku extraction calls)
+    ...(selectedModel !== 'claude-haiku-4-5-20251001' ? { 'anthropic-beta': 'pdfs-2024-09-25' } : {}),
   };
 
   try {
@@ -304,7 +307,7 @@ async function callClaude(env, systemPrompt, userContent, maxTokens = 2000) {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        model: env.ENVIRONMENT === 'production' ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001',
+        model: selectedModel,
         max_tokens: maxTokens,
         temperature: 0,
         system: systemPrompt,
@@ -330,13 +333,12 @@ async function callClaude(env, systemPrompt, userContent, maxTokens = 2000) {
 
 // ---- AI Skill constants ----
 
-const SKILL_ANALYZE = `PERAN: Kamu adalah HR expert Indonesia senior dengan 10+ tahun pengalaman merekrut.
-Bukan AI generik - kamu bicara seperti HR berpengalaman yang jujur dan helpful.
+const SKILL_ANALYZE = `PERAN: Kamu adalah HRD profesional Indonesia dengan 10+ tahun pengalaman merekrut di berbagai industri (manufaktur, FMCG, finansial, tech, pemerintahan, retail). Bukan AI generik - kamu bicara seperti HRD yang jujur, praktis, dan membantu.
 
 BAHASA & TONE:
-- Semua output dalam Bahasa Indonesia. Istilah teknis Inggris boleh (React, agile, API).
-- Hindari "Indoglish" (misalnya "kamu perlu improve skill" -> "kamu perlu tingkatkan skill ini").
-- Jangan tulis "Based on my analysis..." - langsung to the point.
+- Semua output dalam Bahasa Indonesia. Istilah teknis Inggris boleh (misal: Excel, CRM, project management).
+- Hindari "Indoglish" ("kamu perlu improve skill" -> "kamu perlu tingkatkan skill ini").
+- Jangan tulis "Berdasarkan analisis saya..." - langsung ke poin.
 - Gunakan kalimat pendek, natural, seperti bicara ke teman kerja.
 
 KARAKTER YANG DILARANG:
@@ -350,17 +352,18 @@ PENANGANAN ANGKA (KRITIS):
 - Kalau CV tidak punya angka: JANGAN mengarang angka palsu. Gunakan placeholder seperti "Coba tambahkan angka - misalnya meningkatkan efisiensi X% dalam Y bulan".
 - Jangan pernah fabrikasi pencapaian yang tidak ada di CV asli.
 
-DETEKSI INDUSTRI - sesuaikan tone:
+DETEKSI INDUSTRI & SENIORITY - sesuaikan tone:
 - Tech/IT: direct, teknikal, sebut tools dan proyek spesifik
-- Finance/Accounting: formal, tekankan kepatuhan dan sertifikasi (PSAK, SAP)
-- Creative/Marketing: energik, fokus hasil kampanye dan tools
-- Government: sangat formal, detail, gunakan istilah Indonesia
-- Fresh Graduate: optimistis, fokus potensi dan pendidikan
+- Finance/Accounting: formal, tekankan kepatuhan dan sertifikasi (PSAK, SAP, Brevet)
+- Creative/Marketing: energik, fokus hasil kampanye dan tools (Canva, Meta Ads)
+- Manufaktur/Logistik: tekankan SOP, efisiensi, lean management
+- Pemerintahan/BUMN: sangat formal, detail, gunakan istilah Indonesia baku
+- Fresh Graduate: optimistis, fokus potensi, magang, organisasi, dan pendidikan
 
 DETEKSI SENIORITY dari jumlah tahun pengalaman:
-- Entry (<2 thn): 1 halaman, kalimat sederhana, tekankan potensi
+- Entry (<2 thn): 1 halaman, kalimat sederhana, tekankan potensi dan kemauan belajar
 - Mid (2-7 thn): 1-2 halaman, fokus pencapaian dan angka
-- Senior (>7 thn): 2-3 halaman, tekankan kepemimpinan dan strategi
+- Senior (>7 thn): 2-3 halaman, tekankan kepemimpinan, strategi, dan anggaran
 
 EDGE CASES:
 - CV sangat pendek (<100 kata): tandai sebagai "CV sangat singkat, mungkin tidak lengkap"
@@ -370,11 +373,69 @@ EDGE CASES:
 YANG TIDAK BOLEH DILAKUKAN:
 - Mengarang angka atau pencapaian yang tidak ada di CV
 - Menggunakan em-dash
-- Menulis "Based on my analysis as an AI..."
-- Jargon korporat AI seperti "leverage synergies", "paradigm shift"
+- Menulis "Berdasarkan analisis saya sebagai AI..."
+- Jargon korporat seperti "sinergi", "transformasi paradigma", "memanfaatkan best practice"
 - Kalimat panjang bertele-tele - potong dan sederhanakan
-- Gap atau rekomendasi yang generik dan tidak spesifik terhadap job description
-  (contoh BURUK: "tambahkan angka ke CV" - contoh BAIK: "JD minta pengalaman Kubernetes tapi CV tidak menyebutkan container/orchestration")`;
+- Gap atau rekomendasi generik yang tidak spesifik terhadap job description ini
+  (contoh BURUK: "tambahkan angka ke CV" - contoh BAIK: "JD minta Kubernetes tapi CV tidak menyebut container")
+
+--- FORMAT OUTPUT (WAJIB JSON) ---
+
+{
+  "archetype": "<deteksi jenis role dari job description: Administrasi/GA | Marketing/Sales | Finance/Akuntansi | IT/Software | HRD | Operasional/Logistik | Customer Service | Manajemen/Leader | Fresh Graduate (trainee) | Lainnya>",
+  "skor_6d": {
+    "north_star": <0-10, seberapa dekat skill CV dengan target role>,
+    "recruiter_signal": <0-10, seberapa menarik CV ini di mata HRD ketika pertama kali lihat>,
+    "effort": <0-10, waktu dan usaha untuk perbaiki gap (10 = cepat dan mudah)>,
+    "opportunity_cost": <0-10, pengorbanan waktu/uang untuk perbaiki (10 = rendah)>,
+    "risk": <0-10, risiko skill usang/terlalu umum/tidak sesuai tren (10 = aman)>,
+    "portfolio": <0-10, apakah CV sudah punya bukti nyata seperti angka, proyek, sertifikat>
+  },
+  "skor": <JANGAN isi - sistem menghitung otomatis dari jumlah 6 dimensi>,
+  "veredict": "<DO | DO NOT | TIMED>",
+  "timebox_weeks": <jika veredict TIMED, isi angka 4-12; jika bukan, tulis null>,
+  "alasan_skor": "<1 kalimat menjelaskan skor keseluruhan>",
+  "gap": ["<requirement dari JD yang tidak ada di CV - spesifik>", "<gap 2>", "<gap 3>"],
+  "rekomendasi": ["<langkah konkret dan spesifik - actionable, ada hubungan langsung dengan JD>", "<rekomendasi 2>", "<rekomendasi 3>"],
+  "kekuatan": ["<kekuatan 1>", "<kekuatan 2>"],
+  "konfidensitas": "<Rendah | Sedang | Tinggi>",
+  "skor_sesudah": <kelipatan 5, min total_dimensi*10/6+10, max 95>,
+  "hr_7_detik": { "kuat": ["...", "..."], "diabaikan": ["...", "..."] },
+  "red_flags": ["..."]
+}
+
+--- PANDUAN SKOR 6 DIMENSI ---
+
+1. north_star (0-10): Apakah isi CV cocok dengan jenis pekerjaan yang dilamar?
+   10 = sangat cocok, linier | 5 = ada transferable skills | 0 = tidak cocok sama sekali
+
+2. recruiter_signal (0-10): Dalam 7 detik pertama, apakah HRD akan tertarik?
+   10 = struktur bersih, headline kuat, angka relevan | 5 = biasa saja | 0 = berantakan, typo
+
+3. effort (0-10): Berapa lama untuk memperbaiki gap agar lolos interview?
+   10 = 1-2 minggu (tambah sertifikat online) | 5 = 1-2 bulan | 0 = lebih dari 6 bulan
+
+4. opportunity_cost (0-10): Apa yang dikorbankan untuk memperbaiki gap?
+   10 = hampir tidak ada (gratis, online, sambil kerja) | 5 = perlu biaya/waktu | 0 = harus berhenti kerja
+
+5. risk (0-10): Apakah skill yang kurang ini tetap relevan 2-3 tahun ke depan?
+   10 = sangat aman, selalu dibutuhkan (Excel, komunikasi) | 5 = cukup aman | 0 = rentan tergantikan AI
+
+6. portfolio (0-10): Apakah CV menunjukkan bukti nyata?
+   10 = setiap pengalaman punya angka atau hasil konkret | 5 = ada beberapa angka | 0 = hanya daftar tugas
+
+--- PANDUAN VEREDICT ---
+- "DO": total dimensi >= 42. Layak dilanjutkan.
+- "DO NOT": total dimensi < 24. Sarankan alternatif (ubah target posisi, ambil pelatihan dasar).
+- "TIMED": total 24-41. Ada gap signifikan tapi bisa diperbaiki. Isi timebox_weeks (4-12).
+
+--- PANDUAN GAP & REKOMENDASI ---
+- Gap: spesifik terhadap JD ("JD minta [X] tapi CV tidak menyebutkan [Y]")
+- Rekomendasi: actionable ("Tambahkan [X spesifik] di bagian [Y]")
+- Konfidensitas: "Tinggi" = CV lengkap + JD spesifik; "Rendah" = CV <100 kata atau JD generik
+- red_flags: hanya jika ada (job hopping, tidak ada angka sama sekali, CV tidak terbaca). Jika tidak ada, hilangkan field ini.
+
+Output hanya JSON, tidak ada teks lain.`;
 
 const SKILL_TAILOR_ID = `PERAN: Kamu adalah career coach Indonesia yang menulis CV profesional.
 Rewrite harus terdengar seperti ditulis manusia kompeten - bukan AI.
@@ -498,145 +559,72 @@ async function verifySessionSecret(session, providedSecret) {
 }
 
 async function analyzeCV(cvText, jobDesc, env) {
-  // --- Content-hash cache ---
-  // Same extracted CV text + job description always yields the same analysis.
-  // Cache the result in KV so re-uploads / re-runs are 100% deterministic
-  // even across different edge nodes.
-  const cacheKey = `analysis_v2_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
+  // --- Content-hash cache (v3) ---
+  const cacheKey = `analysis_v3_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
   const cached = await env.GASLAMAR_SESSIONS.get(cacheKey, { type: 'json' });
-  if (cached) {
-    // Re-derive skor from discrete sub-scores even on cache hit.
-    // Old cache entries may have a LLM-generated skor (e.g. 66) that bypassed
-    // the clamping added later. Re-applying it here fixes stale entries without
-    // needing a cache version bump.
-    if (typeof cached.skor_relevansi !== 'undefined') {
-      const r  = [0, 10, 20, 30, 40].includes(cached.skor_relevansi)    ? cached.skor_relevansi    : 0;
-      const rq = [0, 10, 20, 30].includes(cached.skor_requirements)     ? cached.skor_requirements : 0;
-      const k  = [0, 10, 20].includes(cached.skor_kualitas)             ? cached.skor_kualitas     : 0;
-      const kw = [0, 5, 10].includes(cached.skor_keywords)              ? cached.skor_keywords     : 0;
-      cached.skor = r + rq + k + kw;
-    }
-    return cached;
-  }
+  if (cached) return cached;
 
-  const systemPrompt = `${SKILL_ANALYZE}
-
---- TASK ---
-Analisis CV berikut terhadap job description ini:
-
-CV:
-${cvText}
-
-JOB DESCRIPTION:
-${jobDesc}
-
-Berikan output JSON dengan format TEPAT berikut:
-{
-  "skor_relevansi": <HARUS tepat salah satu: 0, 10, 20, 30, atau 40>,
-  "skor_requirements": <HARUS tepat salah satu: 0, 10, 20, atau 30>,
-  "skor_kualitas": <HARUS tepat salah satu: 0, 10, atau 20>,
-  "skor_keywords": <HARUS tepat salah satu: 0, 5, atau 10>,
-  "alasan_skor": "<1 kalimat menjelaskan skor keseluruhan>",
-  "gap": ["<requirement dari JD yang tidak ada di CV — spesifik, misal: 'JD minta pengalaman Kubernetes tapi CV tidak menyebut container'>", "<gap 2>", "<gap 3>"],
-  "rekomendasi": ["<langkah konkret dan spesifik — misal: 'Tambahkan proyek React di bagian pengalaman, karena JD menyebut React sebagai must-have'>", "<rekomendasi 2>", "<rekomendasi 3>"],
-  "kekuatan": ["<kekuatan 1>", "<kekuatan 2>"],
-  "konfidensitas": <"Rendah"|"Sedang"|"Tinggi">,
-  "skor_sesudah": <kelipatan 5, min skor+10, max 95>,
-  "hr_7_detik": { "kuat": ["...", "..."], "diabaikan": ["...", "..."] },
-  "red_flags": ["..."]
-}
-
-PANDUAN gap (WAJIB 3 item, harus spesifik terhadap JD ini):
-- Format: "JD minta [X] tapi CV tidak menyebutkan [Y]" atau "Posisi ini butuh [X], CV belum membuktikannya"
-- Fokus pada requirement eksplisit dari JD, bukan saran CV generic
-- Jika ada <3 gap nyata, tetap tulis 3 (gunakan gap yang kurang kritis)
-
-PANDUAN rekomendasi (WAJIB 3 item, harus actionable dan spesifik):
-- Format: "Tambahkan [X spesifik] di bagian [Y]" atau "Cantumkan sertifikasi [Z] — relevan untuk posisi ini"
-- Harus ada hubungan langsung dengan gap atau job description
-- Bukan saran umum seperti "perbaiki CV kamu" atau "tambahkan lebih banyak detail"
-
-PANDUAN skor_relevansi (0/10/20/30/40):
-- 40: Role sama atau sangat mirip (PM → Senior PM, Backend Dev → Full Stack Dev)
-- 30: Role terkait, industri sama (product analyst → PM, QA engineer → developer)
-- 20: Industri sama tapi fungsi berbeda (sales → marketing, accountant → finance analyst)
-- 10: Industri berbeda, ada transferable skills nyata (teacher → trainer, journalist → content strategist)
-- 0: Tidak ada relevansi sama sekali (chef → PM, petani → software engineer, montir → data scientist)
-
-PANDUAN skor_requirements (0/10/20/30):
-- 30: Lebih dari 65% requirements eksplisit terpenuhi di CV
-- 20: 33–65% requirements terpenuhi
-- 10: 10–33% requirements terpenuhi
-- 0: Kurang dari 10% requirements terpenuhi
-
-PANDUAN skor_kualitas (0/10/20):
-- 20: CV menggunakan angka nyata (%, Rp, jumlah), terstruktur jelas, bullet informatif
-- 10: CV cukup jelas tapi jarang pakai angka, atau ada bagian yang membingungkan
-- 0: CV sangat pendek (<100 kata), tidak terstruktur, tidak terbaca, atau penuh jargon tanpa substansi
-
-PANDUAN skor_keywords (0/5/10):
-- 10: Lebih dari 50% keyword penting dari job description ada di CV
-- 5: 25–50% keyword relevan ada di CV
-- 0: Kurang dari 25% keyword dari job description ada di CV
-
-PANDUAN konfidensitas (WAJIB, pilih tepat satu):
-- "Tinggi": CV lengkap dan jelas, JD spesifik -- analisis akurat
-- "Sedang": CV atau JD kurang detail -- analisis cukup akurat
-- "Rendah": CV sangat pendek/tidak terbaca, atau JD sangat generik
-
-PANDUAN skor_sesudah:
-Estimasi peluang interview SETELAH user mengimplementasikan semua rekomendasi.
-HARUS kelipatan 5. HARUS minimal skor utama + 10 (maksimal 95).
-
-PANDUAN hr_7_detik:
-- kuat: 2-3 hal yang HR perhatikan POSITIF dalam 7 detik pertama (struktur, headline, relevansi)
-- diabaikan: 1-2 hal yang HR cenderung skip atau bingung (bagian kabur, tidak relevan, terlalu panjang)
-
-PANDUAN red_flags (OPSIONAL -- tambahkan HANYA jika ada, maks 3):
-Flag jika: terlalu banyak "bertanggung jawab" tanpa hasil, tidak ada angka/pencapaian,
-pengalaman tidak relevan sama sekali, atau banyak posisi <1 tahun (job hopping).
-Jika tidak ada red flag nyata -- JANGAN tambahkan field ini.
-
-Output hanya JSON, tidak ada teks lain.`;
-
-  const result = await callClaude(env, systemPrompt, 'Analisis sekarang.', 1500);
+  const userContent = `CV:\n${cvText}\n\nJOB DESCRIPTION:\n${jobDesc}`;
+  const result = await callClaude(env, SKILL_ANALYZE, userContent, 1500, 'claude-sonnet-4-6');
   const text = result?.content?.[0]?.text || '{}';
 
-  // Parse JSON — Claude should return clean JSON
   const cleaned = text.replace(/```json\n?|\n?```/g, '').trim();
   const scoring = JSON.parse(cleaned);
 
-  // Compute total score deterministically from discrete sub-scores.
-  // Clamp each sub-score to its allowed set to guard against LLM hallucination.
-  const relevansi    = [0, 10, 20, 30, 40].includes(scoring.skor_relevansi)   ? scoring.skor_relevansi   : 0;
-  const requirements = [0, 10, 20, 30].includes(scoring.skor_requirements)    ? scoring.skor_requirements : 0;
-  const kualitas     = [0, 10, 20].includes(scoring.skor_kualitas)             ? scoring.skor_kualitas    : 0;
-  const keywords     = [0, 5, 10].includes(scoring.skor_keywords)              ? scoring.skor_keywords    : 0;
-  scoring.skor       = relevansi + requirements + kualitas + keywords;
+  // Normalize 6D sub-scores — clamp each to 0-10 integer
+  const normalize6D = v => Math.min(10, Math.max(0, Math.round(parseFloat(v) || 0)));
+  const dims = ['north_star', 'recruiter_signal', 'effort', 'opportunity_cost', 'risk', 'portfolio'];
+  if (!scoring.skor_6d || typeof scoring.skor_6d !== 'object') scoring.skor_6d = {};
+  for (const d of dims) {
+    scoring.skor_6d[d] = normalize6D(scoring.skor_6d[d]);
+  }
 
-  // Validate new v2 fields
+  // Compute skor deterministically: sum of 6 dims (0-60) scaled to 0-100
+  const total6D = dims.reduce((s, d) => s + scoring.skor_6d[d], 0);
+  scoring.skor = Math.round((total6D / 60) * 100);
+
+  // Normalize veredict with fallback from thresholds
+  const VALID_VEREDICT = ['DO', 'DO NOT', 'TIMED'];
+  if (!VALID_VEREDICT.includes(scoring.veredict)) {
+    scoring.veredict = total6D >= 42 ? 'DO' : total6D < 24 ? 'DO NOT' : 'TIMED';
+  }
+
+  // timebox_weeks — only valid for TIMED verdict
+  if (scoring.veredict === 'TIMED') {
+    const tw = parseInt(scoring.timebox_weeks) || 8;
+    scoring.timebox_weeks = Math.min(12, Math.max(4, tw));
+  } else {
+    scoring.timebox_weeks = null;
+  }
+
+  // Normalize archetype
+  const VALID_ARCHETYPES = ['Administrasi/GA', 'Marketing/Sales', 'Finance/Akuntansi', 'IT/Software', 'HRD', 'Operasional/Logistik', 'Customer Service', 'Manajemen/Leader', 'Fresh Graduate (trainee)', 'Lainnya'];
+  if (!VALID_ARCHETYPES.includes(scoring.archetype)) scoring.archetype = 'Lainnya';
+
+  // Confidence
   const VALID_CONF = ['Rendah', 'Sedang', 'Tinggi'];
   if (!VALID_CONF.includes(scoring.konfidensitas)) scoring.konfidensitas = 'Sedang';
 
+  // skor_sesudah
   const sesudahRaw = Math.round((parseInt(scoring.skor_sesudah) || 0) / 5) * 5;
   scoring.skor_sesudah = Math.min(95, Math.max(scoring.skor + 10, sesudahRaw));
 
-  // Ensure required arrays are always arrays with non-empty string items
-  const ensureArray = val => Array.isArray(val)
-    ? val.filter(s => typeof s === 'string' && s.trim())
-    : [];
+  // Ensure arrays contain only non-empty strings
+  const ensureArray = val => Array.isArray(val) ? val.filter(s => typeof s === 'string' && s.trim()) : [];
   scoring.gap         = ensureArray(scoring.gap);
   scoring.rekomendasi = ensureArray(scoring.rekomendasi);
   scoring.kekuatan    = ensureArray(scoring.kekuatan);
 
-  if (!scoring.hr_7_detik || typeof scoring.hr_7_detik !== 'object') {
-    delete scoring.hr_7_detik;
-  }
-  if (!Array.isArray(scoring.red_flags) || scoring.red_flags.length === 0) {
-    delete scoring.red_flags;
-  }
+  if (!scoring.hr_7_detik || typeof scoring.hr_7_detik !== 'object') delete scoring.hr_7_detik;
+  if (!Array.isArray(scoring.red_flags) || scoring.red_flags.length === 0) delete scoring.red_flags;
 
-  // Store in cache (48-hour TTL). Identical CV+JD will always return this result.
+  // Legacy backward-compat fields (mapped from 6D scores)
+  scoring.skor_relevansi    = scoring.skor_6d.north_star * 4;
+  scoring.skor_requirements = Math.round(scoring.skor_6d.recruiter_signal * 3);
+  scoring.skor_kualitas     = Math.round(scoring.skor_6d.portfolio * 2);
+  scoring.skor_keywords     = Math.round(scoring.skor_6d.recruiter_signal);
+
+  // Store in cache (48-hour TTL).
   await env.GASLAMAR_SESSIONS.put(cacheKey, JSON.stringify(scoring), { expirationTtl: 172800 });
 
   return scoring;
@@ -658,6 +646,11 @@ function validateCVSections(text, lang) {
 }
 
 async function tailorCVID(cvText, jobDesc, env) {
+  // KV generation cache — same CV+JD always produces the same output
+  const genKey = `gen_id_${await sha256Hex(cvText + '||' + jobDesc)}`;
+  const cachedCV = await env.GASLAMAR_SESSIONS.get(genKey);
+  if (cachedCV) return cachedCV;
+
   const systemPrompt = `${SKILL_TAILOR_ID}
 
 --- TASK ---
@@ -688,21 +681,28 @@ Output CV dalam Bahasa Indonesia dengan urutan section di atas:
 
 Output hanya teks CV, tidak ada komentar atau penjelasan tambahan.`;
 
-  const result = await callClaude(env, systemPrompt, 'Tailoring CV sekarang.', 4096);
+  const result = await callClaude(env, systemPrompt, 'Tailoring CV sekarang.', 4096, 'claude-haiku-4-5-20251001');
   let text = result?.content?.[0]?.text?.trim() ?? '';
   const missing = validateCVSections(text, 'id');
   if (missing) {
     const correction = missing === 'too short'
       ? 'PENTING: Output terlalu pendek. Tulis CV lengkap dengan semua sections.'
       : `PENTING: Section "${missing}" tidak ditemukan di output. Wajib disertakan persis seperti heading yang diminta.`;
-    const retry = await callClaude(env, systemPrompt + '\n\n' + correction, 'Tailoring CV sekarang.', 4096);
+    const retry = await callClaude(env, systemPrompt + '\n\n' + correction, 'Tailoring CV sekarang.', 4096, 'claude-haiku-4-5-20251001');
     text = retry?.content?.[0]?.text?.trim() ?? text;
   }
   if (!text) throw new Error('CV Bahasa Indonesia kosong dari AI. Coba lagi.');
+
+  await env.GASLAMAR_SESSIONS.put(genKey, text, { expirationTtl: 172800 });
   return text;
 }
 
 async function tailorCVEN(cvText, jobDesc, env) {
+  // KV generation cache — same CV+JD always produces the same output
+  const genKey = `gen_en_${await sha256Hex(cvText + '||' + jobDesc)}`;
+  const cachedCV = await env.GASLAMAR_SESSIONS.get(genKey);
+  if (cachedCV) return cachedCV;
+
   const systemPrompt = `${SKILL_TAILOR_EN}
 
 --- TASK ---
@@ -735,17 +735,19 @@ Ensure the same job roles, companies, dates, and achievements appear as in the o
 
 Output only the CV text, no additional comments.`;
 
-  const result = await callClaude(env, systemPrompt, 'Tailor the CV now.', 4096);
+  const result = await callClaude(env, systemPrompt, 'Tailor the CV now.', 4096, 'claude-haiku-4-5-20251001');
   let text = result?.content?.[0]?.text?.trim() ?? '';
   const missing = validateCVSections(text, 'en');
   if (missing) {
     const correction = missing === 'too short'
       ? 'IMPORTANT: Output too short. Write the complete CV with all sections.'
       : `IMPORTANT: Section "${missing}" is missing from the output. It must be included exactly as shown in the heading list.`;
-    const retry = await callClaude(env, systemPrompt + '\n\n' + correction, 'Tailor the CV now.', 4096);
+    const retry = await callClaude(env, systemPrompt + '\n\n' + correction, 'Tailor the CV now.', 4096, 'claude-haiku-4-5-20251001');
     text = retry?.content?.[0]?.text?.trim() ?? text;
   }
   if (!text) throw new Error('English CV returned empty from AI. Please retry.');
+
+  await env.GASLAMAR_SESSIONS.put(genKey, text, { expirationTtl: 172800 });
   return text;
 }
 
@@ -1514,6 +1516,14 @@ async function handleGenerate(request, env, ctx) {
   const creditsRemaining = typeof session.credits_remaining === 'number' ? session.credits_remaining : 1;
   const isBilingual = tier !== 'coba';
 
+  // Session lock — prevent double-generation race condition
+  const lockKey = `lock_${session_id}`;
+  const existingLock = await env.GASLAMAR_SESSIONS.get(lockKey);
+  if (existingLock) {
+    return jsonResponse({ message: 'Sedang diproses, coba lagi sebentar.' }, 409, request, env);
+  }
+  await env.GASLAMAR_SESSIONS.put(lockKey, 'locked', { expirationTtl: 30 });
+
   try {
     // Generate from KV data only — never from request body (except allowed job_desc override).
     // Run ID and EN tailoring in parallel to stay within Cloudflare's 30s wall-clock limit.
@@ -1559,6 +1569,8 @@ async function handleGenerate(request, env, ctx) {
       logError('generate_recovery_failed', { session_id, error: e2.message });
     });
     return jsonResponse({ message: e.message || 'Generate CV gagal. Coba lagi.' }, 500, request, env);
+  } finally {
+    await env.GASLAMAR_SESSIONS.delete(lockKey).catch(() => {});
   }
 }
 
@@ -1635,7 +1647,7 @@ async function handleSandboxPay(request, env, ctx) {
 
 async function handleFetchJobUrl(request, env) {
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
-  const allowed = await checkRateLimit(env, env.RATE_LIMITER_ANALYZE, ip);
+  const allowed = await checkRateLimit(env, env.RATE_LIMITER_FETCH, ip);
   if (!allowed) return rateLimitResponse(request, env);
 
   const { url } = await request.json().catch(() => ({}));
