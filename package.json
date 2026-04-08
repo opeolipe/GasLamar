@@ -3,12 +3,16 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "vendor": "node scripts/vendor.js",
-    "build": "node scripts/vendor.js"
+    "vendor": "node scripts/vendor.js && node scripts/build.js",
+    "build": "node scripts/vendor.js && node scripts/build.js",
+    "build:js": "node scripts/build.js"
   },
   "dependencies": {
     "docx": "8.5.0",
     "jspdf": "2.5.1",
     "tailwindcss": "^3.4.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.0"
   }
 }

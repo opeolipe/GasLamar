@@ -10,10 +10,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <!-- Cloudflare Web Analytics -->
   <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "f9c97d82f2a04b9f95e051946eb0525e"}'></script>
-  <script src="js/posthog-init.js"></script>
-  <!-- docx.js and jsPDF served locally -->
-  <script src="js/vendor/docx.js"></script>
-  <script src="js/vendor/jspdf.umd.min.js"></script>
+  <!-- docx.js and jsPDF served locally — defer preserves load order before download.bundle.js -->
+  <script defer src="js/vendor/docx.js"></script>
+  <script defer src="js/vendor/jspdf.umd.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -482,10 +481,7 @@
 
   </div>
 
-  <script src="js/config.js"></script>
-  <script src="js/analytics.js"></script>
-  <script src="js/download.js"></script>
-  <script src="js/download-page.js"></script>
+  <script defer src="js/dist/download.bundle.js"></script>
 
 </body>
 </html>
