@@ -372,7 +372,9 @@ YANG TIDAK BOLEH DILAKUKAN:
 - Menggunakan em-dash
 - Menulis "Based on my analysis as an AI..."
 - Jargon korporat AI seperti "leverage synergies", "paradigm shift"
-- Kalimat panjang bertele-tele - potong dan sederhanakan`;
+- Kalimat panjang bertele-tele - potong dan sederhanakan
+- Gap atau rekomendasi yang generik dan tidak spesifik terhadap job description
+  (contoh BURUK: "tambahkan angka ke CV" - contoh BAIK: "JD minta pengalaman Kubernetes tapi CV tidak menyebutkan container/orchestration")`;
 
 const SKILL_TAILOR_ID = `PERAN: Kamu adalah career coach Indonesia yang menulis CV profesional.
 Rewrite harus terdengar seperti ditulis manusia kompeten - bukan AI.
@@ -389,8 +391,8 @@ Gunakan:
 - Struktur: Aksi + Konteks + Dampak
 
 ANGKA:
-- PDF final: HANYA angka yang sudah ada di CV asli. Jangan fabrikasi.
-- DOCX: boleh tambahkan placeholder seperti [contoh: meningkat X%]
+- Pertahankan HANYA angka yang ada di CV asli. Jangan fabrikasi angka baru.
+- Jangan tambahkan placeholder seperti "[X%]" atau "[jumlah]".
 
 ATS-READY (WAJIB):
 - Layout satu kolom - tidak ada tabel, kolom ganda, text box
@@ -434,8 +436,8 @@ Use:
 - US English consistently (default)
 
 NUMBERS:
-- PDF (final): ONLY numbers from the user's original CV. Never fabricate.
-- DOCX: may add placeholders like [e.g., improved by X%]
+- Only keep numbers that exist in the original CV. Never fabricate new ones.
+- Do not add placeholders like "[X%]" or "[amount]".
 
 ATS-READY (MANDATORY):
 - Single-column layout - no tables, multi-column, text boxes
@@ -535,14 +537,24 @@ Berikan output JSON dengan format TEPAT berikut:
   "skor_kualitas": <HARUS tepat salah satu: 0, 10, atau 20>,
   "skor_keywords": <HARUS tepat salah satu: 0, 5, atau 10>,
   "alasan_skor": "<1 kalimat menjelaskan skor keseluruhan>",
-  "gap": ["<gap 1>", "<gap 2>", "<gap 3>"],
-  "rekomendasi": ["<rekomendasi 1>", "<rekomendasi 2>", "<rekomendasi 3>"],
+  "gap": ["<requirement dari JD yang tidak ada di CV — spesifik, misal: 'JD minta pengalaman Kubernetes tapi CV tidak menyebut container'>", "<gap 2>", "<gap 3>"],
+  "rekomendasi": ["<langkah konkret dan spesifik — misal: 'Tambahkan proyek React di bagian pengalaman, karena JD menyebut React sebagai must-have'>", "<rekomendasi 2>", "<rekomendasi 3>"],
   "kekuatan": ["<kekuatan 1>", "<kekuatan 2>"],
   "konfidensitas": <"Rendah"|"Sedang"|"Tinggi">,
   "skor_sesudah": <kelipatan 5, min skor+10, max 95>,
   "hr_7_detik": { "kuat": ["...", "..."], "diabaikan": ["...", "..."] },
   "red_flags": ["..."]
 }
+
+PANDUAN gap (WAJIB 3 item, harus spesifik terhadap JD ini):
+- Format: "JD minta [X] tapi CV tidak menyebutkan [Y]" atau "Posisi ini butuh [X], CV belum membuktikannya"
+- Fokus pada requirement eksplisit dari JD, bukan saran CV generic
+- Jika ada <3 gap nyata, tetap tulis 3 (gunakan gap yang kurang kritis)
+
+PANDUAN rekomendasi (WAJIB 3 item, harus actionable dan spesifik):
+- Format: "Tambahkan [X spesifik] di bagian [Y]" atau "Cantumkan sertifikasi [Z] — relevan untuk posisi ini"
+- Harus ada hubungan langsung dengan gap atau job description
+- Bukan saran umum seperti "perbaiki CV kamu" atau "tambahkan lebih banyak detail"
 
 PANDUAN skor_relevansi (0/10/20/30/40):
 - 40: Role sama atau sangat mirip (PM → Senior PM, Backend Dev → Full Stack Dev)
@@ -587,7 +599,7 @@ Jika tidak ada red flag nyata -- JANGAN tambahkan field ini.
 
 Output hanya JSON, tidak ada teks lain.`;
 
-  const result = await callClaude(env, systemPrompt, 'Analisis sekarang.', 1000);
+  const result = await callClaude(env, systemPrompt, 'Analisis sekarang.', 1500);
   const text = result?.content?.[0]?.text || '{}';
 
   // Parse JSON — Claude should return clean JSON
@@ -609,6 +621,14 @@ Output hanya JSON, tidak ada teks lain.`;
   const sesudahRaw = Math.round((parseInt(scoring.skor_sesudah) || 0) / 5) * 5;
   scoring.skor_sesudah = Math.min(95, Math.max(scoring.skor + 10, sesudahRaw));
 
+  // Ensure required arrays are always arrays with non-empty string items
+  const ensureArray = val => Array.isArray(val)
+    ? val.filter(s => typeof s === 'string' && s.trim())
+    : [];
+  scoring.gap         = ensureArray(scoring.gap);
+  scoring.rekomendasi = ensureArray(scoring.rekomendasi);
+  scoring.kekuatan    = ensureArray(scoring.kekuatan);
+
   if (!scoring.hr_7_detik || typeof scoring.hr_7_detik !== 'object') {
     delete scoring.hr_7_detik;
   }
@@ -620,6 +640,21 @@ Output hanya JSON, tidak ada teks lain.`;
   await env.GASLAMAR_SESSIONS.put(cacheKey, JSON.stringify(scoring), { expirationTtl: 172800 });
 
   return scoring;
+}
+
+/**
+ * Returns the first missing required section heading, 'too short' if the text
+ * is under 200 chars, or null if the CV passes all checks.
+ */
+function validateCVSections(text, lang) {
+  const required = lang === 'id'
+    ? ['RINGKASAN PROFESIONAL', 'PENGALAMAN KERJA', 'PENDIDIKAN', 'KEAHLIAN']
+    : ['PROFESSIONAL SUMMARY', 'WORK EXPERIENCE', 'EDUCATION', 'SKILLS'];
+  for (const h of required) {
+    if (!text.includes(h)) return h;
+  }
+  if (text.trim().length < 200) return 'too short';
+  return null;
 }
 
 async function tailorCVID(cvText, jobDesc, env) {
@@ -635,17 +670,34 @@ ${cvText}
 JOB DESCRIPTION:
 ${jobDesc}
 
-Output CV dalam Bahasa Indonesia dengan sections:
-1. RINGKASAN PROFESIONAL (3-4 kalimat, highlight yang paling relevan untuk posisi ini)
-2. PENGALAMAN KERJA (bullet points, gunakan kata kerja aktif, kuantifikasi achievement)
-3. PENDIDIKAN
-4. KEAHLIAN (prioritaskan yang disebutkan di job description)
-5. SERTIFIKASI (jika ada)
+HEADING WAJIB - gunakan TEPAT teks ini, huruf kapital semua, tanpa titik dua:
+RINGKASAN PROFESIONAL
+PENGALAMAN KERJA
+PENDIDIKAN
+KEAHLIAN
+SERTIFIKASI
+
+Aturan heading: jangan ubah nama, jangan tambah heading lain.
+Jika kandidat tidak punya sertifikasi, hapus section SERTIFIKASI sepenuhnya.
+
+Output CV dalam Bahasa Indonesia dengan urutan section di atas:
+- RINGKASAN PROFESIONAL: 3-4 kalimat, highlight yang paling relevan untuk posisi ini
+- PENGALAMAN KERJA: bullet points, kata kerja aktif, kuantifikasi achievement
+- PENDIDIKAN
+- KEAHLIAN: prioritaskan yang disebutkan di job description
 
 Output hanya teks CV, tidak ada komentar atau penjelasan tambahan.`;
 
   const result = await callClaude(env, systemPrompt, 'Tailoring CV sekarang.', 4096);
-  const text = result?.content?.[0]?.text?.trim() ?? '';
+  let text = result?.content?.[0]?.text?.trim() ?? '';
+  const missing = validateCVSections(text, 'id');
+  if (missing) {
+    const correction = missing === 'too short'
+      ? 'PENTING: Output terlalu pendek. Tulis CV lengkap dengan semua sections.'
+      : `PENTING: Section "${missing}" tidak ditemukan di output. Wajib disertakan persis seperti heading yang diminta.`;
+    const retry = await callClaude(env, systemPrompt + '\n\n' + correction, 'Tailoring CV sekarang.', 4096);
+    text = retry?.content?.[0]?.text?.trim() ?? text;
+  }
   if (!text) throw new Error('CV Bahasa Indonesia kosong dari AI. Coba lagi.');
   return text;
 }
@@ -663,17 +715,36 @@ ${cvText}
 JOB DESCRIPTION:
 ${jobDesc}
 
-Output the CV in English with sections:
-1. PROFESSIONAL SUMMARY (3-4 sentences, highlight most relevant for this role)
-2. WORK EXPERIENCE (bullet points, action verbs, quantified achievements)
-3. EDUCATION
-4. SKILLS (prioritize those mentioned in job description)
-5. CERTIFICATIONS (if any)
+MANDATORY HEADINGS - use EXACTLY these, all caps, no colon:
+PROFESSIONAL SUMMARY
+WORK EXPERIENCE
+EDUCATION
+SKILLS
+CERTIFICATIONS
+
+Heading rules: do not alter heading names, do not add other headings.
+If the candidate has no certifications, omit the CERTIFICATIONS section entirely.
+
+Output the CV in English with sections in that order:
+- PROFESSIONAL SUMMARY: 3-4 sentences, highlight most relevant for this role
+- WORK EXPERIENCE: bullet points, action verbs, quantified achievements
+- EDUCATION
+- SKILLS: prioritize those mentioned in job description
+
+Ensure the same job roles, companies, dates, and achievements appear as in the original CV — only translate and reframe, do not add or remove experiences.
 
 Output only the CV text, no additional comments.`;
 
   const result = await callClaude(env, systemPrompt, 'Tailor the CV now.', 4096);
-  const text = result?.content?.[0]?.text?.trim() ?? '';
+  let text = result?.content?.[0]?.text?.trim() ?? '';
+  const missing = validateCVSections(text, 'en');
+  if (missing) {
+    const correction = missing === 'too short'
+      ? 'IMPORTANT: Output too short. Write the complete CV with all sections.'
+      : `IMPORTANT: Section "${missing}" is missing from the output. It must be included exactly as shown in the heading list.`;
+    const retry = await callClaude(env, systemPrompt + '\n\n' + correction, 'Tailor the CV now.', 4096);
+    text = retry?.content?.[0]?.text?.trim() ?? text;
+  }
   if (!text) throw new Error('English CV returned empty from AI. Please retry.');
   return text;
 }

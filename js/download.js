@@ -447,17 +447,32 @@ function buildCVFilename(cvText, jobTitle, company, lang, ext) {
  * @param {string} cvText
  * @returns {{ type: 'heading'|'bullet'|'text'|'blank', content: string }[]}
  */
+const CV_SECTION_HEADINGS = new Set([
+  // Indonesian
+  'RINGKASAN PROFESIONAL','RINGKASAN','PENGALAMAN KERJA','PENGALAMAN',
+  'PENDIDIKAN','KEAHLIAN','KEMAMPUAN','SERTIFIKASI','SERTIFIKAT',
+  'PENCAPAIAN','PENGHARGAAN','PROYEK','PUBLIKASI','BAHASA','REFERENSI',
+  // English
+  'PROFESSIONAL SUMMARY','SUMMARY','EXECUTIVE SUMMARY',
+  'WORK EXPERIENCE','EXPERIENCE','EMPLOYMENT HISTORY',
+  'EDUCATION','SKILLS','TECHNICAL SKILLS','CORE COMPETENCIES',
+  'CERTIFICATIONS','CERTIFICATES','ACHIEVEMENTS','AWARDS',
+  'PROJECTS','PUBLICATIONS','LANGUAGES','REFERENCES','PROFILE',
+]);
+
 function parseLines(cvText) {
   return cvText.split('\n').map(line => {
     const trimmed = line.trim();
     if (!trimmed) return { type: 'blank', content: '' };
 
-    const isSectionHead = /^[A-Z\u00C0-\u017E\s]{4,}$/.test(trimmed) ||
-                          (trimmed.endsWith(':') && trimmed.length < 40);
-    const isBullet = trimmed.startsWith('•') || trimmed.startsWith('-') || trimmed.startsWith('·');
+    const clean = trimmed.replace(/:$/, '').trim();
+    const isSectionHead = CV_SECTION_HEADINGS.has(clean.toUpperCase())
+                       || /^[A-Z\u00C0-\u017E\s]{4,}$/.test(clean)
+                       || (trimmed.endsWith(':') && trimmed.length < 40);
+    const isBullet = trimmed.startsWith('•') || trimmed.startsWith('-') || trimmed.startsWith('·') || trimmed.startsWith('*');
 
-    if (isSectionHead) return { type: 'heading', content: trimmed.replace(/:$/, '') };
-    if (isBullet)      return { type: 'bullet',  content: trimmed.replace(/^[•\-·]\s*/, '') };
+    if (isSectionHead) return { type: 'heading', content: clean };
+    if (isBullet)      return { type: 'bullet',  content: trimmed.replace(/^[•\-·*]\s*/, '') };
     return { type: 'text', content: trimmed };
   });
 }
