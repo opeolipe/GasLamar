@@ -292,7 +292,7 @@ async function callClaude(env, systemPrompt, userContent, maxTokens = 2000) {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: env.ENVIRONMENT === 'production' ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001',
         max_tokens: maxTokens,
         temperature: 0,
         system: systemPrompt,
@@ -632,8 +632,10 @@ Output CV dalam Bahasa Indonesia dengan sections:
 
 Output hanya teks CV, tidak ada komentar atau penjelasan tambahan.`;
 
-  const result = await callClaude(env, systemPrompt, 'Tailoring CV sekarang.', 2000);
-  return result?.content?.[0]?.text || '';
+  const result = await callClaude(env, systemPrompt, 'Tailoring CV sekarang.', 4096);
+  const text = result?.content?.[0]?.text?.trim() ?? '';
+  if (!text) throw new Error('CV Bahasa Indonesia kosong dari AI. Coba lagi.');
+  return text;
 }
 
 async function tailorCVEN(cvText, jobDesc, env) {
@@ -658,8 +660,10 @@ Output the CV in English with sections:
 
 Output only the CV text, no additional comments.`;
 
-  const result = await callClaude(env, systemPrompt, 'Tailor the CV now.', 2000);
-  return result?.content?.[0]?.text || '';
+  const result = await callClaude(env, systemPrompt, 'Tailor the CV now.', 4096);
+  const text = result?.content?.[0]?.text?.trim() ?? '';
+  if (!text) throw new Error('English CV returned empty from AI. Please retry.');
+  return text;
 }
 
 // ---- Mayar API ----

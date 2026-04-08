@@ -626,9 +626,17 @@ function showCreditsDashboard(creditsRemaining, totalCredits, tier) {
 function showDownloadReady(cvId, cvEn, tier, isBilingual, creditsRemaining) {
   showState('download-ready');
 
-  // Show EN section for bilingual tiers
-  if (isBilingual && cvEn) {
-    document.getElementById('en-section').classList.remove('hidden');
+  // Show EN section for bilingual tiers — always reveal so the user knows it's included
+  if (isBilingual) {
+    const enSection = document.getElementById('en-section');
+    if (enSection) enSection.classList.remove('hidden');
+    // If EN text is missing despite bilingual tier, show a degraded state on the buttons
+    if (!cvEn) {
+      enSection && enSection.querySelectorAll('.btn-download').forEach(btn => {
+        btn.disabled = true;
+        btn.title = 'CV Bahasa Inggris gagal dibuat. Coba generate ulang.';
+      });
+    }
   }
 
   // Set plain text for mobile fallback
@@ -660,7 +668,7 @@ function showDownloadReady(cvId, cvEn, tier, isBilingual, creditsRemaining) {
     setTimeout(() => {
       document.getElementById('mobile-fallback').classList.add('mobile-download-show');
       document.getElementById('mobile-fallback').classList.remove('hidden');
-      if (isBilingual && cvEn) {
+      if (isBilingual) {
         document.getElementById('en-fallback').classList.remove('hidden');
       }
     }, 2000);
