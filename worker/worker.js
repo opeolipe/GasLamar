@@ -1325,6 +1325,68 @@ async function handleGetSession(request, env) {
   }, 200, request, env);
 }
 
+// ---- Job Metadata Extraction (for download filename) ----
+
+// Internal sanitizer: transliterate accented chars, strip non-alphanumeric, collapse spaces→hyphens.
+function _sanitizeFilenamePart(raw, maxLen) {
+  if (!raw) return null;
+  const MAP = { 'é':'e','è':'e','ê':'e','ë':'e','à':'a','â':'a','ä':'a','î':'i','ï':'i',
+                'ô':'o','ö':'o','ù':'u','û':'u','ü':'u','ç':'c','ñ':'n','ã':'a','õ':'o' };
+  let s = raw.replace(/[éèêëàâäîïôöùûüçñãõ]/gi, c => MAP[c.toLowerCase()] || '');
+  s = s.replace(/[^a-zA-Z0-9\s-]/g, '').trim().replace(/\s+/g, '-').replace(/-+/g, '-')
+       .slice(0, maxLen).replace(/-+$/, '');
+  return s || null;
+}
+
+// Extract job_title and company from free-text job description using regex heuristics.
+// Pure, synchronous, never throws. Returns { job_title: string|null, company: string|null }.
+function extractJobMetadata(jobDesc) {
+  if (!jobDesc) return { job_title: null, company: null };
+
+  const lines = jobDesc.split('\n').map(l => l.trim()).filter(Boolean);
+
+  // --- Job title ---
+  let job_title = null;
+  // 1. Labeled field: "Posisi: X", "Position: X", "Jabatan: X", "Role: X", "Job Title: X"
+  for (const line of lines) {
+    const m = line.match(/^(?:posisi|jabatan|position|role|job\s*title)\s*[:\-]\s*(.+)/i);
+    if (m) { job_title = m[1].trim(); break; }
+  }
+  // 2. Fallback: first short line that doesn't look like a company name or URL
+  if (!job_title) {
+    const first = lines.find(l =>
+      l.length < 80 &&
+      !/^(?:PT|CV|http)/i.test(l) &&
+      !/^\d/.test(l)
+    );
+    if (first) job_title = first;
+  }
+
+  // --- Company ---
+  let company = null;
+  // 1. Labeled field: "Perusahaan: X", "Company: X", "Employer: X", "Instansi: X"
+  for (const line of lines) {
+    const m = line.match(/^(?:perusahaan|instansi|company|employer|nama\s*perusahaan)\s*[:\-]\s*(.+)/i);
+    if (m) { company = m[1].trim(); break; }
+  }
+  // 2. Indonesian company patterns across all lines
+  if (!company) {
+    for (const line of lines) {
+      const pt  = line.match(/\bPT\.?\s+([A-Za-z0-9][A-Za-z0-9\s]{1,30})/i);
+      const cv  = line.match(/\bCV\.?\s+([A-Za-z0-9][A-Za-z0-9\s]{1,30})/i);
+      const tbk = line.match(/([A-Za-z0-9][A-Za-z0-9\s]{1,30})\s+Tbk\b/i);
+      const inc = line.match(/([A-Za-z0-9][A-Za-z0-9\s]{1,30})\s+(?:Inc|Ltd|Corp|Pte)\b/i);
+      const match = pt || cv || tbk || inc;
+      if (match) { company = match[1].trim(); break; }
+    }
+  }
+
+  return {
+    job_title: _sanitizeFilenamePart(job_title, 20),
+    company:   _sanitizeFilenamePart(company, 20),
+  };
+}
+
 async function handleGenerate(request, env, ctx) {
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
 
@@ -1417,7 +1479,8 @@ async function handleGenerate(request, env, ctx) {
       }));
     }
 
-    return jsonResponse({ cv_id: cvId, cv_en: cvEn, credits_remaining: newCreditsRemaining, total_credits: session.total_credits ?? 1 }, 200, request, env);
+    const { job_title, company } = extractJobMetadata(effectiveJobDesc);
+    return jsonResponse({ cv_id: cvId, cv_en: cvEn, credits_remaining: newCreditsRemaining, total_credits: session.total_credits ?? 1, job_title: job_title ?? null, company: company ?? null }, 200, request, env);
   } catch (e) {
     // On failure, reset to 'paid' so user can retry (don't consume the credit)
     logError('generate_failed', { session_id, error: e.message });

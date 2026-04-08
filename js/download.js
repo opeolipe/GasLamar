@@ -12,7 +12,7 @@ let pollCount = 0;
 let notFoundCount = 0; // consecutive 404s — separate from pollCount for faster invalid-session detection
 let pollTimer = null;
 let heartbeatTimer = null;
-let cvDataCache = null; // { cv_id: string, cv_en: string, tier: string }
+let cvDataCache = null; // { cv_id: string, cv_en: string, tier: string, total_credits: number, job_title: string|null, company: string|null }
 let sessionIdCache = null; // retained for multi-credit re-use
 let sessionSecretCache = null; // retained for X-Session-Secret header
 
@@ -321,10 +321,10 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
     setProgress(75);
     setGeneratingText('Menyiapkan file download...');
 
-    const { cv_id, cv_en, credits_remaining, total_credits } = await res.json();
+    const { cv_id, cv_en, credits_remaining, total_credits, job_title, company } = await res.json();
 
     // Cache for retries
-    cvDataCache = { cv_id, cv_en, tier, total_credits };
+    cvDataCache = { cv_id, cv_en, tier, total_credits, job_title: job_title ?? null, company: company ?? null };
     if (window.Analytics) Analytics.track('cv_generated', {
       tier,
       is_bilingual: isBilingual,
@@ -404,6 +404,39 @@ function extractCandidateName(cvText) {
   return sanitized || null;
 }
 
+// ---- Filename Building ----
+
+function sanitizeFilenamePart(raw, maxLen) {
+  if (!raw) return null;
+  const MAP = { 'é':'e','è':'e','ê':'e','ë':'e','à':'a','â':'a','ä':'a','î':'i','ï':'i',
+                'ô':'o','ö':'o','ù':'u','û':'u','ü':'u','ç':'c','ñ':'n','ã':'a','õ':'o' };
+  let s = raw.replace(/[éèêëàâäîïôöùûüçñãõ]/gi, c => MAP[c.toLowerCase()] || '');
+  s = s.replace(/[^a-zA-Z0-9\s-]/g, '').trim().replace(/\s+/g, '-').replace(/-+/g, '-')
+       .slice(0, maxLen).replace(/-+$/, '');
+  return s || null;
+}
+
+function buildCVFilename(cvText, jobTitle, company, lang, ext) {
+  // Name: first word of the first non-blank, non-all-uppercase line (skip section headings)
+  const nameLine = cvText
+    ? cvText.split('\n').map(l => l.trim())
+        .find(l => l.length > 1 && l.length < 60 && !/^[A-Z\s]{4,}$/.test(l))
+    : null;
+  const firstName = nameLine ? sanitizeFilenamePart(nameLine.split(/\s+/)[0], 20) : null;
+
+  const langLabel = lang === 'id' ? 'Indonesia' : 'English';
+
+  const parts = [
+    firstName,
+    sanitizeFilenamePart(jobTitle, 20),
+    sanitizeFilenamePart(company, 20),
+    langLabel,
+  ].filter(Boolean);
+
+  if (parts.length === 1) return `CV-${langLabel}.${ext}`;
+  return parts.join('_') + '.' + ext;
+}
+
 // ---- Line Parsing ----
 
 /**
@@ -473,9 +506,7 @@ function generateDOCX(cvText, lang, tier) {
     });
 
     Packer.toBlob(doc).then(blob => {
-      const langLabel = lang === 'id' ? 'ID' : 'EN';
-      const candidateName = extractCandidateName(cvText);
-      const filename = candidateName ? `CV-${candidateName}-${langLabel}-GasLamar.docx` : `CV-${langLabel}-GasLamar.docx`;
+      const filename = buildCVFilename(cvText, cvDataCache?.job_title, cvDataCache?.company, lang, 'docx');
       triggerDownload(blob, filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     });
 
@@ -553,9 +584,7 @@ function generatePDF(cvText, lang, tier) {
       }
     }
 
-    const langLabel = lang === 'id' ? 'ID' : 'EN';
-    const candidateName = extractCandidateName(cvText);
-    const filename = candidateName ? `CV-${candidateName}-${langLabel}-GasLamar.pdf` : `CV-${langLabel}-GasLamar.pdf`;
+    const filename = buildCVFilename(cvText, cvDataCache?.job_title, cvDataCache?.company, lang, 'pdf');
     doc.save(filename);
 
   } catch (err) {
