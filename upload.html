@@ -418,6 +418,8 @@
 
     /* Char warning */
     .char-warning-text { font-size: 0.75rem; color: #D97706; margin-top: 0.3rem; }
+    .char-counter.near-limit { color: #D97706; }
+    .char-counter.at-limit   { color: #DC2626; font-weight: 600; }
 
     /* Scroll hint */
     #scroll-hint { margin-top: 0.75rem; }
@@ -558,7 +560,7 @@
 ></textarea>
         <div class="char-counter"><span id="char-count">0</span> / 5.000 karakter</div>
       </div>
-      <div id="char-warning" class="char-warning-text hidden">Mendekati batas karakter</div>
+      <div id="char-warning" class="char-warning-text hidden"></div>
       <div id="jd-error" class="error-msg hidden"></div>
 
       <div class="skip-link">
