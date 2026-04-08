@@ -173,6 +173,15 @@
       font-size: 0.8rem;
       margin-top: 0.75rem;
     }
+    .tier-warning-banner {
+      background: #FFFBEB;
+      border: 1px solid #FCD34D;
+      color: #92400E;
+      border-radius: 16px;
+      padding: 0.6rem 1rem;
+      font-size: 0.8rem;
+      margin-bottom: 0.75rem;
+    }
     .warning-note {
       background: #FFFBEB;
       border-left: 3px solid #F59E0B;
@@ -473,6 +482,9 @@
       </div>
       <div class="step-line"></div>
     </div>
+
+    <!-- Tier warning (shown by upload.js when URL tier param is invalid) -->
+    <div id="tier-warning" class="tier-warning-banner hidden" role="alert" aria-live="polite"></div>
 
     <form id="upload-form">
 

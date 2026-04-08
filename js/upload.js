@@ -430,11 +430,29 @@ function hideError(id) {
     configurable: false,
   });
 
-  // Tier from URL param — only store known-valid values; ignore garbage
+  // Valid tier values — must match TIER_CREDITS/TIER_PRICES in the Worker
+  const VALID_TIERS = ['coba', 'single', '3pack', 'jobhunt'];
   const params = new URLSearchParams(location.search);
-  const tier = params.get('tier');
-  if (['coba', 'single', '3pack', 'jobhunt'].includes(tier)) {
-    sessionStorage.setItem('gaslamar_tier', tier);
+  let tierParam = (params.get('tier') || '').toLowerCase().trim();
+
+  if (tierParam && !VALID_TIERS.includes(tierParam)) {
+    // Invalid tier — warn the user, fall back to 'single', and clean the URL
+    console.warn(`[GasLamar] Invalid tier param: "${tierParam}". Falling back to "single".`);
+    const warningEl = document.getElementById('tier-warning');
+    if (warningEl) {
+      warningEl.textContent = 'Paket tidak dikenal. Menggunakan paket Single sebagai default.';
+      warningEl.classList.remove('hidden');
+    }
+    params.delete('tier');
+    const cleanUrl = params.toString()
+      ? `${location.pathname}?${params.toString()}`
+      : location.pathname;
+    history.replaceState(null, '', cleanUrl);
+    tierParam = 'single';
+  }
+
+  if (VALID_TIERS.includes(tierParam)) {
+    sessionStorage.setItem('gaslamar_tier', tierParam);
   }
 
   // Restore JD draft
