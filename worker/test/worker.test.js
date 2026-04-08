@@ -374,6 +374,25 @@ describe('POST /create-payment — one-time key consumption', () => {
   });
 });
 
+describe('Rate limiting — Retry-After header', () => {
+  // Use a unique IP so this suite never conflicts with others
+  const RL_IP = '10.99.0.1';
+
+  it('returns 429 with Retry-After: 60 after exhausting /create-payment limit (5/min)', async () => {
+    // Exhaust the 5-req/min limit for RATE_LIMITER_PAYMENT using this IP.
+    // Each call returns 400 (missing body) but still consumes a rate-limit slot.
+    for (let i = 0; i < 5; i++) {
+      await post('/create-payment', {}, {}, RL_IP);
+    }
+    // 6th request must be rate-limited
+    const res = await post('/create-payment', {}, {}, RL_IP);
+    expect(res.status).toBe(429);
+    expect(res.headers.get('Retry-After')).toBe('60');
+    const body = await res.json();
+    expect(body.message).toContain('Terlalu banyak');
+  });
+});
+
 describe('POST /session/ping', () => {
   it('rejects missing body → 400', async () => {
     const res = await post('/session/ping', {});
@@ -464,6 +483,85 @@ describe('POST /get-session', () => {
   });
 });
 
+describe('extractJobMetadata — via /generate response', () => {
+  // SKIP: requires outbound API access (no OS-level proxy). Un-skip in CI with direct internet.
+  // Uses IP 10.0.0.4 to avoid sharing rate-limit slots with other generate suites.
+  const META_IP = '10.0.0.4';
+
+  beforeAll(() => fetchMock.activate());
+  afterAll(() => fetchMock.deactivate());
+
+  async function seedSessionWithJobDesc(jobDesc) {
+    const sessionId = `sess_${crypto.randomUUID()}`;
+    await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
+      cv_text: 'Budi Santoso\nSoftware Engineer\n\nPENGALAMAN\nDeveloper PT XYZ',
+      job_desc: jobDesc,
+      tier: 'single',
+      status: 'generating',
+      created_at: Date.now(),
+    }), { expirationTtl: 1800 });
+    return sessionId;
+  }
+
+  function mockTwoClaude() {
+    fetchMock.get('https://api.anthropic.com')
+      .intercept({ path: '/v1/messages', method: 'POST' })
+      .reply(200, JSON.stringify(MOCK_CV_ID)).times(1);
+    fetchMock.get('https://api.anthropic.com')
+      .intercept({ path: '/v1/messages', method: 'POST' })
+      .reply(200, JSON.stringify(MOCK_CV_EN)).times(1);
+  }
+
+  it.skip('extracts labeled Bahasa Indonesia posisi/perusahaan', async () => {
+    const sessionId = await seedSessionWithJobDesc(
+      'Posisi: Product Manager\nPerusahaan: Tokopedia\nRequirements: 3 tahun pengalaman'
+    );
+    mockTwoClaude();
+    const res = await post('/generate', { session_id: sessionId }, {}, META_IP);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.job_title).toBe('Product-Manager');
+    expect(body.company).toBe('Tokopedia');
+  });
+
+  it.skip('extracts labeled English position/company', async () => {
+    const sessionId = await seedSessionWithJobDesc(
+      'Position: Data Analyst\nCompany: Gojek\nWe are looking for...'
+    );
+    mockTwoClaude();
+    const res = await post('/generate', { session_id: sessionId }, {}, META_IP);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.job_title).toBe('Data-Analyst');
+    expect(body.company).toBe('Gojek');
+  });
+
+  it.skip('extracts first-line title and PT company pattern', async () => {
+    const sessionId = await seedSessionWithJobDesc(
+      'Senior Backend Engineer\n\nPT Bukalapak mencari kandidat terbaik.'
+    );
+    mockTwoClaude();
+    const res = await post('/generate', { session_id: sessionId }, {}, META_IP);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.job_title).toBe('Senior-Backend-Engi');   // truncated to 20 chars
+    expect(body.company).toBe('Bukalapak');
+  });
+
+  it.skip('returns nulls for unparseable job description', async () => {
+    const sessionId = await seedSessionWithJobDesc(
+      'Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod.'
+    );
+    mockTwoClaude();
+    const res = await post('/generate', { session_id: sessionId }, {}, META_IP);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // First line is extracted as job_title (no exclusion match), company is null
+    expect(body.job_title).toBeTruthy();
+    expect(body.company).toBeNull();
+  });
+});
+
 describe('POST /generate — validation', () => {
   it('rejects missing session_id → 400', async () => {
     const res = await post('/generate', {});
@@ -522,6 +620,12 @@ describe('POST /generate — happy path (mocked Claude)', () => {
     const body = await res.json();
     expect(body.cv_id).toBeTruthy();
     expect(body.cv_en).toBeTruthy(); // bilingual
+    // job_title/company fields are always present in 200 response (may be null)
+    expect('job_title' in body).toBe(true);
+    expect('company' in body).toBe(true);
+    // JOB_DESC starts with 'Software Engineer ...' — first-line extraction
+    expect(body.job_title).toBeTruthy();
+    expect(body.company).toBeNull(); // no PT/company pattern in JOB_DESC
 
     // Session deleted after use (one-time)
     const session = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
@@ -543,6 +647,11 @@ describe('POST /generate — happy path (mocked Claude)', () => {
     const body = await res.json();
     expect(body.cv_id).toBeTruthy();
     expect(body.cv_en).toBeNull(); // no EN for coba tier
+    // job_title/company fields are always present in 200 response (may be null)
+    expect('job_title' in body).toBe(true);
+    expect('company' in body).toBe(true);
+    expect(body.job_title).toBeTruthy();
+    expect(body.company).toBeNull();
   });
 
   // SKIP: requires outbound API access (no OS-level proxy). Un-skip in CI with direct internet.

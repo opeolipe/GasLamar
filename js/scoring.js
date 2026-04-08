@@ -46,8 +46,12 @@ function renderScore(scoring) {
   const score = parseInt(scoring.skor) || 0;
   const reason = scoring.alasan_skor || '';
 
-  // Animate number counter
-  animateCounter(document.getElementById('score-number'), 0, score, 1200);
+  // Set score immediately — no counter animation.
+  // Animating from 0 → score over 1200ms causes intermediate values (e.g. 66)
+  // to be visible; any user action during that window makes the score appear to
+  // change, which breaks trust in the scoring system.
+  const scoreEl = document.getElementById('score-number');
+  if (scoreEl) scoreEl.textContent = score;
 
   // Announce score to screen readers after animation
   const announce = document.getElementById('score-announce');
@@ -279,17 +283,6 @@ function showError(message) {
   document.getElementById('error-message').textContent = message;
 }
 
-function animateCounter(el, start, end, duration) {
-  const startTime = performance.now();
-  function update(currentTime) {
-    const elapsed = currentTime - startTime;
-    const progress = Math.min(elapsed / duration, 1);
-    const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
-    el.textContent = Math.round(start + (end - start) * eased);
-    if (progress < 1) requestAnimationFrame(update);
-  }
-  requestAnimationFrame(update);
-}
 
 async function submitEmail() {
   const input = document.getElementById('email-input');

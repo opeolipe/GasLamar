@@ -12,7 +12,7 @@ let pollCount = 0;
 let notFoundCount = 0; // consecutive 404s — separate from pollCount for faster invalid-session detection
 let pollTimer = null;
 let heartbeatTimer = null;
-let cvDataCache = null; // { cv_id: string, cv_en: string, tier: string }
+let cvDataCache = null; // { cv_id: string, cv_en: string, tier: string, total_credits: number, job_title: string|null, company: string|null }
 let sessionIdCache = null; // retained for multi-credit re-use
 let sessionSecretCache = null; // retained for X-Session-Secret header
 
@@ -321,10 +321,10 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
     setProgress(75);
     setGeneratingText('Menyiapkan file download...');
 
-    const { cv_id, cv_en, credits_remaining, total_credits } = await res.json();
+    const { cv_id, cv_en, credits_remaining, total_credits, job_title, company } = await res.json();
 
     // Cache for retries
-    cvDataCache = { cv_id, cv_en, tier, total_credits };
+    cvDataCache = { cv_id, cv_en, tier, total_credits, job_title: job_title ?? null, company: company ?? null };
     if (window.Analytics) Analytics.track('cv_generated', {
       tier,
       is_bilingual: isBilingual,
@@ -404,6 +404,39 @@ function extractCandidateName(cvText) {
   return sanitized || null;
 }
 
+// ---- Filename Building ----
+
+function sanitizeFilenamePart(raw, maxLen) {
+  if (!raw) return null;
+  const MAP = { 'é':'e','è':'e','ê':'e','ë':'e','à':'a','â':'a','ä':'a','î':'i','ï':'i',
+                'ô':'o','ö':'o','ù':'u','û':'u','ü':'u','ç':'c','ñ':'n','ã':'a','õ':'o' };
+  let s = raw.replace(/[éèêëàâäîïôöùûüçñãõ]/gi, c => MAP[c.toLowerCase()] || '');
+  s = s.replace(/[^a-zA-Z0-9\s-]/g, '').trim().replace(/\s+/g, '-').replace(/-+/g, '-')
+       .slice(0, maxLen).replace(/-+$/, '');
+  return s || null;
+}
+
+function buildCVFilename(cvText, jobTitle, company, lang, ext) {
+  // Name: first word of the first non-blank, non-all-uppercase line (skip section headings)
+  const nameLine = cvText
+    ? cvText.split('\n').map(l => l.trim())
+        .find(l => l.length > 1 && l.length < 60 && !/^[A-Z\s]{4,}$/.test(l))
+    : null;
+  const firstName = nameLine ? sanitizeFilenamePart(nameLine.split(/\s+/)[0], 20) : null;
+
+  const langLabel = lang === 'id' ? 'Indonesia' : 'English';
+
+  const parts = [
+    firstName,
+    sanitizeFilenamePart(jobTitle, 20),
+    sanitizeFilenamePart(company, 20),
+    langLabel,
+  ].filter(Boolean);
+
+  if (parts.length === 1) return `CV-${langLabel}.${ext}`;
+  return parts.join('_') + '.' + ext;
+}
+
 // ---- Line Parsing ----
 
 /**
@@ -414,17 +447,32 @@ function extractCandidateName(cvText) {
  * @param {string} cvText
  * @returns {{ type: 'heading'|'bullet'|'text'|'blank', content: string }[]}
  */
+const CV_SECTION_HEADINGS = new Set([
+  // Indonesian
+  'RINGKASAN PROFESIONAL','RINGKASAN','PENGALAMAN KERJA','PENGALAMAN',
+  'PENDIDIKAN','KEAHLIAN','KEMAMPUAN','SERTIFIKASI','SERTIFIKAT',
+  'PENCAPAIAN','PENGHARGAAN','PROYEK','PUBLIKASI','BAHASA','REFERENSI',
+  // English
+  'PROFESSIONAL SUMMARY','SUMMARY','EXECUTIVE SUMMARY',
+  'WORK EXPERIENCE','EXPERIENCE','EMPLOYMENT HISTORY',
+  'EDUCATION','SKILLS','TECHNICAL SKILLS','CORE COMPETENCIES',
+  'CERTIFICATIONS','CERTIFICATES','ACHIEVEMENTS','AWARDS',
+  'PROJECTS','PUBLICATIONS','LANGUAGES','REFERENCES','PROFILE',
+]);
+
 function parseLines(cvText) {
   return cvText.split('\n').map(line => {
     const trimmed = line.trim();
     if (!trimmed) return { type: 'blank', content: '' };
 
-    const isSectionHead = /^[A-Z\u00C0-\u017E\s]{4,}$/.test(trimmed) ||
-                          (trimmed.endsWith(':') && trimmed.length < 40);
-    const isBullet = trimmed.startsWith('•') || trimmed.startsWith('-') || trimmed.startsWith('·');
+    const clean = trimmed.replace(/:$/, '').trim();
+    const isSectionHead = CV_SECTION_HEADINGS.has(clean.toUpperCase())
+                       || /^[A-Z\u00C0-\u017E\s]{4,}$/.test(clean)
+                       || (trimmed.endsWith(':') && trimmed.length < 40);
+    const isBullet = trimmed.startsWith('•') || trimmed.startsWith('-') || trimmed.startsWith('·') || trimmed.startsWith('*');
 
-    if (isSectionHead) return { type: 'heading', content: trimmed.replace(/:$/, '') };
-    if (isBullet)      return { type: 'bullet',  content: trimmed.replace(/^[•\-·]\s*/, '') };
+    if (isSectionHead) return { type: 'heading', content: clean };
+    if (isBullet)      return { type: 'bullet',  content: trimmed.replace(/^[•\-·*]\s*/, '') };
     return { type: 'text', content: trimmed };
   });
 }
@@ -473,9 +521,7 @@ function generateDOCX(cvText, lang, tier) {
     });
 
     Packer.toBlob(doc).then(blob => {
-      const langLabel = lang === 'id' ? 'ID' : 'EN';
-      const candidateName = extractCandidateName(cvText);
-      const filename = candidateName ? `CV-${candidateName}-${langLabel}-GasLamar.docx` : `CV-${langLabel}-GasLamar.docx`;
+      const filename = buildCVFilename(cvText, cvDataCache?.job_title, cvDataCache?.company, lang, 'docx');
       triggerDownload(blob, filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     });
 
@@ -553,9 +599,7 @@ function generatePDF(cvText, lang, tier) {
       }
     }
 
-    const langLabel = lang === 'id' ? 'ID' : 'EN';
-    const candidateName = extractCandidateName(cvText);
-    const filename = candidateName ? `CV-${candidateName}-${langLabel}-GasLamar.pdf` : `CV-${langLabel}-GasLamar.pdf`;
+    const filename = buildCVFilename(cvText, cvDataCache?.job_title, cvDataCache?.company, lang, 'pdf');
     doc.save(filename);
 
   } catch (err) {
@@ -626,9 +670,17 @@ function showCreditsDashboard(creditsRemaining, totalCredits, tier) {
 function showDownloadReady(cvId, cvEn, tier, isBilingual, creditsRemaining) {
   showState('download-ready');
 
-  // Show EN section for bilingual tiers
-  if (isBilingual && cvEn) {
-    document.getElementById('en-section').classList.remove('hidden');
+  // Show EN section for bilingual tiers — always reveal so the user knows it's included
+  if (isBilingual) {
+    const enSection = document.getElementById('en-section');
+    if (enSection) enSection.classList.remove('hidden');
+    // If EN text is missing despite bilingual tier, show a degraded state on the buttons
+    if (!cvEn) {
+      enSection && enSection.querySelectorAll('.btn-download').forEach(btn => {
+        btn.disabled = true;
+        btn.title = 'CV Bahasa Inggris gagal dibuat. Coba generate ulang.';
+      });
+    }
   }
 
   // Set plain text for mobile fallback
@@ -660,7 +712,7 @@ function showDownloadReady(cvId, cvEn, tier, isBilingual, creditsRemaining) {
     setTimeout(() => {
       document.getElementById('mobile-fallback').classList.add('mobile-download-show');
       document.getElementById('mobile-fallback').classList.remove('hidden');
-      if (isBilingual && cvEn) {
+      if (isBilingual) {
         document.getElementById('en-fallback').classList.remove('hidden');
       }
     }, 2000);

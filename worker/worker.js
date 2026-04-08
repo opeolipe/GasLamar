@@ -83,6 +83,18 @@ async function checkRateLimit(env, limiterBinding, ip) {
   return success;
 }
 
+// Returns a properly-formed 429 with Retry-After header (RFC 7231 §7.1.3).
+// All rate-limited endpoints must use this instead of a plain jsonResponse 429.
+function rateLimitResponse(request, env) {
+  return corsResponse(
+    JSON.stringify({ message: 'Terlalu banyak permintaan. Coba lagi dalam 1 menit.' }),
+    429,
+    { 'Content-Type': 'application/json', 'Retry-After': '60' },
+    request,
+    env
+  );
+}
+
 // ---- Structured Logging ----
 function log(event, data = {}) {
   console.log(JSON.stringify({ event, ts: Date.now(), ...data }));
@@ -360,7 +372,9 @@ YANG TIDAK BOLEH DILAKUKAN:
 - Menggunakan em-dash
 - Menulis "Based on my analysis as an AI..."
 - Jargon korporat AI seperti "leverage synergies", "paradigm shift"
-- Kalimat panjang bertele-tele - potong dan sederhanakan`;
+- Kalimat panjang bertele-tele - potong dan sederhanakan
+- Gap atau rekomendasi yang generik dan tidak spesifik terhadap job description
+  (contoh BURUK: "tambahkan angka ke CV" - contoh BAIK: "JD minta pengalaman Kubernetes tapi CV tidak menyebutkan container/orchestration")`;
 
 const SKILL_TAILOR_ID = `PERAN: Kamu adalah career coach Indonesia yang menulis CV profesional.
 Rewrite harus terdengar seperti ditulis manusia kompeten - bukan AI.
@@ -377,8 +391,8 @@ Gunakan:
 - Struktur: Aksi + Konteks + Dampak
 
 ANGKA:
-- PDF final: HANYA angka yang sudah ada di CV asli. Jangan fabrikasi.
-- DOCX: boleh tambahkan placeholder seperti [contoh: meningkat X%]
+- Pertahankan HANYA angka yang ada di CV asli. Jangan fabrikasi angka baru.
+- Jangan tambahkan placeholder seperti "[X%]" atau "[jumlah]".
 
 ATS-READY (WAJIB):
 - Layout satu kolom - tidak ada tabel, kolom ganda, text box
@@ -422,8 +436,8 @@ Use:
 - US English consistently (default)
 
 NUMBERS:
-- PDF (final): ONLY numbers from the user's original CV. Never fabricate.
-- DOCX: may add placeholders like [e.g., improved by X%]
+- Only keep numbers that exist in the original CV. Never fabricate new ones.
+- Do not add placeholders like "[X%]" or "[amount]".
 
 ATS-READY (MANDATORY):
 - Single-column layout - no tables, multi-column, text boxes
@@ -490,7 +504,20 @@ async function analyzeCV(cvText, jobDesc, env) {
   // even across different edge nodes.
   const cacheKey = `analysis_v2_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
   const cached = await env.GASLAMAR_SESSIONS.get(cacheKey, { type: 'json' });
-  if (cached) return cached;
+  if (cached) {
+    // Re-derive skor from discrete sub-scores even on cache hit.
+    // Old cache entries may have a LLM-generated skor (e.g. 66) that bypassed
+    // the clamping added later. Re-applying it here fixes stale entries without
+    // needing a cache version bump.
+    if (typeof cached.skor_relevansi !== 'undefined') {
+      const r  = [0, 10, 20, 30, 40].includes(cached.skor_relevansi)    ? cached.skor_relevansi    : 0;
+      const rq = [0, 10, 20, 30].includes(cached.skor_requirements)     ? cached.skor_requirements : 0;
+      const k  = [0, 10, 20].includes(cached.skor_kualitas)             ? cached.skor_kualitas     : 0;
+      const kw = [0, 5, 10].includes(cached.skor_keywords)              ? cached.skor_keywords     : 0;
+      cached.skor = r + rq + k + kw;
+    }
+    return cached;
+  }
 
   const systemPrompt = `${SKILL_ANALYZE}
 
@@ -510,14 +537,24 @@ Berikan output JSON dengan format TEPAT berikut:
   "skor_kualitas": <HARUS tepat salah satu: 0, 10, atau 20>,
   "skor_keywords": <HARUS tepat salah satu: 0, 5, atau 10>,
   "alasan_skor": "<1 kalimat menjelaskan skor keseluruhan>",
-  "gap": ["<gap 1>", "<gap 2>", "<gap 3>"],
-  "rekomendasi": ["<rekomendasi 1>", "<rekomendasi 2>", "<rekomendasi 3>"],
+  "gap": ["<requirement dari JD yang tidak ada di CV — spesifik, misal: 'JD minta pengalaman Kubernetes tapi CV tidak menyebut container'>", "<gap 2>", "<gap 3>"],
+  "rekomendasi": ["<langkah konkret dan spesifik — misal: 'Tambahkan proyek React di bagian pengalaman, karena JD menyebut React sebagai must-have'>", "<rekomendasi 2>", "<rekomendasi 3>"],
   "kekuatan": ["<kekuatan 1>", "<kekuatan 2>"],
   "konfidensitas": <"Rendah"|"Sedang"|"Tinggi">,
   "skor_sesudah": <kelipatan 5, min skor+10, max 95>,
   "hr_7_detik": { "kuat": ["...", "..."], "diabaikan": ["...", "..."] },
   "red_flags": ["..."]
 }
+
+PANDUAN gap (WAJIB 3 item, harus spesifik terhadap JD ini):
+- Format: "JD minta [X] tapi CV tidak menyebutkan [Y]" atau "Posisi ini butuh [X], CV belum membuktikannya"
+- Fokus pada requirement eksplisit dari JD, bukan saran CV generic
+- Jika ada <3 gap nyata, tetap tulis 3 (gunakan gap yang kurang kritis)
+
+PANDUAN rekomendasi (WAJIB 3 item, harus actionable dan spesifik):
+- Format: "Tambahkan [X spesifik] di bagian [Y]" atau "Cantumkan sertifikasi [Z] — relevan untuk posisi ini"
+- Harus ada hubungan langsung dengan gap atau job description
+- Bukan saran umum seperti "perbaiki CV kamu" atau "tambahkan lebih banyak detail"
 
 PANDUAN skor_relevansi (0/10/20/30/40):
 - 40: Role sama atau sangat mirip (PM → Senior PM, Backend Dev → Full Stack Dev)
@@ -562,7 +599,7 @@ Jika tidak ada red flag nyata -- JANGAN tambahkan field ini.
 
 Output hanya JSON, tidak ada teks lain.`;
 
-  const result = await callClaude(env, systemPrompt, 'Analisis sekarang.', 1000);
+  const result = await callClaude(env, systemPrompt, 'Analisis sekarang.', 1500);
   const text = result?.content?.[0]?.text || '{}';
 
   // Parse JSON — Claude should return clean JSON
@@ -584,6 +621,14 @@ Output hanya JSON, tidak ada teks lain.`;
   const sesudahRaw = Math.round((parseInt(scoring.skor_sesudah) || 0) / 5) * 5;
   scoring.skor_sesudah = Math.min(95, Math.max(scoring.skor + 10, sesudahRaw));
 
+  // Ensure required arrays are always arrays with non-empty string items
+  const ensureArray = val => Array.isArray(val)
+    ? val.filter(s => typeof s === 'string' && s.trim())
+    : [];
+  scoring.gap         = ensureArray(scoring.gap);
+  scoring.rekomendasi = ensureArray(scoring.rekomendasi);
+  scoring.kekuatan    = ensureArray(scoring.kekuatan);
+
   if (!scoring.hr_7_detik || typeof scoring.hr_7_detik !== 'object') {
     delete scoring.hr_7_detik;
   }
@@ -595,6 +640,21 @@ Output hanya JSON, tidak ada teks lain.`;
   await env.GASLAMAR_SESSIONS.put(cacheKey, JSON.stringify(scoring), { expirationTtl: 172800 });
 
   return scoring;
+}
+
+/**
+ * Returns the first missing required section heading, 'too short' if the text
+ * is under 200 chars, or null if the CV passes all checks.
+ */
+function validateCVSections(text, lang) {
+  const required = lang === 'id'
+    ? ['RINGKASAN PROFESIONAL', 'PENGALAMAN KERJA', 'PENDIDIKAN', 'KEAHLIAN']
+    : ['PROFESSIONAL SUMMARY', 'WORK EXPERIENCE', 'EDUCATION', 'SKILLS'];
+  for (const h of required) {
+    if (!text.includes(h)) return h;
+  }
+  if (text.trim().length < 200) return 'too short';
+  return null;
 }
 
 async function tailorCVID(cvText, jobDesc, env) {
@@ -610,17 +670,36 @@ ${cvText}
 JOB DESCRIPTION:
 ${jobDesc}
 
-Output CV dalam Bahasa Indonesia dengan sections:
-1. RINGKASAN PROFESIONAL (3-4 kalimat, highlight yang paling relevan untuk posisi ini)
-2. PENGALAMAN KERJA (bullet points, gunakan kata kerja aktif, kuantifikasi achievement)
-3. PENDIDIKAN
-4. KEAHLIAN (prioritaskan yang disebutkan di job description)
-5. SERTIFIKASI (jika ada)
+HEADING WAJIB - gunakan TEPAT teks ini, huruf kapital semua, tanpa titik dua:
+RINGKASAN PROFESIONAL
+PENGALAMAN KERJA
+PENDIDIKAN
+KEAHLIAN
+SERTIFIKASI
+
+Aturan heading: jangan ubah nama, jangan tambah heading lain.
+Jika kandidat tidak punya sertifikasi, hapus section SERTIFIKASI sepenuhnya.
+
+Output CV dalam Bahasa Indonesia dengan urutan section di atas:
+- RINGKASAN PROFESIONAL: 3-4 kalimat, highlight yang paling relevan untuk posisi ini
+- PENGALAMAN KERJA: bullet points, kata kerja aktif, kuantifikasi achievement
+- PENDIDIKAN
+- KEAHLIAN: prioritaskan yang disebutkan di job description
 
 Output hanya teks CV, tidak ada komentar atau penjelasan tambahan.`;
 
-  const result = await callClaude(env, systemPrompt, 'Tailoring CV sekarang.', 2000);
-  return result?.content?.[0]?.text || '';
+  const result = await callClaude(env, systemPrompt, 'Tailoring CV sekarang.', 4096);
+  let text = result?.content?.[0]?.text?.trim() ?? '';
+  const missing = validateCVSections(text, 'id');
+  if (missing) {
+    const correction = missing === 'too short'
+      ? 'PENTING: Output terlalu pendek. Tulis CV lengkap dengan semua sections.'
+      : `PENTING: Section "${missing}" tidak ditemukan di output. Wajib disertakan persis seperti heading yang diminta.`;
+    const retry = await callClaude(env, systemPrompt + '\n\n' + correction, 'Tailoring CV sekarang.', 4096);
+    text = retry?.content?.[0]?.text?.trim() ?? text;
+  }
+  if (!text) throw new Error('CV Bahasa Indonesia kosong dari AI. Coba lagi.');
+  return text;
 }
 
 async function tailorCVEN(cvText, jobDesc, env) {
@@ -636,17 +715,38 @@ ${cvText}
 JOB DESCRIPTION:
 ${jobDesc}
 
-Output the CV in English with sections:
-1. PROFESSIONAL SUMMARY (3-4 sentences, highlight most relevant for this role)
-2. WORK EXPERIENCE (bullet points, action verbs, quantified achievements)
-3. EDUCATION
-4. SKILLS (prioritize those mentioned in job description)
-5. CERTIFICATIONS (if any)
+MANDATORY HEADINGS - use EXACTLY these, all caps, no colon:
+PROFESSIONAL SUMMARY
+WORK EXPERIENCE
+EDUCATION
+SKILLS
+CERTIFICATIONS
+
+Heading rules: do not alter heading names, do not add other headings.
+If the candidate has no certifications, omit the CERTIFICATIONS section entirely.
+
+Output the CV in English with sections in that order:
+- PROFESSIONAL SUMMARY: 3-4 sentences, highlight most relevant for this role
+- WORK EXPERIENCE: bullet points, action verbs, quantified achievements
+- EDUCATION
+- SKILLS: prioritize those mentioned in job description
+
+Ensure the same job roles, companies, dates, and achievements appear as in the original CV — only translate and reframe, do not add or remove experiences.
 
 Output only the CV text, no additional comments.`;
 
-  const result = await callClaude(env, systemPrompt, 'Tailor the CV now.', 2000);
-  return result?.content?.[0]?.text || '';
+  const result = await callClaude(env, systemPrompt, 'Tailor the CV now.', 4096);
+  let text = result?.content?.[0]?.text?.trim() ?? '';
+  const missing = validateCVSections(text, 'en');
+  if (missing) {
+    const correction = missing === 'too short'
+      ? 'IMPORTANT: Output too short. Write the complete CV with all sections.'
+      : `IMPORTANT: Section "${missing}" is missing from the output. It must be included exactly as shown in the heading list.`;
+    const retry = await callClaude(env, systemPrompt + '\n\n' + correction, 'Tailor the CV now.', 4096);
+    text = retry?.content?.[0]?.text?.trim() ?? text;
+  }
+  if (!text) throw new Error('English CV returned empty from AI. Please retry.');
+  return text;
 }
 
 // ---- Mayar API ----
@@ -851,7 +951,7 @@ async function handleAnalyze(request, env) {
 
   const allowed = await checkRateLimit(env, env.RATE_LIMITER_ANALYZE, ip);
   if (!allowed) {
-    return jsonResponse({ message: 'Terlalu banyak permintaan. Coba lagi dalam 1 menit.' }, 429, request, env);
+    return rateLimitResponse(request, env);
   }
 
   let body;
@@ -904,7 +1004,7 @@ async function handleCreatePayment(request, env) {
 
   const allowed = await checkRateLimit(env, env.RATE_LIMITER_PAYMENT, ip);
   if (!allowed) {
-    return jsonResponse({ message: 'Terlalu banyak permintaan. Coba lagi dalam 1 menit.' }, 429, request, env);
+    return rateLimitResponse(request, env);
   }
 
   let body;
@@ -1296,12 +1396,74 @@ async function handleGetSession(request, env) {
   }, 200, request, env);
 }
 
+// ---- Job Metadata Extraction (for download filename) ----
+
+// Internal sanitizer: transliterate accented chars, strip non-alphanumeric, collapse spaces→hyphens.
+function _sanitizeFilenamePart(raw, maxLen) {
+  if (!raw) return null;
+  const MAP = { 'é':'e','è':'e','ê':'e','ë':'e','à':'a','â':'a','ä':'a','î':'i','ï':'i',
+                'ô':'o','ö':'o','ù':'u','û':'u','ü':'u','ç':'c','ñ':'n','ã':'a','õ':'o' };
+  let s = raw.replace(/[éèêëàâäîïôöùûüçñãõ]/gi, c => MAP[c.toLowerCase()] || '');
+  s = s.replace(/[^a-zA-Z0-9\s-]/g, '').trim().replace(/\s+/g, '-').replace(/-+/g, '-')
+       .slice(0, maxLen).replace(/-+$/, '');
+  return s || null;
+}
+
+// Extract job_title and company from free-text job description using regex heuristics.
+// Pure, synchronous, never throws. Returns { job_title: string|null, company: string|null }.
+function extractJobMetadata(jobDesc) {
+  if (!jobDesc) return { job_title: null, company: null };
+
+  const lines = jobDesc.split('\n').map(l => l.trim()).filter(Boolean);
+
+  // --- Job title ---
+  let job_title = null;
+  // 1. Labeled field: "Posisi: X", "Position: X", "Jabatan: X", "Role: X", "Job Title: X"
+  for (const line of lines) {
+    const m = line.match(/^(?:posisi|jabatan|position|role|job\s*title)\s*[:\-]\s*(.+)/i);
+    if (m) { job_title = m[1].trim(); break; }
+  }
+  // 2. Fallback: first short line that doesn't look like a company name or URL
+  if (!job_title) {
+    const first = lines.find(l =>
+      l.length < 80 &&
+      !/^(?:PT|CV|http)/i.test(l) &&
+      !/^\d/.test(l)
+    );
+    if (first) job_title = first;
+  }
+
+  // --- Company ---
+  let company = null;
+  // 1. Labeled field: "Perusahaan: X", "Company: X", "Employer: X", "Instansi: X"
+  for (const line of lines) {
+    const m = line.match(/^(?:perusahaan|instansi|company|employer|nama\s*perusahaan)\s*[:\-]\s*(.+)/i);
+    if (m) { company = m[1].trim(); break; }
+  }
+  // 2. Indonesian company patterns across all lines
+  if (!company) {
+    for (const line of lines) {
+      const pt  = line.match(/\bPT\.?\s+([A-Za-z0-9][A-Za-z0-9\s]{1,30})/i);
+      const cv  = line.match(/\bCV\.?\s+([A-Za-z0-9][A-Za-z0-9\s]{1,30})/i);
+      const tbk = line.match(/([A-Za-z0-9][A-Za-z0-9\s]{1,30})\s+Tbk\b/i);
+      const inc = line.match(/([A-Za-z0-9][A-Za-z0-9\s]{1,30})\s+(?:Inc|Ltd|Corp|Pte)\b/i);
+      const match = pt || cv || tbk || inc;
+      if (match) { company = match[1].trim(); break; }
+    }
+  }
+
+  return {
+    job_title: _sanitizeFilenamePart(job_title, 20),
+    company:   _sanitizeFilenamePart(company, 20),
+  };
+}
+
 async function handleGenerate(request, env, ctx) {
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
 
   const allowed = await checkRateLimit(env, env.RATE_LIMITER_GENERATE, ip);
   if (!allowed) {
-    return jsonResponse({ message: 'Terlalu banyak permintaan. Coba lagi dalam 1 menit.' }, 429, request, env);
+    return rateLimitResponse(request, env);
   }
 
   let body;
@@ -1388,7 +1550,8 @@ async function handleGenerate(request, env, ctx) {
       }));
     }
 
-    return jsonResponse({ cv_id: cvId, cv_en: cvEn, credits_remaining: newCreditsRemaining, total_credits: session.total_credits ?? 1 }, 200, request, env);
+    const { job_title, company } = extractJobMetadata(effectiveJobDesc);
+    return jsonResponse({ cv_id: cvId, cv_en: cvEn, credits_remaining: newCreditsRemaining, total_credits: session.total_credits ?? 1, job_title: job_title ?? null, company: company ?? null }, 200, request, env);
   } catch (e) {
     // On failure, reset to 'paid' so user can retry (don't consume the credit)
     logError('generate_failed', { session_id, error: e.message });
@@ -1405,7 +1568,7 @@ async function handleSubmitEmail(request, env) {
   // Reuse payment rate limiter (5 req/min per IP)
   const allowed = await checkRateLimit(env, env.RATE_LIMITER_PAYMENT, ip);
   if (!allowed) {
-    return jsonResponse({ message: 'Terlalu banyak permintaan. Coba lagi dalam 1 menit.' }, 429, request, env);
+    return rateLimitResponse(request, env);
   }
 
   let body;
@@ -1471,6 +1634,10 @@ async function handleSandboxPay(request, env, ctx) {
 // ---- Fetch Job URL ----
 
 async function handleFetchJobUrl(request, env) {
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const allowed = await checkRateLimit(env, env.RATE_LIMITER_ANALYZE, ip);
+  if (!allowed) return rateLimitResponse(request, env);
+
   const { url } = await request.json().catch(() => ({}));
 
   if (!url || typeof url !== 'string') {
