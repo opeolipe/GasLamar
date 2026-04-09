@@ -77,6 +77,28 @@ function jsonResponse(data, status = 200, request, env) {
 // Fallback: if the binding is absent (e.g. local dev without wrangler), allow through.
 // This is safe — local dev is not public traffic.
 
+/**
+ * Extract the real client IP from a Cloudflare Worker request.
+ *
+ * Priority:
+ *  1. CF-Connecting-IP  — set by Cloudflare's network for every proxied request
+ *  2. X-Forwarded-For   — first entry; fallback for direct wrangler-dev / tunnel requests
+ *  3. 'unknown'         — last resort; all 'unknown' requests share one rate-limit bucket,
+ *                         so the limit is still enforced, just not per-IP
+ *
+ * CF-Connecting-IP is absent when:
+ *  • Testing with `curl` directly against a Workers subdomain without the Cloudflare proxy
+ *  • Using `wrangler dev` in local mode (no CF network)
+ * In those cases X-Forwarded-For is often set by the local wrangler proxy.
+ */
+function clientIp(request) {
+  return (
+    request.headers.get('CF-Connecting-IP') ||
+    (request.headers.get('X-Forwarded-For') || '').split(',')[0].trim() ||
+    'unknown'
+  );
+}
+
 async function checkRateLimit(env, limiterBinding, ip) {
   if (!limiterBinding) return true; // binding absent in local dev — allow
   const { success } = await limiterBinding.limit({ key: ip });
@@ -106,11 +128,13 @@ async function checkRateLimitKV(env, ip, limit = 3, windowSecs = 60, prefix = 'a
         }
         // Increment counter — preserve original TTL by recalculating remaining seconds
         const remaining = windowSecs - (now - data.start);
+        const newCount = data.count + 1;
         await env.GASLAMAR_SESSIONS.put(
           key,
-          JSON.stringify({ start: data.start, count: data.count + 1 }),
+          JSON.stringify({ start: data.start, count: newCount }),
           { expirationTtl: Math.max(1, remaining) }
         );
+        log('rate_limit_kv_count', { prefix, ip, count: newCount, limit });
         return { allowed: true };
       }
     }
@@ -121,6 +145,7 @@ async function checkRateLimitKV(env, ip, limit = 3, windowSecs = 60, prefix = 'a
       JSON.stringify({ start: now, count: 1 }),
       { expirationTtl: windowSecs }
     );
+    log('rate_limit_kv_count', { prefix, ip, count: 1, limit });
     return { allowed: true };
   } catch (e) {
     logError('rate_limit_kv_error', { prefix, ip, error: e.message });
@@ -1050,7 +1075,7 @@ async function deleteSession(env, sessionId) {
 // ---- Route Handlers ----
 
 async function handleAnalyze(request, env) {
-  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const ip = clientIp(request);
 
   // Primary: Cloudflare native binding (atomic, no TOCTOU). Falls through if binding absent.
   // Secondary: KV-based counter — reliable even when the binding is misconfigured.
@@ -1060,7 +1085,11 @@ async function handleAnalyze(request, env) {
     checkRateLimitKV(env, ip, 3, 60, 'analyze'),
   ]);
   if (!bindingOk || !kvResult.allowed) {
-    return rateLimitResponse(request, env, kvResult.retryAfter ?? 60);
+    // Use the KV-computed remaining seconds when KV is the blocker; fall back to
+    // the window length when the native binding is the blocker (it doesn't expose
+    // a remaining-time API).
+    const retryAfter = !kvResult.allowed ? (kvResult.retryAfter ?? 60) : 60;
+    return rateLimitResponse(request, env, retryAfter);
   }
 
   let body;
@@ -1113,7 +1142,7 @@ async function handleAnalyze(request, env) {
 }
 
 async function handleCreatePayment(request, env) {
-  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const ip = clientIp(request);
 
   const allowed = await checkRateLimit(env, env.RATE_LIMITER_PAYMENT, ip);
   if (!allowed) {
@@ -1579,7 +1608,7 @@ function extractJobMetadata(jobDesc) {
 }
 
 async function handleGenerate(request, env, ctx) {
-  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const ip = clientIp(request);
 
   const allowed = await checkRateLimit(env, env.RATE_LIMITER_GENERATE, ip);
   if (!allowed) {
@@ -1693,7 +1722,7 @@ async function handleGenerate(request, env, ctx) {
 }
 
 async function handleSubmitEmail(request, env) {
-  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const ip = clientIp(request);
 
   // Reuse payment rate limiter (5 req/min per IP)
   const allowed = await checkRateLimit(env, env.RATE_LIMITER_PAYMENT, ip);
@@ -1764,7 +1793,7 @@ async function handleSandboxPay(request, env, ctx) {
 // ---- Fetch Job URL ----
 
 async function handleFetchJobUrl(request, env) {
-  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const ip = clientIp(request);
   const allowed = await checkRateLimit(env, env.RATE_LIMITER_FETCH, ip);
   if (!allowed) return rateLimitResponse(request, env);
 
