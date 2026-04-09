@@ -31,11 +31,13 @@
   document.getElementById('results-content').classList.remove('hidden');
 
   renderScore(scoring);
+  renderArchetypeAndVerdict(scoring);
   renderStrengths(scoring.kekuatan || []);
   renderRedFlags(scoring.red_flags);
   renderGaps(scoring.gap || []);
   renderHR7Detik(scoring.hr_7_detik);
   renderRecommendations(scoring.rekomendasi || []);
+  renderSkor6D(scoring.skor_6d);
   renderBeforeAfter(scoring);
   renderRewritePreview(scoring.rekomendasi || [], scoring.gap || []);
   setupShareButton(scoring.skor || 0);
@@ -275,6 +277,84 @@ function setupTierRecommendation(score) {
       </p>
     </div>`;
   el.classList.remove('hidden');
+}
+
+function renderArchetypeAndVerdict(scoring) {
+  // Archetype badge
+  const archetypeEl = document.getElementById('archetype-badge');
+  if (archetypeEl && scoring.archetype) {
+    archetypeEl.textContent = scoring.archetype;
+    archetypeEl.style.display = 'inline-block';
+    archetypeEl.classList.remove('hidden');
+  }
+
+  // Verdict card
+  const verdictEl = document.getElementById('verdict-card');
+  if (!verdictEl || !scoring.veredict) return;
+
+  const VERDICT_CONFIG = {
+    'DO': {
+      bg: '#F0FDF4', color: '#15803D', border: '#86EFAC',
+      label: 'Layak Dilamar (DO)',
+      desc: 'CV kamu cukup kuat untuk posisi ini. Gas lamar sekarang!',
+    },
+    'DO NOT': {
+      bg: '#FEF2F2', color: '#B91C1C', border: '#FCA5A5',
+      label: 'Belum Direkomendasikan (DO NOT)',
+      desc: 'Gap terlalu besar untuk posisi ini. Perbaiki dulu atau cari posisi yang lebih sesuai.',
+    },
+    'TIMED': {
+      bg: '#FFFBEB', color: '#92400E', border: '#FCD34D',
+      label: 'Perlu Persiapan (TIMED)',
+      desc: scoring.timebox_weeks
+        ? `Bisa dilamar setelah ${scoring.timebox_weeks} minggu persiapan — perbaiki gap di bawah ini.`
+        : 'Ada gap signifikan tapi bisa diperbaiki. Fokus pada rekomendasi di bawah.',
+    },
+  };
+
+  const cfg = VERDICT_CONFIG[scoring.veredict];
+  if (!cfg) return;
+
+  verdictEl.style.background = cfg.bg;
+  verdictEl.style.color = cfg.color;
+  verdictEl.style.border = `1.5px solid ${cfg.border}`;
+  verdictEl.innerHTML = `<span style="font-size:1rem;">${scoring.veredict === 'DO' ? '✅' : scoring.veredict === 'DO NOT' ? '❌' : '⏳'}</span> <strong>${escapeHtml(cfg.label)}</strong><br><span style="font-weight:400;font-size:0.8rem;">${escapeHtml(cfg.desc)}</span>`;
+  verdictEl.classList.remove('hidden');
+  verdictEl.style.display = 'block';
+}
+
+function renderSkor6D(skor6d) {
+  if (!skor6d || typeof skor6d !== 'object') return;
+  const section = document.getElementById('skor-6d-section');
+  const bars = document.getElementById('skor-6d-bars');
+  if (!section || !bars) return;
+
+  const DIM_LABELS = {
+    north_star:       { label: 'Kesesuaian Role', icon: '🎯' },
+    recruiter_signal: { label: 'Daya Tarik CV',   icon: '👁️' },
+    effort:           { label: 'Kemudahan Perbaiki', icon: '⚡' },
+    opportunity_cost: { label: 'Biaya Perbaikan', icon: '💰' },
+    risk:             { label: 'Relevansi Jangka Panjang', icon: '🛡️' },
+    portfolio:        { label: 'Bukti Nyata di CV', icon: '📋' },
+  };
+
+  bars.innerHTML = Object.entries(DIM_LABELS).map(([key, { label, icon }]) => {
+    const val = Math.min(10, Math.max(0, parseInt(skor6d[key]) || 0));
+    const pct = val * 10;
+    const barColor = val >= 7 ? '#10B981' : val >= 4 ? '#F59E0B' : '#EF4444';
+    return `
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:2px;">
+          <span>${icon} ${escapeHtml(label)}</span>
+          <span style="font-weight:600;">${val}/10</span>
+        </div>
+        <div style="background:#E5E7EB;border-radius:4px;height:6px;">
+          <div style="width:${pct}%;background:${barColor};border-radius:4px;height:6px;transition:width 0.6s ease;"></div>
+        </div>
+      </div>`;
+  }).join('');
+
+  section.classList.remove('hidden');
 }
 
 function showError(message) {

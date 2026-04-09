@@ -235,23 +235,27 @@ function updateCharCount() {
   const count = jd.value.length;
   document.getElementById('char-count').textContent = count.toLocaleString('id-ID');
 
-  const warning = document.getElementById('char-warning');
-  const submitBtn = document.getElementById('submit-btn');
+  // Colour the counter: amber when approaching cap, red when at cap
+  const counterEl = document.querySelector('.char-counter');
+  if (counterEl) {
+    counterEl.classList.toggle('near-limit', count > 4500 && count < MAX_JD_CHARS);
+    counterEl.classList.toggle('at-limit',   count >= MAX_JD_CHARS);
+  }
 
-  if (count > MAX_JD_CHARS) {
+  const warning = document.getElementById('char-warning');
+  if (count >= MAX_JD_CHARS) {
+    warning.textContent = 'Batas karakter tercapai';
     warning.classList.remove('hidden');
     showError('jd-error', `Job description terlalu panjang. Maksimal ${MAX_JD_CHARS.toLocaleString('id-ID')} karakter.`);
+  } else if (count > 4500) {
+    warning.textContent = 'Mendekati batas karakter';
+    warning.classList.remove('hidden');
+    if (count >= 50) hideError('jd-error');
   } else {
-    if (count > 4500) {
-      warning.classList.remove('hidden');
-    } else {
-      warning.classList.add('hidden');
-    }
-    // Clear "too short" / "too long" errors as the user types to valid length
-    if (count >= 50) {
-      hideError('jd-error');
-    }
+    warning.classList.add('hidden');
+    if (count >= 50) hideError('jd-error');
   }
+
   syncSubmitBtn();
 }
 
@@ -260,9 +264,14 @@ function updateCharCount() {
 document.getElementById('upload-form').addEventListener('submit', async (e) => {
   e.preventDefault();
 
-  // Always cap at MAX_JD_CHARS — no JS interception layer is devtools-proof,
-  // so we enforce the limit here at submission regardless of textarea content.
-  const jobDesc = document.getElementById('job-desc').value.trim().slice(0, MAX_JD_CHARS);
+  // Submission guard — reject if the raw value is still over the limit
+  // (devtools bypass or race condition on programmatic assignment).
+  const rawJd = document.getElementById('job-desc').value;
+  if (rawJd.length > MAX_JD_CHARS) {
+    showError('jd-error', `Job description terlalu panjang. Maksimal ${MAX_JD_CHARS.toLocaleString('id-ID')} karakter.`);
+    return;
+  }
+  const jobDesc = rawJd.trim().slice(0, MAX_JD_CHARS);
 
   // Validate inputs
   if (!selectedFile || !cvText) {
@@ -430,11 +439,29 @@ function hideError(id) {
     configurable: false,
   });
 
-  // Tier from URL param — only store known-valid values; ignore garbage
+  // Valid tier values — must match TIER_CREDITS/TIER_PRICES in the Worker
+  const VALID_TIERS = ['coba', 'single', '3pack', 'jobhunt'];
   const params = new URLSearchParams(location.search);
-  const tier = params.get('tier');
-  if (['coba', 'single', '3pack', 'jobhunt'].includes(tier)) {
-    sessionStorage.setItem('gaslamar_tier', tier);
+  let tierParam = (params.get('tier') || '').toLowerCase().trim();
+
+  if (tierParam && !VALID_TIERS.includes(tierParam)) {
+    // Invalid tier — warn the user, fall back to 'single', and clean the URL
+    console.warn(`[GasLamar] Invalid tier param: "${tierParam}". Falling back to "single".`);
+    const warningEl = document.getElementById('tier-warning');
+    if (warningEl) {
+      warningEl.textContent = 'Paket tidak dikenal. Menggunakan paket Single sebagai default.';
+      warningEl.classList.remove('hidden');
+    }
+    params.delete('tier');
+    const cleanUrl = params.toString()
+      ? `${location.pathname}?${params.toString()}`
+      : location.pathname;
+    history.replaceState(null, '', cleanUrl);
+    tierParam = 'single';
+  }
+
+  if (VALID_TIERS.includes(tierParam)) {
+    sessionStorage.setItem('gaslamar_tier', tierParam);
   }
 
   // Restore JD draft

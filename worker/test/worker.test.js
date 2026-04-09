@@ -112,10 +112,15 @@ function get(path, extraHeaders = {}, ip = '1.2.3.4') {
   });
 }
 
-/** Seed a cvtext_ key in KV and return the key. */
-async function seedCVTextKey(text = 'Budi Santoso\nSoftware Engineer\n\nPENGALAMAN\nDeveloper PT XYZ 2020-2024\n- Node.js REST API\n- React dashboard\n\nPENDIDIKAN\nS1 Teknik Informatika UI 2020') {
+/** Seed a cvtext_ key in KV and return the key.
+ *  ip should match the CF-Connecting-IP used in subsequent /create-payment calls.
+ */
+async function seedCVTextKey(
+  text = 'Budi Santoso\nSoftware Engineer\n\nPENGALAMAN\nDeveloper PT XYZ 2020-2024\n- Node.js REST API\n- React dashboard\n\nPENDIDIKAN\nS1 Teknik Informatika UI 2020',
+  ip = '1.2.3.4',
+) {
   const key = `cvtext_${crypto.randomUUID()}`;
-  await env.GASLAMAR_SESSIONS.put(key, JSON.stringify({ text, job_desc: JOB_DESC }), { expirationTtl: 3600 });
+  await env.GASLAMAR_SESSIONS.put(key, JSON.stringify({ text, job_desc: JOB_DESC, ip }), { expirationTtl: 3600 });
   return key;
 }
 
@@ -212,25 +217,30 @@ describe('CORS', () => {
 });
 
 describe('POST /analyze — validation', () => {
+  // Each test gets its own IP so they never share a rate-limit counter (limit=3/min).
+  // Range 10.98.0.x is reserved for this suite.
+  let _ipSeq = 0;
+  const nextIp = () => `10.98.0.${++_ipSeq}`;
+
   it('rejects missing cv → 400', async () => {
-    const res = await post('/analyze', { job_desc: JOB_DESC });
+    const res = await post('/analyze', { job_desc: JOB_DESC }, {}, nextIp());
     expect(res.status).toBe(400);
   });
 
   it('rejects missing job_desc → 400', async () => {
-    const res = await post('/analyze', { cv: VALID_PDF_CV });
+    const res = await post('/analyze', { cv: VALID_PDF_CV }, {}, nextIp());
     expect(res.status).toBe(400);
   });
 
   it('rejects job_desc > 5000 chars → 400', async () => {
-    const res = await post('/analyze', { cv: VALID_PDF_CV, job_desc: 'x'.repeat(5001) });
+    const res = await post('/analyze', { cv: VALID_PDF_CV, job_desc: 'x'.repeat(5001) }, {}, nextIp());
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.message).toContain('5.000');
   });
 
   it('rejects PDF with wrong magic bytes → 400', async () => {
-    const res = await post('/analyze', { cv: INVALID_CV, job_desc: JOB_DESC });
+    const res = await post('/analyze', { cv: INVALID_CV, job_desc: JOB_DESC }, {}, nextIp());
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.message).toContain('PDF');
@@ -239,7 +249,7 @@ describe('POST /analyze — validation', () => {
   it('accepts valid DOCX magic bytes', async () => {
     // DOCX magic bytes are valid — only failing due to Claude (no mock here)
     // We just verify the magic-byte check passes (returns 422/500 from Claude, not 400)
-    const res = await post('/analyze', { cv: VALID_DOCX_CV, job_desc: JOB_DESC });
+    const res = await post('/analyze', { cv: VALID_DOCX_CV, job_desc: JOB_DESC }, {}, nextIp());
     expect(res.status).not.toBe(400); // passed file validation
   });
 
@@ -247,7 +257,7 @@ describe('POST /analyze — validation', () => {
     // Bit 3 of general-purpose flags set → compressedSz=0 in local header.
     // Previously crashed with "Called close() on a decompression stream with incomplete data".
     const cv = JSON.stringify({ type: 'docx', data: makeDOCXDataDescriptorBase64() });
-    const res = await post('/analyze', { cv, job_desc: JOB_DESC });
+    const res = await post('/analyze', { cv, job_desc: JOB_DESC }, {}, nextIp());
     // Must NOT be 400 (bad magic) or 422 (extraction failed) —
     // will be 500 because there's no Claude API key in the test env.
     expect(res.status).not.toBe(400);
@@ -256,7 +266,7 @@ describe('POST /analyze — validation', () => {
 
   it('returns user-friendly error for malformed DOCX missing word/document.xml → 422', async () => {
     // VALID_DOCX_CV has PK magic bytes but no word/document.xml entry
-    const res = await post('/analyze', { cv: VALID_DOCX_CV, job_desc: JOB_DESC });
+    const res = await post('/analyze', { cv: VALID_DOCX_CV, job_desc: JOB_DESC }, {}, nextIp());
     expect(res.status).toBe(422);
     const body = await res.json();
     expect(body.message).not.toContain('word/document.xml');
@@ -267,13 +277,16 @@ describe('POST /analyze — validation', () => {
     // ~7MB base64-encoded payload (5MB * 4/3 ≈ 6.7MB)
     const bigData = btoa('A'.repeat(1024 * 1024 * 5 + 1));
     const bigCv = JSON.stringify({ type: 'pdf', data: makePdfBase64() + bigData });
-    const res = await post('/analyze', { cv: bigCv, job_desc: JOB_DESC });
+    const res = await post('/analyze', { cv: bigCv, job_desc: JOB_DESC }, {}, nextIp());
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.message).toContain('5MB');
   });
 
   it('rejects malformed JSON body → 400', async () => {
+    // Malformed JSON never reaches rate-limiting logic (body parse is attempted
+    // after the rate-limit check, but this request has no CF-Connecting-IP so
+    // it uses 'unknown' as the key — isolated from all other tests).
     const res = await SELF.fetch('https://gaslamar.com/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Origin: GASLAMAR_ORIGIN },
@@ -308,10 +321,11 @@ describe('POST /analyze — happy path (mocked Claude)', () => {
     expect(body.skor).toBe(75); // 40+20+10+5 computed server-side from sub-scores
     expect(body.cv_text_key).toMatch(/^cvtext_/);
 
-    // Verify key is stored in KV
+    // Verify key is stored in KV with IP binding
     const stored = await env.GASLAMAR_SESSIONS.get(body.cv_text_key, { type: 'json' });
     expect(stored).not.toBeNull();
     expect(stored.text).toBeTruthy();
+    expect(stored.ip).toBe('10.0.0.1'); // IP bound at analysis time
   });
 });
 
@@ -329,6 +343,7 @@ describe('POST /create-payment — validation', () => {
   });
 
   it('rejects invalid tier → 400', async () => {
+    // Seed with default IP (1.2.3.4) — tier is rejected before IP check
     const key = await seedCVTextKey();
     const res = await post('/create-payment', { tier: 'premium', cv_text_key: key });
     expect(res.status).toBe(400);
@@ -340,6 +355,25 @@ describe('POST /create-payment — validation', () => {
     const body = await res.json();
     expect(body.message).toContain('kedaluwarsa');
   });
+
+  it('rejects cv_text_key used from a different IP → 403', async () => {
+    // Seed the key bound to IP 10.97.0.1
+    const key = await seedCVTextKey(undefined, '10.97.0.1');
+    // Attempt to use it from a different IP
+    const res = await post('/create-payment', { tier: 'single', cv_text_key: key }, {}, '10.97.0.2');
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.message).toMatch(/tidak valid/i);
+  });
+
+  it('allows cv_text_key from the same IP → proceeds past ownership check', async () => {
+    // Seed with IP 10.97.1.1 and use from the same IP — should fail on tier, not IP
+    const key = await seedCVTextKey(undefined, '10.97.1.1');
+    const res = await post('/create-payment', { tier: 'premium', cv_text_key: key }, {}, '10.97.1.1');
+    // Reaches tier validation (premium is invalid) → 400, not 403
+    expect(res.status).toBe(400);
+    expect(res.status).not.toBe(403);
+  });
 });
 
 describe('POST /create-payment — one-time key consumption', () => {
@@ -348,7 +382,8 @@ describe('POST /create-payment — one-time key consumption', () => {
 
   // SKIP: requires outbound API access (no OS-level proxy). Un-skip in CI with direct internet.
   it.skip('consumes cv_text_key — second call returns 400', async () => {
-    const key = await seedCVTextKey();
+    // Seed with same IP as the request so IP-binding check passes
+    const key = await seedCVTextKey(undefined, '10.0.0.2');
 
     // Mock Mayar sandbox invoice creation
     fetchMock
@@ -390,6 +425,50 @@ describe('Rate limiting — Retry-After header', () => {
     expect(res.headers.get('Retry-After')).toBe('60');
     const body = await res.json();
     expect(body.message).toContain('Terlalu banyak');
+  });
+});
+
+describe('Rate limiting — /analyze (3 req/min per IP)', () => {
+  // Unique IP range to avoid cross-suite contamination
+  const RL_ANALYZE_IP = '10.99.1.1';
+
+  it('allows first 3 requests and blocks the 4th with 429', async () => {
+    // First 3: rate-limit passes, body validation fails → 400
+    for (let i = 0; i < 3; i++) {
+      const r = await post('/analyze', {}, {}, RL_ANALYZE_IP);
+      expect(r.status).toBe(400);
+    }
+    // 4th must be blocked by KV rate limiter
+    const res = await post('/analyze', {}, {}, RL_ANALYZE_IP);
+    expect(res.status).toBe(429);
+    expect(Number(res.headers.get('Retry-After'))).toBeGreaterThan(0);
+    const body = await res.json();
+    expect(body.error).toBe('Too many requests');
+    expect(body.retryAfter).toBeGreaterThan(0);
+    expect(body.message).toContain('Terlalu banyak');
+  });
+
+  it('counters are per-IP — a different IP is not affected', async () => {
+    // Exhaust limit for one IP
+    for (let i = 0; i < 3; i++) {
+      await post('/analyze', {}, {}, '10.99.1.2');
+    }
+    // A different IP should still pass rate limiting (will get 400 from body validation)
+    const res = await post('/analyze', {}, {}, '10.99.1.3');
+    expect(res.status).toBe(400);
+  });
+
+  it('response body contains error, message, and retryAfter fields', async () => {
+    const BLOCK_IP = '10.99.1.4';
+    for (let i = 0; i < 3; i++) {
+      await post('/analyze', {}, {}, BLOCK_IP);
+    }
+    const res = await post('/analyze', {}, {}, BLOCK_IP);
+    expect(res.status).toBe(429);
+    const body = await res.json();
+    expect(body).toHaveProperty('error');
+    expect(body).toHaveProperty('message');
+    expect(body).toHaveProperty('retryAfter');
   });
 });
 

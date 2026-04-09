@@ -197,8 +197,12 @@ async function proceedToPayment() {
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       const errMsg = err.message || `Server error: ${response.status}`;
-      // Session expiry gets a friendlier re-upload prompt
+      // Session expiry or IP mismatch — prompt to re-upload
       if (response.status === 400 && errMsg.includes('kedaluwarsa')) {
+        showExpiryError();
+        return;
+      }
+      if (response.status === 403) {
         showExpiryError();
         return;
       }
