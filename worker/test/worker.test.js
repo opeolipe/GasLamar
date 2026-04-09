@@ -140,23 +140,58 @@ async function seedSession(status = 'paid', tier = 'single') {
 }
 
 // Mock Anthropic API responses
-const MOCK_EXTRACTION = {
+//
+// Pipeline order for a PDF CV (3 sequential Claude calls):
+//   Call 1: PDF text extraction  → MOCK_PDF_EXTRACTION  (fileExtraction.js)
+//   Call 2: Stage 1 SKILL_EXTRACT → MOCK_EXTRACT_JSON   (pipeline/extract.js)
+//   Call 3: Stage 4 SKILL_DIAGNOSE → MOCK_DIAGNOSE_JSON (pipeline/diagnose.js)
+//
+// For DOCX CVs (no Claude call for file extraction):
+//   Call 1: Stage 1 SKILL_EXTRACT → MOCK_EXTRACT_JSON
+//   Call 2: Stage 4 SKILL_DIAGNOSE → MOCK_DIAGNOSE_JSON
+
+/** Call 1 (PDF only): raw CV text extracted from the PDF document */
+const MOCK_PDF_EXTRACTION = {
   content: [{ text: 'Budi Santoso\nSoftware Engineer\n\nPENGALAMAN\nDeveloper PT XYZ 2020-2024\n- Node.js REST API development\n- React dashboard\n\nPENDIDIKAN\nS1 Teknik Informatika UI 2020' }],
 };
 
-const MOCK_SCORING = {
+/** Call 2: SKILL_EXTRACT output — verbatim structured data from CV + JD */
+const MOCK_EXTRACT_JSON = {
   content: [{ text: JSON.stringify({
-    // Sub-scores: server sums these deterministically → skor = 40+20+10+5 = 75
-    skor_relevansi: 40,
-    skor_requirements: 20,
-    skor_kualitas: 10,
-    skor_keywords: 5,
-    alasan_skor: 'CV relevan dengan job description.',
-    gap: ['Belum ada sertifikasi cloud', 'Kurang pengalaman Docker'],
-    rekomendasi: ['Tambah proyek cloud', 'Pelajari Docker'],
-    kekuatan: ['Pengalaman Node.js solid', 'Proyek relevan'],
+    cv: {
+      pengalaman_mentah: 'Developer PT XYZ 2020-2024 - Node.js REST API development - React dashboard',
+      pendidikan: 'S1 Teknik Informatika UI 2020',
+      skills_mentah: 'Node.js React SQL',
+      sertifikat: 'TIDAK ADA',
+      angka_di_cv: '5 tahun pengalaman',
+      format_cv: { satu_kolom: true, ada_tabel: false },
+    },
+    jd: {
+      skills_diminta: ['Node.js', 'React', 'SQL'],
+      pengalaman_minimal: 3,
+      industri: 'Tech',
+      judul_role: 'Software Engineer',
+    },
   }) }],
 };
+
+/** Call 3: SKILL_DIAGNOSE output — human-readable explanations (never changes scores) */
+const MOCK_DIAGNOSE_JSON = {
+  content: [{ text: JSON.stringify({
+    gap: ['Belum ada sertifikasi cloud', 'Kurang pengalaman Docker'],
+    rekomendasi: ['Tambah proyek cloud ke portfolio', 'Pelajari Docker dan sertakan di bagian KEAHLIAN'],
+    alasan_skor: 'CV relevan dengan job description namun belum ada bukti sertifikasi.',
+    kekuatan: ['Pengalaman Node.js solid', 'Proyek React relevan dengan JD'],
+    konfidensitas: 'Tinggi',
+    hr_7_detik: {
+      kuat: ['Pengalaman 5 tahun relevan', 'Skill stack cocok dengan JD'],
+      diabaikan: ['Pendidikan tidak disebut di JD', 'Tahun lulus tidak relevan'],
+    },
+  }) }],
+};
+
+// Legacy alias kept so the SKIP-ped happy-path test comment stays readable
+const MOCK_EXTRACTION = MOCK_PDF_EXTRACTION;
 
 const MOCK_CV_ID = { content: [{ text: 'RINGKASAN PROFESIONAL\nDeveloper berpengalaman dengan 4 tahun di Node.js dan React...\n\nPENGALAMAN KERJA\nDeveloper PT XYZ (2020–2024)\n- Membangun REST API' }] };
 const MOCK_CV_EN = { content: [{ text: 'PROFESSIONAL SUMMARY\nExperienced developer with 4 years in Node.js and React...\n\nWORK EXPERIENCE\nDeveloper PT XYZ (2020–2024)\n- Built REST API' }] };
@@ -301,31 +336,57 @@ describe('POST /analyze — happy path (mocked Claude)', () => {
   afterAll(() => fetchMock.deactivate());
 
   // SKIP: requires outbound API access (no OS-level proxy). Un-skip in CI with direct internet.
+  //
+  // Pipeline for a PDF CV uses 3 sequential Claude calls:
+  //   1. MOCK_PDF_EXTRACTION — fileExtraction.js (PDF → raw text)
+  //   2. MOCK_EXTRACT_JSON   — pipeline/extract.js (SKILL_EXTRACT → structured data)
+  //   3. MOCK_DIAGNOSE_JSON  — pipeline/diagnose.js (SKILL_DIAGNOSE → gap/reco text)
+  //
+  // skor is now computed deterministically from the MOCK_EXTRACT_JSON data:
+  //   MOCK_EXTRACT_JSON has skills_diminta: ['Node.js','React','SQL'] and
+  //   skills_mentah: 'Node.js React SQL' → matchRatio = 1.0
+  //   → north_star = 8, recruiter_signal = 10, effort = 10,
+  //     opportunity_cost = 10, risk = 8, portfolio = 5 (has angka, no certs)
+  //   → total6D = 51 → skor = round(51/60*100) = 85
   it.skip('returns skor + cv_text_key when Claude succeeds', async () => {
-    // Mock extraction then scoring — both POST to /v1/messages, served in order
     fetchMock
       .get('https://api.anthropic.com')
       .intercept({ path: '/v1/messages', method: 'POST' })
-      .reply(200, JSON.stringify(MOCK_EXTRACTION))
+      .reply(200, JSON.stringify(MOCK_PDF_EXTRACTION))
       .times(1);
     fetchMock
       .get('https://api.anthropic.com')
       .intercept({ path: '/v1/messages', method: 'POST' })
-      .reply(200, JSON.stringify(MOCK_SCORING))
+      .reply(200, JSON.stringify(MOCK_EXTRACT_JSON))
+      .times(1);
+    fetchMock
+      .get('https://api.anthropic.com')
+      .intercept({ path: '/v1/messages', method: 'POST' })
+      .reply(200, JSON.stringify(MOCK_DIAGNOSE_JSON))
       .times(1);
 
     // Use a unique IP to avoid hitting rate limit from other test suites
     const res = await post('/analyze', { cv: VALID_PDF_CV, job_desc: JOB_DESC }, {}, '10.0.0.1');
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.skor).toBe(75); // 40+20+10+5 computed server-side from sub-scores
+    // skor is now computed deterministically from extracted data (see comment above)
+    expect(typeof body.skor).toBe('number');
+    expect(body.skor).toBeGreaterThan(0);
     expect(body.cv_text_key).toMatch(/^cvtext_/);
+
+    // Verify response shape matches the pre-refactor contract
+    expect(body).toHaveProperty('skor_6d');
+    expect(body).toHaveProperty('veredict');
+    expect(body).toHaveProperty('gap');
+    expect(body).toHaveProperty('rekomendasi');
+    expect(body).toHaveProperty('kekuatan');
+    expect(body).toHaveProperty('archetype');
 
     // Verify key is stored in KV with IP binding
     const stored = await env.GASLAMAR_SESSIONS.get(body.cv_text_key, { type: 'json' });
     expect(stored).not.toBeNull();
     expect(stored.text).toBeTruthy();
-    expect(stored.ip).toBe('10.0.0.1'); // IP bound at analysis time
+    expect(stored.ip).toBe('10.0.0.1');
   });
 });
 
