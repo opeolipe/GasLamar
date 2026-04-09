@@ -20,7 +20,7 @@ preview_id = "871f92d1f62e48d899976889e8710858"
 name = "RATE_LIMITER_ANALYZE"
 type = "ratelimit"
 namespace_id = "1001"
-simple = { limit = 10, period = 60 }
+simple = { limit = 3, period = 60 }
 
 [[unsafe.bindings]]
 name = "RATE_LIMITER_PAYMENT"
@@ -55,7 +55,7 @@ id = "6524fffd3c574f92a16c655bc82dec8d"
 name = "RATE_LIMITER_ANALYZE"
 type = "ratelimit"
 namespace_id = "1001"
-simple = { limit = 10, period = 60 }
+simple = { limit = 3, period = 60 }
 
 [[env.production.unsafe.bindings]]
 name = "RATE_LIMITER_PAYMENT"
