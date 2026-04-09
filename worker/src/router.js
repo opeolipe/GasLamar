@@ -1,0 +1,70 @@
+import { jsonResponse } from './cors.js';
+import { log } from './utils.js';
+import { handleAnalyze } from './handlers/analyze.js';
+import { handleCreatePayment } from './handlers/createPayment.js';
+import { handleMayarWebhook } from './handlers/mayarWebhook.js';
+import { handleSessionPing } from './handlers/sessionPing.js';
+import { handleCheckSession } from './handlers/checkSession.js';
+import { handleValidateSession } from './handlers/validateSession.js';
+import { handleGetSession } from './handlers/getSession.js';
+import { handleGenerate } from './handlers/generate.js';
+import { handleSubmitEmail } from './handlers/submitEmail.js';
+import { handleFetchJobUrl } from './handlers/fetchJobUrl.js';
+
+export async function route(request, env, ctx) {
+  const url = new URL(request.url);
+  const { pathname } = url;
+  const method = request.method;
+
+  if (method === 'POST' && pathname === '/analyze') {
+    return handleAnalyze(request, env);
+  }
+
+  if (method === 'POST' && pathname === '/create-payment') {
+    return handleCreatePayment(request, env);
+  }
+
+  if (method === 'POST' && pathname === '/webhook/mayar') {
+    return handleMayarWebhook(request, env, ctx);
+  }
+
+  if (method === 'POST' && pathname === '/session/ping') {
+    return handleSessionPing(request, env);
+  }
+
+  if (method === 'GET' && pathname === '/check-session') {
+    return handleCheckSession(request, env);
+  }
+
+  if (method === 'GET' && pathname === '/validate-session') {
+    return handleValidateSession(request, env);
+  }
+
+  if (method === 'POST' && pathname === '/get-session') {
+    return handleGetSession(request, env);
+  }
+
+  if (method === 'POST' && pathname === '/generate') {
+    return handleGenerate(request, env, ctx);
+  }
+
+  if (method === 'POST' && pathname === '/submit-email') {
+    return handleSubmitEmail(request, env);
+  }
+
+  if (method === 'POST' && pathname === '/fetch-job-url') {
+    return handleFetchJobUrl(request, env);
+  }
+
+  if (method === 'POST' && pathname === '/feedback') {
+    const body = await request.json().catch(() => ({}));
+    log('user_feedback', { type: body.type, answer: body.answer, ip: request.headers.get('CF-Connecting-IP') });
+    return jsonResponse({ ok: true }, 200, request, env);
+  }
+
+  if (pathname === '/health') {
+    return jsonResponse({ status: 'ok' }, 200, request, env);
+  }
+
+  return jsonResponse({ message: 'Not found' }, 404, request, env);
+}
