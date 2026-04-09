@@ -76,7 +76,7 @@ jobs:
         run: npm ci
 
       - name: Build vendor libs (docx + jsPDF → js/vendor/)
-        run: npm run vendor
+        run: npm run build:vendor
 
       - name: Upload frontend artifact
         uses: actions/upload-artifact@v4
