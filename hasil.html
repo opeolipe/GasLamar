@@ -5,7 +5,33 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow" />
   <title>Hasil Analisis CV · GasLamar</title>
+  <meta name="description" content="Lihat skor kecocokan CV kamu, rekomendasi perbaikan dari perspektif HR, dan preview CV bilingual yang sudah di-tailor untuk posisi yang kamu lamar." />
+  <!-- OpenGraph -->
+  <meta property="og:type"         content="website" />
+  <meta property="og:site_name"    content="GasLamar" />
+  <meta property="og:url"          content="https://gaslamar.com/hasil.html" />
+  <meta property="og:title"        content="Hasil Analisis CV · GasLamar" />
+  <meta property="og:description"  content="Lihat skor kecocokan CV kamu, rekomendasi perbaikan dari perspektif HR, dan preview CV bilingual yang sudah di-tailor untuk posisi yang kamu lamar." />
+  <meta property="og:image"        content="https://gaslamar.com/assets/og-image.png" />
+  <meta property="og:image:width"  content="1200" />
+  <meta property="og:image:height" content="630" />
+  <!-- Twitter Card -->
+  <meta name="twitter:card"        content="summary_large_image" />
+  <meta name="twitter:title"       content="Hasil Analisis CV · GasLamar" />
+  <meta name="twitter:description" content="Lihat skor kecocokan CV kamu, rekomendasi perbaikan dari perspektif HR, dan preview CV bilingual yang sudah di-tailor untuk posisi yang kamu lamar." />
+  <meta name="twitter:image"       content="https://gaslamar.com/assets/og-image.png" />
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": "Hasil Analisis CV · GasLamar",
+    "url": "https://gaslamar.com/hasil.html",
+    "description": "Lihat skor kecocokan CV kamu, rekomendasi perbaikan dari perspektif HR, dan preview CV bilingual yang sudah di-tailor untuk posisi yang kamu lamar.",
+    "inLanguage": "id-ID",
+    "isPartOf": { "@type": "WebSite", "name": "GasLamar", "url": "https://gaslamar.com" }
+  }
+  </script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
   <!-- Tailwind kept for backward-compat with scoring.js/payment.js injected classes -->
   <link rel="stylesheet" href="css/tailwind.css" />
@@ -927,11 +953,11 @@
 
 <script>
 /**
- * Hasil page enhancement — runs after hasil.bundle.js (defer) executes.
- * window 'load' fires after all deferred scripts, so scoring.js has
- * already populated all lists by the time these callbacks run.
+ * Hasil page enhancement — runs after scoring.js async rendering is complete.
+ * scoring.js dispatches 'gaslamar:scored' after all render calls finish,
+ * which is after window 'load' when the initScoring IIFE is async.
  */
-window.addEventListener('load', function () {
+window.addEventListener('gaslamar:scored', function () {
   // 1. Count gap items BEFORE truncation (original total → used in sentence)
   var gapItems  = document.querySelectorAll('#gap-list li');
   var recoItems = document.querySelectorAll('#reco-list li');
