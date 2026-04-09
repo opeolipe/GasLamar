@@ -3,9 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "vendor": "node scripts/vendor.js && node scripts/build.js",
-    "build": "node scripts/vendor.js && node scripts/build.js",
-    "build:js": "node scripts/build.js"
+    "build:vendor": "node scripts/vendor.js",
+    "build:js": "node scripts/build.js",
+    "build": "npm run build:vendor && npm run build:js",
+    "dev": "node scripts/build.js --watch"
   },
   "dependencies": {
     "docx": "8.5.0",

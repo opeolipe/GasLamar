@@ -2,7 +2,7 @@
 /**
  * vendor.js — copy CDN library files from node_modules to js/vendor/
  *             and build Tailwind CSS from css/tailwind.input.css → css/tailwind.css
- * Run: npm run vendor
+ * Run: npm run build:vendor
  */
 
 const fs = require('fs');

@@ -103,3 +103,47 @@ async function buildBundle(name, files) {
   );
   console.log(`Done in ${Date.now() - t0}ms. Output: js/dist/`);
 })().catch(e => { console.error(e.message); process.exit(1); });
+
+// ---------------------------------------------------------------------------
+// Watch mode — run with: node scripts/build.js --watch  (or: npm run dev)
+//
+// Uses Node's built-in fs.watch with recursive: true, which is supported on
+// Linux (inotify) and macOS (FSEvents). Intended for local development on
+// Unix-like systems only; not guaranteed on Windows or network-mounted drives.
+//
+// Each changed file is matched against BUNDLES to rebuild only affected bundles
+// in parallel (esbuild.transform is CPU-bound with no shared mutable state, so
+// concurrent calls are safe). Changes that arrive while a rebuild is in progress
+// are held in `pending` and processed in the next debounce cycle.
+// ---------------------------------------------------------------------------
+if (process.argv.includes('--watch')) {
+  const DEBOUNCE_MS = 120;
+  let timer = null;
+  const pending = new Set();
+
+  fs.watch(JS, { recursive: true }, (_, filename) => {
+    if (!filename) return;
+    // Ignore output files and non-JS files
+    if (filename.startsWith('dist/') || !filename.endsWith('.js')) return;
+    pending.add(filename);
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      const changed = [...pending];
+      pending.clear();
+      // Find bundles that include any of the changed files
+      const names = Object.entries(BUNDLES)
+        .filter(([, files]) => changed.some(f => files.includes(f)))
+        .map(([name]) => name);
+      if (names.length === 0) return;
+      const t0 = Date.now();
+      try {
+        await Promise.all(names.map(n => buildBundle(n, BUNDLES[n])));
+        console.log(`[watch] rebuilt ${names.join(', ')} in ${Date.now() - t0}ms`);
+      } catch (e) {
+        console.error(`[watch] build error: ${e.message}`);
+      }
+    }, DEBOUNCE_MS);
+  });
+
+  console.log('[watch] watching js/*.js — Ctrl-C to stop');
+}
