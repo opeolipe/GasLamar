@@ -3,7 +3,31 @@
  * Displays AI scoring results on hasil.html
  */
 
-(function initScoring() {
+(async function initScoring() {
+  // --- Server-side session validation (defense-in-depth) ---
+  // hasil-guard.js already validated format + timing client-side.
+  // We also check the server so a replayed/expired cvtext_ key is caught.
+  const cvKey = sessionStorage.getItem('gaslamar_cv_key');
+  if (cvKey && cvKey.startsWith('cvtext_')) {
+    try {
+      const res = await fetch(`${WORKER_URL}/validate-session?cvKey=${encodeURIComponent(cvKey)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (!data.valid) {
+          // Key not found on server — session expired or tampered.
+          showError('Sesi analisis sudah kedaluwarsa. Mohon upload CV kamu kembali.');
+          sessionStorage.removeItem('gaslamar_scoring');
+          sessionStorage.removeItem('gaslamar_cv_key');
+          setTimeout(() => window.location.href = 'upload.html', 3000);
+          return;
+        }
+      }
+      // Network/server error → fail open, continue rendering
+    } catch (_) {
+      // Network unavailable — fail open
+    }
+  }
+
   const raw = sessionStorage.getItem('gaslamar_scoring');
   // Remove immediately — scoring lives in JS memory only, not in sessionStorage.
   // This prevents browser extensions and devtools from reading the analysis data
@@ -42,6 +66,12 @@
   renderRewritePreview(scoring.rekomendasi || [], scoring.gap || []);
   setupShareButton(scoring.skor || 0);
   setupTierRecommendation(scoring.skor || 0);
+
+  // Signal to hasil.html inline scripts that rendering is complete.
+  // window.load fires before async rendering finishes, so downstream
+  // DOM manipulations (truncation, micro-copy, scroll wiring) must
+  // wait for this event instead.
+  window.dispatchEvent(new CustomEvent('gaslamar:scored', { detail: { skor: scoring.skor || 0 } }));
 })();
 
 function renderScore(scoring) {

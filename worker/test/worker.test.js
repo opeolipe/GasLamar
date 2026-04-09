@@ -525,6 +525,48 @@ describe('GET /check-session', () => {
   });
 });
 
+describe('GET /validate-session', () => {
+  it('rejects missing cvKey → 400', async () => {
+    const res = await get('/validate-session');
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+    expect(body.reason).toBe('invalid_key');
+  });
+
+  it('rejects cvKey without cvtext_ prefix → 400', async () => {
+    const res = await get('/validate-session?cvKey=abc123');
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+    expect(body.reason).toBe('invalid_key');
+  });
+
+  it('returns valid:false for unknown key → 200', async () => {
+    const res = await get('/validate-session?cvKey=cvtext_nonexistent_key_abc');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+    expect(body.reason).toBe('not_found');
+  });
+
+  it('returns valid:true for a key that exists → 200', async () => {
+    const key = await seedCVTextKey(undefined, '10.96.0.1');
+    const res = await get('/validate-session?cvKey=' + encodeURIComponent(key), {}, '10.96.0.1');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+  });
+
+  it('returns valid:true even on IP mismatch (soft check, not a rejection)', async () => {
+    const key = await seedCVTextKey(undefined, '10.96.1.1');
+    const res = await get('/validate-session?cvKey=' + encodeURIComponent(key), {}, '10.96.1.2');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+  });
+});
+
 describe('POST /get-session', () => {
   it('rejects missing session_id → 400', async () => {
     const res = await post('/get-session', {});

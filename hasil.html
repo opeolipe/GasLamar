@@ -927,11 +927,11 @@
 
 <script>
 /**
- * Hasil page enhancement — runs after hasil.bundle.js (defer) executes.
- * window 'load' fires after all deferred scripts, so scoring.js has
- * already populated all lists by the time these callbacks run.
+ * Hasil page enhancement — runs after scoring.js async rendering is complete.
+ * scoring.js dispatches 'gaslamar:scored' after all render calls finish,
+ * which is after window 'load' when the initScoring IIFE is async.
  */
-window.addEventListener('load', function () {
+window.addEventListener('gaslamar:scored', function () {
   // 1. Count gap items BEFORE truncation (original total → used in sentence)
   var gapItems  = document.querySelectorAll('#gap-list li');
   var recoItems = document.querySelectorAll('#reco-list li');
