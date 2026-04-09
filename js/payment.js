@@ -209,11 +209,10 @@ async function proceedToPayment() {
       throw new Error(errMsg);
     }
 
-    const { session_id, invoice_url, is_sandbox } = await response.json();
+    const { session_id, invoice_url } = await response.json();
     if (window.Analytics) Analytics.track('payment_session_created', {
       tier: selectedTier,
       tier_price_idr: TIER_CONFIG[selectedTier].price,
-      is_sandbox: !!is_sandbox,
     });
 
     // Save session to localStorage (backup if user closes tab)
@@ -227,15 +226,9 @@ async function proceedToPayment() {
     // cv_text_key has been consumed server-side — remove from session
     sessionStorage.removeItem('gaslamar_cv_key');
 
-    if (is_sandbox) {
-      // Sandbox: skip Mayar, go directly to download page with Simulasi Pembayaran button
-      btn.textContent = 'Mengalihkan...';
-      window.location.href = `${window.location.origin}/download.html?session=${encodeURIComponent(session_id)}`;
-    } else {
-      // Production: redirect to real Mayar payment page
-      btn.textContent = 'Mengalihkan ke halaman pembayaran...';
-      window.location.href = invoice_url;
-    }
+    // Redirect to Mayar payment page
+    btn.textContent = 'Mengalihkan ke halaman pembayaran...';
+    window.location.href = invoice_url;
 
   } catch (err) {
     clearTimeout(timeout);

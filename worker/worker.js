@@ -1198,40 +1198,6 @@ async function handleCreatePayment(request, env) {
     ? await sha256Full(rawSecret)
     : null;
 
-  // Sandbox: skip Mayar entirely — session goes straight to pending, frontend uses /sandbox/pay
-  if (env.ENVIRONMENT !== 'production') {
-    await env.GASLAMAR_SESSIONS.delete(cv_text_key);
-
-    const sessionData = {
-      cv_text: stored.text,
-      job_desc: stored.job_desc,
-      tier,
-      status: 'pending',
-      credits_remaining: credits,
-      total_credits: credits,
-      ip,
-      ...(sessionEmail ? { email: sessionEmail } : {}),
-      ...(secretHash ? { session_secret_hash: secretHash } : {}),
-    };
-
-    // Write with read-back verification — KV is eventually consistent across
-    // edge nodes, so we verify the write landed before returning to the client.
-    let verified = false;
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      await createSession(env, sessionId, sessionData);
-      const check = await getSession(env, sessionId);
-      if (check) { verified = true; break; }
-      logError('sandbox_session_write_unverified', { session_id: sessionId, attempt });
-    }
-    if (!verified) {
-      logError('sandbox_session_create_failed', { session_id: sessionId, tier });
-      return jsonResponse({ message: 'Gagal membuat sesi. Coba lagi.' }, 500, request, env);
-    }
-
-    log('sandbox_session_created', { session_id: sessionId, tier, credits });
-    return jsonResponse({ session_id: sessionId, is_sandbox: true }, 200, request, env);
-  }
-
   try {
     // Create Mayar invoice first — if this fails, cv_text_key is still intact and user can retry
     const { invoice_id, invoice_url } = await createMayarInvoice(sessionId, tier, env);
@@ -1784,34 +1750,6 @@ async function handleSubmitEmail(request, env) {
 
 // ---- Sandbox Test Helper ----
 
-async function handleSandboxPay(request, env, ctx) {
-  let body;
-  try { body = await request.json(); } catch { return jsonResponse({ message: 'Invalid JSON' }, 400, request, env); }
-
-  const { session_id } = body;
-  if (!session_id || !session_id.startsWith('sess_')) {
-    return jsonResponse({ message: 'Invalid session_id' }, 400, request, env);
-  }
-
-  const session = await getSession(env, session_id);
-  if (!session) return jsonResponse({ message: 'Session not found' }, 404, request, env);
-  if (session.status === 'paid') return jsonResponse({ ok: true, already_paid: true }, 200, request, env);
-
-  await updateSession(env, session_id, { status: 'paid', paid_at: Date.now() });
-  console.log({ event: 'sandbox_payment_confirmed', sessionId: session_id });
-
-  // Send payment confirmation email (same as production Mayar webhook path)
-  if (ctx) {
-    ctx.waitUntil(
-      sendPaymentConfirmationEmail(session_id, env).catch((e) => {
-        logError('sandbox_email_failed', { session_id, error: e.message });
-      })
-    );
-  }
-
-  return jsonResponse({ ok: true }, 200, request, env);
-}
-
 // ---- Fetch Job URL ----
 
 async function handleFetchJobUrl(request, env) {
@@ -1968,22 +1906,6 @@ export default {
         const body = await request.json().catch(() => ({}));
         log('user_feedback', { type: body.type, answer: body.answer, ip: request.headers.get('CF-Connecting-IP') });
         return jsonResponse({ ok: true }, 200, request, env);
-      }
-
-      // Sandbox-only: simulate payment confirmation for testing (blocked in production)
-      if (method === 'POST' && pathname === '/sandbox/pay') {
-        if (env.ENVIRONMENT === 'production') {
-          return jsonResponse({ message: 'Not found' }, 404, request, env);
-        }
-        return handleSandboxPay(request, env, ctx);
-      }
-
-      // Sandbox detection probe — returns 200 in sandbox, 404 in production
-      if (method === 'GET' && pathname === '/sandbox/status') {
-        if (env.ENVIRONMENT === 'production') {
-          return new Response(null, { status: 404, headers: getCorsHeaders(request, env) });
-        }
-        return jsonResponse({ sandbox: true }, 200, request, env);
       }
 
       if (pathname === '/health') {

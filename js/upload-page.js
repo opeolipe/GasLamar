@@ -83,20 +83,6 @@ document.getElementById('job-url-input').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') fetchJobFromUrl();
 });
 
-// Use example
-document.getElementById('example-btn').addEventListener('click', () => {
-  const exampleText = `Posisi: Product Manager
-
-Requirements:
-- S1 semua jurusan dengan IPK ≥ 3.0
-- 3+ tahun pengalaman sebagai Product Manager
-- Familiar dengan Agile/Scrum
-- Kemampuan analisis data (SQL adalah nilai tambah)
-- Komunikasi yang baik dan problem solving`;
-  document.getElementById('job-desc').value = exampleText;
-  updateCharCount();
-});
-
 // Skip JD link — only fill generic text if textarea is empty, then submit
 document.getElementById('skip-jd-link').addEventListener('click', (e) => {
   e.preventDefault();
