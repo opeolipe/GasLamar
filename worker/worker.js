@@ -583,6 +583,12 @@ async function sha256Hex(text) {
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
 }
 
+/** Generate a cryptographically random hex string of `byteCount` bytes (256 bits = 64 hex chars). */
+function hexToken(byteCount) {
+  return Array.from(crypto.getRandomValues(new Uint8Array(byteCount)))
+    .map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 /** Compute full 64-char hex SHA-256 (used for session secret binding). */
 async function sha256Full(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
@@ -1090,10 +1096,14 @@ async function handleAnalyze(request, env) {
   // so /create-payment can reuse it without re-extracting the file
   try {
     const scoring = await analyzeCV(extraction.text, job_desc, env);
-    const cvTextKey = `cvtext_${crypto.randomUUID()}`;
+    // 256-bit random token (not UUID) so the key space is unguessable even under
+    // targeted enumeration. Also bind to the requesting IP so the key cannot be
+    // used from a different network if leaked from client storage.
+    const cvTextKey = `cvtext_${hexToken(32)}`;
     await env.GASLAMAR_SESSIONS.put(cvTextKey, JSON.stringify({
       text: extraction.text,
-      job_desc: job_desc.slice(0, 5000)
+      job_desc: job_desc.slice(0, 5000),
+      ip,
     }), { expirationTtl: 7200 }); // 2 hours — gives users time to review hasil before paying
 
     return jsonResponse({ ...scoring, cv_text_key: cvTextKey }, 200, request, env);
@@ -1140,6 +1150,13 @@ async function handleCreatePayment(request, env) {
   const stored = await env.GASLAMAR_SESSIONS.get(cv_text_key, { type: 'json' });
   if (!stored || !stored.text) {
     return jsonResponse({ message: 'Sesi analisis kedaluwarsa. Ulangi upload CV.' }, 400, request, env);
+  }
+
+  // IP-binding check — reject if the key was created from a different network.
+  // stored.ip is absent on entries written before this check was added; those pass through.
+  if (stored.ip && stored.ip !== ip) {
+    log('cvtext_ip_mismatch', { ip, stored_ip: stored.ip });
+    return jsonResponse({ message: 'Sesi tidak valid dari jaringan ini. Ulangi upload CV.' }, 403, request, env);
   }
 
   // Create session

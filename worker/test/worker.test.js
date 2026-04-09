@@ -112,10 +112,15 @@ function get(path, extraHeaders = {}, ip = '1.2.3.4') {
   });
 }
 
-/** Seed a cvtext_ key in KV and return the key. */
-async function seedCVTextKey(text = 'Budi Santoso\nSoftware Engineer\n\nPENGALAMAN\nDeveloper PT XYZ 2020-2024\n- Node.js REST API\n- React dashboard\n\nPENDIDIKAN\nS1 Teknik Informatika UI 2020') {
+/** Seed a cvtext_ key in KV and return the key.
+ *  ip should match the CF-Connecting-IP used in subsequent /create-payment calls.
+ */
+async function seedCVTextKey(
+  text = 'Budi Santoso\nSoftware Engineer\n\nPENGALAMAN\nDeveloper PT XYZ 2020-2024\n- Node.js REST API\n- React dashboard\n\nPENDIDIKAN\nS1 Teknik Informatika UI 2020',
+  ip = '1.2.3.4',
+) {
   const key = `cvtext_${crypto.randomUUID()}`;
-  await env.GASLAMAR_SESSIONS.put(key, JSON.stringify({ text, job_desc: JOB_DESC }), { expirationTtl: 3600 });
+  await env.GASLAMAR_SESSIONS.put(key, JSON.stringify({ text, job_desc: JOB_DESC, ip }), { expirationTtl: 3600 });
   return key;
 }
 
@@ -316,10 +321,11 @@ describe('POST /analyze — happy path (mocked Claude)', () => {
     expect(body.skor).toBe(75); // 40+20+10+5 computed server-side from sub-scores
     expect(body.cv_text_key).toMatch(/^cvtext_/);
 
-    // Verify key is stored in KV
+    // Verify key is stored in KV with IP binding
     const stored = await env.GASLAMAR_SESSIONS.get(body.cv_text_key, { type: 'json' });
     expect(stored).not.toBeNull();
     expect(stored.text).toBeTruthy();
+    expect(stored.ip).toBe('10.0.0.1'); // IP bound at analysis time
   });
 });
 
@@ -337,6 +343,7 @@ describe('POST /create-payment — validation', () => {
   });
 
   it('rejects invalid tier → 400', async () => {
+    // Seed with default IP (1.2.3.4) — tier is rejected before IP check
     const key = await seedCVTextKey();
     const res = await post('/create-payment', { tier: 'premium', cv_text_key: key });
     expect(res.status).toBe(400);
@@ -348,6 +355,25 @@ describe('POST /create-payment — validation', () => {
     const body = await res.json();
     expect(body.message).toContain('kedaluwarsa');
   });
+
+  it('rejects cv_text_key used from a different IP → 403', async () => {
+    // Seed the key bound to IP 10.97.0.1
+    const key = await seedCVTextKey(undefined, '10.97.0.1');
+    // Attempt to use it from a different IP
+    const res = await post('/create-payment', { tier: 'single', cv_text_key: key }, {}, '10.97.0.2');
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.message).toMatch(/tidak valid/i);
+  });
+
+  it('allows cv_text_key from the same IP → proceeds past ownership check', async () => {
+    // Seed with IP 10.97.1.1 and use from the same IP — should fail on tier, not IP
+    const key = await seedCVTextKey(undefined, '10.97.1.1');
+    const res = await post('/create-payment', { tier: 'premium', cv_text_key: key }, {}, '10.97.1.1');
+    // Reaches tier validation (premium is invalid) → 400, not 403
+    expect(res.status).toBe(400);
+    expect(res.status).not.toBe(403);
+  });
 });
 
 describe('POST /create-payment — one-time key consumption', () => {
@@ -356,7 +382,8 @@ describe('POST /create-payment — one-time key consumption', () => {
 
   // SKIP: requires outbound API access (no OS-level proxy). Un-skip in CI with direct internet.
   it.skip('consumes cv_text_key — second call returns 400', async () => {
-    const key = await seedCVTextKey();
+    // Seed with same IP as the request so IP-binding check passes
+    const key = await seedCVTextKey(undefined, '10.0.0.2');
 
     // Mock Mayar sandbox invoice creation
     fetchMock
