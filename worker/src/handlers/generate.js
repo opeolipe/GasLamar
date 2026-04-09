@@ -1,0 +1,120 @@
+import { jsonResponse } from '../cors.js';
+import { clientIp, log, logError, extractJobMetadata } from '../utils.js';
+import { checkRateLimit, rateLimitResponse } from '../rateLimit.js';
+import { getSession, updateSession, deleteSession, verifySessionSecret } from '../sessions.js';
+import { tailorCVID, tailorCVEN } from '../tailoring.js';
+import { sendCVReadyEmail } from '../email.js';
+
+export async function handleGenerate(request, env, ctx) {
+  const ip = clientIp(request);
+
+  const allowed = await checkRateLimit(env, env.RATE_LIMITER_GENERATE, ip);
+  if (!allowed) {
+    return rateLimitResponse(request, env);
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch (e) {
+    return jsonResponse({ message: 'Request body tidak valid' }, 400, request, env);
+  }
+
+  const { session_id, job_desc: newJobDesc, score, gaps } = body;
+
+  if (!session_id || !session_id.startsWith('sess_')) {
+    return jsonResponse({ message: 'Session ID tidak valid' }, 400, request, env);
+  }
+
+  // Optional new job_desc for multi-credit re-use (3-Pack / JobHunt)
+  if (newJobDesc !== undefined) {
+    if (typeof newJobDesc !== 'string' || newJobDesc.length > 5000) {
+      return jsonResponse({ message: 'Job description terlalu panjang (maks 5.000 karakter)' }, 400, request, env);
+    }
+  }
+
+  // Verify session exists and has status 'generating' (set by /get-session)
+  // All CV data comes from KV — browser cannot inject arbitrary content
+  const session = await getSession(env, session_id);
+  if (!session) {
+    return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa' }, 404, request, env);
+  }
+
+  // Verify session secret (new sessions require it; legacy sessions without hash skip this check)
+  const providedSecret = request.headers.get('X-Session-Secret');
+  if (!await verifySessionSecret(session, providedSecret)) {
+    return jsonResponse({ message: 'Akses ditolak: token sesi tidak valid' }, 403, request, env);
+  }
+
+  if (session.status !== 'generating') {
+    return jsonResponse({ message: 'Sesi tidak valid atau pembayaran belum dikonfirmasi' }, 403, request, env);
+  }
+
+  const { cv_text, job_desc: storedJobDesc, tier } = session;
+  const effectiveJobDesc = (newJobDesc && newJobDesc.trim()) ? newJobDesc.trim() : storedJobDesc;
+
+  if (!cv_text || !effectiveJobDesc || !tier) {
+    return jsonResponse({ message: 'Data sesi tidak lengkap' }, 400, request, env);
+  }
+
+  // Credits: legacy sessions without the field get 1 (they paid for single use)
+  const creditsRemaining = typeof session.credits_remaining === 'number' ? session.credits_remaining : 1;
+  const isBilingual = tier !== 'coba';
+
+  // Session lock — prevent double-generation race condition
+  const lockKey = `lock_${session_id}`;
+  const existingLock = await env.GASLAMAR_SESSIONS.get(lockKey);
+  if (existingLock) {
+    return jsonResponse({ message: 'Sedang diproses, coba lagi sebentar.' }, 409, request, env);
+  }
+  await env.GASLAMAR_SESSIONS.put(lockKey, 'locked', { expirationTtl: 30 });
+
+  try {
+    // Generate from KV data only — never from request body (except allowed job_desc override).
+    // Run ID and EN tailoring in parallel to stay within Cloudflare's 30s wall-clock limit.
+    // Sequential calls could reach 50s (2 × 25s Claude timeout) and hard-kill the Worker.
+    let cvId, cvEn;
+    if (isBilingual) {
+      [cvId, cvEn] = await Promise.all([
+        tailorCVID(cv_text, effectiveJobDesc, env),
+        tailorCVEN(cv_text, effectiveJobDesc, env),
+      ]);
+    } else {
+      cvId = await tailorCVID(cv_text, effectiveJobDesc, env);
+      cvEn = null;
+    }
+
+    const newCreditsRemaining = creditsRemaining - 1;
+
+    if (newCreditsRemaining <= 0) {
+      // Last credit used — delete session
+      await deleteSession(env, session_id);
+    } else {
+      // Credits remain — reset to 'paid' for next generation, persist updated job_desc if changed
+      const updates = { status: 'paid', credits_remaining: newCreditsRemaining };
+      if (newJobDesc && newJobDesc.trim()) updates.job_desc = effectiveJobDesc;
+      await updateSession(env, session_id, updates);
+    }
+
+    log('generate_success', { session_id, tier, credits_remaining: newCreditsRemaining });
+
+    // Fire post-generate email (non-blocking) if score/gaps provided by frontend
+    if (ctx && (score !== undefined || gaps !== undefined)) {
+      ctx.waitUntil(sendCVReadyEmail(session_id, score, gaps, env).catch((e) => {
+        logError('cv_ready_email_failed', { session_id, error: e.message });
+      }));
+    }
+
+    const { job_title, company } = extractJobMetadata(effectiveJobDesc);
+    return jsonResponse({ cv_id: cvId, cv_en: cvEn, credits_remaining: newCreditsRemaining, total_credits: session.total_credits ?? 1, job_title: job_title ?? null, company: company ?? null }, 200, request, env);
+  } catch (e) {
+    // On failure, reset to 'paid' so user can retry (don't consume the credit)
+    logError('generate_failed', { session_id, error: e.message });
+    await updateSession(env, session_id, { status: 'paid' }).catch((e2) => {
+      logError('generate_recovery_failed', { session_id, error: e2.message });
+    });
+    return jsonResponse({ message: e.message || 'Generate CV gagal. Coba lagi.' }, 500, request, env);
+  } finally {
+    await env.GASLAMAR_SESSIONS.delete(lockKey).catch(() => {});
+  }
+}
