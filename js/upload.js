@@ -7,6 +7,7 @@
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const MAX_JD_CHARS = 5000;
 const MIN_CV_TEXT_LENGTH = 100;
+const MIN_JD_LENGTH = 100;
 
 let selectedFile = null;
 let cvText = '';
@@ -210,16 +211,30 @@ function arrayBufferToBase64(buffer) {
 }
 
 // ---- Submit Button State ----
-// Single source of truth: disabled when no file is selected OR JD is over the limit.
+// Single source of truth: disabled when no file, JD too short, or JD over limit.
 
 function syncSubmitBtn() {
   const btn = document.getElementById('submit-btn');
   const hint = document.getElementById('submit-hint');
   if (!btn) return;
   const hasFile = !!selectedFile;
-  const jdTooLong = document.getElementById('job-desc').value.length > MAX_JD_CHARS;
-  btn.disabled = !hasFile || jdTooLong;
-  if (hint) hint.style.display = (!hasFile && !jdTooLong) ? '' : 'none';
+  const jdTrimLen = document.getElementById('job-desc').value.trim().length;
+  const jdTooShort = jdTrimLen < MIN_JD_LENGTH;
+  const jdTooLong  = document.getElementById('job-desc').value.length > MAX_JD_CHARS;
+
+  btn.disabled = !hasFile || jdTooShort || jdTooLong;
+
+  if (hint) {
+    if (!hasFile) {
+      hint.textContent = '📄 Upload CV kamu dulu sebelum analisis';
+      hint.style.display = '';
+    } else if (jdTooShort) {
+      hint.textContent = '✍️ Isi job description dulu (min. 100 karakter)';
+      hint.style.display = '';
+    } else {
+      hint.style.display = 'none';
+    }
+  }
 }
 
 // ---- Character Counter ----
@@ -250,10 +265,20 @@ function updateCharCount() {
   } else if (count > 4500) {
     warning.textContent = 'Mendekati batas karakter';
     warning.classList.remove('hidden');
-    if (count >= 50) hideError('jd-error');
+    hideError('jd-error'); // well past MIN_JD_LENGTH — no "too short" needed
   } else {
     warning.classList.add('hidden');
-    if (count >= 50) hideError('jd-error');
+    const trimLen = jd.value.trim().length;
+    if (trimLen > 0 && trimLen < MIN_JD_LENGTH) {
+      // Show "too short" without the button shake — direct DOM update only
+      const jdErrEl = document.getElementById('jd-error');
+      if (jdErrEl) {
+        jdErrEl.textContent = `Job description terlalu pendek. Tulis minimal ${MIN_JD_LENGTH} karakter (bagian Requirements dan Responsibilities) untuk analisis yang akurat.`;
+        jdErrEl.classList.remove('hidden');
+      }
+    } else {
+      hideError('jd-error');
+    }
   }
 
   syncSubmitBtn();
@@ -284,8 +309,8 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
     return;
   }
 
-  if (jobDesc.length < 50) {
-    showError('jd-error', 'Job description terlalu pendek. Paste bagian Requirements dan Responsibilities.');
+  if (jobDesc.length < MIN_JD_LENGTH) {
+    showError('jd-error', `Job description terlalu pendek. Tulis minimal ${MIN_JD_LENGTH} karakter (bagian Requirements dan Responsibilities) untuk analisis yang akurat.`);
     return;
   }
 

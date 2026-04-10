@@ -83,17 +83,6 @@ document.getElementById('job-url-input').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') fetchJobFromUrl();
 });
 
-// Skip JD link — only fill generic text if textarea is empty, then submit
-document.getElementById('skip-jd-link').addEventListener('click', (e) => {
-  e.preventDefault();
-  const jdField = document.getElementById('job-desc');
-  if (!jdField.value.trim()) {
-    jdField.value = 'Analisis umum tanpa job description spesifik. Evaluasi kekuatan dan kelemahan CV secara keseluruhan.';
-    updateCharCount();
-  }
-  document.getElementById('upload-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-});
-
 // ── Event bindings for inline handlers removed from HTML ──
 document.getElementById('drop-zone').addEventListener('click', function(e) {
   if (!e.target.closest('#drop-preview')) document.getElementById('cv-file').click();
