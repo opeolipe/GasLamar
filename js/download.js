@@ -18,23 +18,77 @@ let sessionSecretCache = null; // retained for X-Session-Secret header
 
 // ---- Init ----
 
-(function init() {
-  // Get session from URL or localStorage fallback
+(async function init() {
   const params = new URLSearchParams(location.search);
-  const sessionId = params.get('session') || localStorage.getItem('gaslamar_session');
+  const emailToken = params.get('token');
+  const legacySession = params.get('session');
 
-  if (!sessionId) {
+  // ── Path 1: Email link with ?token= ──────────────────────────────────────
+  // User clicked a link from a payment/CV-ready email. The link contains a
+  // single-use, 1-hour token instead of the raw session_id. Exchange it for
+  // the session cookie, store session_id in localStorage, then clean the URL.
+  if (emailToken) {
+    showState('waiting-payment');
+    try {
+      const res = await fetch(`${WORKER_URL}/exchange-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email_token: emailToken }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.session_id) {
+          localStorage.setItem('gaslamar_session', data.session_id);
+          sessionIdCache = data.session_id;
+          sessionSecretCache = localStorage.getItem('gaslamar_secret_' + data.session_id);
+        }
+        // Strip ?token= from URL so it isn't cached in browser history
+        history.replaceState(null, '', location.pathname);
+        startPolling(sessionIdCache);
+        return;
+      } else {
+        showSessionError(
+          'Link Kedaluwarsa',
+          'Link dari email sudah tidak berlaku (maksimal 1 jam). Gunakan link dari email terbaru, atau mulai ulang dari halaman upload jika sudah lebih dari 1 jam.',
+          false
+        );
+        return;
+      }
+    } catch (_) {
+      showSessionError('Terjadi Kesalahan', 'Tidak dapat menghubungi server. Coba refresh halaman ini.');
+      return;
+    }
+  }
+
+  // ── Path 2: Old-format link with ?session= (backward compatibility) ──────
+  // Existing bookmarks or cached emails may still use ?session=. Accept the
+  // session ID, persist it to localStorage, and clean the URL immediately so
+  // it's not stored in browser history going forward.
+  if (legacySession && legacySession.startsWith('sess_')) {
+    localStorage.setItem('gaslamar_session', legacySession);
+    // Replace URL: strip the ?session= so it doesn't appear in history
+    history.replaceState(null, '', location.pathname);
+    sessionIdCache = legacySession;
+    sessionSecretCache = localStorage.getItem('gaslamar_secret_' + legacySession);
+    showState('waiting-payment');
+    startPolling(sessionIdCache);
+    return;
+  }
+
+  // ── Path 3: Cookie + localStorage (normal flow after payment) ────────────
+  // After /create-payment the browser holds a session_id cookie for the Worker
+  // origin, and payment.js stored the session_id in localStorage. Both are used:
+  // the cookie is sent automatically with credentialed fetches; localStorage
+  // keeps the ID accessible for client-side credit management.
+  const sessionId = localStorage.getItem('gaslamar_session');
+
+  if (!sessionId || !sessionId.startsWith('sess_')) {
     showSessionError('Sesi tidak ditemukan', 'Link download tidak valid. Coba lagi dari awal.');
     return;
   }
 
-  if (!sessionId.startsWith('sess_')) {
-    showSessionError('Link Tidak Valid', 'Link download tidak valid. Pastikan menggunakan link lengkap yang dikirim ke email kamu.');
-    return;
-  }
-
   sessionIdCache = sessionId;
-  // Read the client secret bound to this session (stored by payment.js)
   sessionSecretCache = localStorage.getItem('gaslamar_secret_' + sessionId);
 
   // Start polling for payment confirmation
@@ -54,8 +108,7 @@ function startPolling(sessionId) {
 }
 
 function restartPolling() {
-  const params = new URLSearchParams(location.search);
-  const sessionId = params.get('session') || localStorage.getItem('gaslamar_session');
+  const sessionId = sessionIdCache || localStorage.getItem('gaslamar_session');
   if (!sessionId) {
     showSessionError('Sesi tidak ditemukan', 'Link download tidak valid.');
     return;
@@ -70,7 +123,9 @@ async function poll(sessionId) {
   updatePollUI();
 
   try {
-    const res = await fetch(`${WORKER_URL}/check-session?session=${encodeURIComponent(sessionId)}`);
+    // Session ID is transmitted via the HttpOnly cookie (set during /create-payment).
+    // credentials:'include' instructs the browser to send that cookie cross-origin.
+    const res = await fetch(`${WORKER_URL}/check-session`, { credentials: 'include' });
 
     if (res.status === 400) {
       // Bad request — invalid session ID format; no point retrying
@@ -171,7 +226,7 @@ function startSessionHeartbeat(sessionId) {
       const res = await fetch(`${WORKER_URL}/session/ping`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...secretHeaders },
-        body: JSON.stringify({ session_id: sessionId })
+        credentials: 'include',
       });
       if (res.status === 404) {
         stopSessionHeartbeat();
@@ -220,7 +275,7 @@ async function fetchAndGenerateCV(sessionId) {
     const res = await fetch(`${WORKER_URL}/get-session`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...secretHeaders },
-      body: JSON.stringify({ session_id: sessionId }),
+      credentials: 'include',
       signal: controller.signal
     });
 
@@ -274,7 +329,8 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
     setProgress(40);
     setGeneratingText('AI sedang menulis CV kamu...');
 
-    const reqBody = { session_id: sessionId };
+    // Session ID comes from the cookie — not the request body.
+    const reqBody = {};
     if (newJobDesc) reqBody.job_desc = newJobDesc;
     // Pass score + gaps so worker can send post-generate email
     try {
@@ -287,6 +343,7 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
     const res = await fetch(`${WORKER_URL}/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...secretHeaders },
+      credentials: 'include',
       body: JSON.stringify(reqBody),
       signal: controller.signal
     });
@@ -741,12 +798,13 @@ async function generateForNewJob() {
   btn.textContent = 'Menghubungi server...';
 
   try {
-    // Step 1: call /get-session to unlock 'generating' status
+    // Step 1: call /get-session to unlock 'generating' status.
+    // Session ID is transmitted via the HttpOnly cookie — no body field needed.
     const secretHeaders = sessionSecretCache ? { 'X-Session-Secret': sessionSecretCache } : {};
     const gsRes = await fetch(`${WORKER_URL}/get-session`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...secretHeaders },
-      body: JSON.stringify({ session_id: sessionIdCache })
+      credentials: 'include',
     });
 
     if (!gsRes.ok) {

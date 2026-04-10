@@ -10,6 +10,7 @@ import { handleGetSession } from './handlers/getSession.js';
 import { handleGenerate } from './handlers/generate.js';
 import { handleSubmitEmail } from './handlers/submitEmail.js';
 import { handleFetchJobUrl } from './handlers/fetchJobUrl.js';
+import { handleExchangeToken } from './handlers/exchangeToken.js';
 
 export async function route(request, env, ctx) {
   const url = new URL(request.url);
@@ -54,6 +55,10 @@ export async function route(request, env, ctx) {
 
   if (method === 'POST' && pathname === '/fetch-job-url') {
     return handleFetchJobUrl(request, env);
+  }
+
+  if (method === 'POST' && pathname === '/exchange-token') {
+    return handleExchangeToken(request, env);
   }
 
   if (method === 'POST' && pathname === '/feedback') {

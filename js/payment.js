@@ -180,9 +180,13 @@ async function proceedToPayment() {
   const timeout = setTimeout(() => controller.abort(), 25000);
 
   try {
+    // credentials:'include' is required so the browser accepts the session_id
+    // HttpOnly cookie returned in the Set-Cookie header of the response.
+    // Without this, the cross-origin cookie is silently discarded.
     const response = await fetch(`${WORKER_URL}/create-payment`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({
         tier: selectedTier,
         cv_text_key: cvTextKey,

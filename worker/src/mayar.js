@@ -24,7 +24,10 @@ export async function createMayarInvoice(sessionId, tier, env) {
 
   if (!apiKey) throw new Error('Mayar API key tidak tersedia');
 
-  const redirectUrl = `https://gaslamar.com/download.html?session=${encodeURIComponent(sessionId)}`;
+  // Session ID is no longer placed in the redirect URL — the browser carries it
+  // as an HttpOnly cookie set by /create-payment. This prevents session exposure
+  // in browser history, Referer headers, and server logs.
+  const redirectUrl = 'https://gaslamar.com/download.html';
 
   // Use session-scoped email so each invoice has a unique customer identity.
   const shortId = sessionId.replace('sess_', '').substring(0, 8);

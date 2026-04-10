@@ -17,8 +17,10 @@ export async function handleMayarWebhook(request, env, ctx) {
     return new Response('Bad Request', { status: 400 });
   }
 
-  // Extract session ID from Mayar's redirect_url or metadata
-  // Mayar sends the invoice data — find our session by invoice ID or redirect URL
+  // Extract session ID from Mayar's invoice data.
+  // Mayar sends the invoice data — find our session by:
+  //   1. KV secondary index `mayar_session_{invoiceId}` (new path — no session in URL)
+  //   2. ?session= in redirect_url (backward compat for invoices created before this change)
   const invoiceId = payload.id || payload.invoice_id || payload.data?.id;
   const redirectUrl = payload.redirect_url || payload.data?.redirect_url || '';
   const status = payload.status || payload.data?.status;
@@ -27,19 +29,28 @@ export async function handleMayarWebhook(request, env, ctx) {
     return new Response('OK', { status: 200 });
   }
 
-  // Extract session_id from redirect URL
+  // Primary: KV secondary index (set by /create-payment)
   let sessionId = null;
-  if (redirectUrl) {
+  if (invoiceId) {
+    const mapping = await env.GASLAMAR_SESSIONS.get(`mayar_session_${invoiceId}`, { type: 'json' });
+    if (mapping?.session_id) {
+      sessionId = mapping.session_id;
+    }
+  }
+
+  // Fallback: extract ?session= from redirect URL (invoices created before cookie migration)
+  if (!sessionId && redirectUrl) {
     try {
       const url = new URL(redirectUrl);
-      sessionId = url.searchParams.get('session');
+      const legacy = url.searchParams.get('session');
+      if (legacy && legacy.startsWith('sess_')) sessionId = legacy;
     } catch (e) {
       // ignore
     }
   }
 
   if (!sessionId) {
-    // Cannot recover without a secondary index — log for operator visibility and return 200
+    // Cannot recover — log for operator visibility and return 200 so Mayar stops retrying
     console.error(JSON.stringify({ event: 'webhook_no_session', invoiceId, status, redirectUrl }));
     return new Response('OK', { status: 200 });
   }

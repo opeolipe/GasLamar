@@ -1,18 +1,12 @@
 import { jsonResponse } from '../cors.js';
 import { getSession, updateSession, verifySessionSecret } from '../sessions.js';
+import { getSessionIdFromCookie } from '../cookies.js';
 
 export async function handleGetSession(request, env) {
-  let body;
-  try {
-    body = await request.json();
-  } catch (e) {
-    return jsonResponse({ message: 'Request body tidak valid' }, 400, request, env);
-  }
+  const session_id = getSessionIdFromCookie(request);
 
-  const { session_id } = body;
-
-  if (!session_id || !session_id.startsWith('sess_')) {
-    return jsonResponse({ message: 'Session ID tidak valid' }, 400, request, env);
+  if (!session_id) {
+    return jsonResponse({ message: 'Sesi tidak ditemukan. Pastikan browser mengizinkan cookies.' }, 401, request, env);
   }
 
   const session = await getSession(env, session_id);
