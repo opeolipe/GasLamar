@@ -2,6 +2,7 @@
  * GasLamar Cloudflare Worker — Entry Point
  *
  * Endpoints:
+ *   GET  /health          — Liveness check (no auth, no rate limit) — for uptime monitors
  *   POST /analyze         — CV scoring + gap analysis
  *   POST /create-payment  — Create Mayar invoice + KV session
  *   POST /webhook/mayar   — Receive Mayar webhook, update session status

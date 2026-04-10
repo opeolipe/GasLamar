@@ -201,16 +201,23 @@ const MOCK_CV_EN = { content: [{ text: 'PROFESSIONAL SUMMARY\nExperienced develo
 // ============================================================
 
 describe('/health', () => {
-  it('returns 200 with { status: "ok" }', async () => {
+  it('returns 200 with status, timestamp, and environment', async () => {
+    const before = Date.now();
     const res = await get('/health');
+    const after = Date.now();
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ status: 'ok' });
+    const body = await res.json();
+    expect(body.status).toBe('ok');
+    expect(typeof body.timestamp).toBe('string');
+    expect(new Date(body.timestamp).getTime()).toBeGreaterThanOrEqual(before);
+    expect(new Date(body.timestamp).getTime()).toBeLessThanOrEqual(after);
+    expect(typeof body.environment).toBe('string');
   });
 
-  it('does not leak env info', async () => {
+  it('response contains exactly status, timestamp, environment keys', async () => {
     const res = await get('/health');
     const body = await res.json();
-    expect(Object.keys(body)).toEqual(['status']);
+    expect(Object.keys(body).sort()).toEqual(['environment', 'status', 'timestamp']);
   });
 });
 

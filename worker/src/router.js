@@ -17,6 +17,16 @@ export async function route(request, env, ctx) {
   const { pathname } = url;
   const method = request.method;
 
+  // Health check — must be first: no rate limiting, no auth, no KV reads.
+  // Used by uptime monitors (UptimeRobot, Cloudflare Health Checks, etc.).
+  if (method === 'GET' && pathname === '/health') {
+    return jsonResponse({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      environment: env.ENVIRONMENT || 'unknown',
+    }, 200, request, env);
+  }
+
   if (method === 'POST' && pathname === '/analyze') {
     return handleAnalyze(request, env);
   }
@@ -65,10 +75,6 @@ export async function route(request, env, ctx) {
     const body = await request.json().catch(() => ({}));
     log('user_feedback', { type: body.type, answer: body.answer, ip: request.headers.get('CF-Connecting-IP') });
     return jsonResponse({ ok: true }, 200, request, env);
-  }
-
-  if (pathname === '/health') {
-    return jsonResponse({ status: 'ok' }, 200, request, env);
   }
 
   return jsonResponse({ message: 'Not found' }, 404, request, env);
