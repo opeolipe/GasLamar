@@ -1216,3 +1216,192 @@ describe('Session secret — POST /session/ping', () => {
     expect(res.status).toBe(200);
   });
 });
+
+// ---- POST /fetch-job-url — SSRF protection -----------------------------------
+// All blocking tests are rejected before any outbound fetch — no mock needed.
+// Each test uses a unique IP (10.101.0.x) to avoid the rate limiter.
+
+describe('POST /fetch-job-url — SSRF protection', () => {
+  // Range 10.101.0.x is reserved for this suite.
+  let _ipSeq = 0;
+  const nextIp = () => `10.101.0.${++_ipSeq}`;
+
+  it('rejects missing url → 400', async () => {
+    const res = await post('/fetch-job-url', {}, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/url wajib/i);
+  });
+
+  it('rejects invalid URL string → 400', async () => {
+    const res = await post('/fetch-job-url', { url: 'not a url at all' }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/tidak valid/i);
+  });
+
+  it('rejects http:// (non-HTTPS) → 400', async () => {
+    const res = await post('/fetch-job-url', { url: 'http://www.linkedin.com/jobs/view/123' }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/https/i);
+  });
+
+  it('rejects non-http scheme (ftp://) → 400', async () => {
+    const res = await post('/fetch-job-url', { url: 'ftp://www.linkedin.com/jobs' }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/https/i);
+  });
+
+  it('rejects disallowed domain (google.com) → 400', async () => {
+    const res = await post('/fetch-job-url', { url: 'https://google.com/search?q=jobs' }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/domain tidak diizinkan/i);
+  });
+
+  it('rejects look-alike domain (linkedin.com.evil.com) → 400', async () => {
+    const res = await post('/fetch-job-url', { url: 'https://linkedin.com.evil.com/jobs' }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/domain tidak diizinkan/i);
+  });
+
+  it('rejects @ bypass attempt (linkedin.com@evil.com) → 400', async () => {
+    // new URL() parses this as hostname=evil.com with credentials=linkedin.com
+    const res = await post('/fetch-job-url', { url: 'https://linkedin.com@evil.com/jobs' }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/domain tidak diizinkan/i);
+  });
+
+  it('rejects loopback IPv4 127.0.0.1 → 400 (private IP)', async () => {
+    const res = await post('/fetch-job-url', { url: 'https://127.0.0.1/admin' }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/ip internal/i);
+  });
+
+  it('rejects private RFC1918 10.0.0.1 → 400', async () => {
+    const res = await post('/fetch-job-url', { url: 'https://10.0.0.1/' }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/ip internal/i);
+  });
+
+  it('rejects private RFC1918 192.168.1.1 → 400', async () => {
+    const res = await post('/fetch-job-url', { url: 'https://192.168.1.1/' }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/ip internal/i);
+  });
+
+  it('rejects link-local 169.254.169.254 (AWS metadata) → 400', async () => {
+    const res = await post('/fetch-job-url', { url: 'https://169.254.169.254/latest/meta-data/' }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/ip internal/i);
+  });
+
+  it('rejects IPv6 loopback [::1] → 400', async () => {
+    const res = await post('/fetch-job-url', { url: 'https://[::1]:8080/admin' }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/ip internal/i);
+  });
+
+  it('rejects IPv6 link-local [fe80::1] → 400', async () => {
+    const res = await post('/fetch-job-url', { url: 'https://[fe80::1]/' }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/ip internal/i);
+  });
+
+  it('rejects public bare IPv4 (not a job board) → 400 (domain not allowed)', async () => {
+    // Public IPs pass the private-IP check but still fail the domain allowlist
+    const res = await post('/fetch-job-url', { url: 'https://8.8.8.8/' }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/domain tidak diizinkan/i);
+  });
+});
+
+describe('POST /fetch-job-url — allowed domains (mocked fetch)', () => {
+  beforeAll(() => fetchMock.activate());
+  afterAll(() => fetchMock.deactivate());
+
+  // Range 10.102.0.x is reserved for this suite.
+  let _ipSeq = 0;
+  const nextIp = () => `10.102.0.${++_ipSeq}`;
+
+  it('allows www.linkedin.com and returns extracted job_desc', async () => {
+    // Body must be >50 chars after whitespace normalisation to pass the minimum-text check.
+    const htmlBody = '<html><body>Requirements: min 3 years Node.js, React, and SQL. Strong communication skills needed.</body></html>';
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs/view/123456' })
+      .reply(200, htmlBody, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.linkedin.com/jobs/view/123456' }, {}, nextIp());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.job_desc).toBeTruthy();
+    expect(body.job_desc).toContain('Requirements');
+  });
+
+  it('allows subdomain jobs.linkedin.com', async () => {
+    const htmlBody = '<html><body>Requirements Python Django REST experience preferred.</body></html>';
+    fetchMock
+      .get('https://jobs.linkedin.com')
+      .intercept({ path: '/jobs/456' })
+      .reply(200, htmlBody, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://jobs.linkedin.com/jobs/456' }, {}, nextIp());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.job_desc).toBeTruthy();
+  });
+
+  it('allows www.jobstreet.co.id', async () => {
+    const htmlBody = '<html><body>Kualifikasi S1 Teknik Informatika pengalaman 2 tahun dibutuhkan.</body></html>';
+    fetchMock
+      .get('https://www.jobstreet.co.id')
+      .intercept({ path: '/id/job/789' })
+      .reply(200, htmlBody, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.jobstreet.co.id/id/job/789' }, {}, nextIp());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.job_desc).toBeTruthy();
+  });
+
+  it('returns 422 when upstream page returns non-200', async () => {
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs/view/999' })
+      .reply(403, 'Forbidden', { headers: { 'content-type': 'text/html' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.linkedin.com/jobs/view/999' }, {}, nextIp());
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.message).toMatch(/tidak bisa diakses/i);
+  });
+
+  it('returns 422 when upstream returns non-HTML content type', async () => {
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs/view/pdf' })
+      .reply(200, 'binary', { headers: { 'content-type': 'application/pdf' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.linkedin.com/jobs/view/pdf' }, {}, nextIp());
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.message).toMatch(/bukan halaman web/i);
+  });
+});
