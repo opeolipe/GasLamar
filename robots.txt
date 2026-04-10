@@ -1,0 +1,11 @@
+User-agent: *
+Disallow: /hasil.html
+Disallow: /download.html
+Disallow: /analyzing.html
+Disallow: /analyze
+Disallow: /create-payment
+Disallow: /get-session
+Disallow: /generate
+Disallow: /webhook/
+
+Allow: /
