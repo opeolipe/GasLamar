@@ -20,8 +20,13 @@ let completedStep = 0;
 const totalSteps = 4;
 let startTime = Date.now();
 const estimatedMs = 35000;
+// Maximum time we wait for the /analyze response (PDF needs 3 sequential Claude calls)
+const FETCH_TIMEOUT_MS = 55000;
 let analysisComplete = false;
 let abortController = new AbortController();
+// Distinguish user-initiated cancel from our timeout abort
+let isTimedOut = false;
+let analysisTimeoutId = null;
 
 const trustMessages = [
   '🔒 CV tidak disimpan — aman',
@@ -63,26 +68,41 @@ function finishAnimation() {
   document.getElementById('timerText').textContent = '✅ Analisis selesai! Mengarahkan ke hasil...';
 }
 
-// Start step animation independently (every ~7s per step)
+// Step animation — track IDs so retryAnalysis() can cancel pending timers
 const stepInterval = Math.floor(estimatedMs / (totalSteps + 1));
-advanceAnimation(); // step 1 active immediately
-for (let i = 1; i < totalSteps; i++) {
-  setTimeout(() => { if (!analysisComplete) advanceAnimation(); }, i * stepInterval);
+let stepTimeouts = [];
+
+function scheduleSteps() {
+  stepTimeouts.forEach(id => clearTimeout(id));
+  stepTimeouts = [];
+  advanceAnimation(); // step 1 active immediately
+  for (let i = 1; i < totalSteps; i++) {
+    const id = setTimeout(() => { if (!analysisComplete) advanceAnimation(); }, i * stepInterval);
+    stepTimeouts.push(id);
+  }
 }
 
-// Countdown timer
-const timerInterval = setInterval(() => {
+scheduleSteps();
+
+// Countdown timer — use `let` so retryAnalysis() can reassign
+let timerInterval = setInterval(() => {
   const elapsed = Date.now() - startTime;
   const remaining = Math.max(0, Math.ceil((estimatedMs - elapsed) / 1000));
   if (!analysisComplete) {
-    document.getElementById('timerText').textContent = remaining > 0
-      ? '⏱️ Estimasi sisa: ~' + remaining + ' detik'
-      : '⏱️ Hampir selesai...';
+    if (remaining > 0) {
+      document.getElementById('timerText').textContent = '⏱️ Estimasi sisa: ~' + remaining + ' detik';
+    } else {
+      // After the estimate, show an honest "still processing" message for PDF files
+      const extraSecs = Math.round((elapsed - estimatedMs) / 1000);
+      document.getElementById('timerText').textContent = extraSecs >= 15
+        ? '⏱️ PDF memerlukan waktu lebih lama — hampir selesai...'
+        : '⏱️ Hampir selesai...';
+    }
   }
 }, 1000);
 
-// Rotate trust messages
-const trustInterval = setInterval(() => {
+// Rotate trust messages — use `let` so retryAnalysis() can reassign
+let trustInterval = setInterval(() => {
   trustIndex = (trustIndex + 1) % trustMessages.length;
   const el = document.getElementById('trustMessage');
   el.style.opacity = '0';
@@ -97,6 +117,15 @@ async function runAnalysis() {
   if (window.Analytics) Analytics.track('analysis_started', {
     has_jd: !!(jobDesc && jobDesc.trim().length >= 50),
   });
+
+  // Abort the fetch after FETCH_TIMEOUT_MS — prevents the page from hanging
+  // indefinitely when the backend (3 sequential Claude calls for PDF) takes >35s.
+  isTimedOut = false;
+  analysisTimeoutId = setTimeout(() => {
+    isTimedOut = true;
+    abortController.abort();
+  }, FETCH_TIMEOUT_MS);
+
   try {
     const response = await fetch(WORKER_URL + '/analyze', {
       method: 'POST',
@@ -105,9 +134,17 @@ async function runAnalysis() {
       signal: abortController.signal
     });
 
+    clearTimeout(analysisTimeoutId);
+
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
-      throw new Error(err.message || 'Server error: ' + response.status);
+      const msg = err.message || '';
+      // Surface rate limit with retry guidance
+      if (response.status === 429) {
+        const retryAfter = err.retryAfter || 60;
+        throw new Error(`Terlalu banyak permintaan. Coba lagi dalam ${retryAfter} detik.`);
+      }
+      throw new Error(msg || 'Server error: ' + response.status);
     }
 
     const result = await response.json();
@@ -137,22 +174,24 @@ async function runAnalysis() {
     setTimeout(() => { window.location.replace('hasil.html'); }, 800);
 
   } catch (err) {
+    clearTimeout(analysisTimeoutId);
     clearInterval(timerInterval);
     clearInterval(trustInterval);
 
-    if (err.name === 'AbortError') return; // user navigated away
+    // User clicked "← Ubah CV atau job" — abort is expected, don't show error
+    if (err.name === 'AbortError' && !isTimedOut) return;
 
     if (window.Analytics) Analytics.trackError('analysis_api', {
       error_message: (err.message || '').slice(0, 150),
-      is_timeout: err.name === 'AbortError',
+      is_timeout: isTimedOut,
       is_network: err.name === 'TypeError',
     });
 
     let msg = err.message || 'Terjadi kesalahan. Coba lagi.';
-    if (err.name === 'TypeError' && err.message.includes('fetch')) {
+    if (err.name === 'TypeError' && err.message && err.message.includes('fetch')) {
       msg = 'Tidak bisa terhubung ke server. Periksa koneksi internet kamu, lalu coba lagi.';
-    } else if (err.name === 'AbortError' || msg.includes('timeout') || msg.includes('terlalu lama')) {
-      msg = 'Analisis memakan waktu terlalu lama. Coba lagi.';
+    } else if (isTimedOut || err.name === 'AbortError') {
+      msg = 'Analisis memakan waktu terlalu lama. Coba lagi — PDF kadang membutuhkan waktu ekstra.';
     }
 
     document.getElementById('analyze-error-msg').textContent = msg;
@@ -167,13 +206,43 @@ function retryAnalysis() {
   completedStep = 0;
   startTime = Date.now();
   analysisComplete = false;
+  isTimedOut = false;
   abortController = new AbortController();
+
   // Reset step icons
   for (let i = 1; i <= totalSteps; i++) {
     const icon = document.getElementById('step' + i + 'Icon');
     if (icon) { icon.textContent = '○'; icon.className = 'step-status'; icon.style.color = ''; }
   }
   document.getElementById('progressFill').style.width = '0%';
+
+  // Restart intervals that were cleared during the error path
+  timerInterval = setInterval(() => {
+    const elapsed = Date.now() - startTime;
+    const remaining = Math.max(0, Math.ceil((estimatedMs - elapsed) / 1000));
+    if (!analysisComplete) {
+      if (remaining > 0) {
+        document.getElementById('timerText').textContent = '⏱️ Estimasi sisa: ~' + remaining + ' detik';
+      } else {
+        const extraSecs = Math.round((elapsed - estimatedMs) / 1000);
+        document.getElementById('timerText').textContent = extraSecs >= 15
+          ? '⏱️ PDF memerlukan waktu lebih lama — hampir selesai...'
+          : '⏱️ Hampir selesai...';
+      }
+    }
+  }, 1000);
+
+  trustInterval = setInterval(() => {
+    trustIndex = (trustIndex + 1) % trustMessages.length;
+    const el = document.getElementById('trustMessage');
+    el.style.opacity = '0';
+    setTimeout(() => {
+      el.textContent = trustMessages[trustIndex];
+      el.style.opacity = '1';
+    }, 150);
+  }, 5000);
+
+  scheduleSteps();
   runAnalysis();
 }
 
@@ -181,9 +250,11 @@ function retryAnalysis() {
 document.getElementById('editBackLink').addEventListener('click', (e) => {
   e.preventDefault();
   if (confirm('Batalkan analisis dan kembali ke halaman upload? Data tidak akan tersimpan.')) {
-    abortController.abort();
+    clearTimeout(analysisTimeoutId);
+    abortController.abort(); // user-initiated — isTimedOut stays false → catch returns silently
     clearInterval(timerInterval);
     clearInterval(trustInterval);
+    stepTimeouts.forEach(id => clearTimeout(id));
     sessionStorage.removeItem('gaslamar_cv_pending');
     sessionStorage.removeItem('gaslamar_jd_pending');
     sessionStorage.removeItem('gaslamar_filename');

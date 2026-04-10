@@ -1,5 +1,5 @@
 import { jsonResponse } from '../cors.js';
-import { clientIp, hexToken } from '../utils.js';
+import { clientIp, hexToken, logError } from '../utils.js';
 import { checkRateLimit, checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
 import { validateFileData, extractCVText } from '../fileExtraction.js';
 import { analyzeCV } from '../analysis.js';
@@ -67,6 +67,11 @@ export async function handleAnalyze(request, env) {
 
     return jsonResponse({ ...scoring, cv_text_key: cvTextKey }, 200, request, env);
   } catch (e) {
+    logError('analyze_failed', {
+      reason: e.message,
+      cvLength: extraction.text.length,
+      isTimeout: e.message && e.message.includes('timeout'),
+    });
     return jsonResponse({ message: e.message || 'Analisis gagal. Coba lagi.' }, 500, request, env);
   }
 }
