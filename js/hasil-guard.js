@@ -8,7 +8,7 @@
   // Hard redirect — used only for security violations (forged/mismatched URL params).
   function securityRedirect() {
     KEYS.forEach(function(k) { sessionStorage.removeItem(k); });
-    window.location.replace('upload.html');
+    window.location.replace('upload.html?reason=session_expired');
   }
 
   // Soft fail — used for missing/expired/invalid session data.

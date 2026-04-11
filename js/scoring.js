@@ -56,7 +56,7 @@
   if (!raw) {
     // No data — redirect back
     showError('Data analisis tidak ditemukan. Mohon upload CV kamu kembali.');
-    window.location.href = 'upload.html';
+    window.location.href = 'upload.html?reason=session_expired';
     return;
   }
 

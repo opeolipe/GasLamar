@@ -15,6 +15,16 @@ if (_analyzeErr) {
   document.querySelector('.card').insertBefore(_errEl, document.querySelector('.card').firstChild);
 }
 
+// Show informational notice when redirected from hasil.html due to missing/expired session
+const _redirectParams = new URLSearchParams(window.location.search);
+if (_redirectParams.get('reason') === 'session_expired') {
+  history.replaceState(null, '', window.location.pathname);
+  const _noticeEl = document.createElement('div');
+  _noticeEl.className = 'session-notice-banner';
+  _noticeEl.textContent = 'Sesi analisis tidak ditemukan atau sudah kadaluarsa. Silakan upload ulang CV kamu.';
+  document.querySelector('.card').insertBefore(_noticeEl, document.querySelector('.card').firstChild);
+}
+
 // Hide scroll hint once submit button scrolls into view
 const _scrollHint = document.getElementById('scroll-hint');
 const _submitBtn = document.getElementById('submit-btn');
