@@ -15,13 +15,16 @@ if (_analyzeErr) {
   document.querySelector('.card').insertBefore(_errEl, document.querySelector('.card').firstChild);
 }
 
-// Show informational notice when redirected from hasil.html due to missing/expired session
+// Show informational notice when redirected from hasil.html or download.html
 const _redirectParams = new URLSearchParams(window.location.search);
-if (_redirectParams.get('reason') === 'session_expired') {
+const _redirectReason = _redirectParams.get('reason');
+if (_redirectReason === 'session_expired' || _redirectReason === 'no_session') {
   history.replaceState(null, '', window.location.pathname);
   const _noticeEl = document.createElement('div');
   _noticeEl.className = 'session-notice-banner';
-  _noticeEl.textContent = 'Sesi analisis tidak ditemukan atau sudah kadaluarsa. Silakan upload ulang CV kamu.';
+  _noticeEl.textContent = _redirectReason === 'no_session'
+    ? 'Sesi download tidak ditemukan. Silakan upload CV dan selesaikan pembayaran.'
+    : 'Sesi analisis tidak ditemukan atau sudah kadaluarsa. Silakan upload ulang CV kamu.';
   document.querySelector('.card').insertBefore(_noticeEl, document.querySelector('.card').firstChild);
 }
 
