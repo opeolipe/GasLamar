@@ -460,6 +460,10 @@ function hideError(id) {
       const capped = (typeof v === 'string' && v.length > MAX_JD_CHARS) ? v.slice(0, MAX_JD_CHARS) : v;
       proto.set.call(this, capped);
       updateCharCount();
+      // Save draft on programmatic assignments too (e.g. staging test panel auto-fill),
+      // not just on user keystrokes. The input event listener covers manual typing;
+      // this setter covers jdEl.value = '...' calls that bypass the input event.
+      sessionStorage.setItem('gaslamar_jd_draft', proto.get.call(this));
     },
     configurable: false,
   });
