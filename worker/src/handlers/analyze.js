@@ -35,7 +35,7 @@ export async function handleAnalyze(request, env) {
     return jsonResponse({ message: 'CV dan job description wajib diisi' }, 400, request, env);
   }
 
-  if (job_desc.length > 5000) {
+  if (typeof job_desc !== 'string' || job_desc.length > 5000) {
     return jsonResponse({ message: 'Job description terlalu panjang (maks 5.000 karakter)' }, 400, request, env);
   }
 

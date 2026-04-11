@@ -261,7 +261,10 @@ function updateCharCount() {
   if (count >= MAX_JD_CHARS) {
     warning.textContent = 'Batas karakter tercapai';
     warning.classList.remove('hidden');
-    showError('jd-error', `Job description terlalu panjang. Maksimal ${MAX_JD_CHARS.toLocaleString('id-ID')} karakter.`);
+    // At exactly the limit (5000 chars) the submission is still valid — don't show
+    // a "too long" error that contradicts the enabled submit button. The counter
+    // warning above is sufficient feedback that no more characters can be added.
+    hideError('jd-error');
   } else if (count > 4500) {
     warning.textContent = 'Mendekati batas karakter';
     warning.classList.remove('hidden');
