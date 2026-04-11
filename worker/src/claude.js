@@ -54,6 +54,14 @@ export async function callClaude(env, systemPrompt, userContent, maxTokens = 200
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
+      const event = res.status === 429 ? 'claude_rate_limited' : 'claude_api_error';
+      console.error(JSON.stringify({
+        event,
+        ts: Date.now(),
+        status: res.status,
+        message: err.error?.message || '',
+        model: selectedModel,
+      }));
       throw new Error(err.error?.message || `Claude API error: ${res.status}`);
     }
 
