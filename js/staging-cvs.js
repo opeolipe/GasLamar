@@ -517,8 +517,8 @@ Microsoft Office, JIRA, Confluence, Trello, Figma (basic), Google Analytics (bas
                 </div>
               </div>
               <div class="stg-btn-row">
-                <button class="stg-btn" data-cv="${m.id}" data-lang="id">Load ID</button>
-                <button class="stg-btn" data-cv="${m.id}" data-lang="en">Load EN</button>
+                <button class="stg-btn" data-cv="${m.id}" data-lang="id" aria-label="Load CV${m.id} ${m.label} — Bahasa Indonesia">Load ID</button>
+                <button class="stg-btn" data-cv="${m.id}" data-lang="en" aria-label="Load CV${m.id} ${m.label} — English">Load EN</button>
               </div>
             </div>
           `).join('')}
