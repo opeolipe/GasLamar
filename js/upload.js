@@ -325,7 +325,8 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
   sessionStorage.setItem('gaslamar_jd_pending', jobDesc);
   sessionStorage.setItem('gaslamar_filename', selectedFile ? selectedFile.name : 'CV');
   sessionStorage.setItem('gaslamar_had_jd', jobDesc.length >= 50 ? '1' : '0');
-  sessionStorage.removeItem('gaslamar_jd_draft'); // clear draft on successful submit
+  // Note: gaslamar_jd_draft is cleared by analyzing-page.js on successful analysis,
+  // not here — so the draft survives if the analysis fails and the user returns.
 
   if (window.Analytics) Analytics.track('upload_submitted', {
     file_ext: '.' + selectedFile.name.split('.').pop().toLowerCase(),

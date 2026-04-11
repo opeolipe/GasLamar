@@ -160,10 +160,11 @@ async function runAnalysis() {
       time_ms: (() => { const t = sessionStorage.getItem('gaslamar_upload_start'); return t ? Date.now() - parseInt(t, 10) : undefined; })(),
     });
 
-    // Clear pending data
+    // Clear pending data — analysis succeeded, draft no longer needed
     sessionStorage.removeItem('gaslamar_cv_pending');
     sessionStorage.removeItem('gaslamar_jd_pending');
     sessionStorage.removeItem('gaslamar_filename');
+    sessionStorage.removeItem('gaslamar_jd_draft');
 
     // Finish animation then redirect
     analysisComplete = true;
