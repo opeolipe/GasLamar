@@ -28,7 +28,25 @@ export async function handleGenerate(request, env, ctx) {
     body = {};
   }
 
-  const { job_desc: newJobDesc, score, gaps } = body;
+  const { job_desc: newJobDesc } = body;
+  // score and gaps are optional analytics fields forwarded to the CV-ready email.
+  // Validate before use: score must be a finite number 0–100; gaps must be an
+  // array of short strings. Reject the entire request if types are wrong.
+  const rawScore = body.score;
+  const rawGaps  = body.gaps;
+  if (rawScore !== undefined) {
+    const n = Number(rawScore);
+    if (!Number.isFinite(n) || n < 0 || n > 100) {
+      return jsonResponse({ message: 'Score tidak valid' }, 400, request, env);
+    }
+  }
+  if (rawGaps !== undefined) {
+    if (!Array.isArray(rawGaps) || rawGaps.length > 10 || rawGaps.some(g => typeof g !== 'string' || g.length > 500)) {
+      return jsonResponse({ message: 'Gaps tidak valid' }, 400, request, env);
+    }
+  }
+  const score = rawScore !== undefined ? Number(rawScore) : undefined;
+  const gaps  = rawGaps;
 
   // Optional new job_desc for multi-credit re-use (3-Pack / JobHunt)
   if (newJobDesc !== undefined) {

@@ -1,6 +1,15 @@
 import { getSession } from './sessions.js';
 import { hexToken } from './utils.js';
 
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // ---- Resend Email ----
 //
 // Sends a post-payment confirmation email via Resend API.
@@ -111,7 +120,7 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
     ? `<div style="background:#FFF7ED;border-radius:10px;padding:14px 18px;margin-bottom:20px">
         <p style="margin:0 0 8px;font-size:14px;color:#92400E;font-weight:600">3 gap utama yang sudah diperbaiki di CV tailored-mu:</p>
         <ul style="margin:0;padding-left:18px;font-size:13px;color:#78350F">
-          ${top3.map(g => `<li style="margin-bottom:4px">${g}</li>`).join('')}
+          ${top3.map(g => `<li style="margin-bottom:4px">${escapeHtml(String(g).slice(0, 200))}</li>`).join('')}
         </ul>
       </div>`
     : '';
