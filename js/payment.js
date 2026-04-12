@@ -174,7 +174,10 @@ async function proceedToPayment() {
   // to bind subsequent requests (get-session, generate) to this browser session.
   // The worker stores only SHA-256(secret), so possession of the session ID
   // alone is insufficient to access CV data.
-  const sessionSecret = crypto.randomUUID();
+  // crypto.randomUUID() is Safari 15.4+; fall back to getRandomValues for older Safari
+  const sessionSecret = crypto.randomUUID
+    ? crypto.randomUUID()
+    : Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 25000);
