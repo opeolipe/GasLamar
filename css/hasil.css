@@ -614,3 +614,8 @@
     /* Restart link */
     .restart-wrap { text-align:center; margin-bottom:2rem; }
     .restart-link { font-size:0.85rem; color:#9CA3AF; text-decoration:none; }
+
+    /* Legal footer */
+    .legal-footer { text-align: center; padding: 1.5rem 0 2rem; font-size: 0.75rem; color: #9CA3AF; }
+    .legal-footer a { color: #6B7280; text-decoration: none; margin: 0 0.5rem; }
+    .legal-footer a:hover { text-decoration: underline; }
