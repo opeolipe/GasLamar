@@ -15,6 +15,19 @@ if (_analyzeErr) {
   document.querySelector('.card').insertBefore(_errEl, document.querySelector('.card').firstChild);
 }
 
+// Show informational notice when redirected from hasil.html or download.html
+const _redirectParams = new URLSearchParams(window.location.search);
+const _redirectReason = _redirectParams.get('reason');
+if (_redirectReason === 'session_expired' || _redirectReason === 'no_session') {
+  history.replaceState(null, '', window.location.pathname);
+  const _noticeEl = document.createElement('div');
+  _noticeEl.className = 'session-notice-banner';
+  _noticeEl.textContent = _redirectReason === 'no_session'
+    ? 'Sesi download tidak ditemukan. Silakan upload CV dan selesaikan pembayaran.'
+    : 'Sesi analisis tidak ditemukan atau sudah kadaluarsa. Silakan upload ulang CV kamu.';
+  document.querySelector('.card').insertBefore(_noticeEl, document.querySelector('.card').firstChild);
+}
+
 // Hide scroll hint once submit button scrolls into view
 const _scrollHint = document.getElementById('scroll-hint');
 const _submitBtn = document.getElementById('submit-btn');
@@ -81,17 +94,6 @@ async function fetchJobFromUrl() {
 // Allow Enter key in URL input to trigger fetch
 document.getElementById('job-url-input').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') fetchJobFromUrl();
-});
-
-// Skip JD link — only fill generic text if textarea is empty, then submit
-document.getElementById('skip-jd-link').addEventListener('click', (e) => {
-  e.preventDefault();
-  const jdField = document.getElementById('job-desc');
-  if (!jdField.value.trim()) {
-    jdField.value = 'Analisis umum tanpa job description spesifik. Evaluasi kekuatan dan kelemahan CV secara keseluruhan.';
-    updateCharCount();
-  }
-  document.getElementById('upload-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
 });
 
 // ── Event bindings for inline handlers removed from HTML ──

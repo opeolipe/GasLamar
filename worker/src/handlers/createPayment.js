@@ -1,9 +1,11 @@
+import { jsonResponseWithCookie } from '../cors.js';
 import { jsonResponse } from '../cors.js';
 import { clientIp, sha256Full, log } from '../utils.js';
 import { checkRateLimit, rateLimitResponse } from '../rateLimit.js';
 import { TIER_CREDITS } from '../constants.js';
 import { createMayarInvoice } from '../mayar.js';
 import { createSession } from '../sessions.js';
+import { makeSessionCookie } from '../cookies.js';
 
 export async function handleCreatePayment(request, env) {
   const ip = clientIp(request);
@@ -70,7 +72,7 @@ export async function handleCreatePayment(request, env) {
     await env.GASLAMAR_SESSIONS.delete(cv_text_key);
 
     // Store session in KV using pre-extracted text from /analyze
-    await createSession(env, sessionId, {
+    const sessionData = {
       cv_text: stored.text,
       job_desc: stored.job_desc,
       tier,
@@ -81,9 +83,26 @@ export async function handleCreatePayment(request, env) {
       ip,
       ...(sessionEmail ? { email: sessionEmail } : {}),
       ...(secretHash ? { session_secret_hash: secretHash } : {}),
-    });
+    };
+    await createSession(env, sessionId, sessionData);
 
-    return jsonResponse({ session_id: sessionId, invoice_url }, 200, request, env);
+    // Secondary KV index: invoice_id → session_id.
+    // The Mayar webhook identifies payments by invoice ID; without the ?session= query
+    // param in the redirect URL we need this index to correlate the webhook to a session.
+    // TTL matches the session (7d single / 30d multi).
+    await env.GASLAMAR_SESSIONS.put(
+      `mayar_session_${invoice_id}`,
+      JSON.stringify({ session_id: sessionId }),
+      { expirationTtl: credits > 1 ? 2592000 : 604800 }
+    );
+
+    // Set HttpOnly session cookie — eliminates session_id from URLs (browser history,
+    // Referer headers, server logs). Cookie travels automatically with all credentialed
+    // requests to this Worker origin.
+    const isMulti = credits > 1;
+    const cookieHeader = makeSessionCookie(sessionId, isMulti);
+
+    return jsonResponseWithCookie({ session_id: sessionId, invoice_url }, 200, cookieHeader, request, env);
   } catch (e) {
     console.error(JSON.stringify({ event: 'create_payment_failed', error: e.message, tier, cv_text_key }));
     return jsonResponse({ message: e.message || 'Gagal membuat invoice' }, 500, request, env);

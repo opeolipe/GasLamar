@@ -4,6 +4,7 @@ import { checkRateLimit, rateLimitResponse } from '../rateLimit.js';
 import { getSession, updateSession, deleteSession, verifySessionSecret } from '../sessions.js';
 import { tailorCVID, tailorCVEN } from '../tailoring.js';
 import { sendCVReadyEmail } from '../email.js';
+import { getSessionIdFromCookie } from '../cookies.js';
 
 export async function handleGenerate(request, env, ctx) {
   const ip = clientIp(request);
@@ -13,18 +14,21 @@ export async function handleGenerate(request, env, ctx) {
     return rateLimitResponse(request, env);
   }
 
+  // Session ID comes from the HttpOnly cookie — not the request body.
+  const session_id = getSessionIdFromCookie(request);
+  if (!session_id) {
+    return jsonResponse({ message: 'Sesi tidak ditemukan. Pastikan browser mengizinkan cookies.' }, 401, request, env);
+  }
+
+  // Body still carries optional per-request fields (job_desc override, analytics data)
   let body;
   try {
     body = await request.json();
   } catch (e) {
-    return jsonResponse({ message: 'Request body tidak valid' }, 400, request, env);
+    body = {};
   }
 
-  const { session_id, job_desc: newJobDesc, score, gaps } = body;
-
-  if (!session_id || !session_id.startsWith('sess_')) {
-    return jsonResponse({ message: 'Session ID tidak valid' }, 400, request, env);
-  }
+  const { job_desc: newJobDesc, score, gaps } = body;
 
   // Optional new job_desc for multi-credit re-use (3-Pack / JobHunt)
   if (newJobDesc !== undefined) {

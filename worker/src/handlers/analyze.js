@@ -1,5 +1,5 @@
 import { jsonResponse } from '../cors.js';
-import { clientIp, hexToken } from '../utils.js';
+import { clientIp, hexToken, logError } from '../utils.js';
 import { checkRateLimit, checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
 import { validateFileData, extractCVText } from '../fileExtraction.js';
 import { analyzeCV } from '../analysis.js';
@@ -35,7 +35,7 @@ export async function handleAnalyze(request, env) {
     return jsonResponse({ message: 'CV dan job description wajib diisi' }, 400, request, env);
   }
 
-  if (job_desc.length > 5000) {
+  if (typeof job_desc !== 'string' || job_desc.length > 5000) {
     return jsonResponse({ message: 'Job description terlalu panjang (maks 5.000 karakter)' }, 400, request, env);
   }
 
@@ -67,6 +67,11 @@ export async function handleAnalyze(request, env) {
 
     return jsonResponse({ ...scoring, cv_text_key: cvTextKey }, 200, request, env);
   } catch (e) {
+    logError('analyze_failed', {
+      reason: e.message,
+      cvLength: extraction.text.length,
+      isTimeout: e.message && e.message.includes('timeout'),
+    });
     return jsonResponse({ message: e.message || 'Analisis gagal. Coba lagi.' }, 500, request, env);
   }
 }

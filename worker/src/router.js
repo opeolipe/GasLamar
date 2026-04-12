@@ -10,11 +10,22 @@ import { handleGetSession } from './handlers/getSession.js';
 import { handleGenerate } from './handlers/generate.js';
 import { handleSubmitEmail } from './handlers/submitEmail.js';
 import { handleFetchJobUrl } from './handlers/fetchJobUrl.js';
+import { handleExchangeToken } from './handlers/exchangeToken.js';
 
 export async function route(request, env, ctx) {
   const url = new URL(request.url);
   const { pathname } = url;
   const method = request.method;
+
+  // Health check — must be first: no rate limiting, no auth, no KV reads.
+  // Used by uptime monitors (UptimeRobot, Cloudflare Health Checks, etc.).
+  if (method === 'GET' && pathname === '/health') {
+    return jsonResponse({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      environment: env.ENVIRONMENT || 'unknown',
+    }, 200, request, env);
+  }
 
   if (method === 'POST' && pathname === '/analyze') {
     return handleAnalyze(request, env);
@@ -56,14 +67,14 @@ export async function route(request, env, ctx) {
     return handleFetchJobUrl(request, env);
   }
 
+  if (method === 'POST' && pathname === '/exchange-token') {
+    return handleExchangeToken(request, env);
+  }
+
   if (method === 'POST' && pathname === '/feedback') {
     const body = await request.json().catch(() => ({}));
     log('user_feedback', { type: body.type, answer: body.answer, ip: request.headers.get('CF-Connecting-IP') });
     return jsonResponse({ ok: true }, 200, request, env);
-  }
-
-  if (pathname === '/health') {
-    return jsonResponse({ status: 'ok' }, 200, request, env);
   }
 
   return jsonResponse({ message: 'Not found' }, 404, request, env);

@@ -409,6 +409,7 @@
     .btn-pick-file {
       background: #0F172A; color: white; border: none; border-radius: 40px;
       padding: 0.4rem 1rem; font-weight: 500; cursor: pointer; font-family: inherit;
+      min-height: 44px; display: inline-flex; align-items: center;
     }
     .dropzone-hint { font-size: 0.7rem; color: #6B7280; margin-top: 12px; }
 
@@ -463,6 +464,13 @@
       margin-bottom: 1rem;
     }
 
+    /* Session-expired notice banner (dynamically created, informational) */
+    .session-notice-banner {
+      background: #EFF6FF; border: 1px solid #BFDBFE; color: #1E40AF;
+      border-radius: 16px; padding: 0.8rem 1.2rem; font-size: 0.85rem;
+      margin-bottom: 1rem;
+    }
+
     /* Submit hint — shown when button is disabled due to no file */
     .submit-hint {
       text-align: center;
@@ -501,7 +509,7 @@
       </div>
       <div class="step" id="step-2">
         <span class="step-label">2. Job Desc</span>
-        <span class="step-desc">opsional · naikkan akurasi 3×</span>
+        <span class="step-desc">wajib · naikkan akurasi 3×</span>
       </div>
       <div class="step" id="step-3">
         <span class="step-label">3. Analisis</span>
@@ -525,7 +533,7 @@
           <div class="dropzone-text">Drag &amp; drop CV di sini</div>
           <div class="dropzone-divider">atau</div>
           <button type="button" class="btn-pick-file" aria-label="Pilih file CV dari komputer kamu">Pilih file</button>
-          <input type="file" id="cv-file" class="hidden" aria-label="Upload file CV (PDF atau DOCX, maks 5MB)" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain">
+          <input type="file" id="cv-file" class="hidden" aria-label="Upload file CV (PDF atau DOCX, maks 5MB)" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" capture="environment">
           <div class="dropzone-hint">PDF atau DOCX &nbsp;•&nbsp; maks 5MB</div>
         </div>
 
@@ -551,7 +559,7 @@
       </div>
 
       <!-- Job Description -->
-      <label for="job-desc">Job yang kamu targetkan <span class="label-optional">(opsional tapi disarankan)</span><span class="gl-tip" tabindex="0"><span class="gl-tip-icon">?</span><span class="gl-tip-bubble">Paste bagian "Requirements" atau "Qualifications" dari lowongan. Ini membuat analisis 3× lebih akurat dan relevan.</span></span></label>
+      <label for="job-desc">Job yang kamu targetkan<span class="gl-tip" tabindex="0"><span class="gl-tip-icon">?</span><span class="gl-tip-bubble">Paste bagian "Requirements" atau "Qualifications" dari lowongan. Ini membuat analisis 3× lebih akurat dan relevan.</span></span></label>
       <div class="jd-helper-card">
         <div class="jd-helper-title">💡 Belum punya Job Description?</div>
         <div class="jd-helper-sub">Pilih salah satu cara di bawah — atau paste manual langsung ke kotak teks</div>
@@ -585,13 +593,9 @@
       <div id="char-warning" class="char-warning-text hidden"></div>
       <div id="jd-error" class="error-msg hidden"></div>
 
-      <div class="skip-link">
-        <a href="#" id="skip-jd-link">Lewati<span class="gl-tip" tabindex="0"><span class="gl-tip-icon">?</span><span class="gl-tip-bubble">Tanpa job desc, hasil analisis akan umum dan tidak dibandingkan ke lowongan spesifik. Skor mungkin kurang akurat.</span></span> <span class="label-note">(hasil akan lebih umum &amp; kurang akurat)</span></a>
-      </div>
-
       <!-- Scroll hint -->
       <div id="scroll-hint">
-        <svg class="scroll-hint-svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+        <svg class="scroll-hint-svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><polyline points="6 9 12 15 18 9"/></svg>
         <span>Scroll untuk tombol analisis</span>
       </div>
 
@@ -625,6 +629,6 @@
   </div>
 </div>
 
-<script defer src="js/dist/upload.bundle.js"></script>
+<script defer src="js/dist/upload.bundle.js?v=1"></script>
 </body>
 </html>

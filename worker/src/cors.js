@@ -13,6 +13,7 @@ export function getCorsHeaders(request, env) {
     'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-Session-Secret',
+    'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',
   };
@@ -31,6 +32,16 @@ export function jsonResponse(data, status = 200, request, env) {
     JSON.stringify(data),
     status,
     { 'Content-Type': 'application/json' },
+    request,
+    env
+  );
+}
+
+export function jsonResponseWithCookie(data, status, cookieHeader, request, env) {
+  return corsResponse(
+    JSON.stringify(data),
+    status,
+    { 'Content-Type': 'application/json', 'Set-Cookie': cookieHeader },
     request,
     env
   );

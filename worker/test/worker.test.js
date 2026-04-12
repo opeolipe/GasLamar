@@ -201,16 +201,23 @@ const MOCK_CV_EN = { content: [{ text: 'PROFESSIONAL SUMMARY\nExperienced develo
 // ============================================================
 
 describe('/health', () => {
-  it('returns 200 with { status: "ok" }', async () => {
+  it('returns 200 with status, timestamp, and environment', async () => {
+    const before = Date.now();
     const res = await get('/health');
+    const after = Date.now();
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ status: 'ok' });
+    const body = await res.json();
+    expect(body.status).toBe('ok');
+    expect(typeof body.timestamp).toBe('string');
+    expect(new Date(body.timestamp).getTime()).toBeGreaterThanOrEqual(before);
+    expect(new Date(body.timestamp).getTime()).toBeLessThanOrEqual(after);
+    expect(typeof body.environment).toBe('string');
   });
 
-  it('does not leak env info', async () => {
+  it('response contains exactly status, timestamp, environment keys', async () => {
     const res = await get('/health');
     const body = await res.json();
-    expect(Object.keys(body)).toEqual(['status']);
+    expect(Object.keys(body).sort()).toEqual(['environment', 'status', 'timestamp']);
   });
 });
 
@@ -534,18 +541,19 @@ describe('Rate limiting — /analyze (3 req/min per IP)', () => {
 });
 
 describe('POST /session/ping', () => {
-  it('rejects missing body → 400', async () => {
+  it('returns 401 when no session cookie is present', async () => {
+    // Handlers now read session_id from Cookie header; missing cookie → 401
     const res = await post('/session/ping', {});
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(401);
   });
 
-  it('rejects invalid session_id format → 400', async () => {
-    const res = await post('/session/ping', { session_id: 'invalid' });
-    expect(res.status).toBe(400);
+  it('returns 401 for invalid session_id in cookie (not sess_ prefix)', async () => {
+    const res = await post('/session/ping', {}, { Cookie: 'session_id=invalid' });
+    expect(res.status).toBe(401);
   });
 
   it('returns 404 for unknown session', async () => {
-    const res = await post('/session/ping', { session_id: 'sess_nonexistent' });
+    const res = await post('/session/ping', {}, { Cookie: 'session_id=sess_nonexistent' });
     expect(res.status).toBe(404);
     const body = await res.json();
     expect(body.expired).toBe(true);
@@ -553,7 +561,7 @@ describe('POST /session/ping', () => {
 
   it('returns ok:true and refreshes session for known session', async () => {
     const sessionId = await seedSession('paid', 'single');
-    const res = await post('/session/ping', { session_id: sessionId });
+    const res = await post('/session/ping', {}, sessionCookie(sessionId));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
@@ -562,14 +570,14 @@ describe('POST /session/ping', () => {
 });
 
 describe('GET /check-session', () => {
-  it('rejects missing session → 400', async () => {
+  it('returns 401 when no session cookie or query param present', async () => {
     const res = await get('/check-session');
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(401);
   });
 
-  it('rejects session without sess_ prefix → 400', async () => {
+  it('returns 401 when session query param lacks sess_ prefix (backward compat path)', async () => {
     const res = await get('/check-session?session=invalid_id');
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(401);
   });
 
   it('returns 404 for unknown session', async () => {
@@ -629,30 +637,30 @@ describe('GET /validate-session', () => {
 });
 
 describe('POST /get-session', () => {
-  it('rejects missing session_id → 400', async () => {
+  it('returns 401 when no session cookie is present', async () => {
     const res = await post('/get-session', {});
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(401);
   });
 
-  it('rejects session_id without sess_ prefix → 400', async () => {
-    const res = await post('/get-session', { session_id: 'abc123' });
-    expect(res.status).toBe(400);
+  it('returns 401 when cookie session_id lacks sess_ prefix', async () => {
+    const res = await post('/get-session', {}, { Cookie: 'session_id=abc123' });
+    expect(res.status).toBe(401);
   });
 
   it('returns 404 for unknown session', async () => {
-    const res = await post('/get-session', { session_id: 'sess_nonexistent' });
+    const res = await post('/get-session', {}, { Cookie: 'session_id=sess_nonexistent' });
     expect(res.status).toBe(404);
   });
 
   it('returns 403 when status is pending (not paid)', async () => {
     const sessionId = await seedSession('pending');
-    const res = await post('/get-session', { session_id: sessionId });
+    const res = await post('/get-session', {}, sessionCookie(sessionId));
     expect(res.status).toBe(403);
   });
 
   it('returns cv/job_desc/tier and sets status to generating for paid session', async () => {
     const sessionId = await seedSession('paid', 'single');
-    const res = await post('/get-session', { session_id: sessionId });
+    const res = await post('/get-session', {}, sessionCookie(sessionId));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.cv).toBeTruthy();
@@ -745,30 +753,30 @@ describe('extractJobMetadata — via /generate response', () => {
 });
 
 describe('POST /generate — validation', () => {
-  it('rejects missing session_id → 400', async () => {
+  it('returns 401 when no session cookie is present', async () => {
     const res = await post('/generate', {});
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(401);
   });
 
-  it('rejects session_id without sess_ prefix → 400', async () => {
-    const res = await post('/generate', { session_id: 'invalid' });
-    expect(res.status).toBe(400);
+  it('returns 401 when cookie session_id lacks sess_ prefix', async () => {
+    const res = await post('/generate', {}, { Cookie: 'session_id=invalid' });
+    expect(res.status).toBe(401);
   });
 
   it('returns 404 for unknown session', async () => {
-    const res = await post('/generate', { session_id: 'sess_nonexistent' });
+    const res = await post('/generate', {}, { Cookie: 'session_id=sess_nonexistent' });
     expect(res.status).toBe(404);
   });
 
   it('returns 403 when status is paid (not generating)', async () => {
     const sessionId = await seedSession('paid');
-    const res = await post('/generate', { session_id: sessionId });
+    const res = await post('/generate', {}, sessionCookie(sessionId));
     expect(res.status).toBe(403);
   });
 
   it('returns 403 when status is pending', async () => {
     const sessionId = await seedSession('pending');
-    const res = await post('/generate', { session_id: sessionId });
+    const res = await post('/generate', {}, sessionCookie(sessionId));
     expect(res.status).toBe(403);
   });
 });
@@ -987,7 +995,7 @@ describe('POST /get-session — returns credits_remaining', () => {
       created_at: Date.now(),
     }), { expirationTtl: 1800 });
 
-    const res = await post('/get-session', { session_id: sessionId });
+    const res = await post('/get-session', {}, sessionCookie(sessionId));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.credits_remaining).toBe(3);
@@ -1006,7 +1014,7 @@ describe('POST /get-session — returns credits_remaining', () => {
       created_at: Date.now(),
     }), { expirationTtl: 1800 });
 
-    const res = await post('/get-session', { session_id: sessionId });
+    const res = await post('/get-session', {}, sessionCookie(sessionId));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.credits_remaining).toBe(1);
@@ -1069,7 +1077,7 @@ describe('Multi-credit session — total_credits preserved through updateSession
       created_at: Date.now(),
     }), { expirationTtl: 604800 });
 
-    const res = await post('/get-session', { session_id: sessionId }, {}, '10.3.0.1');
+    const res = await post('/get-session', {}, { ...sessionCookie(sessionId) }, '10.3.0.1');
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.total_credits).toBe(10);
@@ -1087,9 +1095,8 @@ describe('POST /generate — job_desc override validation', () => {
   it('rejects job_desc over 5000 chars → 400', async () => {
     const sessionId = await seedSession('generating', 'single');
     const res = await post('/generate', {
-      session_id: sessionId,
       job_desc: 'x'.repeat(5001),
-    }, {}, '10.1.0.1');
+    }, { ...sessionCookie(sessionId) }, '10.1.0.1');
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.message).toMatch(/terlalu panjang/i);
@@ -1102,6 +1109,15 @@ describe('POST /generate — job_desc override validation', () => {
 async function sha256Full(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Build an extraHeaders object that carries session authentication via Cookie.
+ * All session-authenticated endpoints now read session_id from the Cookie header
+ * instead of the request body or query params.
+ */
+function sessionCookie(sessionId) {
+  return { Cookie: `session_id=${sessionId}` };
 }
 
 /** Seed a session with a bound secret hash. Returns { sessionId, secret }. */
@@ -1124,7 +1140,7 @@ async function seedSessionWithSecret(status = 'paid', tier = 'single') {
 describe('Session secret — POST /get-session', () => {
   it('returns 403 when secret is missing and session has a hash', async () => {
     const { sessionId } = await seedSessionWithSecret('paid');
-    const res = await post('/get-session', { session_id: sessionId });
+    const res = await post('/get-session', {}, sessionCookie(sessionId));
     expect(res.status).toBe(403);
     const body = await res.json();
     expect(body.message).toMatch(/akses ditolak|token sesi/i);
@@ -1132,7 +1148,7 @@ describe('Session secret — POST /get-session', () => {
 
   it('returns 403 when wrong secret is provided', async () => {
     const { sessionId } = await seedSessionWithSecret('paid');
-    const res = await post('/get-session', { session_id: sessionId }, { 'X-Session-Secret': 'wrong-secret' });
+    const res = await post('/get-session', {}, { ...sessionCookie(sessionId), 'X-Session-Secret': 'wrong-secret' });
     expect(res.status).toBe(403);
     const body = await res.json();
     expect(body.message).toMatch(/akses ditolak|token sesi/i);
@@ -1140,7 +1156,7 @@ describe('Session secret — POST /get-session', () => {
 
   it('returns 200 when correct secret is provided', async () => {
     const { sessionId, secret } = await seedSessionWithSecret('paid');
-    const res = await post('/get-session', { session_id: sessionId }, { 'X-Session-Secret': secret });
+    const res = await post('/get-session', {}, { ...sessionCookie(sessionId), 'X-Session-Secret': secret });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.cv).toBeTruthy();
@@ -1150,7 +1166,7 @@ describe('Session secret — POST /get-session', () => {
   it('returns 200 for legacy sessions without a stored hash (no secret required)', async () => {
     // seedSession creates sessions without session_secret_hash — backward compat
     const sessionId = await seedSession('paid', 'single');
-    const res = await post('/get-session', { session_id: sessionId });
+    const res = await post('/get-session', {}, sessionCookie(sessionId));
     expect(res.status).toBe(200);
   });
 });
@@ -1158,7 +1174,7 @@ describe('Session secret — POST /get-session', () => {
 describe('Session secret — POST /generate', () => {
   it('returns 403 when secret is missing and session has a hash', async () => {
     const { sessionId } = await seedSessionWithSecret('generating');
-    const res = await post('/generate', { session_id: sessionId }, {}, '10.4.0.1');
+    const res = await post('/generate', {}, { ...sessionCookie(sessionId) }, '10.4.0.1');
     expect(res.status).toBe(403);
     const body = await res.json();
     expect(body.message).toMatch(/akses ditolak|token sesi/i);
@@ -1166,14 +1182,14 @@ describe('Session secret — POST /generate', () => {
 
   it('returns 403 when wrong secret is provided', async () => {
     const { sessionId } = await seedSessionWithSecret('generating');
-    const res = await post('/generate', { session_id: sessionId }, { 'X-Session-Secret': 'wrong' }, '10.4.0.2');
+    const res = await post('/generate', {}, { ...sessionCookie(sessionId), 'X-Session-Secret': 'wrong' }, '10.4.0.2');
     expect(res.status).toBe(403);
   });
 
   it('still returns 403 (status not generating) for paid session with correct secret', async () => {
     // /generate requires status=generating; a paid session with correct secret still 403s for wrong status
     const { sessionId, secret } = await seedSessionWithSecret('paid');
-    const res = await post('/generate', { session_id: sessionId }, { 'X-Session-Secret': secret }, '10.4.0.3');
+    const res = await post('/generate', {}, { ...sessionCookie(sessionId), 'X-Session-Secret': secret }, '10.4.0.3');
     expect(res.status).toBe(403);
     const body = await res.json();
     expect(body.message).toMatch(/generating|belum dikonfirmasi/i);
@@ -1183,19 +1199,19 @@ describe('Session secret — POST /generate', () => {
 describe('Session secret — POST /session/ping', () => {
   it('returns 403 when secret is missing and session has a hash', async () => {
     const { sessionId } = await seedSessionWithSecret('paid');
-    const res = await post('/session/ping', { session_id: sessionId });
+    const res = await post('/session/ping', {}, sessionCookie(sessionId));
     expect(res.status).toBe(403);
   });
 
   it('returns 403 when wrong secret is provided', async () => {
     const { sessionId } = await seedSessionWithSecret('paid');
-    const res = await post('/session/ping', { session_id: sessionId }, { 'X-Session-Secret': 'bad' });
+    const res = await post('/session/ping', {}, { ...sessionCookie(sessionId), 'X-Session-Secret': 'bad' });
     expect(res.status).toBe(403);
   });
 
   it('returns 200 with correct secret', async () => {
     const { sessionId, secret } = await seedSessionWithSecret('paid');
-    const res = await post('/session/ping', { session_id: sessionId }, { 'X-Session-Secret': secret });
+    const res = await post('/session/ping', {}, { ...sessionCookie(sessionId), 'X-Session-Secret': secret });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
@@ -1203,7 +1219,196 @@ describe('Session secret — POST /session/ping', () => {
 
   it('returns 200 for legacy sessions without stored hash (backward compat)', async () => {
     const sessionId = await seedSession('paid', 'single');
-    const res = await post('/session/ping', { session_id: sessionId });
+    const res = await post('/session/ping', {}, sessionCookie(sessionId));
     expect(res.status).toBe(200);
+  });
+});
+
+// ---- POST /fetch-job-url — SSRF protection -----------------------------------
+// All blocking tests are rejected before any outbound fetch — no mock needed.
+// Each test uses a unique IP (10.101.0.x) to avoid the rate limiter.
+
+describe('POST /fetch-job-url — SSRF protection', () => {
+  // Range 10.101.0.x is reserved for this suite.
+  let _ipSeq = 0;
+  const nextIp = () => `10.101.0.${++_ipSeq}`;
+
+  it('rejects missing url → 400', async () => {
+    const res = await post('/fetch-job-url', {}, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/url wajib/i);
+  });
+
+  it('rejects invalid URL string → 400', async () => {
+    const res = await post('/fetch-job-url', { url: 'not a url at all' }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/tidak valid/i);
+  });
+
+  it('rejects http:// (non-HTTPS) → 400', async () => {
+    const res = await post('/fetch-job-url', { url: 'http://www.linkedin.com/jobs/view/123' }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/https/i);
+  });
+
+  it('rejects non-http scheme (ftp://) → 400', async () => {
+    const res = await post('/fetch-job-url', { url: 'ftp://www.linkedin.com/jobs' }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/https/i);
+  });
+
+  it('rejects disallowed domain (google.com) → 400', async () => {
+    const res = await post('/fetch-job-url', { url: 'https://google.com/search?q=jobs' }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/domain tidak diizinkan/i);
+  });
+
+  it('rejects look-alike domain (linkedin.com.evil.com) → 400', async () => {
+    const res = await post('/fetch-job-url', { url: 'https://linkedin.com.evil.com/jobs' }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/domain tidak diizinkan/i);
+  });
+
+  it('rejects @ bypass attempt (linkedin.com@evil.com) → 400', async () => {
+    // new URL() parses this as hostname=evil.com with credentials=linkedin.com
+    const res = await post('/fetch-job-url', { url: 'https://linkedin.com@evil.com/jobs' }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/domain tidak diizinkan/i);
+  });
+
+  it('rejects loopback IPv4 127.0.0.1 → 400 (private IP)', async () => {
+    const res = await post('/fetch-job-url', { url: 'https://127.0.0.1/admin' }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/ip internal/i);
+  });
+
+  it('rejects private RFC1918 10.0.0.1 → 400', async () => {
+    const res = await post('/fetch-job-url', { url: 'https://10.0.0.1/' }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/ip internal/i);
+  });
+
+  it('rejects private RFC1918 192.168.1.1 → 400', async () => {
+    const res = await post('/fetch-job-url', { url: 'https://192.168.1.1/' }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/ip internal/i);
+  });
+
+  it('rejects link-local 169.254.169.254 (AWS metadata) → 400', async () => {
+    const res = await post('/fetch-job-url', { url: 'https://169.254.169.254/latest/meta-data/' }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/ip internal/i);
+  });
+
+  it('rejects IPv6 loopback [::1] → 400', async () => {
+    const res = await post('/fetch-job-url', { url: 'https://[::1]:8080/admin' }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/ip internal/i);
+  });
+
+  it('rejects IPv6 link-local [fe80::1] → 400', async () => {
+    const res = await post('/fetch-job-url', { url: 'https://[fe80::1]/' }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/ip internal/i);
+  });
+
+  it('rejects public bare IPv4 (not a job board) → 400 (domain not allowed)', async () => {
+    // Public IPs pass the private-IP check but still fail the domain allowlist
+    const res = await post('/fetch-job-url', { url: 'https://8.8.8.8/' }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/domain tidak diizinkan/i);
+  });
+});
+
+describe('POST /fetch-job-url — allowed domains (mocked fetch)', () => {
+  beforeAll(() => fetchMock.activate());
+  afterAll(() => fetchMock.deactivate());
+
+  // Range 10.102.0.x is reserved for this suite.
+  let _ipSeq = 0;
+  const nextIp = () => `10.102.0.${++_ipSeq}`;
+
+  it('allows www.linkedin.com and returns extracted job_desc', async () => {
+    // Body must be >50 chars after whitespace normalisation to pass the minimum-text check.
+    const htmlBody = '<html><body>Requirements: min 3 years Node.js, React, and SQL. Strong communication skills needed.</body></html>';
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs/view/123456' })
+      .reply(200, htmlBody, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.linkedin.com/jobs/view/123456' }, {}, nextIp());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.job_desc).toBeTruthy();
+    expect(body.job_desc).toContain('Requirements');
+  });
+
+  it('allows subdomain jobs.linkedin.com', async () => {
+    const htmlBody = '<html><body>Requirements Python Django REST experience preferred.</body></html>';
+    fetchMock
+      .get('https://jobs.linkedin.com')
+      .intercept({ path: '/jobs/456' })
+      .reply(200, htmlBody, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://jobs.linkedin.com/jobs/456' }, {}, nextIp());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.job_desc).toBeTruthy();
+  });
+
+  it('allows www.jobstreet.co.id', async () => {
+    const htmlBody = '<html><body>Kualifikasi S1 Teknik Informatika pengalaman 2 tahun dibutuhkan.</body></html>';
+    fetchMock
+      .get('https://www.jobstreet.co.id')
+      .intercept({ path: '/id/job/789' })
+      .reply(200, htmlBody, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.jobstreet.co.id/id/job/789' }, {}, nextIp());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.job_desc).toBeTruthy();
+  });
+
+  it('returns 422 when upstream page returns non-200', async () => {
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs/view/999' })
+      .reply(403, 'Forbidden', { headers: { 'content-type': 'text/html' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.linkedin.com/jobs/view/999' }, {}, nextIp());
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.message).toMatch(/tidak bisa diakses/i);
+  });
+
+  it('returns 422 when upstream returns non-HTML content type', async () => {
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs/view/pdf' })
+      .reply(200, 'binary', { headers: { 'content-type': 'application/pdf' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.linkedin.com/jobs/view/pdf' }, {}, nextIp());
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.message).toMatch(/bukan halaman web/i);
   });
 });

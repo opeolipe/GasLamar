@@ -7,6 +7,7 @@
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const MAX_JD_CHARS = 5000;
 const MIN_CV_TEXT_LENGTH = 100;
+const MIN_JD_LENGTH = 100;
 
 let selectedFile = null;
 let cvText = '';
@@ -210,16 +211,30 @@ function arrayBufferToBase64(buffer) {
 }
 
 // ---- Submit Button State ----
-// Single source of truth: disabled when no file is selected OR JD is over the limit.
+// Single source of truth: disabled when no file, JD too short, or JD over limit.
 
 function syncSubmitBtn() {
   const btn = document.getElementById('submit-btn');
   const hint = document.getElementById('submit-hint');
   if (!btn) return;
   const hasFile = !!selectedFile;
-  const jdTooLong = document.getElementById('job-desc').value.length > MAX_JD_CHARS;
-  btn.disabled = !hasFile || jdTooLong;
-  if (hint) hint.style.display = (!hasFile && !jdTooLong) ? '' : 'none';
+  const jdTrimLen = document.getElementById('job-desc').value.trim().length;
+  const jdTooShort = jdTrimLen < MIN_JD_LENGTH;
+  const jdTooLong  = document.getElementById('job-desc').value.length > MAX_JD_CHARS;
+
+  btn.disabled = !hasFile || jdTooShort || jdTooLong;
+
+  if (hint) {
+    if (!hasFile) {
+      hint.textContent = '📄 Upload CV kamu dulu sebelum analisis';
+      hint.style.display = '';
+    } else if (jdTooShort) {
+      hint.textContent = '✍️ Isi job description dulu (min. 100 karakter)';
+      hint.style.display = '';
+    } else {
+      hint.style.display = 'none';
+    }
+  }
 }
 
 // ---- Character Counter ----
@@ -246,14 +261,27 @@ function updateCharCount() {
   if (count >= MAX_JD_CHARS) {
     warning.textContent = 'Batas karakter tercapai';
     warning.classList.remove('hidden');
-    showError('jd-error', `Job description terlalu panjang. Maksimal ${MAX_JD_CHARS.toLocaleString('id-ID')} karakter.`);
+    // At exactly the limit (5000 chars) the submission is still valid — don't show
+    // a "too long" error that contradicts the enabled submit button. The counter
+    // warning above is sufficient feedback that no more characters can be added.
+    hideError('jd-error');
   } else if (count > 4500) {
     warning.textContent = 'Mendekati batas karakter';
     warning.classList.remove('hidden');
-    if (count >= 50) hideError('jd-error');
+    hideError('jd-error'); // well past MIN_JD_LENGTH — no "too short" needed
   } else {
     warning.classList.add('hidden');
-    if (count >= 50) hideError('jd-error');
+    const trimLen = jd.value.trim().length;
+    if (trimLen > 0 && trimLen < MIN_JD_LENGTH) {
+      // Show "too short" without the button shake — direct DOM update only
+      const jdErrEl = document.getElementById('jd-error');
+      if (jdErrEl) {
+        jdErrEl.textContent = `Job description terlalu pendek. Tulis minimal ${MIN_JD_LENGTH} karakter (bagian Requirements dan Responsibilities) untuk analisis yang akurat.`;
+        jdErrEl.classList.remove('hidden');
+      }
+    } else {
+      hideError('jd-error');
+    }
   }
 
   syncSubmitBtn();
@@ -284,8 +312,8 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
     return;
   }
 
-  if (jobDesc.length < 50) {
-    showError('jd-error', 'Job description terlalu pendek. Paste bagian Requirements dan Responsibilities.');
+  if (jobDesc.length < MIN_JD_LENGTH) {
+    showError('jd-error', `Job description terlalu pendek. Tulis minimal ${MIN_JD_LENGTH} karakter (bagian Requirements dan Responsibilities) untuk analisis yang akurat.`);
     return;
   }
 
@@ -297,7 +325,8 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
   sessionStorage.setItem('gaslamar_jd_pending', jobDesc);
   sessionStorage.setItem('gaslamar_filename', selectedFile ? selectedFile.name : 'CV');
   sessionStorage.setItem('gaslamar_had_jd', jobDesc.length >= 50 ? '1' : '0');
-  sessionStorage.removeItem('gaslamar_jd_draft'); // clear draft on successful submit
+  // Note: gaslamar_jd_draft is cleared by analyzing-page.js on successful analysis,
+  // not here — so the draft survives if the analysis fails and the user returns.
 
   if (window.Analytics) Analytics.track('upload_submitted', {
     file_ext: '.' + selectedFile.name.split('.').pop().toLowerCase(),
@@ -435,6 +464,10 @@ function hideError(id) {
       const capped = (typeof v === 'string' && v.length > MAX_JD_CHARS) ? v.slice(0, MAX_JD_CHARS) : v;
       proto.set.call(this, capped);
       updateCharCount();
+      // Save draft on programmatic assignments too (e.g. staging test panel auto-fill),
+      // not just on user keystrokes. The input event listener covers manual typing;
+      // this setter covers jdEl.value = '...' calls that bypass the input event.
+      sessionStorage.setItem('gaslamar_jd_draft', proto.get.call(this));
     },
     configurable: false,
   });

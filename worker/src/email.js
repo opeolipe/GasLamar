@@ -1,4 +1,5 @@
 import { getSession } from './sessions.js';
+import { hexToken } from './utils.js';
 
 // ---- Resend Email ----
 //
@@ -6,6 +7,27 @@ import { getSession } from './sessions.js';
 // RESEND_API_KEY must be set via: wrangler secret put RESEND_API_KEY
 // FROM_EMAIL must be set or defaults to noreply@gaslamar.com.
 // Silently skips if RESEND_API_KEY is absent — email is non-critical.
+//
+// Email links use a short-lived, single-use email_token instead of the raw
+// session_id. This prevents session hijacking when emails are forwarded,
+// cached by mail providers, or opened on a different device/browser.
+// The token is stored in KV with a 1-hour TTL and deleted on first use.
+
+const EMAIL_TOKEN_TTL = 3600; // 1 hour
+
+/**
+ * Generate a short-lived, single-use email token and store it in KV.
+ * Returns the token string (32-char hex).
+ */
+async function createEmailToken(env, sessionId) {
+  const token = hexToken(16); // 128 bits of entropy
+  await env.GASLAMAR_SESSIONS.put(
+    `email_token_${token}`,
+    JSON.stringify({ session_id: sessionId }),
+    { expirationTtl: EMAIL_TOKEN_TTL }
+  );
+  return token;
+}
 
 export async function sendPaymentConfirmationEmail(sessionId, env) {
   const apiKey = env.RESEND_API_KEY;
@@ -14,7 +36,12 @@ export async function sendPaymentConfirmationEmail(sessionId, env) {
   const session = await getSession(env, sessionId);
   if (!session || !session.email) return; // no email stored for this session
 
-  const downloadUrl = `https://gaslamar.com/download.html?session=${encodeURIComponent(sessionId)}`;
+  // Use a single-use token in the download link — never the raw session ID.
+  // The token exchange endpoint (/exchange-token) sets the session cookie
+  // and redirects to /download.html cleanly.
+  const emailToken = await createEmailToken(env, sessionId);
+  const downloadUrl = `https://gaslamar.com/download.html?token=${emailToken}`;
+
   const tierLabels = {
     coba:    'Coba Dulu (1 CV)',
     single:  'Single (1 CV Bilingual)',
@@ -44,7 +71,8 @@ export async function sendPaymentConfirmationEmail(sessionId, env) {
         style="display:inline-block;background:#1B4FE8;color:#fff;font-weight:700;padding:14px 28px;border-radius:12px;text-decoration:none;margin-bottom:24px">
         ${isMulti ? 'Mulai Generate CV →' : 'Download CV Sekarang →'}
       </a>
-      <p style="font-size:12px;color:#9CA3AF">Link ini berlaku ${validityText}. Kalau sudah kedaluwarsa, mulai ulang dari <a href="https://gaslamar.com/upload.html" style="color:#1B4FE8">sini</a>.</p>
+      <p style="font-size:12px;color:#9CA3AF">Link ini berlaku 1 jam. Kalau sudah kedaluwarsa, mulai ulang dari <a href="https://gaslamar.com/upload.html" style="color:#1B4FE8">sini</a>.</p>
+      <p style="font-size:12px;color:#9CA3AF">Setelah membuka link, sesi kamu akan aktif selama ${validityText} di browser tersebut.</p>
     </div>`;
 
   await fetch('https://api.resend.com/emails', {
@@ -72,7 +100,10 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
   const session = await getSession(env, sessionId);
   if (!session || !session.email) return;
 
-  const downloadUrl = `https://gaslamar.com/download.html?session=${encodeURIComponent(sessionId)}`;
+  // Single-use token — protects the session ID from email exposure
+  const emailToken = await createEmailToken(env, sessionId);
+  const downloadUrl = `https://gaslamar.com/download.html?token=${emailToken}`;
+
   const scoreNum = typeof score === 'number' ? score : parseInt(score, 10) || 0;
   const scoreColor = scoreNum >= 75 ? '#059669' : scoreNum >= 50 ? '#D97706' : '#DC2626';
   const top3 = Array.isArray(gaps) ? gaps.slice(0, 3) : [];
@@ -108,7 +139,7 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
       ${isMulti ? '' : `<div style="background:#EFF6FF;border-radius:10px;padding:14px 18px;margin-bottom:20px">
         <p style="margin:0;font-size:13px;color:#1E40AF">Punya loker lain? <a href="https://gaslamar.com/?tier=3pack" style="color:#1B4FE8;font-weight:600">Upgrade ke 3-Pack</a> dan hemat 40%.</p>
       </div>`}
-      <p style="font-size:12px;color:#9CA3AF">Link download berlaku 24 jam. Pertanyaan? Email ke <a href="mailto:support@gaslamar.com" style="color:#1B4FE8">support@gaslamar.com</a></p>
+      <p style="font-size:12px;color:#9CA3AF">Link download berlaku 1 jam. Pertanyaan? Email ke <a href="mailto:support@gaslamar.com" style="color:#1B4FE8">support@gaslamar.com</a></p>
     </div>`;
 
   await fetch('https://api.resend.com/emails', {

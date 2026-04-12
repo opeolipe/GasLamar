@@ -281,6 +281,8 @@
     .bottom-cta      { text-align: center; padding-bottom: 2rem; }
     .bottom-cta-text { color: #6B7280; font-size: .9rem; margin-bottom: .75rem; }
   </style>
+  <!-- Session guard: synchronous (no defer) — runs before body renders -->
+  <script src="js/download-guard.js"></script>
 </head>
 <body>
 <h1 class="sr-only">Download CV</h1>
@@ -507,7 +509,7 @@
 
   </div>
 
-  <script defer src="js/dist/download.bundle.js"></script>
+  <script defer src="js/dist/download.bundle.js?v=1"></script>
 
 </body>
 </html>

@@ -4,6 +4,25 @@
  */
 
 (async function initScoring() {
+  // --- Guard flag check (must be first) ---
+  // hasil-guard.js sets window.__gaslamarNoSession instead of redirecting when
+  // session data is missing or expired — lets us show an inline message here
+  // rather than a silent redirect that confuses users.
+  if (window.__gaslamarNoSession) {
+    const noSessionEl = document.getElementById('no-session-state');
+    const loadingEl   = document.getElementById('results-loading');
+    if (loadingEl)   loadingEl.classList.add('hidden');
+    if (noSessionEl) {
+      if (window.__gaslamarNoSession === 'expired') {
+        const msgEl = document.getElementById('no-session-msg');
+        if (msgEl) msgEl.innerHTML =
+          'Sesi analisis sudah kadaluarsa (2 jam).<br>Silakan upload CV kamu kembali untuk memulai analisis baru.';
+      }
+      noSessionEl.classList.remove('hidden');
+    }
+    return;
+  }
+
   // --- Server-side session validation (defense-in-depth) ---
   // hasil-guard.js already validated format + timing client-side.
   // We also check the server so a replayed/expired cvtext_ key is caught.
@@ -37,7 +56,7 @@
   if (!raw) {
     // No data — redirect back
     showError('Data analisis tidak ditemukan. Mohon upload CV kamu kembali.');
-    window.location.href = 'upload.html';
+    window.location.href = 'upload.html?reason=session_expired';
     return;
   }
 

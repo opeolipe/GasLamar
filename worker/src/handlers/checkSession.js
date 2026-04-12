@@ -1,13 +1,18 @@
 import { jsonResponse } from '../cors.js';
 import { logError } from '../utils.js';
 import { getSession } from '../sessions.js';
+import { getSessionIdFromCookie } from '../cookies.js';
 
 export async function handleCheckSession(request, env) {
   const url = new URL(request.url);
-  const sessionId = url.searchParams.get('session');
+
+  // Cookie is the primary source. The ?session= query param is kept as a
+  // backward-compatibility fallback for existing links/bookmarks during
+  // the transition period. New clients never include ?session= in the URL.
+  const sessionId = getSessionIdFromCookie(request) || url.searchParams.get('session');
 
   if (!sessionId || !sessionId.startsWith('sess_')) {
-    return jsonResponse({ message: 'Session ID tidak valid' }, 400, request, env);
+    return jsonResponse({ message: 'Session tidak ditemukan. Pastikan browser mengizinkan cookies.' }, 401, request, env);
   }
 
   const session = await getSession(env, sessionId);
