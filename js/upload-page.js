@@ -100,6 +100,12 @@ document.getElementById('job-url-input').addEventListener('keydown', (e) => {
 document.getElementById('drop-zone').addEventListener('click', function(e) {
   if (!e.target.closest('#drop-preview')) document.getElementById('cv-file').click();
 });
+document.getElementById('drop-zone').addEventListener('keydown', function(e) {
+  if ((e.key === 'Enter' || e.key === ' ') && !e.target.closest('#drop-preview')) {
+    e.preventDefault(); // prevent Space from scrolling the page
+    document.getElementById('cv-file').click();
+  }
+});
 document.getElementById('drop-zone').addEventListener('dragover', handleDragOver);
 document.getElementById('drop-zone').addEventListener('dragleave', handleDragLeave);
 document.getElementById('drop-zone').addEventListener('drop', handleDrop);

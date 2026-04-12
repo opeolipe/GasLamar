@@ -159,6 +159,10 @@
       border-color: #0F172A;
       background: #F8FAFC;
     }
+    .dropzone:focus-visible {
+      outline: 2px solid #0F172A;
+      outline-offset: 2px;
+    }
 
     /* File preview (inside dropzone) */
     #drop-preview {
@@ -536,7 +540,7 @@
       <!-- CV Upload -->
       <label for="cv-file">📄 1. Upload CV Kamu</label>
 
-      <div id="drop-zone" class="dropzone">
+      <div id="drop-zone" class="dropzone" tabindex="0" role="button" aria-label="Area upload CV — klik atau tekan Enter untuk memilih file">
 
         <div id="drop-idle">
           <div class="dropzone-icon">📁</div>
