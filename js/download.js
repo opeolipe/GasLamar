@@ -134,8 +134,8 @@ async function poll(sessionId) {
         return;
       }
       showSessionError(
-        'Sesi Tidak Valid atau Kedaluwarsa',
-        'Sesi tidak ditemukan. Jika kamu baru saja membayar, coba refresh halaman ini. Jika masalah berlanjut, hubungi support@gaslamar.com dengan bukti pembayaran.',
+        'Sesi Tidak Ditemukan',
+        'Sesi pembayaran tidak ditemukan. Jika kamu baru saja membayar, coba refresh halaman ini — kadang butuh 1–2 menit. Jika masalah berlanjut, hubungi support@gaslamar.com dengan bukti pembayaran.',
         false
       );
       return;
@@ -218,7 +218,7 @@ function startSessionHeartbeat(sessionId) {
         stopSessionHeartbeat();
         showSessionError(
           'Sesi Kedaluwarsa',
-          'Sesi kamu sudah kedaluwarsa. Jika kamu sudah membayar, hubungi kami dengan bukti pembayaran.',
+          'Sesi download kamu sudah berakhir (lebih dari 7 hari). Upload ulang CV untuk memulai analisis baru, atau hubungi support@gaslamar.com jika kamu masih punya kredit tersisa.',
           false
         );
       }
@@ -275,7 +275,7 @@ async function fetchAndGenerateCV(sessionId) {
     if (res.status === 404) {
       showSessionError(
         'Sesi Tidak Ditemukan',
-        'Sesi tidak ditemukan atau sudah kedaluwarsa. Jika kamu sudah membayar, hubungi support dengan bukti pembayaran.',
+        'Sesi tidak ditemukan atau sudah berakhir. Sesi berbayar berlaku 7 hari — jika kamu masih dalam periode ini, coba refresh. Jika sudah lebih dari 7 hari, upload ulang CV untuk analisis baru.',
         false
       );
       return;
@@ -347,7 +347,7 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
       if (res.status === 404) {
         showSessionError(
           'Sesi Tidak Ditemukan',
-          'Sesi tidak ditemukan atau sudah kedaluwarsa. Jika kamu sudah membayar, hubungi support dengan bukti pembayaran.',
+          'Sesi tidak ditemukan atau sudah berakhir. Sesi berbayar berlaku 7 hari — jika kamu masih dalam periode ini, coba refresh. Jika sudah lebih dari 7 hari, upload ulang CV untuk analisis baru.',
           false
         );
         return;
@@ -775,7 +775,19 @@ function showDownloadReady(cvId, cvEn, tier, isBilingual, creditsRemaining) {
   // Show upgrade nudge when all credits are used
   if (creditsRemaining <= 0) {
     const upgradeEl = document.getElementById('upgrade-nudge');
-    if (upgradeEl) upgradeEl.classList.remove('hidden');
+    if (upgradeEl) {
+      // For coba/single: replace generic nudge with a 3-Pack upsell card
+      if (tier === 'coba' || tier === 'single') {
+        upgradeEl.innerHTML = `
+          <div class="upsell-card">
+            <div class="upsell-saving">💰 Hemat 40% vs beli satuan</div>
+            <h3>🎯 Lagi banyak lamaran?</h3>
+            <p>Upgrade ke <strong>3-Pack</strong> — Rp 149.000 untuk 3 CV bilingual.<br>Lebih hemat, lebih banyak pilihan.</p>
+            <a href="upload.html" class="btn-upsell" title="Mulai analisis CV baru dengan paket 3-Pack">Upgrade ke 3-Pack →</a>
+          </div>`;
+      }
+      upgradeEl.classList.remove('hidden');
+    }
   }
 
   // Detect if mobile (for fallback hint)
