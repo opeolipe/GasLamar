@@ -1,6 +1,6 @@
 import { jsonResponse } from '../cors.js';
 import { logError } from '../utils.js';
-import { getSession } from '../sessions.js';
+import { getSession, getSessionTtl } from '../sessions.js';
 import { getSessionIdFromCookie } from '../cookies.js';
 
 export async function handleCheckSession(request, env) {
@@ -22,10 +22,15 @@ export async function handleCheckSession(request, env) {
     return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa' }, 404, request, env);
   }
 
+  const expiresAt = session.created_at
+    ? session.created_at + getSessionTtl(session) * 1000
+    : null;
+
   return jsonResponse({
     status: session.status,
     credits_remaining: session.credits_remaining ?? 1,
     total_credits: session.total_credits ?? 1,
     tier: session.tier,
+    expires_at: expiresAt,
   }, 200, request, env);
 }

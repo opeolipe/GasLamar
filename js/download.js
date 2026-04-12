@@ -12,6 +12,7 @@ let pollCount = 0;
 let notFoundCount = 0; // consecutive 404s — separate from pollCount for faster invalid-session detection
 let pollTimer = null;
 let heartbeatTimer = null;
+let countdownInterval = null;
 let cvDataCache = null; // { cv_id: string, cv_en: string, tier: string, total_credits: number, job_title: string|null, company: string|null }
 let sessionIdCache = null; // retained for multi-credit re-use
 let sessionSecretCache = null; // retained for X-Session-Secret header
@@ -152,6 +153,7 @@ async function poll(sessionId) {
     if (status === 'paid' || status === 'generating') {
       clearTimeout(pollTimer);
       startSessionHeartbeat(sessionId); // keep session alive while user is on the page
+      if (data.expires_at) startCountdown(data.expires_at);
       const creditsRemaining = data.credits_remaining ?? 1;
       const totalCredits = data.total_credits ?? 1;
       // Sync authoritative tier from server so animation shows the correct package label
@@ -649,6 +651,37 @@ function generatePDF(cvText, lang, tier) {
     // Try triggering mobile fallback
     alert('Tidak bisa generate PDF. Gunakan tombol salin teks di bawah.');
   }
+}
+
+// ---- Session Countdown ----
+
+function startCountdown(expiresAtMs) {
+  if (!expiresAtMs) return;
+  const bar = document.getElementById('session-countdown');
+  const text = document.getElementById('countdown-text');
+  if (!bar || !text) return;
+
+  function update() {
+    const msLeft = expiresAtMs - Date.now();
+    if (msLeft <= 0) {
+      text.textContent = 'Sesi kedaluwarsa — download tidak lagi tersedia.';
+      return;
+    }
+    const days  = Math.floor(msLeft / 86400000);
+    const hours = Math.floor((msLeft % 86400000) / 3600000);
+    if (days > 0) {
+      text.textContent = `Sesi aktif · Berakhir dalam ${days} hari ${hours} jam`;
+    } else {
+      const mins = Math.floor((msLeft % 3600000) / 60000);
+      text.textContent = `Sesi aktif · Berakhir dalam ${hours} jam ${mins} menit`;
+    }
+  }
+
+  update();
+  bar.style.display = 'block';
+  document.body.classList.add('has-countdown');
+  if (countdownInterval) clearInterval(countdownInterval);
+  countdownInterval = setInterval(update, 60000); // refresh every minute
 }
 
 // ---- UI Helpers ----

@@ -283,11 +283,30 @@
     .legal-footer { text-align: center; padding: 1.5rem 0 2rem; font-size: 0.75rem; color: #9CA3AF; }
     .legal-footer a { color: #6B7280; text-decoration: none; margin: 0 0.5rem; }
     .legal-footer a:hover { text-decoration: underline; }
+
+    /* ── Session countdown bar ── */
+    #session-countdown {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 1000;
+      background: #FFFBEB;
+      border-bottom: 1px solid #FDE68A;
+      padding: 0.45rem 1rem;
+      text-align: center;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #92400E;
+    }
+    body.has-countdown { padding-top: calc(2rem + 34px); }
   </style>
   <!-- Session guard: synchronous (no defer) — runs before body renders -->
   <script src="js/download-guard.js"></script>
 </head>
 <body>
+<div id="session-countdown" role="status" aria-live="polite" aria-label="Informasi masa berlaku sesi">
+  ⏳ <span id="countdown-text"></span>
+</div>
 <h1 class="sr-only">Download CV</h1>
 <a href="#download-ready" id="skip-to-main" class="skip-to-main">Langsung ke download CV</a>
 

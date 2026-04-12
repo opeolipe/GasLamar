@@ -289,3 +289,17 @@ function showExpiryError() {
     </a>`;
   ctaArea.after(errDiv);
 }
+
+// DevTools deterrent — educational notice, not a security control.
+// The backend re-validates tier and price on every /create-payment call,
+// so client-side manipulation cannot change what the user is charged.
+console.log(
+  '%c⚠️ GasLamar — Perhatian',
+  'color:#92400E;background:#FFFBEB;font-size:14px;font-weight:700;padding:4px 10px;border-radius:4px;border:1px solid #FDE68A;'
+);
+console.log(
+  '%cMengubah nilai di DevTools tidak akan mempengaruhi harga sebenarnya.\n' +
+  'Pembayaran diproses oleh Mayar.id sesuai paket yang dipilih saat tombol bayar diklik.\n' +
+  'Tier dan harga divalidasi ulang di server — tidak bisa dimanipulasi dari browser.',
+  'color:#374151;font-size:12px;line-height:1.7;'
+);
