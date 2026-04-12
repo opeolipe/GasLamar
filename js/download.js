@@ -21,7 +21,6 @@ let sessionSecretCache = null; // retained for X-Session-Secret header
 (async function init() {
   const params = new URLSearchParams(location.search);
   const emailToken = params.get('token');
-  const legacySession = params.get('session');
 
   // ── Path 1: Email link with ?token= ──────────────────────────────────────
   // User clicked a link from a payment/CV-ready email. The link contains a
@@ -61,22 +60,7 @@ let sessionSecretCache = null; // retained for X-Session-Secret header
     }
   }
 
-  // ── Path 2: Old-format link with ?session= (backward compatibility) ──────
-  // Existing bookmarks or cached emails may still use ?session=. Accept the
-  // session ID, persist it to localStorage, and clean the URL immediately so
-  // it's not stored in browser history going forward.
-  if (legacySession && legacySession.startsWith('sess_')) {
-    localStorage.setItem('gaslamar_session', legacySession);
-    // Replace URL: strip the ?session= so it doesn't appear in history
-    history.replaceState(null, '', location.pathname);
-    sessionIdCache = legacySession;
-    sessionSecretCache = localStorage.getItem('gaslamar_secret_' + legacySession);
-    showState('waiting-payment');
-    startPolling(sessionIdCache);
-    return;
-  }
-
-  // ── Path 3: Cookie + localStorage (normal flow after payment) ────────────
+  // ── Path 2: Cookie + localStorage (normal flow after payment) ────────────
   // After /create-payment the browser holds a session_id cookie for the Worker
   // origin, and payment.js stored the session_id in localStorage. Both are used:
   // the cookie is sent automatically with credentialed fetches; localStorage
