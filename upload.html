@@ -159,6 +159,10 @@
       border-color: #0F172A;
       background: #F8FAFC;
     }
+    .dropzone:focus-visible {
+      outline: 2px solid #0F172A;
+      outline-offset: 2px;
+    }
 
     /* File preview (inside dropzone) */
     #drop-preview {
@@ -412,6 +416,7 @@
       min-height: 44px; display: inline-flex; align-items: center;
     }
     .dropzone-hint { font-size: 0.7rem; color: #6B7280; margin-top: 12px; }
+    .file-warning { font-size: 0.75rem; color: #B45309; background: #FFFBEB; padding: 0.4rem 0.8rem; border-radius: 8px; margin-top: 0.5rem; border: 1px solid #FDE68A; }
 
     /* File preview */
     .file-info-text { text-align: left; }
@@ -488,6 +493,16 @@
       font-size: 0.85rem;
     }
     .back-link:hover { color: #0F172A; }
+    .legal-footer {
+      text-align: center;
+      padding: 1.5rem 0 2rem;
+      font-size: 0.75rem;
+      color: #9CA3AF;
+    }
+    .legal-footer a { color: #6B7280; text-decoration: none; margin: 0 0.5rem; }
+    .legal-footer a:hover { text-decoration: underline; }
+    .support-link { display: block; text-align: center; margin-top: 0.75rem; font-size: 0.8rem; color: #6B7280; text-decoration: none; }
+    .support-link:hover { color: #0F172A; text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -526,7 +541,7 @@
       <!-- CV Upload -->
       <label for="cv-file">📄 1. Upload CV Kamu</label>
 
-      <div id="drop-zone" class="dropzone">
+      <div id="drop-zone" class="dropzone" tabindex="0" role="button" aria-label="Area upload CV — klik atau tekan Enter untuk memilih file">
 
         <div id="drop-idle">
           <div class="dropzone-icon">📁</div>
@@ -535,6 +550,7 @@
           <button type="button" class="btn-pick-file" aria-label="Pilih file CV dari komputer kamu">Pilih file</button>
           <input type="file" id="cv-file" class="hidden" aria-label="Upload file CV (PDF atau DOCX, maks 5MB)" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" capture="environment">
           <div class="dropzone-hint">PDF atau DOCX &nbsp;•&nbsp; maks 5MB</div>
+          <p class="file-warning">⚠️ Pastikan CV kamu adalah file teks — bukan hasil scan atau foto.</p>
         </div>
 
         <div id="drop-preview" class="hidden">
@@ -626,8 +642,12 @@
       <span>❌ Tidak perlu daftar</span>
       <span>⏰ Hasil berlaku 2 jam</span>
     </div>
+    <a class="support-link" href="mailto:support@gaslamar.com?subject=Bantuan%20Upload%20CV%20-%20GasLamar">📧 Butuh bantuan? Hubungi support</a>
   </div>
 </div>
+<footer class="legal-footer">
+  <a href="privacy.html">Kebijakan Privasi</a> · <a href="terms.html">Syarat Layanan</a>
+</footer>
 
 <script defer src="js/dist/upload.bundle.js?v=1"></script>
 </body>
