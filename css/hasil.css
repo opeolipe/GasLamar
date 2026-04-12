@@ -416,6 +416,9 @@
       cursor: pointer;
       font-family: 'Inter', sans-serif;
       font-size: 0.85rem;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
     }
 
     /* Loading/error states */
@@ -459,6 +462,7 @@
       transition: 0.2s;
       font-family: 'Inter', sans-serif;
       margin-top: 1rem;
+      min-height: 44px;
     }
     #share-btn:hover { border-color: #0F172A; color: #0F172A; }
 
@@ -619,3 +623,24 @@
     .legal-footer { text-align: center; padding: 1.5rem 0 2rem; font-size: 0.75rem; color: #9CA3AF; }
     .legal-footer a { color: #6B7280; text-decoration: none; margin: 0 0.5rem; }
     .legal-footer a:hover { text-decoration: underline; }
+
+    /* ── Rewrite preview enhancement ── */
+    #rewrite-preview {
+      background: linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 100%);
+      border: 2px solid #3B82F6;
+      box-shadow: 0 8px 24px rgba(59,130,246,0.12), 0 1px 2px rgba(0,0,0,0.02);
+      position: relative;
+    }
+    .preview-badge {
+      position: absolute;
+      top: -11px;
+      left: 20px;
+      background: #3B82F6;
+      color: white;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.85rem;
+      border-radius: 20px;
+    }

@@ -57,6 +57,7 @@ function processFile(file) {
   ['gaslamar_scoring', 'gaslamar_cv_key', 'gaslamar_cv_pending',
    'gaslamar_jd_pending', 'gaslamar_filename', 'gaslamar_tier',
    'gaslamar_email', 'gaslamar_analyze_time',
+   'gaslamar_cv_draft', 'gaslamar_filename_draft',
   ].forEach(k => sessionStorage.removeItem(k));
 
   hideError('file-error');
@@ -136,6 +137,14 @@ async function extractTextFromFile(file) {
     if (cvText.trim().length < MIN_CV_TEXT_LENGTH) {
       document.getElementById('cv-text-warning').classList.remove('hidden');
       cvText = '';
+    } else {
+      // Persist CV text draft so the user can navigate away and return without losing their file.
+      // Draft is cleared on new file selection (processFile) and superseded by gaslamar_cv_pending
+      // after successful analysis.
+      try {
+        sessionStorage.setItem('gaslamar_cv_draft', cvText);
+        sessionStorage.setItem('gaslamar_filename_draft', file.name);
+      } catch (_) { /* sessionStorage full or blocked — non-fatal */ }
     }
   } catch (err) {
     showError('file-error', 'Gagal membaca file. Pastikan file tidak rusak dan coba lagi.');
@@ -427,6 +436,7 @@ function showError(id, message) {
   if (el) {
     el.textContent = message;
     el.classList.remove('hidden');
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
   // Visual feedback on submit button: shake + red ring
   const btn = document.getElementById('submit-btn');
@@ -504,16 +514,22 @@ function hideError(id) {
     updateCharCount();
   }
 
-  // Restore CV state if pending data exists (user navigated away and came back)
-  const pendingCv = sessionStorage.getItem('gaslamar_cv_pending');
+  // Restore CV state: prefer post-analysis data (gaslamar_cv_pending), fall back to
+  // pre-analysis draft (gaslamar_cv_draft) saved right after file extraction.
+  const pendingCv   = sessionStorage.getItem('gaslamar_cv_pending');
   const pendingName = sessionStorage.getItem('gaslamar_filename');
-  if (pendingCv && pendingName) {
-    cvText = pendingCv;
-    selectedFile = { name: pendingName }; // truthy placeholder for form validation
+  const draftCv     = sessionStorage.getItem('gaslamar_cv_draft');
+  const draftName   = sessionStorage.getItem('gaslamar_filename_draft');
+  const restoreCv   = pendingCv || draftCv;
+  const restoreName = (pendingCv ? pendingName : draftName) || null;
+
+  if (restoreCv && restoreName) {
+    cvText = restoreCv;
+    selectedFile = { name: restoreName }; // truthy placeholder for form validation
     document.getElementById('drop-idle').classList.add('hidden');
     document.getElementById('drop-preview').classList.remove('hidden');
-    document.getElementById('file-name').textContent = pendingName;
-    document.getElementById('file-size').textContent = '(sudah diproses)';
+    document.getElementById('file-name').textContent = restoreName;
+    document.getElementById('file-size').textContent = pendingCv ? '(sudah diproses)' : '(draft dipulihkan)';
   }
 
   syncSubmitBtn();

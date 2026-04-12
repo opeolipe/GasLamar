@@ -12,6 +12,7 @@ let pollCount = 0;
 let notFoundCount = 0; // consecutive 404s — separate from pollCount for faster invalid-session detection
 let pollTimer = null;
 let heartbeatTimer = null;
+let countdownInterval = null;
 let cvDataCache = null; // { cv_id: string, cv_en: string, tier: string, total_credits: number, job_title: string|null, company: string|null }
 let sessionIdCache = null; // retained for multi-credit re-use
 let sessionSecretCache = null; // retained for X-Session-Secret header
@@ -133,8 +134,8 @@ async function poll(sessionId) {
         return;
       }
       showSessionError(
-        'Sesi Tidak Valid atau Kedaluwarsa',
-        'Sesi tidak ditemukan. Jika kamu baru saja membayar, coba refresh halaman ini. Jika masalah berlanjut, hubungi support@gaslamar.com dengan bukti pembayaran.',
+        'Sesi Tidak Ditemukan',
+        'Sesi pembayaran tidak ditemukan. Jika kamu baru saja membayar, coba refresh halaman ini — kadang butuh 1–2 menit. Jika masalah berlanjut, hubungi support@gaslamar.com dengan bukti pembayaran.',
         false
       );
       return;
@@ -152,6 +153,7 @@ async function poll(sessionId) {
     if (status === 'paid' || status === 'generating') {
       clearTimeout(pollTimer);
       startSessionHeartbeat(sessionId); // keep session alive while user is on the page
+      if (data.expires_at) startCountdown(data.expires_at);
       const creditsRemaining = data.credits_remaining ?? 1;
       const totalCredits = data.total_credits ?? 1;
       // Sync authoritative tier from server so animation shows the correct package label
@@ -216,7 +218,7 @@ function startSessionHeartbeat(sessionId) {
         stopSessionHeartbeat();
         showSessionError(
           'Sesi Kedaluwarsa',
-          'Sesi kamu sudah kedaluwarsa. Jika kamu sudah membayar, hubungi kami dengan bukti pembayaran.',
+          'Sesi download kamu sudah berakhir (lebih dari 7 hari). Upload ulang CV untuk memulai analisis baru, atau hubungi support@gaslamar.com jika kamu masih punya kredit tersisa.',
           false
         );
       }
@@ -273,7 +275,7 @@ async function fetchAndGenerateCV(sessionId) {
     if (res.status === 404) {
       showSessionError(
         'Sesi Tidak Ditemukan',
-        'Sesi tidak ditemukan atau sudah kedaluwarsa. Jika kamu sudah membayar, hubungi support dengan bukti pembayaran.',
+        'Sesi tidak ditemukan atau sudah berakhir. Sesi berbayar berlaku 7 hari — jika kamu masih dalam periode ini, coba refresh. Jika sudah lebih dari 7 hari, upload ulang CV untuk analisis baru.',
         false
       );
       return;
@@ -345,7 +347,7 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
       if (res.status === 404) {
         showSessionError(
           'Sesi Tidak Ditemukan',
-          'Sesi tidak ditemukan atau sudah kedaluwarsa. Jika kamu sudah membayar, hubungi support dengan bukti pembayaran.',
+          'Sesi tidak ditemukan atau sudah berakhir. Sesi berbayar berlaku 7 hari — jika kamu masih dalam periode ini, coba refresh. Jika sudah lebih dari 7 hari, upload ulang CV untuk analisis baru.',
           false
         );
         return;
@@ -651,6 +653,37 @@ function generatePDF(cvText, lang, tier) {
   }
 }
 
+// ---- Session Countdown ----
+
+function startCountdown(expiresAtMs) {
+  if (!expiresAtMs) return;
+  const bar = document.getElementById('session-countdown');
+  const text = document.getElementById('countdown-text');
+  if (!bar || !text) return;
+
+  function update() {
+    const msLeft = expiresAtMs - Date.now();
+    if (msLeft <= 0) {
+      text.textContent = 'Sesi kedaluwarsa — download tidak lagi tersedia.';
+      return;
+    }
+    const days  = Math.floor(msLeft / 86400000);
+    const hours = Math.floor((msLeft % 86400000) / 3600000);
+    if (days > 0) {
+      text.textContent = `Sesi aktif · Berakhir dalam ${days} hari ${hours} jam`;
+    } else {
+      const mins = Math.floor((msLeft % 3600000) / 60000);
+      text.textContent = `Sesi aktif · Berakhir dalam ${hours} jam ${mins} menit`;
+    }
+  }
+
+  update();
+  bar.style.display = 'block';
+  document.body.classList.add('has-countdown');
+  if (countdownInterval) clearInterval(countdownInterval);
+  countdownInterval = setInterval(update, 60000); // refresh every minute
+}
+
 // ---- UI Helpers ----
 
 function showState(id) {
@@ -742,7 +775,19 @@ function showDownloadReady(cvId, cvEn, tier, isBilingual, creditsRemaining) {
   // Show upgrade nudge when all credits are used
   if (creditsRemaining <= 0) {
     const upgradeEl = document.getElementById('upgrade-nudge');
-    if (upgradeEl) upgradeEl.classList.remove('hidden');
+    if (upgradeEl) {
+      // For coba/single: replace generic nudge with a 3-Pack upsell card
+      if (tier === 'coba' || tier === 'single') {
+        upgradeEl.innerHTML = `
+          <div class="upsell-card">
+            <div class="upsell-saving">💰 Hemat 40% vs beli satuan</div>
+            <h3>🎯 Lagi banyak lamaran?</h3>
+            <p>Upgrade ke <strong>3-Pack</strong> — Rp 149.000 untuk 3 CV bilingual.<br>Lebih hemat, lebih banyak pilihan.</p>
+            <a href="upload.html" class="btn-upsell" title="Mulai analisis CV baru dengan paket 3-Pack">Upgrade ke 3-Pack →</a>
+          </div>`;
+      }
+      upgradeEl.classList.remove('hidden');
+    }
   }
 
   // Detect if mobile (for fallback hint)

@@ -1,5 +1,6 @@
 import { jsonResponse } from './cors.js';
-import { log } from './utils.js';
+import { clientIp, log } from './utils.js';
+import { checkRateLimitKV, rateLimitResponse } from './rateLimit.js';
 import { handleAnalyze } from './handlers/analyze.js';
 import { handleCreatePayment } from './handlers/createPayment.js';
 import { handleMayarWebhook } from './handlers/mayarWebhook.js';
@@ -72,8 +73,11 @@ export async function route(request, env, ctx) {
   }
 
   if (method === 'POST' && pathname === '/feedback') {
+    const ip = clientIp(request);
+    const kvResult = await checkRateLimitKV(env, ip, 10, 60, 'feedback');
+    if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60);
     const body = await request.json().catch(() => ({}));
-    log('user_feedback', { type: body.type, answer: body.answer, ip: request.headers.get('CF-Connecting-IP') });
+    log('user_feedback', { type: body.type, answer: body.answer, ip });
     return jsonResponse({ ok: true }, 200, request, env);
   }
 

@@ -8,11 +8,28 @@
  *   cross-site fetch requests that use credentials:'include'. SameSite=None;Secure
  *   is required for cross-domain cookie transmission.
  *
- *   CSRF protection is provided by the existing strict CORS policy:
- *   Access-Control-Allow-Origin uses specific allowed origins (never *), and
- *   Access-Control-Allow-Credentials:true is required for credentialed requests.
- *   Together these replicate the protection that SameSite=Strict would offer
- *   in a same-site deployment.
+ * CSRF SECURITY ASSESSMENT — no CSRF tokens needed:
+ *
+ *   1. CORS allowlist: Access-Control-Allow-Origin is set from a strict allowlist
+ *      (ALLOWED_ORIGINS in constants.js — never '*'). Browsers block credentialed
+ *      pre-flight responses from any other origin, so a cross-site attacker page
+ *      cannot successfully send credentialed requests to this Worker.
+ *
+ *   2. JSON-only API: All state-changing POST bodies use Content-Type:application/json.
+ *      Browsers require a CORS pre-flight for non-simple content types, giving the
+ *      allowlist check a chance to block attacker origins before any body is read.
+ *      No endpoint accepts application/x-www-form-urlencoded or multipart/form-data.
+ *
+ *   3. X-Session-Secret header: Sensitive operations (/generate, /session/ping) require
+ *      this custom header. Cross-origin pages cannot set custom request headers without
+ *      a pre-flight that CORS will block.
+ *
+ *   4. HttpOnly cookie: The session_id cookie is HttpOnly — a cross-site script cannot
+ *      read it, only the browser sends it automatically with credentialed requests.
+ *
+ *   Conclusion: the combination of strict CORS + JSON bodies + custom header provides
+ *   CSRF protection equivalent to SameSite=Strict in a same-origin deployment.
+ *   Traditional double-submit or synchronizer CSRF tokens are not required.
  */
 
 /** Parse a Cookie header string into a key→value plain object. */
