@@ -416,6 +416,7 @@
       min-height: 44px; display: inline-flex; align-items: center;
     }
     .dropzone-hint { font-size: 0.7rem; color: #6B7280; margin-top: 12px; }
+    .file-warning { font-size: 0.75rem; color: #B45309; background: #FFFBEB; padding: 0.4rem 0.8rem; border-radius: 8px; margin-top: 0.5rem; border: 1px solid #FDE68A; }
 
     /* File preview */
     .file-info-text { text-align: left; }
@@ -549,6 +550,7 @@
           <button type="button" class="btn-pick-file" aria-label="Pilih file CV dari komputer kamu">Pilih file</button>
           <input type="file" id="cv-file" class="hidden" aria-label="Upload file CV (PDF atau DOCX, maks 5MB)" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" capture="environment">
           <div class="dropzone-hint">PDF atau DOCX &nbsp;•&nbsp; maks 5MB</div>
+          <p class="file-warning">⚠️ Pastikan CV kamu adalah file teks — bukan hasil scan atau foto.</p>
         </div>
 
         <div id="drop-preview" class="hidden">
