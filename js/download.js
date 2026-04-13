@@ -821,6 +821,111 @@ function showDownloadReady(cvId, cvEn, tier, isBilingual, creditsRemaining) {
       }
     }, 2000);
   }
+
+  // Show contextual coaching card after download is ready
+  showPostDownloadActions(creditsRemaining, tier);
+}
+
+// ---- Post-download coaching ----
+
+function showPostDownloadActions(creditsRemaining, tier) {
+  const container = document.getElementById('post-download-actions');
+  if (!container) return;
+
+  // Don't show if already dismissed this session
+  if (sessionStorage.getItem('gaslamar_post_dl_dismissed')) return;
+
+  const card = document.createElement('div');
+
+  if (creditsRemaining > 0) {
+    card.className = 'post-dl-card credits-card';
+    card.innerHTML =
+      '<button class="post-dl-dismiss" aria-label="Tutup notifikasi">✕</button>' +
+      '<div class="post-dl-title">🎯 Lamaran pertama sudah siap!</div>' +
+      '<p class="post-dl-sub">Kamu masih punya <strong>' + creditsRemaining + ' kredit</strong> tersisa. ' +
+      'Tailor CV untuk loker lain — scroll ke atas dan masukkan job description baru.</p>' +
+      '<div class="post-dl-actions">' +
+      '<a href="#multi-credit-section" class="btn-next-cv" id="post-dl-next-cv-btn">✍️ Siapkan CV Lain</a>' +
+      '</div>';
+    // Smooth-scroll to the multi-credit section instead of hard jump
+    card.querySelector('#post-dl-next-cv-btn').addEventListener('click', function(e) {
+      e.preventDefault();
+      const target = document.getElementById('multi-credit-section');
+      if (target) target.scrollIntoView({ behavior: 'smooth' });
+    });
+  } else {
+    card.className = 'post-dl-card';
+    card.innerHTML =
+      '<button class="post-dl-dismiss" aria-label="Tutup notifikasi">✕</button>' +
+      '<div class="post-dl-title">🚀 CV kamu sudah siap dikirim!</div>' +
+      '<p class="post-dl-sub">Tingkatkan peluang interview dengan persiapan yang matang, atau beli paket hemat untuk loker berikutnya.</p>' +
+      '<div class="post-dl-actions">' +
+      '<a href="/?tier=3pack" class="btn-buy-pack">📦 Beli Paket Hemat</a>' +
+      '<button class="btn-tips" id="tips-trigger-btn">💡 Tips Interview</button>' +
+      '</div>';
+  }
+
+  // Dismiss handler
+  card.querySelector('.post-dl-dismiss').addEventListener('click', function() {
+    sessionStorage.setItem('gaslamar_post_dl_dismissed', '1');
+    container.innerHTML = '';
+  });
+
+  container.appendChild(card);
+
+  // Tips modal trigger (only rendered for 0-credit card)
+  const tipsBtn = document.getElementById('tips-trigger-btn');
+  if (tipsBtn) {
+    tipsBtn.addEventListener('click', showInterviewTipsModal);
+  }
+}
+
+function showInterviewTipsModal() {
+  let overlay = document.getElementById('tips-modal-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'tips-modal-overlay';
+    overlay.className = 'tips-modal-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'tips-modal-heading');
+    overlay.innerHTML =
+      '<div class="tips-modal">' +
+      '<button class="tips-modal-close" aria-label="Tutup tips interview" id="tips-modal-close">✕</button>' +
+      '<div class="tips-modal-title" id="tips-modal-heading">💡 3 Tips Tingkatkan Peluang Interview</div>' +
+      '<div class="tip-item"><span class="tip-icon">🔍</span>' +
+      '<div class="tip-text"><strong>Riset perusahaan 15 menit sebelum interview.</strong> ' +
+      'Baca halaman "About", produk utama, dan berita terbaru mereka. ' +
+      'Interviewer selalu terkesan dengan kandidat yang tahu konteks bisnis perusahaan.</div></div>' +
+      '<div class="tip-item"><span class="tip-icon">📐</span>' +
+      '<div class="tip-text"><strong>Gunakan format STAR untuk jawaban behavioural.</strong> ' +
+      'Situasi → Tugas → Aksi → Hasil. Siapkan 3–5 cerita konkret dari pengalaman kerja atau proyek.</div></div>' +
+      '<div class="tip-item"><span class="tip-icon">❓</span>' +
+      '<div class="tip-text"><strong>Siapkan 2 pertanyaan untuk interviewer.</strong> ' +
+      'Contoh: "Seperti apa kesuksesan di 90 hari pertama di posisi ini?" ' +
+      'Bertanya menunjukkan kamu serius dan berpikir jangka panjang.</div></div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    document.getElementById('tips-modal-close').addEventListener('click', closeInterviewTipsModal);
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) closeInterviewTipsModal();
+    });
+    // One-time Escape key handler
+    function escHandler(e) {
+      if (e.key === 'Escape') {
+        closeInterviewTipsModal();
+        document.removeEventListener('keydown', escHandler);
+      }
+    }
+    document.addEventListener('keydown', escHandler);
+  }
+  overlay.classList.remove('hidden');
+}
+
+function closeInterviewTipsModal() {
+  const overlay = document.getElementById('tips-modal-overlay');
+  if (overlay) overlay.classList.add('hidden');
 }
 
 // ---- Multi-credit: generate for a new job ----
