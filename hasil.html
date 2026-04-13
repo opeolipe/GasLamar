@@ -58,8 +58,8 @@
 </head>
 <body>
 <a href="#main-content" class="skip-to-content">Langsung ke konten utama</a>
+<main id="main-content" class="container">
 <h1 class="sr-only">Hasil Analisis CV</h1>
-<main class="container" id="main-content">
 
   <!-- Loading state (hidden by scoring.js once data is available) -->
   <div id="results-loading" class="gl-card">
@@ -273,7 +273,7 @@
     <div class="gl-card" id="email-card">
       <!-- Default view: single / coba tiers -->
       <div id="email-default">
-        <div class="email-label">Email untuk konfirmasi pembayaran</div>
+        <label for="email-input" class="email-label">Email untuk konfirmasi pembayaran</label>
         <div class="email-input-group" id="email-default-slot">
           <input type="email" id="email-input" aria-label="Alamat email untuk konfirmasi pembayaran" placeholder="email kamu" autocomplete="email">
         </div>
