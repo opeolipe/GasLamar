@@ -331,6 +331,43 @@ describe('POST /analyze — validation', () => {
     });
     expect(res.status).toBe(400);
   });
+
+  // ---- Server-side bypass hardening ----
+
+  it('rejects job_desc with 99 trimmed chars (1 below minimum) → 400', async () => {
+    const res = await post('/analyze', { cv: VALID_PDF_CV, job_desc: 'x'.repeat(99) }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/terlalu pendek|100 karakter/i);
+  });
+
+  it('rejects job_desc that is all whitespace (trimmed length = 0) → 400', async () => {
+    // 200 spaces passes the raw-length check but has trimmed length 0 — server must reject.
+    const res = await post('/analyze', { cv: VALID_PDF_CV, job_desc: ' '.repeat(200) }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/terlalu pendek|100 karakter/i);
+  });
+
+  it('rejects cv as a non-string (object) → 400', async () => {
+    // Client-side bypass: attacker sends cv as a raw object instead of a JSON string.
+    const res = await post('/analyze', { cv: { type: 'pdf', data: makePdfBase64() }, job_desc: JOB_DESC }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/format.*cv|cv.*tidak valid/i);
+  });
+
+  it('rejects cv as a number → 400', async () => {
+    const res = await post('/analyze', { cv: 12345, job_desc: JOB_DESC }, {}, nextIp());
+    expect(res.status).toBe(400);
+  });
+
+  it('accepts job_desc with exactly 100 trimmed chars — passes min-length check', async () => {
+    // Should fail later (DOCX extraction → 422 "rusak") but NOT on the JD length check (400).
+    // Using DOCX avoids a Claude API call (PDF path) that would time out without a mock.
+    const res = await post('/analyze', { cv: VALID_DOCX_CV, job_desc: 'x'.repeat(100) }, {}, nextIp());
+    expect(res.status).not.toBe(400);
+  });
 });
 
 describe('POST /analyze — happy path (mocked Claude)', () => {
@@ -981,6 +1018,51 @@ describe('POST /submit-email', () => {
     // 245 + '@valid.com'(10) = 255 > 254
     expect(res.status).toBe(400);
   });
+
+  it('accepts email with surrounding whitespace (trimmed before validation) → 200', async () => {
+    // Attacker or sloppy client sends "  budi@example.com  " — should be accepted after trim.
+    const res = await post('/submit-email', { email: '  budi@trimtest.com  ' }, {}, '10.2.0.5');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+  });
+});
+
+describe('POST /fetch-job-url — validation', () => {
+  it('rejects URL over 2048 chars → 400', async () => {
+    // Very long URL wastes CPU on parsing and is never a legitimate job board URL.
+    const longUrl = 'https://linkedin.com/' + 'a'.repeat(2028); // total > 2048
+    const res = await post('/fetch-job-url', { url: longUrl }, {}, '10.5.0.1');
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/terlalu panjang|2\.048/i);
+  });
+
+  it('rejects missing url → 400', async () => {
+    const res = await post('/fetch-job-url', {}, {}, '10.5.0.2');
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects non-HTTPS url → 400', async () => {
+    const res = await post('/fetch-job-url', { url: 'http://linkedin.com/jobs/view/123' }, {}, '10.5.0.3');
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/https/i);
+  });
+
+  it('rejects non-allowlisted domain → 400', async () => {
+    const res = await post('/fetch-job-url', { url: 'https://evil.com/jobs/123' }, {}, '10.5.0.4');
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/tidak diizinkan|domain/i);
+  });
+
+  it('rejects private IP address (SSRF) → 400', async () => {
+    const res = await post('/fetch-job-url', { url: 'https://127.0.0.1/jobs' }, {}, '10.5.0.5');
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/tidak diizinkan|ip internal|domain/i);
+  });
 });
 
 describe('POST /get-session — returns credits_remaining', () => {
@@ -1101,6 +1183,37 @@ describe('POST /generate — job_desc override validation', () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.message).toMatch(/terlalu panjang/i);
+  });
+
+  it('rejects non-empty job_desc override under 100 trimmed chars → 400', async () => {
+    // Attacker sends a 50-char override to bypass client-side minimum.
+    // Validation fires before KV session lookup, so a seeded-but-fake session suffix is fine.
+    const sessionId = await seedSession('generating', 'single');
+    const res = await post('/generate', {
+      job_desc: 'x'.repeat(50),
+    }, { ...sessionCookie(sessionId) }, '10.1.0.2');
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/terlalu pendek/i);
+  });
+
+  it('accepts empty string override (falls back to stored job_desc) → not rejected on length', async () => {
+    // An empty override is treated as "no override"; the stored job_desc is used.
+    // The endpoint will proceed to session lookup and fail 403 (status mismatch), not 400.
+    const sessionId = await seedSession('paid', 'single'); // 'paid' not 'generating' → 403 expected
+    const res = await post('/generate', {
+      job_desc: '',
+    }, { ...sessionCookie(sessionId) }, '10.1.0.3');
+    // Must NOT be 400 (length validation should not fire for empty override)
+    expect(res.status).not.toBe(400);
+  });
+
+  it('accepts whitespace-only override (zero trimmed length = no override) → not rejected on length', async () => {
+    const sessionId = await seedSession('paid', 'single');
+    const res = await post('/generate', {
+      job_desc: '   ',
+    }, { ...sessionCookie(sessionId) }, '10.1.0.4');
+    expect(res.status).not.toBe(400);
   });
 });
 

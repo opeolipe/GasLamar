@@ -1,7 +1,8 @@
 import { SELF } from "cloudflare:test";
 import { describe, it, expect } from "vitest";
 
-const VALID_CV = { type: 'txt', data: 'John Doe\nSoftware Engineer\nPython JavaScript Node.js' };
+// cv must be a JSON string (the handler calls JSON.parse on it) — not a plain object.
+const VALID_CV = JSON.stringify({ type: 'txt', data: 'John Doe\nSoftware Engineer\nPython JavaScript Node.js' });
 let _ip = 200;
 const nextIp = () => `10.99.${Math.floor(_ip/256)}.${_ip++ % 256}`;
 
