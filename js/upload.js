@@ -135,7 +135,11 @@ async function extractTextFromFile(file) {
 
     // Validate minimum text length
     if (cvText.trim().length < MIN_CV_TEXT_LENGTH) {
-      document.getElementById('cv-text-warning').classList.remove('hidden');
+      const warnEl = document.getElementById('cv-text-warning');
+      if (warnEl) {
+        warnEl.classList.remove('hidden');
+        warnEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       cvText = '';
     } else {
       // Persist CV text draft so the user can navigate away and return without losing their file.
