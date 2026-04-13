@@ -1,5 +1,21 @@
     * { box-sizing: border-box; }
 
+    /* Skip-to-content link — visually hidden until focused by keyboard users */
+    .skip-to-content {
+      position: absolute;
+      left: -9999px;
+      top: 0.5rem;
+      background: #0F172A;
+      color: #fff;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      text-decoration: none;
+      z-index: 9999;
+    }
+    .skip-to-content:focus { left: 0.5rem; }
+
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
       background: #F9FAFB !important;

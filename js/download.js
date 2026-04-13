@@ -17,6 +17,18 @@ let cvDataCache = null; // { cv_id: string, cv_en: string, tier: string, total_c
 let sessionIdCache = null; // retained for multi-credit re-use
 let sessionSecretCache = null; // retained for X-Session-Secret header
 
+// ---- Client-side session cleanup ----
+// Called whenever the server reports the session is gone (expired / invalid).
+// Removes all display-only tier/credits values so stale data is never shown.
+// NOTE: These keys are used for UI display only; the backend never trusts them.
+function clearClientSessionData(sessionId) {
+  sessionStorage.removeItem('gaslamar_tier');
+  sessionStorage.removeItem('gaslamar_credits'); // defensive — key unused but cleared for hygiene
+  localStorage.removeItem('gaslamar_session');
+  localStorage.removeItem('gaslamar_tier'); // legacy / belt-and-suspenders
+  if (sessionId) localStorage.removeItem('gaslamar_secret_' + sessionId);
+}
+
 // ---- Init ----
 
 (async function init() {
@@ -133,6 +145,7 @@ async function poll(sessionId) {
         scheduleNextPoll(sessionId);
         return;
       }
+      clearClientSessionData(sessionId);
       showSessionError(
         'Sesi Tidak Ditemukan',
         'Sesi pembayaran tidak ditemukan. Jika kamu baru saja membayar, coba refresh halaman ini — kadang butuh 1–2 menit. Jika masalah berlanjut, hubungi support@gaslamar.com dengan bukti pembayaran.',
@@ -216,6 +229,7 @@ function startSessionHeartbeat(sessionId) {
       });
       if (res.status === 404) {
         stopSessionHeartbeat();
+        clearClientSessionData(sessionId);
         showSessionError(
           'Sesi Kedaluwarsa',
           'Sesi download kamu sudah berakhir (lebih dari 7 hari). Upload ulang CV untuk memulai analisis baru, atau hubungi support@gaslamar.com jika kamu masih punya kredit tersisa.',
@@ -273,6 +287,7 @@ async function fetchAndGenerateCV(sessionId) {
     }
 
     if (res.status === 404) {
+      clearClientSessionData(sessionId);
       showSessionError(
         'Sesi Tidak Ditemukan',
         'Sesi tidak ditemukan atau sudah berakhir. Sesi berbayar berlaku 7 hari — jika kamu masih dalam periode ini, coba refresh. Jika sudah lebih dari 7 hari, upload ulang CV untuk analisis baru.',
@@ -287,6 +302,8 @@ async function fetchAndGenerateCV(sessionId) {
 
     const sessionData = await res.json();
     const { tier } = sessionData;
+    // Overwrite any client-stored tier with the server-confirmed value
+    if (tier) sessionStorage.setItem('gaslamar_tier', tier);
 
     setProgress(25);
     setGeneratingText('AI sedang menulis CV Bahasa Indonesia...');
@@ -375,10 +392,11 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
       credits_remaining: credits_remaining || 0,
     });
 
-    // Only clear localStorage when all credits are used up
+    // Only clear session storage when all credits are used up
     if (!credits_remaining || credits_remaining <= 0) {
       localStorage.removeItem('gaslamar_session');
-      localStorage.removeItem('gaslamar_tier');
+      localStorage.removeItem('gaslamar_tier'); // belt-and-suspenders for legacy data
+      sessionStorage.removeItem('gaslamar_tier');
     }
 
     setProgress(90);
@@ -803,6 +821,111 @@ function showDownloadReady(cvId, cvEn, tier, isBilingual, creditsRemaining) {
       }
     }, 2000);
   }
+
+  // Show contextual coaching card after download is ready
+  showPostDownloadActions(creditsRemaining, tier);
+}
+
+// ---- Post-download coaching ----
+
+function showPostDownloadActions(creditsRemaining, tier) {
+  const container = document.getElementById('post-download-actions');
+  if (!container) return;
+
+  // Don't show if already dismissed this session
+  if (sessionStorage.getItem('gaslamar_post_dl_dismissed')) return;
+
+  const card = document.createElement('div');
+
+  if (creditsRemaining > 0) {
+    card.className = 'post-dl-card credits-card';
+    card.innerHTML =
+      '<button class="post-dl-dismiss" aria-label="Tutup notifikasi">✕</button>' +
+      '<div class="post-dl-title">🎯 Lamaran pertama sudah siap!</div>' +
+      '<p class="post-dl-sub">Kamu masih punya <strong>' + creditsRemaining + ' kredit</strong> tersisa. ' +
+      'Tailor CV untuk loker lain — scroll ke atas dan masukkan job description baru.</p>' +
+      '<div class="post-dl-actions">' +
+      '<a href="#multi-credit-section" class="btn-next-cv" id="post-dl-next-cv-btn">✍️ Siapkan CV Lain</a>' +
+      '</div>';
+    // Smooth-scroll to the multi-credit section instead of hard jump
+    card.querySelector('#post-dl-next-cv-btn').addEventListener('click', function(e) {
+      e.preventDefault();
+      const target = document.getElementById('multi-credit-section');
+      if (target) target.scrollIntoView({ behavior: 'smooth' });
+    });
+  } else {
+    card.className = 'post-dl-card';
+    card.innerHTML =
+      '<button class="post-dl-dismiss" aria-label="Tutup notifikasi">✕</button>' +
+      '<div class="post-dl-title">🚀 CV kamu sudah siap dikirim!</div>' +
+      '<p class="post-dl-sub">Tingkatkan peluang interview dengan persiapan yang matang, atau beli paket hemat untuk loker berikutnya.</p>' +
+      '<div class="post-dl-actions">' +
+      '<a href="/?tier=3pack" class="btn-buy-pack">📦 Beli Paket Hemat</a>' +
+      '<button class="btn-tips" id="tips-trigger-btn">💡 Tips Interview</button>' +
+      '</div>';
+  }
+
+  // Dismiss handler
+  card.querySelector('.post-dl-dismiss').addEventListener('click', function() {
+    sessionStorage.setItem('gaslamar_post_dl_dismissed', '1');
+    container.innerHTML = '';
+  });
+
+  container.appendChild(card);
+
+  // Tips modal trigger (only rendered for 0-credit card)
+  const tipsBtn = document.getElementById('tips-trigger-btn');
+  if (tipsBtn) {
+    tipsBtn.addEventListener('click', showInterviewTipsModal);
+  }
+}
+
+function showInterviewTipsModal() {
+  let overlay = document.getElementById('tips-modal-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'tips-modal-overlay';
+    overlay.className = 'tips-modal-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'tips-modal-heading');
+    overlay.innerHTML =
+      '<div class="tips-modal">' +
+      '<button class="tips-modal-close" aria-label="Tutup tips interview" id="tips-modal-close">✕</button>' +
+      '<div class="tips-modal-title" id="tips-modal-heading">💡 3 Tips Tingkatkan Peluang Interview</div>' +
+      '<div class="tip-item"><span class="tip-icon">🔍</span>' +
+      '<div class="tip-text"><strong>Riset perusahaan 15 menit sebelum interview.</strong> ' +
+      'Baca halaman "About", produk utama, dan berita terbaru mereka. ' +
+      'Interviewer selalu terkesan dengan kandidat yang tahu konteks bisnis perusahaan.</div></div>' +
+      '<div class="tip-item"><span class="tip-icon">📐</span>' +
+      '<div class="tip-text"><strong>Gunakan format STAR untuk jawaban behavioural.</strong> ' +
+      'Situasi → Tugas → Aksi → Hasil. Siapkan 3–5 cerita konkret dari pengalaman kerja atau proyek.</div></div>' +
+      '<div class="tip-item"><span class="tip-icon">❓</span>' +
+      '<div class="tip-text"><strong>Siapkan 2 pertanyaan untuk interviewer.</strong> ' +
+      'Contoh: "Seperti apa kesuksesan di 90 hari pertama di posisi ini?" ' +
+      'Bertanya menunjukkan kamu serius dan berpikir jangka panjang.</div></div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    document.getElementById('tips-modal-close').addEventListener('click', closeInterviewTipsModal);
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) closeInterviewTipsModal();
+    });
+    // One-time Escape key handler
+    function escHandler(e) {
+      if (e.key === 'Escape') {
+        closeInterviewTipsModal();
+        document.removeEventListener('keydown', escHandler);
+      }
+    }
+    document.addEventListener('keydown', escHandler);
+  }
+  overlay.classList.remove('hidden');
+}
+
+function closeInterviewTipsModal() {
+  const overlay = document.getElementById('tips-modal-overlay');
+  if (overlay) overlay.classList.add('hidden');
 }
 
 // ---- Multi-credit: generate for a new job ----

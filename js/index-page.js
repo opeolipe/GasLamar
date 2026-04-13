@@ -11,9 +11,9 @@ document.addEventListener('click', function(e) {
     Analytics.track('landing_cta_clicked', props);
   }
 
-  // Visual click feedback for pricing CTAs — text updates just before navigation
+  // Visual click feedback — text changes just before browser navigates
   if (el.dataset.ctaLocation === 'pricing' && el.tagName === 'A') {
-    el.textContent = 'Melanjutkan ke Upload...';
+    el.textContent = 'Upload CV Dulu →';
     el.style.opacity = '0.7';
   }
 });
