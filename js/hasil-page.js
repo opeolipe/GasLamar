@@ -44,3 +44,9 @@ document.querySelectorAll('.tier-card').forEach(function(card) {
   card.addEventListener('click', function() { selectTier(card.dataset.tier); });
 });
 document.getElementById('pay-btn').addEventListener('click', proceedToPayment);
+
+// ── Pre-select tier from sessionStorage (set when user came via ?tier= on upload page) ──
+(function preselectTier() {
+  var saved = sessionStorage.getItem('gaslamar_tier') || localStorage.getItem('gaslamar_tier');
+  if (saved && typeof selectTier === 'function') selectTier(saved);
+})();
