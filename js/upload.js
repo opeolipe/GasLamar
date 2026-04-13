@@ -532,10 +532,10 @@ function hideError(id) {
 
     // Show tier indicator pill so the user knows which package they selected
     const TIER_DISPLAY = {
-      coba:    { icon: '🧪', name: 'Coba Dulu',    desc: '1 CV (Rp 29.000)' },
-      single:  { icon: '✨', name: 'Single',        desc: '1 CV Bilingual' },
-      '3pack': { icon: '📦', name: '3-Pack',        desc: '3 CV Bilingual' },
-      jobhunt: { icon: '🚀', name: 'Job Hunt Pack', desc: '10 CV Bilingual' },
+      coba:    { icon: '🧪', name: 'Coba Dulu',    desc: '1 CV · Rp 29.000' },
+      single:  { icon: '✨', name: 'Single',        desc: '1 CV Bilingual · Rp 59.000' },
+      '3pack': { icon: '📦', name: '3-Pack',        desc: '3 CV Bilingual · Rp 149.000' },
+      jobhunt: { icon: '🚀', name: 'Job Hunt Pack', desc: '10 CV Bilingual · Rp 299.000' },
     };
     const td = TIER_DISPLAY[tierParam];
     const indicatorEl = document.getElementById('tier-indicator');
@@ -546,6 +546,9 @@ function hideError(id) {
       if (tierParam === 'coba' || tierParam === 'jobhunt') {
         indicatorEl.classList.add(tierParam);
       }
+      // Payment-timing reassurance — shown alongside the pill
+      const noteEl = document.getElementById('tier-payment-note');
+      if (noteEl) noteEl.classList.remove('hidden');
     }
   }
 
