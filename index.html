@@ -394,8 +394,42 @@
     .pricing-section .pricing-sub {
       color: #5B6E8C;
       font-size: 1rem;
-      margin-bottom: 2.5rem;
+      margin-bottom: 1.25rem;
     }
+    .flow-steps {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+    }
+    .flow-step {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #374151;
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 20px;
+      padding: 0.35rem 0.8rem;
+    }
+    .flow-num {
+      width: 18px;
+      height: 18px;
+      background: #0F172A;
+      color: #fff;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .flow-arrow { color: #9CA3AF; font-size: 0.9rem; }
     .pricing-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -677,6 +711,14 @@
     <div class="harga-pill">HARGA</div>
     <h2>Perbaiki CV kamu — baru bayar kalau mau pakai</h2>
     <p class="pricing-sub">Lihat dulu hasil analisisnya, lalu putuskan</p>
+
+    <div class="flow-steps" role="list" aria-label="Alur penggunaan">
+      <div class="flow-step" role="listitem"><span class="flow-num">1</span> Upload CV</div>
+      <div class="flow-arrow" aria-hidden="true">→</div>
+      <div class="flow-step" role="listitem"><span class="flow-num">2</span> Analisis gratis</div>
+      <div class="flow-arrow" aria-hidden="true">→</div>
+      <div class="flow-step" role="listitem"><span class="flow-num">3</span> Bayar kalau mau</div>
+    </div>
 
     <div class="pricing-grid">
 
