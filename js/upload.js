@@ -520,7 +520,7 @@ function hideError(id) {
 
     // Show tier indicator pill so the user knows which package they selected
     const TIER_DISPLAY = {
-      coba:    { icon: '🆓', name: 'Coba Dulu',    desc: '1 CV (Bahasa Indonesia)' },
+      coba:    { icon: '🧪', name: 'Coba Dulu',    desc: '1 CV (Rp 29.000)' },
       single:  { icon: '✨', name: 'Single',        desc: '1 CV Bilingual' },
       '3pack': { icon: '📦', name: '3-Pack',        desc: '3 CV Bilingual' },
       jobhunt: { icon: '🚀', name: 'Job Hunt Pack', desc: '10 CV Bilingual' },
