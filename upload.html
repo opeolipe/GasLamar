@@ -469,6 +469,11 @@
     .char-counter.near-limit { color: #D97706; }
     .char-counter.at-limit   { color: #DC2626; font-weight: 600; }
 
+    /* JD success state */
+    .success-indicator { font-size: 0.75rem; color: #059669; margin-top: 0.35rem; }
+    textarea.jd-success { border-color: #10B981; box-shadow: 0 0 0 3px rgba(16,185,129,0.10); }
+    textarea.jd-success:focus { border-color: #10B981; box-shadow: 0 0 0 3px rgba(16,185,129,0.15); }
+
     /* Scroll hint */
     #scroll-hint { margin-top: 0.75rem; }
     .scroll-hint-svg { display: block; margin: 0 auto 4px; }
@@ -627,6 +632,7 @@
       </div>
       <div id="char-warning" class="char-warning-text hidden"></div>
       <div id="jd-error" class="error-msg hidden"></div>
+      <div id="jd-success-indicator" class="success-indicator hidden" role="status" aria-live="polite">✓ Minimal 100 karakter terpenuhi</div>
 
       <!-- Scroll hint -->
       <div id="scroll-hint">

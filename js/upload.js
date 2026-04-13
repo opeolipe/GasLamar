@@ -297,6 +297,14 @@ function updateCharCount() {
     }
   }
 
+  // Success indicator: visible when JD meets the minimum length
+  const successEl = document.getElementById('jd-success-indicator');
+  if (successEl) {
+    const meetsMin = jd.value.trim().length >= MIN_JD_LENGTH;
+    successEl.classList.toggle('hidden', !meetsMin);
+    jd.classList.toggle('jd-success', meetsMin);
+  }
+
   syncSubmitBtn();
 }
 
