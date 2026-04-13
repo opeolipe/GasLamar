@@ -91,15 +91,17 @@
   <!-- Main results content (shown by scoring.js) -->
   <div id="results-content" class="hidden">
 
-    <!-- Progress steps -->
-    <div class="gl-card card-steps">
-      <div class="progress-steps">
-        <div class="gl-step completed">1. Upload CV</div>
-        <div class="gl-step completed">2. Job Desc</div>
-        <div class="gl-step active">3. Hasil Analisis</div>
-        <div class="step-line"></div>
+    <!-- Progress steps — wrapped in <header> as section-level header for results content -->
+    <header aria-label="Langkah analisis CV">
+      <div class="gl-card card-steps">
+        <div class="progress-steps">
+          <div class="gl-step completed">1. Upload CV</div>
+          <div class="gl-step completed">2. Job Desc</div>
+          <div class="gl-step active">3. Hasil Analisis</div>
+          <div class="step-line"></div>
+        </div>
       </div>
-    </div>
+    </header>
 
     <!-- Session countdown -->
     <div id="session-countdown" class="session-countdown">
@@ -314,10 +316,12 @@
       💳 Pembayaran aman via Mayar · VA, QRIS, e-wallet · Tidak puas? Hubungi kami di support@gaslamar.com
     </div>
 
-    <!-- Restart -->
-    <div class="restart-wrap">
-      <a href="upload.html" class="restart-link">← Upload CV lain</a>
-    </div>
+    <!-- Restart — wrapped in <footer> as section-level footer for results content -->
+    <footer aria-label="Navigasi balik">
+      <div class="restart-wrap">
+        <a href="upload.html" class="restart-link">← Upload CV lain</a>
+      </div>
+    </footer>
 
     <!-- ── Collapsible: detail analisis (collapsed by default) ── -->
     <details id="detail-analysis">
