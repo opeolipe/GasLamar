@@ -95,7 +95,7 @@ function processFile(file) {
   }
 
   selectedFile = file;
-  sessionStorage.setItem('gaslamar_upload_start', String(Date.now()));
+  try { sessionStorage.setItem('gaslamar_upload_start', String(Date.now())); } catch (_) {}
   showFilePreview(file);
   syncSubmitBtn();
   extractTextFromFile(file);
@@ -330,10 +330,17 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
   const submitBtn = document.getElementById('submit-btn');
   submitBtn.disabled = true;
 
-  sessionStorage.setItem('gaslamar_cv_pending', cvText);
-  sessionStorage.setItem('gaslamar_jd_pending', jobDesc);
-  sessionStorage.setItem('gaslamar_filename', selectedFile ? selectedFile.name : 'CV');
-  sessionStorage.setItem('gaslamar_had_jd', jobDesc.length >= 50 ? '1' : '0');
+  try {
+    sessionStorage.setItem('gaslamar_cv_pending', cvText);
+    sessionStorage.setItem('gaslamar_jd_pending', jobDesc);
+    sessionStorage.setItem('gaslamar_filename', selectedFile ? selectedFile.name : 'CV');
+    sessionStorage.setItem('gaslamar_had_jd', jobDesc.length >= 50 ? '1' : '0');
+  } catch (_) {
+    // Safari private mode blocks sessionStorage writes — inform user
+    showError('file-error', 'Browser kamu memblokir penyimpanan sementara (mode pribadi?). Coba gunakan mode normal.');
+    submitBtn.disabled = false;
+    return;
+  }
   // Note: gaslamar_jd_draft is cleared by analyzing-page.js on successful analysis,
   // not here — so the draft survives if the analysis fails and the user returns.
 
@@ -371,9 +378,14 @@ async function analyzeCV(cvData, jobDesc) {
     // Save scoring results and server-side key for hasil.html
     // Store cv_text_key (not raw CV bytes) so payment.js can reference
     // the server-side KV entry — no sensitive file data in sessionStorage
-    sessionStorage.setItem('gaslamar_scoring', JSON.stringify(result));
-    sessionStorage.setItem('gaslamar_cv_key', result.cv_text_key || '');
-    sessionStorage.removeItem('gaslamar_cv'); // clear any stale raw CV data
+    try {
+      sessionStorage.setItem('gaslamar_scoring', JSON.stringify(result));
+      sessionStorage.setItem('gaslamar_cv_key', result.cv_text_key || '');
+      sessionStorage.removeItem('gaslamar_cv'); // clear any stale raw CV data
+    } catch (_) {
+      // sessionStorage blocked (Safari private mode) — proceed to hasil.html anyway;
+      // hasil-guard.js will redirect back to upload if data is missing
+    }
 
     // Redirect to scoring page
     setLoadingText('Menyiapkan hasil analisis...');
@@ -477,7 +489,7 @@ function hideError(id) {
       // Save draft on programmatic assignments too (e.g. staging test panel auto-fill),
       // not just on user keystrokes. The input event listener covers manual typing;
       // this setter covers jdEl.value = '...' calls that bypass the input event.
-      sessionStorage.setItem('gaslamar_jd_draft', proto.get.call(this));
+      try { sessionStorage.setItem('gaslamar_jd_draft', proto.get.call(this)); } catch (_) {}
     },
     configurable: false,
   });
@@ -504,7 +516,7 @@ function hideError(id) {
   }
 
   if (VALID_TIERS.includes(tierParam)) {
-    sessionStorage.setItem('gaslamar_tier', tierParam);
+    try { sessionStorage.setItem('gaslamar_tier', tierParam); } catch (_) {}
   }
 
   // Restore JD draft
@@ -537,7 +549,7 @@ function hideError(id) {
 
 // Save JD draft on every keystroke
 document.getElementById('job-desc').addEventListener('input', () => {
-  sessionStorage.setItem('gaslamar_jd_draft', document.getElementById('job-desc').value);
+  try { sessionStorage.setItem('gaslamar_jd_draft', document.getElementById('job-desc').value); } catch (_) {}
 });
 
 // Paste fires BEFORE the value is updated — use requestAnimationFrame so

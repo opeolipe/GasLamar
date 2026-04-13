@@ -174,7 +174,10 @@ async function proceedToPayment() {
   // to bind subsequent requests (get-session, generate) to this browser session.
   // The worker stores only SHA-256(secret), so possession of the session ID
   // alone is insufficient to access CV data.
-  const sessionSecret = crypto.randomUUID();
+  // crypto.randomUUID() is Safari 15.4+; fall back to getRandomValues for older Safari
+  const sessionSecret = crypto.randomUUID
+    ? crypto.randomUUID()
+    : Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 25000);
@@ -231,6 +234,17 @@ async function proceedToPayment() {
     sessionStorage.removeItem('gaslamar_cv_key');
 
     // Redirect to Mayar payment page
+    // Validate invoice_url comes from a trusted Mayar domain before redirecting
+    let validInvoiceUrl = false;
+    try {
+      const parsed = new URL(invoice_url);
+      validInvoiceUrl = parsed.protocol === 'https:' &&
+        (parsed.hostname === 'mayar.id' || parsed.hostname.endsWith('.mayar.id') ||
+         parsed.hostname === 'mayar.club' || parsed.hostname.endsWith('.mayar.club'));
+    } catch (_) {}
+    if (!validInvoiceUrl) {
+      throw new Error('URL pembayaran tidak valid. Coba lagi.');
+    }
     btn.textContent = 'Mengalihkan ke halaman pembayaran...';
     window.location.href = invoice_url;
 

@@ -322,9 +322,11 @@ function setupTierRecommendation(score) {
     <div style="display:flex;align-items:flex-start;gap:0.75rem;">
       <span style="font-size:1.1rem;flex-shrink:0;">💡</span>
       <p style="font-size:0.85rem;color:rgba(255,255,255,0.9);margin:0;">${msg}
-        <button onclick="selectTier('${tier}')" style="margin-left:4px;text-decoration:underline;font-weight:600;background:none;border:none;color:inherit;cursor:pointer;font-family:inherit;font-size:inherit;padding:0;">Pilih →</button>
+        <button id="rec-tier-btn" style="margin-left:4px;text-decoration:underline;font-weight:600;background:none;border:none;color:inherit;cursor:pointer;font-family:inherit;font-size:inherit;padding:0;">Pilih →</button>
       </p>
     </div>`;
+  const recBtn = el.querySelector('#rec-tier-btn');
+  if (recBtn) recBtn.addEventListener('click', () => selectTier(tier));
   el.classList.remove('hidden');
 }
 
