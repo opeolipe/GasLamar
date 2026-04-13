@@ -375,10 +375,11 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
       credits_remaining: credits_remaining || 0,
     });
 
-    // Only clear localStorage when all credits are used up
+    // Only clear session storage when all credits are used up
     if (!credits_remaining || credits_remaining <= 0) {
       localStorage.removeItem('gaslamar_session');
-      localStorage.removeItem('gaslamar_tier');
+      localStorage.removeItem('gaslamar_tier'); // belt-and-suspenders for legacy data
+      sessionStorage.removeItem('gaslamar_tier');
     }
 
     setProgress(90);
