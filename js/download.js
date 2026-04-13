@@ -17,6 +17,18 @@ let cvDataCache = null; // { cv_id: string, cv_en: string, tier: string, total_c
 let sessionIdCache = null; // retained for multi-credit re-use
 let sessionSecretCache = null; // retained for X-Session-Secret header
 
+// ---- Client-side session cleanup ----
+// Called whenever the server reports the session is gone (expired / invalid).
+// Removes all display-only tier/credits values so stale data is never shown.
+// NOTE: These keys are used for UI display only; the backend never trusts them.
+function clearClientSessionData(sessionId) {
+  sessionStorage.removeItem('gaslamar_tier');
+  sessionStorage.removeItem('gaslamar_credits'); // defensive — key unused but cleared for hygiene
+  localStorage.removeItem('gaslamar_session');
+  localStorage.removeItem('gaslamar_tier'); // legacy / belt-and-suspenders
+  if (sessionId) localStorage.removeItem('gaslamar_secret_' + sessionId);
+}
+
 // ---- Init ----
 
 (async function init() {
@@ -133,6 +145,7 @@ async function poll(sessionId) {
         scheduleNextPoll(sessionId);
         return;
       }
+      clearClientSessionData(sessionId);
       showSessionError(
         'Sesi Tidak Ditemukan',
         'Sesi pembayaran tidak ditemukan. Jika kamu baru saja membayar, coba refresh halaman ini — kadang butuh 1–2 menit. Jika masalah berlanjut, hubungi support@gaslamar.com dengan bukti pembayaran.',
@@ -216,6 +229,7 @@ function startSessionHeartbeat(sessionId) {
       });
       if (res.status === 404) {
         stopSessionHeartbeat();
+        clearClientSessionData(sessionId);
         showSessionError(
           'Sesi Kedaluwarsa',
           'Sesi download kamu sudah berakhir (lebih dari 7 hari). Upload ulang CV untuk memulai analisis baru, atau hubungi support@gaslamar.com jika kamu masih punya kredit tersisa.',
@@ -273,6 +287,7 @@ async function fetchAndGenerateCV(sessionId) {
     }
 
     if (res.status === 404) {
+      clearClientSessionData(sessionId);
       showSessionError(
         'Sesi Tidak Ditemukan',
         'Sesi tidak ditemukan atau sudah berakhir. Sesi berbayar berlaku 7 hari — jika kamu masih dalam periode ini, coba refresh. Jika sudah lebih dari 7 hari, upload ulang CV untuk analisis baru.',
@@ -287,6 +302,8 @@ async function fetchAndGenerateCV(sessionId) {
 
     const sessionData = await res.json();
     const { tier } = sessionData;
+    // Overwrite any client-stored tier with the server-confirmed value
+    if (tier) sessionStorage.setItem('gaslamar_tier', tier);
 
     setProgress(25);
     setGeneratingText('AI sedang menulis CV Bahasa Indonesia...');
