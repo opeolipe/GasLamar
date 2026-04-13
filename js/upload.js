@@ -448,7 +448,7 @@ function showError(id, message) {
   if (el) {
     el.textContent = message;
     el.classList.remove('hidden');
-    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
   // Visual feedback on submit button: shake + red ring
   const btn = document.getElementById('submit-btn');
