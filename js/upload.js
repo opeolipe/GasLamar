@@ -517,6 +517,24 @@ function hideError(id) {
 
   if (VALID_TIERS.includes(tierParam)) {
     try { sessionStorage.setItem('gaslamar_tier', tierParam); } catch (_) {}
+
+    // Show tier indicator pill so the user knows which package they selected
+    const TIER_DISPLAY = {
+      coba:    { icon: '🆓', name: 'Coba Dulu',    desc: '1 CV (Bahasa Indonesia)' },
+      single:  { icon: '✨', name: 'Single',        desc: '1 CV Bilingual' },
+      '3pack': { icon: '📦', name: '3-Pack',        desc: '3 CV Bilingual' },
+      jobhunt: { icon: '🚀', name: 'Job Hunt Pack', desc: '10 CV Bilingual' },
+    };
+    const td = TIER_DISPLAY[tierParam];
+    const indicatorEl = document.getElementById('tier-indicator');
+    if (td && indicatorEl) {
+      indicatorEl.textContent = `${td.icon}  Paket kamu: ${td.name} — ${td.desc}`;
+      indicatorEl.classList.remove('hidden');
+      // coba = amber, jobhunt = green; single/3pack use the default blue
+      if (tierParam === 'coba' || tierParam === 'jobhunt') {
+        indicatorEl.classList.add(tierParam);
+      }
+    }
   }
 
   // Restore JD draft
