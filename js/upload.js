@@ -511,6 +511,20 @@ function hideError(id) {
   const params = new URLSearchParams(location.search);
   let tierParam = (params.get('tier') || '').toLowerCase().trim();
 
+  // Show informational banner if redirected back from hasil.html due to missing/expired session
+  const reasonParam = params.get('reason');
+  if (reasonParam === 'session_expired' || reasonParam === 'no_session') {
+    const msg = reasonParam === 'session_expired'
+      ? 'Sesi analisis sudah kadaluarsa (2 jam). Silakan upload CV kembali.'
+      : 'Sesi tidak ditemukan. Silakan mulai upload CV dari sini.';
+    const banner = document.createElement('p');
+    banner.className = 'session-notice-banner';
+    banner.setAttribute('role', 'status');
+    banner.textContent = msg;
+    const tierWarning = document.getElementById('tier-warning');
+    if (tierWarning) tierWarning.parentNode.insertBefore(banner, tierWarning);
+  }
+
   if (tierParam && !VALID_TIERS.includes(tierParam)) {
     // Invalid tier — warn the user, fall back to 'single', and clean the URL
     console.warn(`[GasLamar] Invalid tier param: "${tierParam}". Falling back to "single".`);
