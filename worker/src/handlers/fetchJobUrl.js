@@ -166,7 +166,7 @@ export async function handleFetchJobUrl(request, env) {
   }
 
   if (!pageRes.ok) {
-    return jsonResponse({ message: `Halaman tidak bisa diakses (${pageRes.status}). Coba copy-paste manual.` }, 422, request, env);
+    return jsonResponse({ message: `Halaman tidak bisa diakses (422). Coba copy-paste manual.` }, 422, request, env);
   }
 
   const contentType = pageRes.headers.get('content-type') || '';
