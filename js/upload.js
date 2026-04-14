@@ -455,6 +455,21 @@ function finishProgress() {
 
 // ---- Helpers ----
 
+// Escape HTML special chars before storing user input in sessionStorage.
+// This prevents reflected XSS if the stored value is ever rendered via innerHTML.
+// Only escapes &, <, >, ", ' — does not alter any other characters.
+function escapeHtml(text) {
+  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+  return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+// Inverse of escapeHtml — used when reading back from sessionStorage for display.
+// Replaces only the five entities written by escapeHtml; safe to call on already-raw strings.
+function unescapeHtml(text) {
+  const map = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#039;': "'" };
+  return text.replace(/&amp;|&lt;|&gt;|&quot;|&#039;/g, m => map[m]);
+}
+
 function showError(id, message) {
   const el = document.getElementById(id);
   if (el) {
@@ -501,7 +516,7 @@ function hideError(id) {
       // Save draft on programmatic assignments too (e.g. staging test panel auto-fill),
       // not just on user keystrokes. The input event listener covers manual typing;
       // this setter covers jdEl.value = '...' calls that bypass the input event.
-      try { sessionStorage.setItem('gaslamar_jd_draft', proto.get.call(this)); } catch (_) {}
+      try { sessionStorage.setItem('gaslamar_jd_draft', escapeHtml(proto.get.call(this))); } catch (_) {}
     },
     configurable: false,
   });
@@ -566,10 +581,10 @@ function hideError(id) {
     }
   }
 
-  // Restore JD draft
+  // Restore JD draft — unescape from storage format back to raw text for display
   const savedJd = sessionStorage.getItem('gaslamar_jd_draft');
   if (savedJd) {
-    document.getElementById('job-desc').value = savedJd;
+    document.getElementById('job-desc').value = unescapeHtml(savedJd);
     updateCharCount();
   }
 
@@ -596,7 +611,7 @@ function hideError(id) {
 
 // Save JD draft on every keystroke
 document.getElementById('job-desc').addEventListener('input', () => {
-  try { sessionStorage.setItem('gaslamar_jd_draft', document.getElementById('job-desc').value); } catch (_) {}
+  try { sessionStorage.setItem('gaslamar_jd_draft', escapeHtml(document.getElementById('job-desc').value)); } catch (_) {}
 });
 
 // Paste fires BEFORE the value is updated — use requestAnimationFrame so
