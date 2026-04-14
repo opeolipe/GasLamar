@@ -54,6 +54,10 @@
   ]
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+  <!-- PostHog analytics library — loaded as a static tag so no dynamic <script> element is
+       ever created (which would violate CSP). The bundle's posthog-init.js only sets up the
+       stub and calls posthog.init(); array.js is already available when the bundle runs. -->
+  <script defer src="https://eu-assets.i.posthog.com/static/array.js" crossorigin="anonymous"></script>
   <!-- Cloudflare Web Analytics -->
   <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "f9c97d82f2a04b9f95e051946eb0525e"}'></script>
   <style>
