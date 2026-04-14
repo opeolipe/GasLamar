@@ -17,7 +17,7 @@
     const h = Math.floor(remaining / 3600);
     const m = Math.floor((remaining % 3600) / 60);
     const s = remaining % 60;
-    if (remaining <= 300) {
+    if (remaining <= 600) {
       el.style.background = '#FEF2F2';
       el.style.borderColor = '#FECACA';
       el.style.color = '#B91C1C';

@@ -12,7 +12,7 @@ export async function handleGetSession(request, env) {
   const session = await getSession(env, session_id);
 
   if (!session) {
-    return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa' }, 404, request, env);
+    return jsonResponse({ message: 'Sesi download tidak ditemukan atau sudah kedaluwarsa (link berlaku 7 hari untuk Single/Coba Dulu, 30 hari untuk 3-Pack/Job Hunt Pack).' }, 404, request, env);
   }
 
   // Verify session secret (new sessions require it; legacy sessions without hash skip this check)

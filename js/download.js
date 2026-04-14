@@ -165,8 +165,9 @@ async function poll(sessionId) {
 
     if (status === 'paid' || status === 'generating') {
       clearTimeout(pollTimer);
-      startSessionHeartbeat(sessionId); // keep session alive while user is on the page
-      if (data.expires_at) startCountdown(data.expires_at);
+      const creditsForHeartbeat = data.total_credits ?? 1;
+      startSessionHeartbeat(sessionId, creditsForHeartbeat); // keep session alive while user is on the page
+      if (data.expires_at) startCountdown(data.expires_at, creditsForHeartbeat);
       const creditsRemaining = data.credits_remaining ?? 1;
       const totalCredits = data.total_credits ?? 1;
       // Sync authoritative tier from server so animation shows the correct package label
@@ -217,8 +218,10 @@ function scheduleNextPoll(sessionId) {
 // ---- Session Heartbeat ----
 // Pings /session/ping every 3 minutes to refresh KV TTL while user is active.
 
-function startSessionHeartbeat(sessionId) {
+function startSessionHeartbeat(sessionId, totalCredits) {
   if (heartbeatTimer) return; // already running
+  const isMulti = (totalCredits || 1) > 1;
+  const validityLabel = isMulti ? '30 hari' : '7 hari';
   heartbeatTimer = setInterval(async () => {
     try {
       const secretHeaders = sessionSecretCache ? { 'X-Session-Secret': sessionSecretCache } : {};
@@ -232,7 +235,7 @@ function startSessionHeartbeat(sessionId) {
         clearClientSessionData(sessionId);
         showSessionError(
           'Sesi Kedaluwarsa',
-          'Sesi download kamu sudah berakhir (lebih dari 7 hari). Upload ulang CV untuk memulai analisis baru, atau hubungi support@gaslamar.com jika kamu masih punya kredit tersisa.',
+          `📅 Sesi download kamu sudah berakhir (berlaku ${validityLabel}). Upload ulang CV untuk memulai analisis baru, atau hubungi support@gaslamar.com jika kamu masih punya kredit tersisa.`,
           false
         );
       }
@@ -673,25 +676,50 @@ function generatePDF(cvText, lang, tier) {
 
 // ---- Session Countdown ----
 
-function startCountdown(expiresAtMs) {
+function startCountdown(expiresAtMs, totalCredits) {
   if (!expiresAtMs) return;
   const bar = document.getElementById('session-countdown');
   const text = document.getElementById('countdown-text');
   if (!bar || !text) return;
 
+  // Multi-credit packs (3-Pack / Job Hunt) last 30 days; single-credit 7 days.
+  const isMulti = (totalCredits || 1) > 1;
+  const validityLabel = isMulti ? '30 hari' : '7 hari';
+  // Warn when 1 day left for multi-credit, or 1 hour left for single-credit.
+  const WARNING_THRESHOLD_MS = isMulti ? 86400000 : 3600000;
+
   function update() {
     const msLeft = expiresAtMs - Date.now();
     if (msLeft <= 0) {
-      text.textContent = 'Sesi kedaluwarsa — download tidak lagi tersedia.';
+      text.textContent = `⏰ Sesi kedaluwarsa — download tidak lagi tersedia (berlaku ${validityLabel}).`;
+      bar.style.background = '#FEF2F2';
+      bar.style.borderColor = '#FECACA';
+      bar.style.color = '#B91C1C';
       return;
     }
     const days  = Math.floor(msLeft / 86400000);
     const hours = Math.floor((msLeft % 86400000) / 3600000);
-    if (days > 0) {
-      text.textContent = `Sesi aktif · Berakhir dalam ${days} hari ${hours} jam`;
+    const mins  = Math.floor((msLeft % 3600000) / 60000);
+
+    if (msLeft <= WARNING_THRESHOLD_MS) {
+      // Near-expiry: switch to amber warning style
+      bar.style.background = '#FFFBEB';
+      bar.style.borderColor = '#FCD34D';
+      bar.style.color = '#92400E';
+      if (days > 0) {
+        text.textContent = `⚠️ Link berakhir dalam ${days} hari — segera selesaikan download kamu!`;
+      } else if (hours > 0) {
+        text.textContent = `⚠️ Link berakhir dalam ${hours} jam ${mins} menit — segera selesaikan download kamu!`;
+      } else {
+        text.textContent = `⚠️ Link berakhir dalam ${mins} menit — segera selesaikan download kamu!`;
+      }
     } else {
-      const mins = Math.floor((msLeft % 3600000) / 60000);
-      text.textContent = `Sesi aktif · Berakhir dalam ${hours} jam ${mins} menit`;
+      // Normal: show total validity period alongside remaining time
+      if (days > 0) {
+        text.textContent = `Link berlaku ${validityLabel} · Berakhir dalam ${days} hari ${hours} jam`;
+      } else {
+        text.textContent = `Link berlaku ${validityLabel} · Berakhir dalam ${hours} jam ${mins} menit`;
+      }
     }
   }
 

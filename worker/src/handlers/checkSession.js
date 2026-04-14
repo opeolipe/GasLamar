@@ -19,7 +19,7 @@ export async function handleCheckSession(request, env) {
 
   if (!session) {
     logError('check_session_not_found', { session_id: sessionId });
-    return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa' }, 404, request, env);
+    return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa (link berlaku 7 hari untuk Single/Coba Dulu, 30 hari untuk 3-Pack/Job Hunt Pack).' }, 404, request, env);
   }
 
   const expiresAt = session.created_at
