@@ -170,8 +170,19 @@ async function poll(sessionId) {
       if (data.expires_at) startCountdown(data.expires_at, creditsForHeartbeat);
       const creditsRemaining = data.credits_remaining ?? 1;
       const totalCredits = data.total_credits ?? 1;
-      // Sync authoritative tier from server so animation shows the correct package label
-      if (data.tier) sessionStorage.setItem('gaslamar_tier', data.tier);
+      // Sync authoritative tier from server — overwrites any client-side manipulation.
+      if (data.tier) {
+        const _storedTier = sessionStorage.getItem('gaslamar_tier');
+        if (_storedTier && _storedTier !== data.tier) {
+          console.warn('[GasLamar] sessionStorage.gaslamar_tier tamper detected (' + _storedTier + ' → ' + data.tier + '). Backend enforces correct tier; UI corrected.');
+          const _genTierEl = document.getElementById('gen-tier');
+          if (_genTierEl) {
+            const _LABELS = { coba: 'Coba Dulu', single: 'Single', '3pack': '3-Pack', jobhunt: 'Job Hunt Pack' };
+            _genTierEl.textContent = 'Paket: ' + (_LABELS[data.tier] || data.tier);
+          }
+        }
+        sessionStorage.setItem('gaslamar_tier', data.tier);
+      }
       if (window.Analytics) Analytics.track('payment_confirmed', {
         tier: data.tier || undefined,
         total_credits: totalCredits,
@@ -306,7 +317,13 @@ async function fetchAndGenerateCV(sessionId) {
     const sessionData = await res.json();
     const { tier } = sessionData;
     // Overwrite any client-stored tier with the server-confirmed value
-    if (tier) sessionStorage.setItem('gaslamar_tier', tier);
+    if (tier) {
+      const _storedTier = sessionStorage.getItem('gaslamar_tier');
+      if (_storedTier && _storedTier !== tier) {
+        console.warn('[GasLamar] sessionStorage.gaslamar_tier tamper detected (' + _storedTier + ' → ' + tier + '). Backend enforces correct tier; UI corrected.');
+      }
+      sessionStorage.setItem('gaslamar_tier', tier);
+    }
 
     setProgress(25);
     setGeneratingText('AI sedang menulis CV Bahasa Indonesia...');
