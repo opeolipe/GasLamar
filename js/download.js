@@ -295,6 +295,11 @@ async function fetchAndGenerateCV(sessionId) {
 
     clearTimeout(timeout);
 
+    if (res.status === 401) {
+      showSessionError('Sesi Tidak Ditemukan', 'Sesi tidak ditemukan. Pastikan browser mengizinkan cookies, lalu coba refresh halaman ini.', false);
+      return;
+    }
+
     if (res.status === 403) {
       showSessionError('Akses Ditolak', 'Pembayaran belum dikonfirmasi atau sesi tidak valid.', false);
       return;
@@ -302,11 +307,13 @@ async function fetchAndGenerateCV(sessionId) {
 
     if (res.status === 404) {
       clearClientSessionData(sessionId);
-      showSessionError(
-        'Sesi Tidak Ditemukan',
-        'Sesi tidak ditemukan atau sudah berakhir. Sesi berbayar berlaku 7 hari — jika kamu masih dalam periode ini, coba refresh. Jika sudah lebih dari 7 hari, upload ulang CV untuk analisis baru.',
-        false
-      );
+      const errData = await res.json().catch(() => ({}));
+      const tier = sessionStorage.getItem('gaslamar_tier') || '';
+      const validity = (tier === '3pack' || tier === 'jobhunt') ? '30 hari' : '7 hari';
+      const msg = errData.reason === 'expired'
+        ? `⏰ Sesi kamu sudah berakhir setelah ${validity}. Silakan upload ulang CV untuk analisis baru.`
+        : 'Sesi tidak ditemukan atau sudah berakhir. Upload ulang CV untuk analisis baru.';
+      showSessionError('Sesi Berakhir', msg, false);
       return;
     }
 

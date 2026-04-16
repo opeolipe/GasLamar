@@ -12,14 +12,14 @@ export async function handleCheckSession(request, env) {
   const sessionId = getSessionIdFromCookie(request) || url.searchParams.get('session');
 
   if (!sessionId || !sessionId.startsWith('sess_')) {
-    return jsonResponse({ message: 'Session tidak ditemukan. Pastikan browser mengizinkan cookies.' }, 401, request, env);
+    return jsonResponse({ message: 'Session tidak ditemukan. Pastikan browser mengizinkan cookies.', reason: 'no_cookie' }, 401, request, env);
   }
 
   const session = await getSession(env, sessionId);
 
   if (!session) {
     logError('check_session_not_found', { session_id: sessionId });
-    return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa (link berlaku 7 hari untuk Single/Coba Dulu, 30 hari untuk 3-Pack/Job Hunt Pack).' }, 404, request, env);
+    return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa.', reason: 'expired' }, 404, request, env);
   }
 
   const expiresAt = session.created_at

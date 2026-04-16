@@ -530,7 +530,7 @@ function hideError(id) {
   const reasonParam = params.get('reason');
   if (reasonParam === 'session_expired' || reasonParam === 'no_session') {
     const msg = reasonParam === 'session_expired'
-      ? 'Sesi analisis sudah kadaluarsa (2 jam). Silakan upload CV kembali.'
+      ? '⏰ Sesi analisis sudah berakhir (berlaku 2 jam). Silakan upload CV kembali untuk analisis baru.'
       : 'Sesi tidak ditemukan. Silakan mulai upload CV dari sini.';
     const banner = document.createElement('p');
     banner.className = 'session-notice-banner';
