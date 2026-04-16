@@ -34,10 +34,6 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <!-- PostHog analytics library — loaded as a static tag so no dynamic <script> element is
-       ever created (which would violate CSP). The bundle's posthog-init.js only sets up the
-       stub and calls posthog.init(); array.js is already available when the bundle runs. -->
-  <script defer src="https://eu-assets.i.posthog.com/static/array.js" crossorigin="anonymous"></script>
   <!-- Cloudflare Web Analytics -->
   <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "f9c97d82f2a04b9f95e051946eb0525e"}'></script>
   <!-- docx.js and jsPDF served locally — defer preserves load order before download.bundle.js -->
@@ -573,6 +569,9 @@
   </footer>
 
   <script defer src="js/dist/download.bundle.js?v=1"></script>
+  <!-- PostHog array.js — loaded after the bundle so posthog.init() with all disable flags
+       is queued before PostHog library processes it (defer execution order guarantee). -->
+  <script defer src="https://eu-assets.i.posthog.com/static/array.js" crossorigin="anonymous"></script>
 
 </body>
 </html>
