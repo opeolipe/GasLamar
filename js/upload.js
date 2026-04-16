@@ -11,6 +11,7 @@ const MIN_JD_LENGTH = 100;
 
 let selectedFile = null;
 let cvText = '';
+let jdTouched = false; // true once user has interacted with the JD field
 
 // ---- Drag & Drop ----
 
@@ -285,11 +286,13 @@ function updateCharCount() {
   } else {
     warning.classList.add('hidden');
     const trimLen = jd.value.trim().length;
-    if (trimLen > 0 && trimLen < MIN_JD_LENGTH) {
-      // Show "too short" without the button shake — direct DOM update only
+    if (jdTouched && trimLen < MIN_JD_LENGTH) {
+      // Show "required / too short" without the button shake — direct DOM update only
       const jdErrEl = document.getElementById('jd-error');
       if (jdErrEl) {
-        jdErrEl.textContent = `Job description terlalu pendek. Tulis minimal ${MIN_JD_LENGTH} karakter (bagian Requirements dan Responsibilities) untuk analisis yang akurat.`;
+        jdErrEl.textContent = trimLen === 0
+          ? `Job description wajib diisi. Tulis minimal ${MIN_JD_LENGTH} karakter (bagian Requirements dan Responsibilities) untuk analisis yang akurat.`
+          : `Job description terlalu pendek. Tulis minimal ${MIN_JD_LENGTH} karakter (bagian Requirements dan Responsibilities) untuk analisis yang akurat.`;
         jdErrEl.classList.remove('hidden');
       }
     } else {
@@ -334,7 +337,10 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
   }
 
   if (jobDesc.length < MIN_JD_LENGTH) {
-    showError('jd-error', `Job description terlalu pendek. Tulis minimal ${MIN_JD_LENGTH} karakter (bagian Requirements dan Responsibilities) untuk analisis yang akurat.`);
+    const jdMsg = jobDesc.length === 0
+      ? `Job description wajib diisi. Tulis minimal ${MIN_JD_LENGTH} karakter (bagian Requirements dan Responsibilities) untuk analisis yang akurat.`
+      : `Job description terlalu pendek. Tulis minimal ${MIN_JD_LENGTH} karakter (bagian Requirements dan Responsibilities) untuk analisis yang akurat.`;
+    showError('jd-error', jdMsg);
     return;
   }
 
@@ -609,8 +615,10 @@ function hideError(id) {
   syncSubmitBtn();
 })();
 
-// Save JD draft on every keystroke
+// Update validation and save JD draft on every keystroke
 document.getElementById('job-desc').addEventListener('input', () => {
+  jdTouched = true;
+  updateCharCount();
   try { sessionStorage.setItem('gaslamar_jd_draft', escapeHtml(document.getElementById('job-desc').value)); } catch (_) {}
 });
 
@@ -618,6 +626,13 @@ document.getElementById('job-desc').addEventListener('input', () => {
 // updateCharCount reads the final value (and enforces the hard cap).
 document.getElementById('job-desc').addEventListener('paste', () => {
   requestAnimationFrame(updateCharCount);
+});
+
+// On blur: mark as touched and validate — catches the case where the user
+// focuses the field, types nothing (or clears it), then tabs away.
+document.getElementById('job-desc').addEventListener('blur', () => {
+  jdTouched = true;
+  updateCharCount();
 });
 
 // Re-sync submit button when page is restored from BFcache (back-navigation or tab switch).
