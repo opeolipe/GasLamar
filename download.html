@@ -285,6 +285,9 @@
     .upsell-card .upsell-saving { display: inline-block; background: #FEF3C7; color: #92400E; font-size: .72rem; font-weight: 700; padding: .15rem .6rem; border-radius: 20px; margin-bottom: .85rem; }
     .btn-upsell { display: inline-block; background: #1D4ED8; color: white; font-weight: 700; padding: .75rem 2rem; border-radius: 40px; text-decoration: none; font-size: .95rem; min-height: 44px; display: inline-flex; align-items: center; }
 
+    /* ── Expiry date note ── */
+    .expiry-date-note { text-align: center; font-size: .78rem; color: #6B7280; margin: .5rem 0 1rem; }
+
     /* ── Bottom CTA ── */
     .bottom-cta      { text-align: center; padding-bottom: 2rem; }
     .bottom-cta-text { color: #6B7280; font-size: .9rem; margin-bottom: .75rem; }
@@ -452,6 +455,9 @@
           </button>
         </div>
       </div>
+
+      <!-- Absolute expiry date — populated by download.js startCountdown() -->
+      <p id="expiry-date-text" class="expiry-date-note" style="display:none;"></p>
 
       <div class="tips-box">
         <h4>💡 Tips Submit CV</h4>

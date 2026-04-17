@@ -15,6 +15,29 @@ if (_analyzeErr) {
   document.querySelector('.card').insertBefore(_errEl, document.querySelector('.card').firstChild);
 }
 
+// If a previous analysis session is still active, remind the user so they don't
+// accidentally abandon their existing results by starting a new upload.
+(function() {
+  const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
+  if (!analyzeTime || !sessionStorage.getItem('gaslamar_scoring')) return;
+  const remaining = 7200 - Math.floor((Date.now() - analyzeTime) / 1000);
+  if (remaining <= 0) return; // already expired — no stale results to surface
+  const h = Math.floor(remaining / 3600);
+  const m = Math.floor((remaining % 3600) / 60);
+  const timeLabel = h > 0 ? h + 'j ' + m + 'm' : m + ' menit';
+  const notice = document.createElement('p');
+  notice.className = 'session-notice-banner';
+  notice.setAttribute('role', 'status');
+  notice.textContent = '\u23F0 Kamu masih punya hasil analisis aktif (' + timeLabel + ' tersisa). ';
+  const link = document.createElement('a');
+  link.href = 'hasil.html';
+  link.style.cssText = 'color:#1E40AF;font-weight:600;';
+  link.textContent = 'Lihat hasil \u2192';
+  notice.appendChild(link);
+  const card = document.querySelector('.card');
+  if (card) card.insertBefore(notice, card.firstChild);
+})();
+
 // Show informational notice when redirected from hasil.html or download.html
 const _redirectParams = new URLSearchParams(window.location.search);
 const _redirectReason = _redirectParams.get('reason');

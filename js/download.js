@@ -748,6 +748,17 @@ function startCountdown(expiresAtMs, totalCredits) {
   }
 
   update();
+
+  // Show exact expiry date/time once — static, no need to re-render
+  const expiryEl = document.getElementById('expiry-date-text');
+  if (expiryEl) {
+    const d = new Date(expiresAtMs);
+    const dateStr = d.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
+    const timeStr = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    expiryEl.textContent = '📅 Link berlaku hingga ' + dateStr + ' pukul ' + timeStr;
+    expiryEl.style.display = '';
+  }
+
   bar.style.display = 'block';
   document.body.classList.add('has-countdown');
   if (countdownInterval) clearInterval(countdownInterval);
