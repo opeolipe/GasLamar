@@ -612,6 +612,9 @@
     .pricing-card-h3 { text-align:center; margin-bottom:0.5rem; font-size:1.3rem; font-weight:700; }
     .pricing-card-sub { text-align:center; font-size:0.9rem; color:#4B5563; }
 
+    /* Session validity note — static callout near pricing CTA */
+    .session-validity-note { text-align:center; font-size:0.78rem; color:#92400E; background:#FFFBEB; border:1px solid #FDE68A; border-radius:10px; padding:0.4rem 1rem; margin:0 auto 0.75rem; max-width:420px; }
+
     /* Email section */
     .email-label { font-weight:600; margin-bottom:0.5rem; }
     .email-status-p { font-size:0.7rem; margin-top:0.5rem; color:#6B7280; }

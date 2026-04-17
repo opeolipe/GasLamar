@@ -667,7 +667,8 @@
       <span>🔒 CV tidak disimpan</span>
       <span>⚡ Proses ±30 detik</span>
       <span>❌ Tidak perlu daftar</span>
-      <span>⏰ Hasil berlaku 2 jam</span>
+      <span>⏰ Preview gratis berlaku 2 jam</span>
+      <span>💳 Link download berlaku 7–30 hari</span>
     </div>
     <a class="support-link" href="mailto:support@gaslamar.com?subject=Bantuan%20Upload%20CV%20-%20GasLamar">📧 Butuh bantuan? Hubungi support</a>
   </div>
@@ -677,5 +678,8 @@
 </footer>
 
 <script defer src="js/dist/upload.bundle.js?v=1"></script>
+  <!-- PostHog array.js — loaded after the bundle so posthog.init() with all disable flags
+       is queued before PostHog library processes it (defer execution order guarantee). -->
+  <script defer src="https://eu-assets.i.posthog.com/static/array.js" crossorigin="anonymous"></script>
 </body>
 </html>
