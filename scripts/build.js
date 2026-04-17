@@ -59,7 +59,15 @@ const BUNDLES = {
     'posthog-init.js',
     'config.js',
     'analytics.js',
-    'download.js',
+    'download-state.js',          // constants + mutable state + clearClientSessionData + getSecretHeaders + syncTierFromServer
+    'download-ui.js',             // showState, showSessionError, setProgress, showDownloadReady …
+    'download-file-utils.js',     // triggerDownload, buildCVFilename, sanitizeFilenamePart …
+    'download-docx-pdf.js',       // CV_SECTION_HEADINGS, parseLines, generateDOCX, generatePDF
+    'download-countdown.js',      // startCountdown
+    'download-post-download.js',  // showPostDownloadActions, showInterviewTipsModal, closeInterviewTipsModal
+    'download-api.js',            // startPolling, poll, heartbeat, updatePollUI
+    'download-generation.js',     // fetchAndGenerateCV, generateCVContent, retryGeneration, generateForNewJob
+    'download.js',                // downloadFile + init() IIFE — runs after all modules are defined
     'download-page.js',
   ],
   analyzing: [
