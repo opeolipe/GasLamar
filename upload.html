@@ -211,6 +211,23 @@
       font-size: 0.8rem;
       margin-bottom: 0.75rem;
     }
+    /* Tier indicator pill — shown when ?tier= is present in the URL */
+    .tier-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 40px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      background: #EFF6FF;
+      border: 1px solid #BFDBFE;
+      color: #1E40AF;
+      margin-bottom: 12px;
+    }
+    .tier-indicator.coba    { background: #FFFBEB; border-color: #FDE68A; color: #92400E; }
+    .tier-indicator.jobhunt { background: #F0FDF4; border-color: #BBF7D0; color: #166534; }
+    .tier-payment-note { font-size: 0.75rem; color: #6B7280; margin-top: -6px; margin-bottom: 10px; }
     .warning-note {
       background: #FFFBEB;
       border-left: 3px solid #F59E0B;
@@ -453,6 +470,11 @@
     .char-counter.near-limit { color: #D97706; }
     .char-counter.at-limit   { color: #DC2626; font-weight: 600; }
 
+    /* JD success state */
+    .success-indicator { font-size: 0.75rem; color: #059669; margin-top: 0.35rem; }
+    textarea.jd-success { border-color: #10B981; box-shadow: 0 0 0 3px rgba(16,185,129,0.10); }
+    textarea.jd-success:focus { border-color: #10B981; box-shadow: 0 0 0 3px rgba(16,185,129,0.15); }
+
     /* Scroll hint */
     #scroll-hint { margin-top: 0.75rem; }
     .scroll-hint-svg { display: block; margin: 0 auto 4px; }
@@ -520,7 +542,7 @@
     <div class="progress-steps">
       <div class="step active" id="step-1">
         <span class="step-label">1. Upload CV</span>
-        <span class="step-desc">PDF / DOCX · maks 5MB</span>
+        <span class="step-desc">PDF / DOCX / TXT · maks 5MB</span>
       </div>
       <div class="step" id="step-2">
         <span class="step-label">2. Job Desc</span>
@@ -536,6 +558,10 @@
     <!-- Tier warning (shown by upload.js when URL tier param is invalid) -->
     <div id="tier-warning" class="tier-warning-banner hidden" role="alert" aria-live="polite"></div>
 
+    <!-- Tier indicator (shown by upload.js when a valid ?tier= param is present) -->
+    <div id="tier-indicator" class="tier-indicator hidden" role="status"></div>
+    <p id="tier-payment-note" class="tier-payment-note hidden">Analisis gratis dulu — konfirmasi dan bayar setelah lihat hasilnya.</p>
+
     <form id="upload-form">
 
       <!-- CV Upload -->
@@ -548,8 +574,8 @@
           <div class="dropzone-text">Drag &amp; drop CV di sini</div>
           <div class="dropzone-divider">atau</div>
           <button type="button" class="btn-pick-file" aria-label="Pilih file CV dari komputer kamu">Pilih file</button>
-          <input type="file" id="cv-file" class="hidden" aria-label="Upload file CV (PDF atau DOCX, maks 5MB)" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" capture="environment">
-          <div class="dropzone-hint">PDF atau DOCX &nbsp;•&nbsp; maks 5MB</div>
+          <input type="file" id="cv-file" class="hidden" aria-label="Upload file CV (PDF, DOCX, atau TXT, maks 5MB)" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" capture="environment">
+          <div class="dropzone-hint">PDF, DOCX, atau TXT &nbsp;•&nbsp; maks 5MB</div>
           <p class="file-warning">⚠️ Pastikan CV kamu adalah file teks — bukan hasil scan atau foto.</p>
         </div>
 
@@ -608,6 +634,7 @@
       </div>
       <div id="char-warning" class="char-warning-text hidden"></div>
       <div id="jd-error" class="error-msg hidden"></div>
+      <div id="jd-success-indicator" class="success-indicator hidden" role="status" aria-live="polite">✓ Minimal 100 karakter terpenuhi</div>
 
       <!-- Scroll hint -->
       <div id="scroll-hint">
@@ -640,7 +667,8 @@
       <span>🔒 CV tidak disimpan</span>
       <span>⚡ Proses ±30 detik</span>
       <span>❌ Tidak perlu daftar</span>
-      <span>⏰ Hasil berlaku 2 jam</span>
+      <span>⏰ Preview gratis berlaku 2 jam</span>
+      <span>💳 Link download berlaku 7–30 hari</span>
     </div>
     <a class="support-link" href="mailto:support@gaslamar.com?subject=Bantuan%20Upload%20CV%20-%20GasLamar">📧 Butuh bantuan? Hubungi support</a>
   </div>
@@ -650,5 +678,8 @@
 </footer>
 
 <script defer src="js/dist/upload.bundle.js?v=1"></script>
+  <!-- PostHog array.js — loaded after the bundle so posthog.init() with all disable flags
+       is queued before PostHog library processes it (defer execution order guarantee). -->
+  <script defer src="https://eu-assets.i.posthog.com/static/array.js" crossorigin="anonymous"></script>
 </body>
 </html>

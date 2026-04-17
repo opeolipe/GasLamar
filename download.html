@@ -285,6 +285,9 @@
     .upsell-card .upsell-saving { display: inline-block; background: #FEF3C7; color: #92400E; font-size: .72rem; font-weight: 700; padding: .15rem .6rem; border-radius: 20px; margin-bottom: .85rem; }
     .btn-upsell { display: inline-block; background: #1D4ED8; color: white; font-weight: 700; padding: .75rem 2rem; border-radius: 40px; text-decoration: none; font-size: .95rem; min-height: 44px; display: inline-flex; align-items: center; }
 
+    /* ── Expiry date note ── */
+    .expiry-date-note { text-align: center; font-size: .78rem; color: #6B7280; margin: .5rem 0 1rem; }
+
     /* ── Bottom CTA ── */
     .bottom-cta      { text-align: center; padding-bottom: 2rem; }
     .bottom-cta-text { color: #6B7280; font-size: .9rem; margin-bottom: .75rem; }
@@ -307,6 +310,28 @@
       color: #92400E;
     }
     body.has-countdown { padding-top: calc(2rem + 34px); }
+
+    /* ── Post-download coaching card ── */
+    .post-dl-card         { background: #F0FDF4; border: 1.5px solid #86EFAC; border-radius: 20px; padding: 1.25rem 1.5rem; margin-bottom: 1rem; position: relative; }
+    .post-dl-card.credits-card { background: #EFF6FF; border-color: #BFDBFE; }
+    .post-dl-dismiss      { position: absolute; top: .75rem; right: .75rem; background: none; border: none; color: #9CA3AF; cursor: pointer; font-size: 1rem; padding: .25rem; line-height: 1; }
+    .post-dl-title        { font-weight: 700; font-size: 1rem; margin-bottom: .5rem; padding-right: 1.5rem; }
+    .post-dl-sub          { font-size: .85rem; color: #374151; margin-bottom: 1rem; }
+    .post-dl-actions      { display: flex; gap: .75rem; flex-wrap: wrap; }
+    .btn-next-cv          { background: #2563EB; color: white; border: none; border-radius: 60px; padding: .65rem 1.25rem; font-weight: 700; font-size: .9rem; cursor: pointer; font-family: inherit; text-decoration: none; display: inline-block; }
+    .btn-buy-pack         { background: #0F172A; color: white; border: none; border-radius: 60px; padding: .65rem 1.25rem; font-weight: 700; font-size: .9rem; cursor: pointer; font-family: inherit; text-decoration: none; display: inline-block; }
+    .btn-tips             { background: white; color: #374151; border: 1.5px solid #E2E8F0; border-radius: 60px; padding: .65rem 1.25rem; font-weight: 600; font-size: .9rem; cursor: pointer; font-family: inherit; }
+
+    /* ── Interview tips modal ── */
+    .tips-modal-overlay   { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+    .tips-modal-overlay.hidden { display: none; }
+    .tips-modal           { background: white; border-radius: 20px; padding: 1.75rem; max-width: 480px; width: 100%; max-height: 80vh; overflow-y: auto; position: relative; }
+    .tips-modal-close     { position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.2rem; color: #6B7280; cursor: pointer; padding: .25rem; }
+    .tips-modal-title     { font-weight: 700; font-size: 1.1rem; margin-bottom: 1.25rem; padding-right: 2rem; }
+    .tip-item             { display: flex; gap: .75rem; margin-bottom: 1rem; align-items: flex-start; }
+    .tip-icon             { font-size: 1.25rem; flex-shrink: 0; margin-top: .1rem; }
+    .tip-text             { font-size: .9rem; color: #374151; line-height: 1.5; }
+    .tip-text strong      { color: #0F172A; }
   </style>
   <!-- Session guard: synchronous (no defer) — runs before body renders -->
   <script src="js/download-guard.js"></script>
@@ -431,6 +456,9 @@
         </div>
       </div>
 
+      <!-- Absolute expiry date — populated by download.js startCountdown() -->
+      <p id="expiry-date-text" class="expiry-date-note" style="display:none;"></p>
+
       <div class="tips-box">
         <h4>💡 Tips Submit CV</h4>
         <ul>
@@ -529,6 +557,9 @@
       <p class="upgrade-note">Bisa pakai CV yang sama atau upload CV yang sudah diperbarui</p>
     </div>
 
+    <!-- Post-download coaching card (injected by download.js) -->
+    <div id="post-download-actions"></div>
+
     <!-- CTA: scroll to multi-credit if credits remain, else go to upload -->
     <div class="bottom-cta" id="bottom-cta">
       <p class="bottom-cta-text">Melamar ke tempat lain juga?</p>
@@ -544,6 +575,9 @@
   </footer>
 
   <script defer src="js/dist/download.bundle.js?v=1"></script>
+  <!-- PostHog array.js — loaded after the bundle so posthog.init() with all disable flags
+       is queued before PostHog library processes it (defer execution order guarantee). -->
+  <script defer src="https://eu-assets.i.posthog.com/static/array.js" crossorigin="anonymous"></script>
 
 </body>
 </html>

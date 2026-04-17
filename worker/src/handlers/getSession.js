@@ -6,13 +6,13 @@ export async function handleGetSession(request, env) {
   const session_id = getSessionIdFromCookie(request);
 
   if (!session_id) {
-    return jsonResponse({ message: 'Sesi tidak ditemukan. Pastikan browser mengizinkan cookies.' }, 401, request, env);
+    return jsonResponse({ message: 'Sesi tidak ditemukan. Pastikan browser mengizinkan cookies.', reason: 'no_cookie' }, 401, request, env);
   }
 
   const session = await getSession(env, session_id);
 
   if (!session) {
-    return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa' }, 404, request, env);
+    return jsonResponse({ message: 'Sesi download tidak ditemukan atau sudah kedaluwarsa.', reason: 'expired' }, 404, request, env);
   }
 
   // Verify session secret (new sessions require it; legacy sessions without hash skip this check)

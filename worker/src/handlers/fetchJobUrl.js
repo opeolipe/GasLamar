@@ -97,6 +97,11 @@ export async function handleFetchJobUrl(request, env) {
     return jsonResponse({ message: 'Parameter url wajib diisi' }, 400, request, env);
   }
 
+  // Cap URL length before parsing — very long strings waste CPU and are never legitimate.
+  if (url.length > 2048) {
+    return jsonResponse({ message: 'URL terlalu panjang (maks 2.048 karakter).' }, 400, request, env);
+  }
+
   // ── Step 1: Parse URL (catches malformed inputs early) ──────────────────────
   let parsed;
   try {
@@ -161,12 +166,19 @@ export async function handleFetchJobUrl(request, env) {
   }
 
   if (!pageRes.ok) {
-    return jsonResponse({ message: `Halaman tidak bisa diakses (${pageRes.status}). Coba copy-paste manual.` }, 422, request, env);
+    return jsonResponse({ message: 'Halaman tidak bisa diakses. Coba copy-paste manual.' }, 422, request, env);
   }
 
   const contentType = pageRes.headers.get('content-type') || '';
   if (!contentType.includes('text/html')) {
     return jsonResponse({ message: 'URL bukan halaman web (HTML). Coba copy-paste manual.' }, 422, request, env);
+  }
+
+  // Reject pages that advertise a very large body — streaming 10MB through HTMLRewriter
+  // is wasteful and the useful JD text is always in the first few kilobytes.
+  const contentLength = parseInt(pageRes.headers.get('content-length') || '0', 10);
+  if (contentLength > 2 * 1024 * 1024) { // 2 MB
+    return jsonResponse({ message: 'Halaman terlalu besar untuk diproses. Coba copy-paste manual.' }, 422, request, env);
   }
 
   // Extract text using HTMLRewriter — drop script/style noise, collect body text.

@@ -11,6 +11,7 @@ const MIN_JD_LENGTH = 100;
 
 let selectedFile = null;
 let cvText = '';
+let jdTouched = false; // true once user has interacted with the JD field
 
 // ---- Drag & Drop ----
 
@@ -135,7 +136,11 @@ async function extractTextFromFile(file) {
 
     // Validate minimum text length
     if (cvText.trim().length < MIN_CV_TEXT_LENGTH) {
-      document.getElementById('cv-text-warning').classList.remove('hidden');
+      const warnEl = document.getElementById('cv-text-warning');
+      if (warnEl) {
+        warnEl.classList.remove('hidden');
+        warnEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       cvText = '';
     } else {
       // Persist CV text draft so the user can navigate away and return without losing their file.
@@ -281,16 +286,26 @@ function updateCharCount() {
   } else {
     warning.classList.add('hidden');
     const trimLen = jd.value.trim().length;
-    if (trimLen > 0 && trimLen < MIN_JD_LENGTH) {
-      // Show "too short" without the button shake — direct DOM update only
+    if (jdTouched && trimLen < MIN_JD_LENGTH) {
+      // Show "required / too short" without the button shake — direct DOM update only
       const jdErrEl = document.getElementById('jd-error');
       if (jdErrEl) {
-        jdErrEl.textContent = `Job description terlalu pendek. Tulis minimal ${MIN_JD_LENGTH} karakter (bagian Requirements dan Responsibilities) untuk analisis yang akurat.`;
+        jdErrEl.textContent = trimLen === 0
+          ? `Job description wajib diisi. Tulis minimal ${MIN_JD_LENGTH} karakter (bagian Requirements dan Responsibilities) untuk analisis yang akurat.`
+          : `Job description terlalu pendek. Tulis minimal ${MIN_JD_LENGTH} karakter (bagian Requirements dan Responsibilities) untuk analisis yang akurat.`;
         jdErrEl.classList.remove('hidden');
       }
     } else {
       hideError('jd-error');
     }
+  }
+
+  // Success indicator: visible when JD meets the minimum length
+  const successEl = document.getElementById('jd-success-indicator');
+  if (successEl) {
+    const meetsMin = jd.value.trim().length >= MIN_JD_LENGTH;
+    successEl.classList.toggle('hidden', !meetsMin);
+    jd.classList.toggle('jd-success', meetsMin);
   }
 
   syncSubmitBtn();
@@ -322,7 +337,10 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
   }
 
   if (jobDesc.length < MIN_JD_LENGTH) {
-    showError('jd-error', `Job description terlalu pendek. Tulis minimal ${MIN_JD_LENGTH} karakter (bagian Requirements dan Responsibilities) untuk analisis yang akurat.`);
+    const jdMsg = jobDesc.length === 0
+      ? `Job description wajib diisi. Tulis minimal ${MIN_JD_LENGTH} karakter (bagian Requirements dan Responsibilities) untuk analisis yang akurat.`
+      : `Job description terlalu pendek. Tulis minimal ${MIN_JD_LENGTH} karakter (bagian Requirements dan Responsibilities) untuk analisis yang akurat.`;
+    showError('jd-error', jdMsg);
     return;
   }
 
@@ -443,12 +461,27 @@ function finishProgress() {
 
 // ---- Helpers ----
 
+// Escape HTML special chars before storing user input in sessionStorage.
+// This prevents reflected XSS if the stored value is ever rendered via innerHTML.
+// Only escapes &, <, >, ", ' — does not alter any other characters.
+function escapeHtml(text) {
+  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+  return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+// Inverse of escapeHtml — used when reading back from sessionStorage for display.
+// Replaces only the five entities written by escapeHtml; safe to call on already-raw strings.
+function unescapeHtml(text) {
+  const map = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#039;': "'" };
+  return text.replace(/&amp;|&lt;|&gt;|&quot;|&#039;/g, m => map[m]);
+}
+
 function showError(id, message) {
   const el = document.getElementById(id);
   if (el) {
     el.textContent = message;
     el.classList.remove('hidden');
-    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
   // Visual feedback on submit button: shake + red ring
   const btn = document.getElementById('submit-btn');
@@ -489,7 +522,7 @@ function hideError(id) {
       // Save draft on programmatic assignments too (e.g. staging test panel auto-fill),
       // not just on user keystrokes. The input event listener covers manual typing;
       // this setter covers jdEl.value = '...' calls that bypass the input event.
-      try { sessionStorage.setItem('gaslamar_jd_draft', proto.get.call(this)); } catch (_) {}
+      try { sessionStorage.setItem('gaslamar_jd_draft', escapeHtml(proto.get.call(this))); } catch (_) {}
     },
     configurable: false,
   });
@@ -498,6 +531,20 @@ function hideError(id) {
   const VALID_TIERS = ['coba', 'single', '3pack', 'jobhunt'];
   const params = new URLSearchParams(location.search);
   let tierParam = (params.get('tier') || '').toLowerCase().trim();
+
+  // Show informational banner if redirected back from hasil.html due to missing/expired session
+  const reasonParam = params.get('reason');
+  if (reasonParam === 'session_expired' || reasonParam === 'no_session') {
+    const msg = reasonParam === 'session_expired'
+      ? '⏰ Sesi analisis sudah berakhir (berlaku 2 jam). Silakan upload CV kembali untuk analisis baru.'
+      : 'Sesi tidak ditemukan. Silakan mulai upload CV dari sini.';
+    const banner = document.createElement('p');
+    banner.className = 'session-notice-banner';
+    banner.setAttribute('role', 'status');
+    banner.textContent = msg;
+    const tierWarning = document.getElementById('tier-warning');
+    if (tierWarning) tierWarning.parentNode.insertBefore(banner, tierWarning);
+  }
 
   if (tierParam && !VALID_TIERS.includes(tierParam)) {
     // Invalid tier — warn the user, fall back to 'single', and clean the URL
@@ -517,12 +564,33 @@ function hideError(id) {
 
   if (VALID_TIERS.includes(tierParam)) {
     try { sessionStorage.setItem('gaslamar_tier', tierParam); } catch (_) {}
+
+    // Show tier indicator pill so the user knows which package they selected
+    const TIER_DISPLAY = {
+      coba:    { icon: '🧪', name: 'Coba Dulu',    desc: '1 CV · Rp 29.000' },
+      single:  { icon: '✨', name: 'Single',        desc: '1 CV Bilingual · Rp 59.000' },
+      '3pack': { icon: '📦', name: '3-Pack',        desc: '3 CV Bilingual · Rp 149.000' },
+      jobhunt: { icon: '🚀', name: 'Job Hunt Pack', desc: '10 CV Bilingual · Rp 299.000' },
+    };
+    const td = TIER_DISPLAY[tierParam];
+    const indicatorEl = document.getElementById('tier-indicator');
+    if (td && indicatorEl) {
+      indicatorEl.textContent = `${td.icon}  Paket kamu: ${td.name} — ${td.desc}`;
+      indicatorEl.classList.remove('hidden');
+      // coba = amber, jobhunt = green; single/3pack use the default blue
+      if (tierParam === 'coba' || tierParam === 'jobhunt') {
+        indicatorEl.classList.add(tierParam);
+      }
+      // Payment-timing reassurance — shown alongside the pill
+      const noteEl = document.getElementById('tier-payment-note');
+      if (noteEl) noteEl.classList.remove('hidden');
+    }
   }
 
-  // Restore JD draft
+  // Restore JD draft — unescape from storage format back to raw text for display
   const savedJd = sessionStorage.getItem('gaslamar_jd_draft');
   if (savedJd) {
-    document.getElementById('job-desc').value = savedJd;
+    document.getElementById('job-desc').value = unescapeHtml(savedJd);
     updateCharCount();
   }
 
@@ -547,15 +615,24 @@ function hideError(id) {
   syncSubmitBtn();
 })();
 
-// Save JD draft on every keystroke
+// Update validation and save JD draft on every keystroke
 document.getElementById('job-desc').addEventListener('input', () => {
-  try { sessionStorage.setItem('gaslamar_jd_draft', document.getElementById('job-desc').value); } catch (_) {}
+  jdTouched = true;
+  updateCharCount();
+  try { sessionStorage.setItem('gaslamar_jd_draft', escapeHtml(document.getElementById('job-desc').value)); } catch (_) {}
 });
 
 // Paste fires BEFORE the value is updated — use requestAnimationFrame so
 // updateCharCount reads the final value (and enforces the hard cap).
 document.getElementById('job-desc').addEventListener('paste', () => {
   requestAnimationFrame(updateCharCount);
+});
+
+// On blur: mark as touched and validate — catches the case where the user
+// focuses the field, types nothing (or clears it), then tabs away.
+document.getElementById('job-desc').addEventListener('blur', () => {
+  jdTouched = true;
+  updateCharCount();
 });
 
 // Re-sync submit button when page is restored from BFcache (back-navigation or tab switch).

@@ -35,13 +35,50 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/main.css?v=3" />
   <link rel="stylesheet" href="css/hasil.css?v=2" />
+  <style>
+    /* 5-minute expiry warning toast */
+    .expiry-toast {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 9000;
+      background: #DC2626;
+      color: #fff;
+      text-align: center;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 0.7rem 1rem;
+    }
+    .expiry-toast.hidden { display: none; }
+
+    /* Skip-to-content link — visually hidden until focused */
+    .skip-to-content {
+      position: absolute;
+      left: -9999px;
+      top: 0;
+      z-index: 9999;
+      background: #0F172A;
+      color: #fff;
+      padding: 0.5rem 1rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      border-radius: 0 0 8px 0;
+    }
+    .skip-to-content:focus { left: 0; }
+  </style>
   <!-- Cloudflare Web Analytics -->
   <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "f9c97d82f2a04b9f95e051946eb0525e"}'></script>
   <script src="js/hasil-guard.js"></script>
 </head>
 <body>
+<!-- 5-minute expiry warning toast (shown by hasil-page.js) -->
+<div id="expiry-warning-toast" class="expiry-toast hidden" role="alert" aria-live="assertive">
+  ⏳ Sesi analisis akan berakhir dalam 5 menit. Simpan hasil atau lanjutkan ke pembayaran.
+</div>
+
+<a href="#main-content" class="skip-to-content">Langsung ke konten utama</a>
+<main id="main-content" class="container">
 <h1 class="sr-only">Hasil Analisis CV</h1>
-<div class="container">
 
   <!-- Loading state (hidden by scoring.js once data is available) -->
   <div id="results-loading" class="gl-card">
@@ -73,15 +110,17 @@
   <!-- Main results content (shown by scoring.js) -->
   <div id="results-content" class="hidden">
 
-    <!-- Progress steps -->
-    <div class="gl-card card-steps">
-      <div class="progress-steps">
-        <div class="gl-step completed">1. Upload CV</div>
-        <div class="gl-step completed">2. Job Desc</div>
-        <div class="gl-step active">3. Hasil Analisis</div>
-        <div class="step-line"></div>
+    <!-- Progress steps — wrapped in <header> as section-level header for results content -->
+    <header aria-label="Langkah analisis CV">
+      <div class="gl-card card-steps">
+        <div class="progress-steps">
+          <div class="gl-step completed">1. Upload CV</div>
+          <div class="gl-step completed">2. Job Desc</div>
+          <div class="gl-step active">3. Hasil Analisis</div>
+          <div class="step-line"></div>
+        </div>
       </div>
-    </div>
+    </header>
 
     <!-- Session countdown -->
     <div id="session-countdown" class="session-countdown">
@@ -132,8 +171,8 @@
         <span id="confidence-badge" style="display:none;" aria-hidden="true"></span>
 
         <!-- Share button -->
-        <button id="share-btn">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
+        <button id="share-btn" aria-label="Bagikan skor analisis CV">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
           <span>Bagikan Skor</span>
         </button>
       </div>
@@ -213,6 +252,7 @@
     <div class="pricing-cta-head">
       <h3 class="pricing-cta-title">👉 Perbaiki CV saya sekarang</h3>
     </div>
+    <p class="session-validity-note">⏰ Preview analisis berlaku <strong>2 jam</strong> &nbsp;·&nbsp; 💳 Setelah bayar: download berlaku <strong>7 hari</strong> (Single/Coba) atau <strong>30 hari</strong> (3-Pack/Job Hunt)</p>
 
     <!-- Pricing card -->
     <div class="gl-card">
@@ -255,9 +295,9 @@
     <div class="gl-card" id="email-card">
       <!-- Default view: single / coba tiers -->
       <div id="email-default">
-        <div class="email-label">Email untuk konfirmasi pembayaran</div>
+        <label for="email-input" class="email-label">Email untuk konfirmasi pembayaran</label>
         <div class="email-input-group" id="email-default-slot">
-          <input type="email" id="email-input" placeholder="email kamu" autocomplete="email">
+          <input type="email" id="email-input" aria-label="Alamat email untuk konfirmasi pembayaran" placeholder="email kamu" autocomplete="email">
         </div>
         <p id="email-status" class="email-status-p"></p>
       </div>
@@ -284,7 +324,7 @@
 
     <!-- Pay button + trust footer -->
     <div id="cta-area">
-      <button id="pay-btn" disabled>
+      <button id="pay-btn" disabled aria-label="Lihat CV hasil rewrite lengkap">
         ✨ Lihat CV hasil rewrite lengkap
       </button>
       <p id="pay-hint" class="pay-hint">
@@ -296,10 +336,12 @@
       💳 Pembayaran aman via Mayar · VA, QRIS, e-wallet · Tidak puas? Hubungi kami di support@gaslamar.com
     </div>
 
-    <!-- Restart -->
-    <div class="restart-wrap">
-      <a href="upload.html" class="restart-link">← Upload CV lain</a>
-    </div>
+    <!-- Restart — wrapped in <footer> as section-level footer for results content -->
+    <footer aria-label="Navigasi balik">
+      <div class="restart-wrap">
+        <a href="upload.html" class="restart-link">← Upload CV lain</a>
+      </div>
+    </footer>
 
     <!-- ── Collapsible: detail analisis (collapsed by default) ── -->
     <details id="detail-analysis">
@@ -347,9 +389,12 @@
 
   </div><!-- end results-content -->
 
-</div>
+</main>
 
 <script defer src="js/dist/hasil.bundle.js?v=1"></script>
 <script defer src="js/hasil-enhancements.js?v=2"></script>
+  <!-- PostHog array.js — loaded after the bundle so posthog.init() with all disable flags
+       is queued before PostHog library processes it (defer execution order guarantee). -->
+  <script defer src="https://eu-assets.i.posthog.com/static/array.js" crossorigin="anonymous"></script>
 </body>
 </html>

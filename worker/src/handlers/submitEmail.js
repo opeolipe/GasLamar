@@ -18,9 +18,11 @@ export async function handleSubmitEmail(request, env) {
     return jsonResponse({ message: 'Request body tidak valid' }, 400, request, env);
   }
 
-  const { email } = body;
+  // Trim surrounding whitespace before any checks — avoids rejecting valid addresses
+  // that arrive with accidental leading/trailing spaces from the client.
+  const email = typeof body.email === 'string' ? body.email.trim() : '';
 
-  if (!email || typeof email !== 'string') {
+  if (!email) {
     return jsonResponse({ message: 'Email tidak valid' }, 400, request, env);
   }
 
@@ -34,7 +36,7 @@ export async function handleSubmitEmail(request, env) {
   const key = `email_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
   await env.GASLAMAR_SESSIONS.put(
     key,
-    JSON.stringify({ email: email.toLowerCase().trim(), submitted_at: Date.now(), ip }),
+    JSON.stringify({ email: email.toLowerCase(), submitted_at: Date.now(), ip }),
     { expirationTtl: 86400 * 30 }
   );
 

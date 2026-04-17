@@ -17,6 +17,18 @@ let cvDataCache = null; // { cv_id: string, cv_en: string, tier: string, total_c
 let sessionIdCache = null; // retained for multi-credit re-use
 let sessionSecretCache = null; // retained for X-Session-Secret header
 
+// ---- Client-side session cleanup ----
+// Called whenever the server reports the session is gone (expired / invalid).
+// Removes all display-only tier/credits values so stale data is never shown.
+// NOTE: These keys are used for UI display only; the backend never trusts them.
+function clearClientSessionData(sessionId) {
+  sessionStorage.removeItem('gaslamar_tier');
+  sessionStorage.removeItem('gaslamar_credits'); // defensive — key unused but cleared for hygiene
+  localStorage.removeItem('gaslamar_session');
+  localStorage.removeItem('gaslamar_tier'); // legacy / belt-and-suspenders
+  if (sessionId) localStorage.removeItem('gaslamar_secret_' + sessionId);
+}
+
 // ---- Init ----
 
 (async function init() {
@@ -133,6 +145,7 @@ async function poll(sessionId) {
         scheduleNextPoll(sessionId);
         return;
       }
+      clearClientSessionData(sessionId);
       showSessionError(
         'Sesi Tidak Ditemukan',
         'Sesi pembayaran tidak ditemukan. Jika kamu baru saja membayar, coba refresh halaman ini — kadang butuh 1–2 menit. Jika masalah berlanjut, hubungi support@gaslamar.com dengan bukti pembayaran.',
@@ -152,12 +165,24 @@ async function poll(sessionId) {
 
     if (status === 'paid' || status === 'generating') {
       clearTimeout(pollTimer);
-      startSessionHeartbeat(sessionId); // keep session alive while user is on the page
-      if (data.expires_at) startCountdown(data.expires_at);
+      const creditsForHeartbeat = data.total_credits ?? 1;
+      startSessionHeartbeat(sessionId, creditsForHeartbeat); // keep session alive while user is on the page
+      if (data.expires_at) startCountdown(data.expires_at, creditsForHeartbeat);
       const creditsRemaining = data.credits_remaining ?? 1;
       const totalCredits = data.total_credits ?? 1;
-      // Sync authoritative tier from server so animation shows the correct package label
-      if (data.tier) sessionStorage.setItem('gaslamar_tier', data.tier);
+      // Sync authoritative tier from server — overwrites any client-side manipulation.
+      if (data.tier) {
+        const _storedTier = sessionStorage.getItem('gaslamar_tier');
+        if (_storedTier && _storedTier !== data.tier) {
+          console.warn('[GasLamar] sessionStorage.gaslamar_tier tamper detected (' + _storedTier + ' → ' + data.tier + '). Backend enforces correct tier; UI corrected.');
+          const _genTierEl = document.getElementById('gen-tier');
+          if (_genTierEl) {
+            const _LABELS = { coba: 'Coba Dulu', single: 'Single', '3pack': '3-Pack', jobhunt: 'Job Hunt Pack' };
+            _genTierEl.textContent = 'Paket: ' + (_LABELS[data.tier] || data.tier);
+          }
+        }
+        sessionStorage.setItem('gaslamar_tier', data.tier);
+      }
       if (window.Analytics) Analytics.track('payment_confirmed', {
         tier: data.tier || undefined,
         total_credits: totalCredits,
@@ -204,8 +229,10 @@ function scheduleNextPoll(sessionId) {
 // ---- Session Heartbeat ----
 // Pings /session/ping every 3 minutes to refresh KV TTL while user is active.
 
-function startSessionHeartbeat(sessionId) {
+function startSessionHeartbeat(sessionId, totalCredits) {
   if (heartbeatTimer) return; // already running
+  const isMulti = (totalCredits || 1) > 1;
+  const validityLabel = isMulti ? '30 hari' : '7 hari';
   heartbeatTimer = setInterval(async () => {
     try {
       const secretHeaders = sessionSecretCache ? { 'X-Session-Secret': sessionSecretCache } : {};
@@ -216,9 +243,10 @@ function startSessionHeartbeat(sessionId) {
       });
       if (res.status === 404) {
         stopSessionHeartbeat();
+        clearClientSessionData(sessionId);
         showSessionError(
           'Sesi Kedaluwarsa',
-          'Sesi download kamu sudah berakhir (lebih dari 7 hari). Upload ulang CV untuk memulai analisis baru, atau hubungi support@gaslamar.com jika kamu masih punya kredit tersisa.',
+          `📅 Sesi download kamu sudah berakhir (berlaku ${validityLabel}). Upload ulang CV untuk memulai analisis baru, atau hubungi support@gaslamar.com jika kamu masih punya kredit tersisa.`,
           false
         );
       }
@@ -267,17 +295,25 @@ async function fetchAndGenerateCV(sessionId) {
 
     clearTimeout(timeout);
 
+    if (res.status === 401) {
+      showSessionError('Sesi Tidak Ditemukan', 'Sesi tidak ditemukan. Pastikan browser mengizinkan cookies, lalu coba refresh halaman ini.', false);
+      return;
+    }
+
     if (res.status === 403) {
       showSessionError('Akses Ditolak', 'Pembayaran belum dikonfirmasi atau sesi tidak valid.', false);
       return;
     }
 
     if (res.status === 404) {
-      showSessionError(
-        'Sesi Tidak Ditemukan',
-        'Sesi tidak ditemukan atau sudah berakhir. Sesi berbayar berlaku 7 hari — jika kamu masih dalam periode ini, coba refresh. Jika sudah lebih dari 7 hari, upload ulang CV untuk analisis baru.',
-        false
-      );
+      clearClientSessionData(sessionId);
+      const errData = await res.json().catch(() => ({}));
+      const tier = sessionStorage.getItem('gaslamar_tier') || '';
+      const validity = (tier === '3pack' || tier === 'jobhunt') ? '30 hari' : '7 hari';
+      const msg = errData.reason === 'expired'
+        ? `⏰ Sesi kamu sudah berakhir setelah ${validity}. Silakan upload ulang CV untuk analisis baru.`
+        : 'Sesi tidak ditemukan atau sudah berakhir. Upload ulang CV untuk analisis baru.';
+      showSessionError('Sesi Berakhir', msg, false);
       return;
     }
 
@@ -287,6 +323,14 @@ async function fetchAndGenerateCV(sessionId) {
 
     const sessionData = await res.json();
     const { tier } = sessionData;
+    // Overwrite any client-stored tier with the server-confirmed value
+    if (tier) {
+      const _storedTier = sessionStorage.getItem('gaslamar_tier');
+      if (_storedTier && _storedTier !== tier) {
+        console.warn('[GasLamar] sessionStorage.gaslamar_tier tamper detected (' + _storedTier + ' → ' + tier + '). Backend enforces correct tier; UI corrected.');
+      }
+      sessionStorage.setItem('gaslamar_tier', tier);
+    }
 
     setProgress(25);
     setGeneratingText('AI sedang menulis CV Bahasa Indonesia...');
@@ -375,10 +419,11 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
       credits_remaining: credits_remaining || 0,
     });
 
-    // Only clear localStorage when all credits are used up
+    // Only clear session storage when all credits are used up
     if (!credits_remaining || credits_remaining <= 0) {
       localStorage.removeItem('gaslamar_session');
-      localStorage.removeItem('gaslamar_tier');
+      localStorage.removeItem('gaslamar_tier'); // belt-and-suspenders for legacy data
+      sessionStorage.removeItem('gaslamar_tier');
     }
 
     setProgress(90);
@@ -655,29 +700,65 @@ function generatePDF(cvText, lang, tier) {
 
 // ---- Session Countdown ----
 
-function startCountdown(expiresAtMs) {
+function startCountdown(expiresAtMs, totalCredits) {
   if (!expiresAtMs) return;
   const bar = document.getElementById('session-countdown');
   const text = document.getElementById('countdown-text');
   if (!bar || !text) return;
 
+  // Multi-credit packs (3-Pack / Job Hunt) last 30 days; single-credit 7 days.
+  const isMulti = (totalCredits || 1) > 1;
+  const validityLabel = isMulti ? '30 hari' : '7 hari';
+  // Warn when 1 day left for multi-credit, or 1 hour left for single-credit.
+  const WARNING_THRESHOLD_MS = isMulti ? 86400000 : 3600000;
+
   function update() {
     const msLeft = expiresAtMs - Date.now();
     if (msLeft <= 0) {
-      text.textContent = 'Sesi kedaluwarsa — download tidak lagi tersedia.';
+      text.textContent = `⏰ Sesi kedaluwarsa — download tidak lagi tersedia (berlaku ${validityLabel}).`;
+      bar.style.background = '#FEF2F2';
+      bar.style.borderColor = '#FECACA';
+      bar.style.color = '#B91C1C';
       return;
     }
     const days  = Math.floor(msLeft / 86400000);
     const hours = Math.floor((msLeft % 86400000) / 3600000);
-    if (days > 0) {
-      text.textContent = `Sesi aktif · Berakhir dalam ${days} hari ${hours} jam`;
+    const mins  = Math.floor((msLeft % 3600000) / 60000);
+
+    if (msLeft <= WARNING_THRESHOLD_MS) {
+      // Near-expiry: switch to amber warning style
+      bar.style.background = '#FFFBEB';
+      bar.style.borderColor = '#FCD34D';
+      bar.style.color = '#92400E';
+      if (days > 0) {
+        text.textContent = `⚠️ Link berakhir dalam ${days} hari — segera selesaikan download kamu!`;
+      } else if (hours > 0) {
+        text.textContent = `⚠️ Link berakhir dalam ${hours} jam ${mins} menit — segera selesaikan download kamu!`;
+      } else {
+        text.textContent = `⚠️ Link berakhir dalam ${mins} menit — segera selesaikan download kamu!`;
+      }
     } else {
-      const mins = Math.floor((msLeft % 3600000) / 60000);
-      text.textContent = `Sesi aktif · Berakhir dalam ${hours} jam ${mins} menit`;
+      // Normal: show total validity period alongside remaining time
+      if (days > 0) {
+        text.textContent = `Link berlaku ${validityLabel} · Berakhir dalam ${days} hari ${hours} jam`;
+      } else {
+        text.textContent = `Link berlaku ${validityLabel} · Berakhir dalam ${hours} jam ${mins} menit`;
+      }
     }
   }
 
   update();
+
+  // Show exact expiry date/time once — static, no need to re-render
+  const expiryEl = document.getElementById('expiry-date-text');
+  if (expiryEl) {
+    const d = new Date(expiresAtMs);
+    const dateStr = d.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
+    const timeStr = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    expiryEl.textContent = '📅 Link berlaku hingga ' + dateStr + ' pukul ' + timeStr;
+    expiryEl.style.display = '';
+  }
+
   bar.style.display = 'block';
   document.body.classList.add('has-countdown');
   if (countdownInterval) clearInterval(countdownInterval);
@@ -803,6 +884,111 @@ function showDownloadReady(cvId, cvEn, tier, isBilingual, creditsRemaining) {
       }
     }, 2000);
   }
+
+  // Show contextual coaching card after download is ready
+  showPostDownloadActions(creditsRemaining, tier);
+}
+
+// ---- Post-download coaching ----
+
+function showPostDownloadActions(creditsRemaining, tier) {
+  const container = document.getElementById('post-download-actions');
+  if (!container) return;
+
+  // Don't show if already dismissed this session
+  if (sessionStorage.getItem('gaslamar_post_dl_dismissed')) return;
+
+  const card = document.createElement('div');
+
+  if (creditsRemaining > 0) {
+    card.className = 'post-dl-card credits-card';
+    card.innerHTML =
+      '<button class="post-dl-dismiss" aria-label="Tutup notifikasi">✕</button>' +
+      '<div class="post-dl-title">🎯 Lamaran pertama sudah siap!</div>' +
+      '<p class="post-dl-sub">Kamu masih punya <strong>' + creditsRemaining + ' kredit</strong> tersisa. ' +
+      'Tailor CV untuk loker lain — scroll ke atas dan masukkan job description baru.</p>' +
+      '<div class="post-dl-actions">' +
+      '<a href="#multi-credit-section" class="btn-next-cv" id="post-dl-next-cv-btn">✍️ Siapkan CV Lain</a>' +
+      '</div>';
+    // Smooth-scroll to the multi-credit section instead of hard jump
+    card.querySelector('#post-dl-next-cv-btn').addEventListener('click', function(e) {
+      e.preventDefault();
+      const target = document.getElementById('multi-credit-section');
+      if (target) target.scrollIntoView({ behavior: 'smooth' });
+    });
+  } else {
+    card.className = 'post-dl-card';
+    card.innerHTML =
+      '<button class="post-dl-dismiss" aria-label="Tutup notifikasi">✕</button>' +
+      '<div class="post-dl-title">🚀 CV kamu sudah siap dikirim!</div>' +
+      '<p class="post-dl-sub">Tingkatkan peluang interview dengan persiapan yang matang, atau beli paket hemat untuk loker berikutnya.</p>' +
+      '<div class="post-dl-actions">' +
+      '<a href="/?tier=3pack" class="btn-buy-pack">📦 Beli Paket Hemat</a>' +
+      '<button class="btn-tips" id="tips-trigger-btn">💡 Tips Interview</button>' +
+      '</div>';
+  }
+
+  // Dismiss handler
+  card.querySelector('.post-dl-dismiss').addEventListener('click', function() {
+    sessionStorage.setItem('gaslamar_post_dl_dismissed', '1');
+    container.innerHTML = '';
+  });
+
+  container.appendChild(card);
+
+  // Tips modal trigger (only rendered for 0-credit card)
+  const tipsBtn = document.getElementById('tips-trigger-btn');
+  if (tipsBtn) {
+    tipsBtn.addEventListener('click', showInterviewTipsModal);
+  }
+}
+
+function showInterviewTipsModal() {
+  let overlay = document.getElementById('tips-modal-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'tips-modal-overlay';
+    overlay.className = 'tips-modal-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'tips-modal-heading');
+    overlay.innerHTML =
+      '<div class="tips-modal">' +
+      '<button class="tips-modal-close" aria-label="Tutup tips interview" id="tips-modal-close">✕</button>' +
+      '<div class="tips-modal-title" id="tips-modal-heading">💡 3 Tips Tingkatkan Peluang Interview</div>' +
+      '<div class="tip-item"><span class="tip-icon">🔍</span>' +
+      '<div class="tip-text"><strong>Riset perusahaan 15 menit sebelum interview.</strong> ' +
+      'Baca halaman "About", produk utama, dan berita terbaru mereka. ' +
+      'Interviewer selalu terkesan dengan kandidat yang tahu konteks bisnis perusahaan.</div></div>' +
+      '<div class="tip-item"><span class="tip-icon">📐</span>' +
+      '<div class="tip-text"><strong>Gunakan format STAR untuk jawaban behavioural.</strong> ' +
+      'Situasi → Tugas → Aksi → Hasil. Siapkan 3–5 cerita konkret dari pengalaman kerja atau proyek.</div></div>' +
+      '<div class="tip-item"><span class="tip-icon">❓</span>' +
+      '<div class="tip-text"><strong>Siapkan 2 pertanyaan untuk interviewer.</strong> ' +
+      'Contoh: "Seperti apa kesuksesan di 90 hari pertama di posisi ini?" ' +
+      'Bertanya menunjukkan kamu serius dan berpikir jangka panjang.</div></div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    document.getElementById('tips-modal-close').addEventListener('click', closeInterviewTipsModal);
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) closeInterviewTipsModal();
+    });
+    // One-time Escape key handler
+    function escHandler(e) {
+      if (e.key === 'Escape') {
+        closeInterviewTipsModal();
+        document.removeEventListener('keydown', escHandler);
+      }
+    }
+    document.addEventListener('keydown', escHandler);
+  }
+  overlay.classList.remove('hidden');
+}
+
+function closeInterviewTipsModal() {
+  const overlay = document.getElementById('tips-modal-overlay');
+  if (overlay) overlay.classList.add('hidden');
 }
 
 // ---- Multi-credit: generate for a new job ----

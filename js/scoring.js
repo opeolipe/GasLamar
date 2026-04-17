@@ -16,7 +16,7 @@
       if (window.__gaslamarNoSession === 'expired') {
         const msgEl = document.getElementById('no-session-msg');
         if (msgEl) msgEl.innerHTML =
-          'Sesi analisis sudah kadaluarsa (2 jam).<br>Silakan upload CV kamu kembali untuk memulai analisis baru.';
+          '⏰ Sesi analisis sudah berakhir (berlaku 2 jam).<br>Silakan upload ulang CV kamu untuk memulai analisis baru.';
       }
       noSessionEl.classList.remove('hidden');
     }
@@ -34,7 +34,7 @@
         const data = await res.json();
         if (!data.valid) {
           // Key not found on server — session expired or tampered.
-          showError('Sesi analisis sudah kedaluwarsa. Mohon upload CV kamu kembali.');
+          showError('⏰ Sesi analisis sudah berakhir (berlaku 2 jam). Mohon upload ulang CV kamu.');
           sessionStorage.removeItem('gaslamar_scoring');
           sessionStorage.removeItem('gaslamar_cv_key');
           setTimeout(() => window.location.href = 'upload.html', 3000);

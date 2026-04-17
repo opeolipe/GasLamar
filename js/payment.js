@@ -224,9 +224,11 @@ async function proceedToPayment() {
 
     // Save session to localStorage (backup if user closes tab)
     localStorage.setItem('gaslamar_session', session_id);
-    localStorage.setItem('gaslamar_tier', selectedTier);
     // Bind secret to this session ID — used by download.js to authorize requests
     localStorage.setItem('gaslamar_secret_' + session_id, sessionSecret);
+    // Note: gaslamar_tier is intentionally NOT persisted to localStorage.
+    // The authoritative tier is always read from the server (/check-session → data.tier)
+    // and written to sessionStorage there. Client-side storage of tier is display-only.
 
     // Save to sessionStorage too
     sessionStorage.setItem('gaslamar_session', session_id);

@@ -53,6 +53,11 @@ export async function handleGenerate(request, env, ctx) {
     if (typeof newJobDesc !== 'string' || newJobDesc.length > 5000) {
       return jsonResponse({ message: 'Job description terlalu panjang (maks 5.000 karakter)' }, 400, request, env);
     }
+    // Non-empty overrides must satisfy the same 100-char floor as /analyze.
+    // Empty string is treated as "no override" (falls back to stored job_desc), so skip the check.
+    if (newJobDesc.trim().length > 0 && newJobDesc.trim().length < 100) {
+      return jsonResponse({ message: 'Job description pengganti terlalu pendek. Minimal 100 karakter.' }, 400, request, env);
+    }
   }
 
   // Verify session exists and has status 'generating' (set by /get-session)

@@ -33,8 +33,14 @@ export async function handleMayarWebhook(request, env, ctx) {
   let sessionId = null;
   if (invoiceId) {
     const mapping = await env.GASLAMAR_SESSIONS.get(`mayar_session_${invoiceId}`, { type: 'json' });
-    if (mapping?.session_id) {
-      sessionId = mapping.session_id;
+    const sid = mapping?.session_id;
+    // Validate that the KV-stored session_id has the expected format before using it.
+    // This is defence-in-depth: the KV entry is written by /create-payment which already
+    // generates a valid sess_ UUID, but we guard against any future KV corruption.
+    if (typeof sid === 'string' && sid.startsWith('sess_')) {
+      sessionId = sid;
+    } else if (sid !== undefined) {
+      console.error(JSON.stringify({ event: 'webhook_invalid_session_id_format', invoiceId, sid: String(sid).slice(0, 20) }));
     }
   }
 

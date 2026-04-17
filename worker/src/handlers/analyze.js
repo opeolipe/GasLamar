@@ -35,8 +35,21 @@ export async function handleAnalyze(request, env) {
     return jsonResponse({ message: 'CV dan job description wajib diisi' }, 400, request, env);
   }
 
+  // cv must arrive as a JSON string — non-string values fail deep inside validateFileData;
+  // we reject early here to surface a clear error instead of a cryptic parse failure.
+  if (typeof cv !== 'string') {
+    return jsonResponse({ message: 'Format data CV tidak valid' }, 400, request, env);
+  }
+
   if (typeof job_desc !== 'string' || job_desc.length > 5000) {
     return jsonResponse({ message: 'Job description terlalu panjang (maks 5.000 karakter)' }, 400, request, env);
+  }
+
+  // Enforce minimum length server-side — client-side validation can be bypassed via
+  // direct API calls or DevTools. A too-short JD wastes Claude credits on garbage output.
+  if (job_desc.trim().length < 100) {
+    logError('analyze_invalid_input', { reason: 'jd_too_short', trimLen: job_desc.trim().length, ip });
+    return jsonResponse({ message: 'Job description terlalu pendek. Tulis minimal 100 karakter.' }, 400, request, env);
   }
 
   // Validate file
