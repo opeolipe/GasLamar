@@ -69,7 +69,7 @@ export default function Home() {
           <h2 className="text-[clamp(1.8rem,3.5vw,2.8rem)] font-semibold leading-tight mb-8" style={SERIF}>
             Cepat, jelas, langsung ke status peluang
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {HOW_STEPS.map((s) => (
               <div key={s.n} className="rounded-[20px] p-6 bg-white" style={{ border: "1px solid rgba(148,163,184,0.18)", boxShadow: SHADOW }}>
                 <div className="mb-4 w-10 h-10 rounded-full flex items-center justify-center font-bold text-base" style={{ background: s.bg, color: s.color }}>
@@ -86,7 +86,7 @@ export default function Home() {
             <h2 className="text-[clamp(1.8rem,3.5vw,2.8rem)] font-semibold leading-tight mb-8" style={SERIF}>
               Bukan sekadar cocok kata kunci
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {BENEFITS.map((b) => (
                 <div key={b.title} className="rounded-[20px] p-6 bg-white" style={{ border: "1px solid rgba(148,163,184,0.18)", boxShadow: SHADOW }}>
                   <h3 className="font-semibold text-slate-800 mb-2">{b.title}</h3>
@@ -96,21 +96,14 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Privacy trust strip */}
-          <p className="text-center text-[13px] text-slate-400 mt-10">
-            Privasi &amp; akses: &nbsp;•&nbsp; CV tidak disimpan &nbsp;•&nbsp; Tanpa registrasi &nbsp;•&nbsp; Preview aktif 2 jam &nbsp;•&nbsp; Rewrite aktif 7–30 hari
-          </p>
         </section>
 
         {/* Pricing */}
         <PricingSection onOpenUpload={openUpload} />
 
-        {/* Bottom CTA */}
-        <section className="my-4 mb-12 rounded-[24px] p-10 text-center" style={{ background: "rgba(255,255,255,0.84)", border: "1px solid rgba(148,163,184,0.18)", boxShadow: SHADOW }}>
-          <h2 className="text-[clamp(2rem,4vw,3rem)] font-semibold leading-tight mb-4" style={SERIF}>
-            Siap bikin CV kamu lebih kuat?
-          </h2>
-          <p className="text-slate-500 mb-6">Dapatkan CV yang benar-benar dilihat recruiter.</p>
+        {/* Inline bottom CTA — lightweight */}
+        <div className="text-center py-8 mb-4">
+          <p className="text-lg font-semibold text-slate-700 mb-4" style={SERIF}>Siap cek peluang kamu?</p>
           <button
             onClick={openUpload}
             className="min-h-[52px] rounded-[16px] px-[26px] py-3 text-white text-base font-bold border-0 cursor-pointer transition-all hover:-translate-y-[1px]"
@@ -118,7 +111,7 @@ export default function Home() {
           >
             Cek Peluang Saya
           </button>
-        </section>
+        </div>
 
         {/* FAQ */}
         <FaqSection />

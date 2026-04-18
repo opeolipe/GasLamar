@@ -101,6 +101,7 @@ function UploadForm({ columns, onClose }: { columns?: boolean; onClose: () => vo
         <button onClick={analyze} disabled={loading} className="min-h-[56px] rounded-[16px] px-[26px] py-4 text-white text-base font-bold border-0 cursor-pointer transition-all hover:-translate-y-[1px] focus-visible:-translate-y-[1px] disabled:opacity-60 w-full sm:w-auto" style={{ background: "linear-gradient(180deg,#2563eb,#1d4ed8)", boxShadow: SHADOW }}>
           {loading ? "Menganalisis..." : "Analisis Sekarang"}
         </button>
+        <p className="text-[12px] text-slate-400 sm:ml-2">Tanpa daftar • aman digunakan</p>
       </div>
     </div>
   );
@@ -145,7 +146,6 @@ export default function HeroUpload({ isDesktopOpen, isMobileOpen, onOpen, onClos
         <SheetContent side="bottom" className="rounded-t-[24px] px-5 pb-5 pt-2 max-h-[90vh] overflow-y-auto bg-white/97">
           <div className="w-[52px] h-[5px] rounded-full bg-slate-200 mx-auto mb-4" />
           <UploadForm onClose={onClose} />
-          <p className="text-[#6b7280] text-[13px] text-center mt-3">CV tidak disimpan • tanpa registrasi • hasil dalam ±30 detik</p>
         </SheetContent>
       </Sheet>
     </>

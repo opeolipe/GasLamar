@@ -60,14 +60,21 @@ export default function PricingSection({ onOpenUpload }: PricingSectionProps) {
       </p>
 
       {/* Pricing cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {TIERS.map((tier) => (
           <div
             key={tier.name}
-            className="relative flex flex-col rounded-[20px] p-6 bg-white"
+            className="relative flex flex-col rounded-[20px] p-6"
             style={{
-              border: tier.featured ? "2px solid #2563eb" : "1px solid rgba(148,163,184,0.22)",
-              boxShadow: SHADOW,
+              background: tier.featured
+                ? "linear-gradient(180deg,rgba(37,99,235,0.06),rgba(37,99,235,0.02))"
+                : "rgba(255,255,255,0.9)",
+              border: tier.featured
+                ? "1px solid rgba(37,99,235,0.18)"
+                : "1px solid rgba(148,163,184,0.14)",
+              boxShadow: tier.featured
+                ? "0 24px 56px rgba(37,99,235,0.12)"
+                : SHADOW,
             }}
           >
             {tier.badge && (
