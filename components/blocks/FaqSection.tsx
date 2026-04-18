@@ -5,6 +5,8 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 
+const SERIF = { fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: "-0.03em" } as const;
+
 const FAQ_ITEMS = [
   {
     q: "Apakah CV saya aman?",
@@ -35,18 +37,14 @@ const FAQ_ITEMS = [
 export default function FaqSection() {
   return (
     <section className="py-12 max-w-3xl mx-auto">
-      <h2 className="text-2xl font-extrabold tracking-tight mb-8">FAQ</h2>
-      <Accordion type="single" collapsible className="space-y-3">
+      <h2 className="text-[clamp(2rem,4vw,3.2rem)] font-semibold mb-10" style={SERIF}>FAQ</h2>
+      <Accordion type="single" collapsible className="divide-y divide-slate-100">
         {FAQ_ITEMS.map((item, i) => (
-          <AccordionItem
-            key={i}
-            value={`item-${i}`}
-            className="border border-gray-100 rounded-2xl bg-[#F9FAFB] overflow-hidden"
-          >
-            <AccordionTrigger className="px-4 py-5 text-left font-semibold text-slate-800 hover:no-underline [&>svg]:text-slate-400">
+          <AccordionItem key={i} value={`item-${i}`} className="py-1">
+            <AccordionTrigger className="py-5 text-left font-semibold text-slate-800 hover:no-underline [&>svg]:text-slate-400">
               {item.q}
             </AccordionTrigger>
-            <AccordionContent className="px-4 pb-5 text-sm leading-relaxed text-gray-500">
+            <AccordionContent className="pb-5 text-sm leading-relaxed text-slate-500">
               {item.a}
             </AccordionContent>
           </AccordionItem>
