@@ -41,7 +41,7 @@ export default function FaqSection() {
           <AccordionItem
             key={i}
             value={`item-${i}`}
-            className="border border-gray-100 rounded-2xl bg-gray-50 overflow-hidden px-2"
+            className="border border-gray-100 rounded-2xl bg-[#F9FAFB] overflow-hidden"
           >
             <AccordionTrigger className="px-4 py-5 text-left font-semibold text-slate-800 hover:no-underline [&>svg]:text-slate-400">
               {item.q}

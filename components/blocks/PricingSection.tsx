@@ -1,19 +1,11 @@
 import { Check, Minus } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-const VALUE_PROPS = [
-  { emoji: "🎯", title: "Disesuaikan dengan job", desc: "Bukan saran umum — setiap analisis berdasarkan lowongan yang kamu lamar" },
-  { emoji: "🌍", title: "CV bilingual siap kirim", desc: "Bahasa Indonesia & Inggris dalam satu flow — siap untuk lokal & multinational" },
-  { emoji: "⚡", title: "Langsung diperbaiki", desc: "Tidak perlu edit manual — langsung dapat versi CV yang lebih kuat" },
-];
 
 interface Feature { text: string; included: boolean }
 interface Tier {
   name: string;
   price: string;
   badge: string;
-  href: string;
   features: Feature[];
   featured?: boolean;
   popular?: boolean;
@@ -24,7 +16,6 @@ const TIERS: Tier[] = [
     name: "Coba Dulu",
     price: "Rp 29.000",
     badge: "Rp 29k / CV",
-    href: "upload.html?tier=coba",
     features: [
       { text: "CV tailored Bahasa Indonesia", included: true },
       { text: "Skor match + gap analysis", included: true },
@@ -36,7 +27,6 @@ const TIERS: Tier[] = [
     name: "Single",
     price: "Rp 59.000",
     badge: "Rp 59k / CV bilingual",
-    href: "upload.html?tier=single",
     features: [
       { text: "CV tailored Bahasa Indonesia", included: true },
       { text: "CV tailored Bahasa Inggris", included: true },
@@ -48,7 +38,6 @@ const TIERS: Tier[] = [
     name: "3-Pack",
     price: "Rp 149.000",
     badge: "~Rp 50k / CV · hemat 16%",
-    href: "upload.html?tier=3pack",
     featured: true,
     popular: true,
     features: [
@@ -62,7 +51,6 @@ const TIERS: Tier[] = [
     name: "Job Hunt Pack",
     price: "Rp 299.000",
     badge: "~Rp 30k / CV · hemat 49%",
-    href: "upload.html?tier=jobhunt",
     features: [
       { text: "10 CV tailored (ID + EN)", included: true },
       { text: "Skor match + gap analysis", included: true },
@@ -74,20 +62,11 @@ const TIERS: Tier[] = [
 
 const FLOW_STEPS = ["Upload CV", "Analisis gratis", "Bayar kalau mau"];
 
-export default function PricingSection() {
+export interface PricingSectionProps { onOpenUpload: () => void }
+
+export default function PricingSection({ onOpenUpload }: PricingSectionProps) {
   return (
     <section className="py-12">
-      {/* Value props */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-16">
-        {VALUE_PROPS.map((vp) => (
-          <div key={vp.title} className="bg-white border border-slate-100 rounded-2xl p-5 text-center shadow-sm">
-            <div className="text-3xl mb-2">{vp.emoji}</div>
-            <h3 className="font-bold text-base mb-1">{vp.title}</h3>
-            <p className="text-sm text-slate-500">{vp.desc}</p>
-          </div>
-        ))}
-      </div>
-
       {/* Header */}
       <div className="text-center mb-8">
         <span className="inline-block border border-slate-200 rounded-full px-3 py-0.5 text-xs font-bold tracking-widest text-slate-500 uppercase mb-4">
@@ -151,24 +130,23 @@ export default function PricingSection() {
                   </li>
                 ))}
               </ul>
-              <Button
-                asChild
-                variant={tier.featured ? "secondary" : "outline"}
-                className={`w-full rounded-xl font-bold ${
+              <button
+                onClick={onOpenUpload}
+                className={`w-full rounded-xl font-bold py-2 px-4 border cursor-pointer transition-all hover:-translate-y-[1px] ${
                   tier.featured
-                    ? "bg-white text-blue-700 hover:bg-white/90"
-                    : "border-blue-700 text-blue-700 hover:bg-blue-50"
+                    ? "bg-white text-blue-700 hover:bg-white/90 border-transparent"
+                    : "border-blue-700 text-blue-700 bg-white hover:bg-blue-50"
                 }`}
               >
-                <a href={tier.href}>Gunakan versi ini</a>
-              </Button>
+                Gunakan versi ini
+              </button>
             </CardContent>
           </Card>
         ))}
       </div>
 
       <p className="text-center text-xs text-slate-400 mt-6">
-        🔒 Pembayaran aman · Tidak perlu daftar · CV otomatis dihapus setelah 7 hari
+        🔒 Pembayaran aman · Tidak perlu daftar · CV otomatis dihapus setelah selesai
       </p>
     </section>
   );
