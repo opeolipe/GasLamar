@@ -41,7 +41,7 @@ export default function PricingSection({ onOpenUpload }: PricingSectionProps) {
   return (
     <section className="py-8">
       {/* Mid-page CTA */}
-      <div className="rounded-[24px] p-10 text-center mb-8" style={{ background: "rgba(255,255,255,0.84)", border: "1px solid rgba(148,163,184,0.18)", boxShadow: SHADOW }}>
+      <div className="rounded-[24px] p-5 sm:p-10 text-center mb-8" style={{ background: "rgba(255,255,255,0.84)", border: "1px solid rgba(148,163,184,0.18)", boxShadow: SHADOW }}>
         <h2 className="text-[clamp(2rem,4vw,3rem)] font-semibold leading-tight mb-6" style={SERIF}>
           Siap tahu peluang kamu?
         </h2>
@@ -64,7 +64,7 @@ export default function PricingSection({ onOpenUpload }: PricingSectionProps) {
         {TIERS.map((tier) => (
           <div
             key={tier.name}
-            className="relative flex flex-col rounded-[20px] p-6"
+            className={`relative flex flex-col rounded-[20px] p-4 sm:p-6 ${tier.featured ? "scale-[1.02] sm:scale-100" : ""}`}
             style={{
               background: tier.featured
                 ? "linear-gradient(180deg,rgba(37,99,235,0.06),rgba(37,99,235,0.02))"

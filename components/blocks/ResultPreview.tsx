@@ -64,12 +64,12 @@ export default function ResultPreview({ onOpenUpload }: ResultPreviewProps) {
       </div>
 
       {/* Tab bar */}
-      <div className="relative z-[1] flex gap-2 px-6 pt-5">
+      <div className="relative z-[1] grid grid-cols-3 gap-2 px-6 pt-5">
         {TABS.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-4 py-2 rounded-full text-sm font-semibold cursor-pointer border-0 transition-all ${
+            className={`min-h-[44px] px-3 py-[10px] rounded-full text-sm font-semibold cursor-pointer border-0 transition-all w-full text-center ${
               tab === t ? "text-white" : "text-slate-500 bg-slate-100 hover:bg-slate-200"
             }`}
             style={tab === t ? { background: "linear-gradient(180deg,#2563eb,#1d4ed8)" } : {}}
@@ -93,15 +93,15 @@ export default function ResultPreview({ onOpenUpload }: ResultPreviewProps) {
                 </ul>
               </div>
             )}
-            <p className="mb-4 text-xs uppercase tracking-[0.12em] text-slate-400">Ini yang dilihat HR dalam 7–10 detik pertama:</p>
-            <div className="grid gap-[14px]">
+            <p className="hidden sm:block mb-4 text-xs uppercase tracking-[0.12em] text-slate-400">Ini yang dilihat HR dalam 7–10 detik pertama:</p>
+            <div className="grid gap-3">
               {DIMS.map((d) => (
                 <div key={d.label} className="grid items-center gap-x-3 gap-y-1 grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,180px)_minmax(0,1fr)_auto]">
                   <div>
                     <div className="font-semibold text-sm leading-snug">{d.label}</div>
                     {d.sub && <div className="text-xs text-slate-400">{d.sub}</div>}
                   </div>
-                  <div className="h-[10px] overflow-hidden rounded-full col-span-full sm:col-auto" style={{ background: "rgba(148,163,184,0.18)" }}>
+                  <div className="h-3 overflow-hidden rounded-full col-span-full sm:col-auto" style={{ background: "rgba(148,163,184,0.18)" }}>
                     <div className="h-full rounded-[inherit]" style={{ width: `${d.pct}%`, background: BAR_FILLS[d.variant] }} />
                   </div>
                   <span className={`row-start-1 col-start-2 self-start sm:row-auto sm:col-auto inline-flex items-center rounded-full px-[10px] py-[5px] text-xs font-bold ${CHIP_CLS[d.variant]}`}>
@@ -116,7 +116,7 @@ export default function ResultPreview({ onOpenUpload }: ResultPreviewProps) {
         {tab === "Gap" && (
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 mb-4">Gap utama yang perlu diperbaiki</p>
-            <ul className="grid gap-4">
+            <ul className="grid gap-3">
               {GAPS.map((g, i) => (
                 <li key={i} className="flex items-start gap-3 text-sm text-slate-700 font-semibold pb-4 border-b last:pb-0 last:border-0" style={{ borderColor: "rgba(148,163,184,0.14)" }}>
                   <span className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full bg-amber-50 text-amber-700 text-[11px] font-bold inline-flex items-center justify-center">{i + 1}</span>

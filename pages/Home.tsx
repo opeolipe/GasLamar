@@ -64,12 +64,12 @@ export default function Home() {
         <ResultPreview onOpenUpload={openUpload} />
 
         {/* How it works */}
-        <section className="py-12">
+        <section className="py-8 md:py-12">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400 mb-3">Cara kerja</p>
           <h2 className="text-[clamp(1.8rem,3.5vw,2.8rem)] font-semibold leading-tight mb-8" style={SERIF}>
             Cepat, jelas, langsung ke status peluang
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
             {HOW_STEPS.map((s) => (
               <div key={s.n} className="rounded-[20px] p-6 bg-white" style={{ border: "1px solid rgba(148,163,184,0.18)", boxShadow: SHADOW }}>
                 <div className="mb-4 w-10 h-10 rounded-full flex items-center justify-center font-bold text-base" style={{ background: s.bg, color: s.color }}>
@@ -81,12 +81,12 @@ export default function Home() {
           </div>
 
           {/* Benefits */}
-          <div className="mt-16">
+          <div className="mt-8 md:mt-16">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400 mb-3">Keuntungan</p>
             <h2 className="text-[clamp(1.8rem,3.5vw,2.8rem)] font-semibold leading-tight mb-8" style={SERIF}>
               Bukan sekadar cocok kata kunci
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
               {BENEFITS.map((b) => (
                 <div key={b.title} className="rounded-[20px] p-6 bg-white" style={{ border: "1px solid rgba(148,163,184,0.18)", boxShadow: SHADOW }}>
                   <h3 className="font-semibold text-slate-800 mb-2">{b.title}</h3>

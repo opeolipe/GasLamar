@@ -121,7 +121,7 @@ export default function HeroUpload({ isDesktopOpen, isMobileOpen, onOpen, onClos
         <div className="pointer-events-none absolute inset-0" style={{ background: "linear-gradient(140deg,rgba(255,255,255,0.52),transparent 40%),radial-gradient(circle at top right,rgba(37,99,235,0.08),transparent 25%)" }} />
         <div className="relative z-[1] mx-auto flex max-w-3xl flex-col items-center">
           <div className="max-w-2xl">
-            <h1 className="text-[clamp(2.5rem,6vw,4.4rem)] leading-[0.95] m-0" style={{ ...SERIF, textWrap: "balance" } as React.CSSProperties}>
+            <h1 className="text-[clamp(2rem,6vw,4.4rem)] leading-[0.95] m-0 max-w-[20ch] mx-auto" style={{ ...SERIF, textWrap: "balance" } as React.CSSProperties}>
               Gas atau skip? Tahu dulu peluang kamu sebelum apply.
             </h1>
             <p className="mt-5 max-w-xl mx-auto text-[#6b7280] text-base leading-[1.6]">
@@ -132,7 +132,7 @@ export default function HeroUpload({ isDesktopOpen, isMobileOpen, onOpen, onClos
             <button onClick={onOpen} className="min-h-[56px] rounded-[16px] px-[26px] py-4 text-white text-base font-bold border-0 cursor-pointer transition-all hover:-translate-y-[1px] w-full sm:w-auto" style={{ background: "linear-gradient(180deg,#2563eb,#1d4ed8)", boxShadow: SHADOW }}>
               Cek Peluang Saya
             </button>
-            <p className="mt-4 text-[#6b7280] text-[13px] leading-[1.5]">CV tidak disimpan • tanpa registrasi • hasil dalam ±30 detik</p>
+            <p className="mt-4 text-[#6b7280] text-xs sm:text-[13px] leading-[1.5]">CV tidak disimpan • tanpa registrasi • hasil dalam ±30 detik</p>
             {isDesktopOpen && (
               <div className="mt-[18px] rounded-[24px] p-[18px] text-left backdrop-blur-[16px]" style={{ background: "rgba(255,255,255,0.95)", border: "1px solid rgba(148,163,184,0.2)", boxShadow: SHADOW }}>
                 <UploadForm columns onClose={onClose} />
