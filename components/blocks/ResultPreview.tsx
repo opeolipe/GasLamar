@@ -77,7 +77,7 @@ export default function ResultPreview({ onOpenUpload }: ResultPreviewProps) {
             ))}
           </ul>
           <div className="mt-6 grid gap-[14px] rounded-[24px] p-5" style={{ background: "linear-gradient(180deg,rgba(248,250,252,0.9),rgba(255,255,255,0.92))", border: "1px solid rgba(37,99,235,0.22)" }}>
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Cara memperbaiki CV kamu</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Cara memperbaiki CV kamu (langsung bisa dipakai)</div>
             <div className="text-sm" style={{ color: "#94a3b8", textDecoration: "line-through" }}>❌ "Bertanggung jawab mengelola tugas harian."</div>
             <div className="text-sm font-bold" style={{ color: "#0f172a" }}>✅ "Mengelola operasional harian untuk memastikan proses berjalan lancar dan efisien."</div>
             <div className="text-sm text-[#6b7280]">Jika ada data, tambahkan hasil konkret, misalnya: "Meningkatkan efisiensi proses sebesar X%"</div>

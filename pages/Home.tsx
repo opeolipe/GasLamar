@@ -6,17 +6,18 @@ import FaqSection from "@/components/blocks/FaqSection";
 import FooterSection from "@/components/blocks/FooterSection";
 
 const SHADOW = "0 18px 44px rgba(15, 23, 42, 0.08)";
+const SERIF = { fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: "-0.03em" } as const;
 
 const HOW_STEPS = [
-  { n: "1", title: "Upload CV kamu", desc: "PDF atau DOCX — tidak disimpan, diproses lokal di browser." },
-  { n: "2", title: "Analisis 6 Dimensi", desc: "AI membaca kesesuaian, daya tarik, kesiapan, usaha, relevansi skill, dan bukti kerja." },
-  { n: "3", title: "Tahu peluang kamu", desc: "Dapat verdict instan: Gas lamar sekarang, TIMED, atau Skip dulu." },
+  { n: "1", title: "Upload CV", bg: "rgba(37,99,235,0.08)", color: "#2563eb" },
+  { n: "2", title: "Analisis otomatis", bg: "rgba(245,158,11,0.08)", color: "#d97706" },
+  { n: "3", title: "Dapat status + perbaikan", bg: "rgba(16,185,129,0.08)", color: "#059669" },
 ];
 
 const BENEFITS = [
-  { emoji: "🎯", title: "Disesuaikan dengan job", desc: "Bukan saran umum — setiap analisis berdasarkan lowongan yang kamu lamar." },
-  { emoji: "🌍", title: "CV bilingual siap kirim", desc: "Bahasa Indonesia & Inggris dalam satu flow — siap untuk lokal & multinational." },
-  { emoji: "⚡", title: "Langsung diperbaiki", desc: "Tidak perlu edit manual — langsung dapat versi CV yang lebih kuat." },
+  { title: "Disesuaikan dengan job", desc: "Setiap CV dibaca terhadap lowongan yang kamu incar." },
+  { title: "CV bilingual", desc: "Tetap siap untuk perusahaan lokal dan multinasional." },
+  { title: "Langsung diperbaiki", desc: "Gap utama langsung diubah jadi bullet yang lebih kuat." },
 ];
 
 export default function Home() {
@@ -41,10 +42,10 @@ export default function Home() {
         </a>
         <button
           onClick={openUpload}
-          className="inline-flex items-center text-white font-semibold text-sm px-5 py-2 rounded-full cursor-pointer border-0 transition-all hover:-translate-y-[1px]"
+          className="inline-flex items-center text-white font-bold text-sm px-5 py-2 rounded-full cursor-pointer border-0 transition-all hover:-translate-y-[1px]"
           style={{ background: "linear-gradient(180deg,#2563eb,#1d4ed8)", boxShadow: SHADOW }}
         >
-          Cek CV Saya →
+          Cek Peluang Saya
         </button>
       </nav>
 
@@ -59,52 +60,46 @@ export default function Home() {
           />
         </section>
 
-        {/* Trust strip */}
-        <p className="text-center text-[13px] text-slate-400 -mt-4 mb-12">
-          🔒 CV tidak disimpan &nbsp;·&nbsp; tanpa registrasi &nbsp;·&nbsp; hasil dalam ±30 detik
-        </p>
-
-        {/* How it works */}
-        <section className="py-8 mb-4">
-          <div className="text-center mb-10">
-            <span className="inline-block border border-slate-200 rounded-full px-3 py-0.5 text-xs font-bold tracking-widest text-slate-500 uppercase mb-4">
-              Cara kerja
-            </span>
-            <h2 className="text-2xl font-extrabold tracking-tight">3 langkah, hasil dalam 30 detik</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {HOW_STEPS.map((s) => (
-              <div key={s.n} className="rounded-[20px] p-6 text-center" style={{ background: "rgba(255,255,255,0.84)", border: "1px solid rgba(148,163,184,0.18)", boxShadow: SHADOW }}>
-                <div className="mx-auto mb-4 w-10 h-10 rounded-full flex items-center justify-center font-extrabold text-white text-base" style={{ background: "linear-gradient(180deg,#2563eb,#1d4ed8)" }}>
-                  {s.n}
-                </div>
-                <h3 className="font-bold text-base mb-1">{s.title}</h3>
-                <p className="text-sm text-slate-500 leading-relaxed">{s.desc}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
         {/* Result preview */}
         <ResultPreview onOpenUpload={openUpload} />
 
-        {/* Benefits */}
-        <section className="py-8">
-          <div className="text-center mb-8">
-            <span className="inline-block border border-slate-200 rounded-full px-3 py-0.5 text-xs font-bold tracking-widest text-slate-500 uppercase mb-4">
-              Keuntungan
-            </span>
-            <h2 className="text-2xl font-extrabold tracking-tight">Bukan CV checker biasa</h2>
-          </div>
+        {/* How it works */}
+        <section className="py-12">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400 mb-3">Cara kerja</p>
+          <h2 className="text-[clamp(1.8rem,3.5vw,2.8rem)] font-semibold leading-tight mb-8" style={SERIF}>
+            Cepat, jelas, langsung ke status peluang
+          </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {BENEFITS.map((b) => (
-              <div key={b.title} className="rounded-[20px] p-5 text-center" style={{ background: "rgba(255,255,255,0.84)", border: "1px solid rgba(148,163,184,0.18)", boxShadow: SHADOW }}>
-                <div className="text-3xl mb-2">{b.emoji}</div>
-                <h3 className="font-bold text-base mb-1">{b.title}</h3>
-                <p className="text-sm text-slate-500">{b.desc}</p>
+            {HOW_STEPS.map((s) => (
+              <div key={s.n} className="rounded-[20px] p-6 bg-white" style={{ border: "1px solid rgba(148,163,184,0.18)", boxShadow: SHADOW }}>
+                <div className="mb-4 w-10 h-10 rounded-full flex items-center justify-center font-bold text-base" style={{ background: s.bg, color: s.color }}>
+                  {s.n}
+                </div>
+                <p className="font-semibold text-slate-800">{s.title}</p>
               </div>
             ))}
           </div>
+
+          {/* Benefits */}
+          <div className="mt-16">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400 mb-3">Keuntungan</p>
+            <h2 className="text-[clamp(1.8rem,3.5vw,2.8rem)] font-semibold leading-tight mb-8" style={SERIF}>
+              Bukan sekadar cocok kata kunci
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {BENEFITS.map((b) => (
+                <div key={b.title} className="rounded-[20px] p-6 bg-white" style={{ border: "1px solid rgba(148,163,184,0.18)", boxShadow: SHADOW }}>
+                  <h3 className="font-semibold text-slate-800 mb-2">{b.title}</h3>
+                  <p className="text-sm text-slate-500 leading-relaxed">{b.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Privacy trust strip */}
+          <p className="text-center text-[13px] text-slate-400 mt-10">
+            Privasi &amp; akses: &nbsp;•&nbsp; CV tidak disimpan &nbsp;•&nbsp; Tanpa registrasi &nbsp;•&nbsp; Preview aktif 2 jam &nbsp;•&nbsp; Rewrite aktif 7–30 hari
+          </p>
         </section>
 
         {/* Pricing */}
@@ -112,22 +107,17 @@ export default function Home() {
 
         {/* Bottom CTA */}
         <section className="my-4 mb-12 rounded-[24px] p-10 text-center" style={{ background: "rgba(255,255,255,0.84)", border: "1px solid rgba(148,163,184,0.18)", boxShadow: SHADOW }}>
-          <h2 className="text-2xl font-extrabold tracking-tight mb-3">
-            Siap tahu peluang kamu?
+          <h2 className="text-[clamp(2rem,4vw,3rem)] font-semibold leading-tight mb-4" style={SERIF}>
+            Siap bikin CV kamu lebih kuat?
           </h2>
-          <p className="text-slate-500 mb-6">
-            Upload CV + job description. Tahu status interview kamu dalam 30 detik.
-          </p>
+          <p className="text-slate-500 mb-6">Dapatkan CV yang benar-benar dilihat recruiter.</p>
           <button
             onClick={openUpload}
-            className="min-h-[56px] rounded-[16px] px-[26px] py-4 text-white text-base font-bold border-0 cursor-pointer transition-all hover:-translate-y-[1px]"
+            className="min-h-[52px] rounded-[16px] px-[26px] py-3 text-white text-base font-bold border-0 cursor-pointer transition-all hover:-translate-y-[1px]"
             style={{ background: "linear-gradient(180deg,#2563eb,#1d4ed8)", boxShadow: SHADOW }}
           >
-            👉 Cek Peluang Saya Sekarang
+            Cek Peluang Saya
           </button>
-          <p className="text-xs text-slate-400 mt-3">
-            Tanpa daftar &nbsp;·&nbsp; Proses ±30 detik
-          </p>
         </section>
 
         {/* FAQ */}
