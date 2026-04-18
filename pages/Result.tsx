@@ -26,13 +26,17 @@ console.log(
   'color:#374151;font-size:12px;line-height:1.7;',
 );
 
+const SHADOW = '0 18px 44px rgba(15, 23, 42, 0.08)';
+const SERIF  = { fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.03em' } as const;
+
 const CARD_STYLE: React.CSSProperties = {
-  background:  'white',
-  borderRadius: 32,
-  boxShadow:   '0 20px 35px -12px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.02)',
-  padding:     '2rem',
-  border:      '1px solid #EEF2F6',
-  marginBottom: '1.5rem',
+  background:     'rgba(255,255,255,0.84)',
+  borderRadius:   24,
+  boxShadow:      SHADOW,
+  padding:        '2rem',
+  border:         '1px solid rgba(148,163,184,0.18)',
+  backdropFilter: 'blur(14px)',
+  marginBottom:   '1.5rem',
 };
 
 export default function Result() {
@@ -227,7 +231,10 @@ export default function Result() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div style={{ fontFamily: "'Inter',-apple-system,BlinkMacSystemFont,sans-serif", background: '#F9FAFB', color: '#111827', lineHeight: 1.5, padding: '2rem 1rem', minHeight: '100vh' }}>
+    <div
+      className="min-h-screen text-gray-900 font-sans"
+      style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -20%,rgba(37,99,235,0.08),transparent)' }}
+    >
 
       {/* 5-minute expiry toast */}
       {showExpiryToast && (
@@ -241,7 +248,17 @@ export default function Result() {
         Langsung ke konten utama
       </a>
 
-      <main id="main-content" style={{ maxWidth: 980, margin: '0 auto' }}>
+      {/* Navbar */}
+      <nav
+        className="border-b py-4 px-6 flex items-center sticky top-0 z-50 backdrop-blur-[14px]"
+        style={{ borderColor: 'rgba(148,163,184,0.18)', background: 'rgba(255,255,255,0.88)' }}
+      >
+        <a href="index.html" className="font-extrabold text-lg text-slate-900 no-underline tracking-tight">
+          GasLamar
+        </a>
+      </nav>
+
+      <main id="main-content" className="max-w-[980px] mx-auto px-4 py-8 sm:py-12">
         <h1 className="sr-only">Hasil Analisis CV</h1>
 
         {/* ── Loading ── */}
@@ -265,7 +282,7 @@ export default function Result() {
                 ? <>⏰ Sesi analisis sudah berakhir (berlaku 2 jam).<br />Silakan upload ulang CV kamu untuk memulai analisis baru.</>
                 : <>Sesi analisis tidak ditemukan atau sudah kadaluarsa.<br />Silakan upload CV kamu kembali untuk memulai analisis baru.</>}
             </p>
-            <a href="upload.html" style={{ display: 'inline-block', background: '#0F172A', color: '#fff', fontWeight: 600, padding: '0.65rem 1.5rem', borderRadius: 10, textDecoration: 'none', fontSize: '0.9rem' }}>
+            <a href="upload.html" style={{ display: 'inline-block', background: 'linear-gradient(180deg,#2563eb,#1d4ed8)', color: '#fff', fontWeight: 700, padding: '0.75rem 1.5rem', borderRadius: 16, textDecoration: 'none', fontSize: '0.9rem', boxShadow: SHADOW }}>
               Upload CV Lagi →
             </a>
           </div>
@@ -277,7 +294,7 @@ export default function Result() {
             <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>⚠️</div>
             <h2 style={{ fontWeight: 700, fontSize: '1.3rem', margin: '0 0 0.5rem' }}>Analisis Gagal</h2>
             <p style={{ color: '#5B6E8C', fontSize: '0.9rem', margin: '0 0 1.5rem' }}>{error}</p>
-            <a href="upload.html" style={{ display: 'inline-block', background: '#0F172A', color: 'white', fontWeight: 700, padding: '0.75rem 1.5rem', borderRadius: 60, textDecoration: 'none' }}>
+            <a href="upload.html" style={{ display: 'inline-block', background: 'linear-gradient(180deg,#2563eb,#1d4ed8)', color: 'white', fontWeight: 700, padding: '0.75rem 1.5rem', borderRadius: 16, textDecoration: 'none', boxShadow: SHADOW }}>
               Coba Lagi
             </a>
           </div>
@@ -344,7 +361,7 @@ export default function Result() {
 
             {/* Pricing CTA heading */}
             <div style={{ textAlign: 'center', marginBottom: '0.5rem' }}>
-              <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
+              <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0F172A', margin: 0, ...SERIF }}>
                 👉 Perbaiki CV saya sekarang
               </h3>
             </div>
@@ -376,7 +393,7 @@ export default function Result() {
                 <p style={{ color: '#78350F', fontSize: '0.8rem', margin: '0 0 0.75rem' }}>
                   Upload ulang CV kamu untuk melanjutkan.
                 </p>
-                <a href="upload.html" style={{ display: 'inline-block', background: '#0F172A', color: 'white', fontWeight: 700, padding: '0.65rem 1.5rem', borderRadius: 60, textDecoration: 'none', fontSize: '0.9rem' }}>
+                <a href="upload.html" style={{ display: 'inline-block', background: 'linear-gradient(180deg,#2563eb,#1d4ed8)', color: 'white', fontWeight: 700, padding: '0.65rem 1.5rem', borderRadius: 16, textDecoration: 'none', fontSize: '0.9rem', boxShadow: SHADOW }}>
                   Upload CV Lagi →
                 </a>
               </div>
@@ -388,7 +405,7 @@ export default function Result() {
                 onClick={proceedToPayment}
                 disabled={payBtnDisabled}
                 aria-label="Lihat CV hasil rewrite lengkap"
-                style={{ background: '#0F172A', color: 'white', border: 'none', borderRadius: 60, padding: '0.85rem 1.5rem', fontWeight: 700, cursor: payBtnDisabled ? 'not-allowed' : 'pointer', width: '100%', transition: '0.2s', fontFamily: 'inherit', fontSize: '1rem', opacity: payBtnDisabled ? 0.5 : 1 }}
+                style={{ background: payBtnDisabled ? '#94a3b8' : 'linear-gradient(180deg,#2563eb,#1d4ed8)', color: 'white', border: 'none', borderRadius: 16, padding: '0.85rem 1.5rem', fontWeight: 700, cursor: payBtnDisabled ? 'not-allowed' : 'pointer', width: '100%', transition: '0.2s', fontFamily: 'inherit', fontSize: '1rem', minHeight: 56, boxShadow: payBtnDisabled ? 'none' : SHADOW }}
               >
                 {payBtnLabel}
               </button>
@@ -405,7 +422,7 @@ export default function Result() {
             </div>
 
             {/* Trust footer */}
-            <div style={{ background: '#F1F5F9', borderRadius: 20, padding: '0.8rem', textAlign: 'center', fontSize: '0.75rem', color: '#4B5563', marginTop: '1.5rem' }}>
+            <div style={{ background: 'rgba(248,250,252,0.8)', border: '1px solid rgba(148,163,184,0.18)', borderRadius: 20, padding: '0.8rem', textAlign: 'center', fontSize: '0.75rem', color: '#4B5563', marginTop: '1.5rem', backdropFilter: 'blur(8px)' }}>
               💳 Pembayaran aman via Mayar · VA, QRIS, e-wallet · Tidak puas? Hubungi kami di support@gaslamar.com
             </div>
 
