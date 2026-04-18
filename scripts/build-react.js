@@ -10,6 +10,7 @@ const ENTRIES = [
   { in: 'js/home-react.tsx',      out: 'js/dist/home-react.bundle'      },
   { in: 'js/upload-react.tsx',    out: 'js/dist/upload-react.bundle'    },
   { in: 'js/analyzing-react.tsx', out: 'js/dist/analyzing-react.bundle' },
+  { in: 'js/hasil-react.tsx',     out: 'js/dist/hasil-react.bundle'     },
 ];
 
 const ALIASES = {
