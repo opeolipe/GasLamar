@@ -1,153 +1,117 @@
-import { Check, Minus } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Check } from "lucide-react";
 
-interface Feature { text: string; included: boolean }
 interface Tier {
   name: string;
   price: string;
-  badge: string;
-  features: Feature[];
+  desc: string;
+  features: string[];
   featured?: boolean;
-  popular?: boolean;
+  badge?: string;
 }
 
 const TIERS: Tier[] = [
   {
     name: "Coba Dulu",
-    price: "Rp 29.000",
-    badge: "Rp 29k / CV",
-    features: [
-      { text: "CV tailored Bahasa Indonesia", included: true },
-      { text: "Skor match + gap analysis", included: true },
-      { text: "Download DOCX + PDF", included: true },
-      { text: "Bahasa Inggris", included: false },
-    ],
+    price: "Rp 29k",
+    desc: "Analisis gratis dulu. Kalau lanjut rewrite, hasil aktif 7 hari.",
+    features: ["Analisis awal gratis", "Gap analysis utama", "Hasil rewrite aktif 7 hari"],
   },
   {
     name: "Single",
-    price: "Rp 59.000",
-    badge: "Rp 59k / CV bilingual",
-    features: [
-      { text: "CV tailored Bahasa Indonesia", included: true },
-      { text: "CV tailored Bahasa Inggris", included: true },
-      { text: "Skor match + gap analysis", included: true },
-      { text: "DOCX + PDF (4 file)", included: true },
-    ],
+    price: "Rp 59k",
+    desc: "Analisis gratis dulu. Kalau lanjut rewrite, hasil aktif 7 hari.",
+    features: ["CV tailored bilingual", "Status + 6 dimensi", "Hasil rewrite aktif 7 hari"],
   },
   {
-    name: "3-Pack",
-    price: "Rp 149.000",
-    badge: "~Rp 50k / CV · hemat 16%",
+    name: "3-Pack / Job Hunt",
+    price: "Rp 149k – Rp 299k",
+    desc: "Untuk lamaran lebih banyak, dengan hasil rewrite aktif 30 hari.",
+    badge: "Paket banyak lamaran",
     featured: true,
-    popular: true,
-    features: [
-      { text: "3 CV tailored (ID + EN)", included: true },
-      { text: "Skor match + gap analysis", included: true },
-      { text: "DOCX + PDF per CV (4 file)", included: true },
-      { text: "Hemat Rp 28.000 vs Single", included: true },
-    ],
-  },
-  {
-    name: "Job Hunt Pack",
-    price: "Rp 299.000",
-    badge: "~Rp 30k / CV · hemat 49%",
-    features: [
-      { text: "10 CV tailored (ID + EN)", included: true },
-      { text: "Skor match + gap analysis", included: true },
-      { text: "DOCX + PDF per CV (4 file)", included: true },
-      { text: "Hemat Rp 291.000 vs Single", included: true },
-    ],
+    features: ["3-Pack: 3 CV tailored ID + EN", "Job Hunt: 10 CV tailored ID + EN", "Hasil rewrite aktif 30 hari"],
   },
 ];
 
-const FLOW_STEPS = ["Upload CV", "Analisis gratis", "Bayar kalau mau"];
+const SHADOW = "0 18px 44px rgba(15, 23, 42, 0.08)";
+const SERIF = { fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: "-0.03em" } as const;
 
 export interface PricingSectionProps { onOpenUpload: () => void }
 
 export default function PricingSection({ onOpenUpload }: PricingSectionProps) {
   return (
-    <section className="py-12">
-      {/* Header */}
-      <div className="text-center mb-8">
-        <span className="inline-block border border-slate-200 rounded-full px-3 py-0.5 text-xs font-bold tracking-widest text-slate-500 uppercase mb-4">
-          Harga
-        </span>
-        <h2 className="text-3xl font-extrabold tracking-tight mb-2">
-          Perbaiki CV kamu — baru bayar kalau mau pakai
+    <section className="py-8">
+      {/* Mid-page CTA */}
+      <div className="rounded-[24px] p-5 sm:p-10 text-center mb-8" style={{ background: "rgba(255,255,255,0.84)", border: "1px solid rgba(148,163,184,0.18)", boxShadow: SHADOW }}>
+        <h2 className="text-[clamp(2rem,4vw,3rem)] font-semibold leading-tight mb-6" style={SERIF}>
+          Siap tahu peluang kamu?
         </h2>
-        <p className="text-slate-500">Lihat dulu hasil analisisnya, lalu putuskan</p>
+        <button
+          onClick={onOpenUpload}
+          className="min-h-[52px] rounded-[16px] px-[26px] py-3 text-white text-base font-bold border-0 cursor-pointer transition-all hover:-translate-y-[1px]"
+          style={{ background: "linear-gradient(180deg,#2563eb,#1d4ed8)", boxShadow: SHADOW }}
+        >
+          Cek Peluang Saya
+        </button>
       </div>
 
-      {/* Flow steps */}
-      <div className="flex items-center justify-center flex-wrap gap-2 text-sm mb-10" role="list" aria-label="Alur penggunaan">
-        {FLOW_STEPS.map((step, i) => (
-          <span key={step} className="flex items-center gap-2" role="listitem">
-            <span className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-full px-3 py-1 font-semibold text-slate-700">
-              <span className="w-4 h-4 bg-slate-900 text-white rounded-full text-[10px] font-bold inline-flex items-center justify-center flex-shrink-0">
-                {i + 1}
-              </span>
-              {step}
-            </span>
-            {i < FLOW_STEPS.length - 1 && <span className="text-slate-300" aria-hidden="true">→</span>}
-          </span>
-        ))}
-      </div>
+      {/* Pricing subtitle */}
+      <p className="text-center text-sm text-slate-500 mb-6">
+        Analisis gratis dulu. Bayar hanya kalau mau tingkatkan peluang interview.
+      </p>
 
       {/* Pricing cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {TIERS.map((tier) => (
-          <Card
+          <div
             key={tier.name}
-            className={`relative flex flex-col ${
-              tier.featured ? "bg-blue-700 text-white border-0 shadow-lg" : "bg-white"
-            }`}
+            className={`relative flex flex-col rounded-[20px] p-4 sm:p-6 ${tier.featured ? "scale-[1.02] sm:scale-100" : ""}`}
+            style={{
+              background: tier.featured
+                ? "linear-gradient(180deg,rgba(37,99,235,0.06),rgba(37,99,235,0.02))"
+                : "rgba(255,255,255,0.9)",
+              border: tier.featured
+                ? "1px solid rgba(37,99,235,0.18)"
+                : "1px solid rgba(148,163,184,0.14)",
+              boxShadow: tier.featured
+                ? "0 24px 56px rgba(37,99,235,0.12)"
+                : SHADOW,
+            }}
           >
-            {tier.popular && (
-              <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-emerald-500 text-white text-xs font-bold px-3 py-0.5 rounded-full whitespace-nowrap">
-                Paling Populer
-              </span>
-            )}
-            <CardHeader className="pb-2">
-              <CardTitle className={`text-base ${tier.featured ? "text-white" : ""}`}>
-                {tier.name}
-              </CardTitle>
-              <p className={`text-2xl font-extrabold tracking-tight ${tier.featured ? "text-white" : "text-slate-900"}`}>
-                {tier.price}
-              </p>
-              <span className="inline-block bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-0.5 rounded-full w-fit">
+            {tier.badge && (
+              <span className="absolute -top-3.5 left-6 rounded-full text-white text-xs font-bold px-3 py-1" style={{ background: "#2563eb" }}>
                 {tier.badge}
               </span>
-            </CardHeader>
-            <CardContent className="flex flex-col flex-1">
-              <ul className="space-y-2 text-sm mb-6 flex-1">
-                {tier.features.map((f) => (
-                  <li key={f.text} className={`flex items-start gap-2 ${!f.included ? "opacity-40" : ""}`}>
-                    {f.included
-                      ? <Check className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
-                      : <Minus className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                    }
-                    <span className={tier.featured && f.included ? "text-white/90" : ""}>{f.text}</span>
-                  </li>
-                ))}
-              </ul>
-              <button
-                onClick={onOpenUpload}
-                className={`w-full rounded-xl font-bold py-2 px-4 border cursor-pointer transition-all hover:-translate-y-[1px] ${
-                  tier.featured
-                    ? "bg-white text-blue-700 hover:bg-white/90 border-transparent"
-                    : "border-blue-700 text-blue-700 bg-white hover:bg-blue-50"
-                }`}
-              >
-                Gunakan versi ini
-              </button>
-            </CardContent>
-          </Card>
+            )}
+
+            <div className="mb-4">
+              <p className="text-sm text-slate-500 mb-1">{tier.name}</p>
+              <p className="text-3xl font-extrabold tracking-tight text-slate-900">{tier.price}</p>
+              <p className="text-sm text-slate-500 mt-2">{tier.desc}</p>
+            </div>
+
+            <ul className="space-y-2 text-sm mb-6 flex-1">
+              {tier.features.map((f) => (
+                <li key={f} className="flex items-start gap-2 text-slate-600">
+                  <Check className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+                  {f}
+                </li>
+              ))}
+            </ul>
+
+            <button
+              onClick={onOpenUpload}
+              className={`w-full rounded-[14px] py-2.5 font-bold text-sm cursor-pointer transition-all hover:-translate-y-[1px] ${
+                tier.featured
+                  ? "text-white border-0"
+                  : "bg-white text-blue-600 border border-blue-200"
+              }`}
+              style={tier.featured ? { background: "linear-gradient(180deg,#2563eb,#1d4ed8)" } : {}}
+            >
+              Coba analisis gratis
+            </button>
+          </div>
         ))}
       </div>
-
-      <p className="text-center text-xs text-slate-400 mt-6">
-        🔒 Pembayaran aman · Tidak perlu daftar · CV otomatis dihapus setelah selesai
-      </p>
     </section>
   );
 }

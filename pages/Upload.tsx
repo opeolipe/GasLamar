@@ -1,0 +1,358 @@
+import { useState, useEffect } from 'react';
+import UploadSteps         from '@/components/upload/UploadSteps';
+import TierIndicator       from '@/components/upload/TierIndicator';
+import CvDropzone          from '@/components/upload/CvDropzone';
+import JobDescriptionInput from '@/components/upload/JobDescriptionInput';
+import SubmitSection       from '@/components/upload/SubmitSection';
+import {
+  VALID_TIERS,
+  MIN_JD_LENGTH,
+  MIN_CV_TEXT_LENGTH,
+  validateFile,
+  formatFileSize,
+  readFileAsEncodedBlob,
+  escapeHtml,
+  unescapeHtml,
+} from '@/lib/uploadValidation';
+
+const SHADOW = '0 18px 44px rgba(15, 23, 42, 0.08)';
+const SERIF  = { fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.03em' } as const;
+
+type NoticeType = 'info' | 'warning' | 'error';
+interface Notice {
+  type: NoticeType;
+  text: string;
+  link?: { href: string; label: string };
+}
+
+const STALE_KEYS = [
+  'gaslamar_scoring', 'gaslamar_cv_key', 'gaslamar_cv_pending', 'gaslamar_jd_pending',
+  'gaslamar_filename', 'gaslamar_tier', 'gaslamar_email', 'gaslamar_analyze_time',
+  'gaslamar_cv_draft', 'gaslamar_filename_draft',
+];
+
+export default function Upload() {
+  // CV state
+  const [fileName,    setFileName]    = useState<string | null>(null);
+  const [fileSize,    setFileSize]    = useState<string | null>(null);
+  const [cvText,      setCvText]      = useState('');
+  const [fileError,   setFileError]   = useState('');
+  const [scanWarning, setScanWarning] = useState(false);
+
+  // JD state
+  const [jd,        setJd]        = useState('');
+  const [jdError,   setJdError]   = useState('');
+  const [jdTouched, setJdTouched] = useState(false);
+
+  // UI
+  const [loading,  setLoading]  = useState(false);
+  const [tier,     setTier]     = useState<string | null>(null);
+  const [notices,  setNotices]  = useState<Notice[]>([]);
+
+  // Derived
+  const hasFile: boolean = !!fileName && !!cvText;
+  const jdOk:    boolean = jd.trim().length >= MIN_JD_LENGTH;
+  const isValid: boolean = hasFile && jdOk;
+  const step: 1 | 2 | 3 = loading ? 3 : hasFile ? 2 : 1;
+
+  const submitHint = !fileName
+    ? '📄 Upload CV kamu dulu sebelum analisis'
+    : scanWarning
+    ? '⚠️ CV tidak bisa dibaca — coba upload ulang file teks'
+    : fileName && !cvText
+    ? '⌛ Membaca CV kamu...'
+    : !jdOk
+    ? '✍️ Isi job description dulu (min. 100 karakter)'
+    : null;
+
+  // Mount: read URL params + restore drafts
+  useEffect(() => {
+    const params     = new URLSearchParams(window.location.search);
+    const tierParam  = (params.get('tier') || '').toLowerCase().trim();
+    const newNotices: Notice[] = [];
+
+    if (tierParam && !(VALID_TIERS as readonly string[]).includes(tierParam)) {
+      newNotices.push({ type: 'warning', text: 'Paket tidak dikenal. Menggunakan paket Single sebagai default.' });
+      params.delete('tier');
+      history.replaceState(null, '', params.toString() ? `${location.pathname}?${params}` : location.pathname);
+    } else if ((VALID_TIERS as readonly string[]).includes(tierParam)) {
+      setTier(tierParam);
+      try { sessionStorage.setItem('gaslamar_tier', tierParam); } catch (_) {}
+    }
+
+    const reason = params.get('reason');
+    if (reason === 'session_expired') {
+      history.replaceState(null, '', location.pathname);
+      newNotices.push({ type: 'info', text: '⏰ Sesi analisis sudah berakhir (berlaku 2 jam). Silakan upload CV kembali.' });
+    } else if (reason === 'no_session') {
+      history.replaceState(null, '', location.pathname);
+      newNotices.push({ type: 'info', text: 'Sesi tidak ditemukan. Silakan mulai upload CV dari sini.' });
+    }
+
+    const uploadErr = sessionStorage.getItem('gaslamar_upload_error');
+    if (uploadErr) {
+      sessionStorage.removeItem('gaslamar_upload_error');
+      newNotices.push({ type: 'error', text: '⚠️ Analisis gagal: ' + uploadErr });
+    }
+
+    const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
+    if (analyzeTime && sessionStorage.getItem('gaslamar_scoring')) {
+      const remaining = 7200 - Math.floor((Date.now() - analyzeTime) / 1000);
+      if (remaining > 0) {
+        const h = Math.floor(remaining / 3600);
+        const m = Math.floor((remaining % 3600) / 60);
+        newNotices.push({
+          type: 'info',
+          text: `⏰ Kamu masih punya hasil analisis aktif (${h > 0 ? `${h}j ${m}m` : `${m} menit`} tersisa).`,
+          link: { href: 'hasil.html', label: 'Lihat hasil →' },
+        });
+      }
+    }
+
+    if (newNotices.length) setNotices(newNotices);
+
+    // Restore JD draft
+    const savedJd = sessionStorage.getItem('gaslamar_jd_draft');
+    if (savedJd) setJd(unescapeHtml(savedJd).slice(0, 5000));
+
+    // Restore CV state
+    const pendingCv   = sessionStorage.getItem('gaslamar_cv_pending');
+    const pendingName = sessionStorage.getItem('gaslamar_filename');
+    const draftCv     = sessionStorage.getItem('gaslamar_cv_draft');
+    const draftName   = sessionStorage.getItem('gaslamar_filename_draft');
+    const restoreCv   = pendingCv || draftCv;
+    const restoreName = (pendingCv ? pendingName : draftName) || null;
+
+    if (restoreCv && restoreName) {
+      setCvText(restoreCv);
+      setFileName(restoreName);
+      setFileSize(pendingCv ? '(sudah diproses)' : '(draft dipulihkan)');
+    }
+  }, []);
+
+  // Persist JD draft + revalidate on change
+  useEffect(() => {
+    try { sessionStorage.setItem('gaslamar_jd_draft', escapeHtml(jd)); } catch (_) {}
+    if (!jdTouched) return;
+    const trimLen = jd.trim().length;
+    if (trimLen === 0) {
+      setJdError(`Job description wajib diisi. Tulis minimal ${MIN_JD_LENGTH} karakter untuk analisis yang akurat.`);
+    } else if (trimLen < MIN_JD_LENGTH) {
+      setJdError(`Job description terlalu pendek. Tulis minimal ${MIN_JD_LENGTH} karakter untuk analisis yang akurat.`);
+    } else {
+      setJdError('');
+    }
+  }, [jd, jdTouched]);
+
+  // Sync back-navigation (BFcache restore)
+  useEffect(() => {
+    function onPageShow(e: PageTransitionEvent) {
+      if (e.persisted) setLoading(false);
+    }
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
+  }, []);
+
+  function handleFileSelect(file: File) {
+    STALE_KEYS.forEach(k => { try { sessionStorage.removeItem(k); } catch (_) {} });
+    setFileError('');
+    setScanWarning(false);
+    setCvText('');
+
+    const err = validateFile(file);
+    if (err) {
+      setFileError(err);
+      setFileName(null);
+      setFileSize(null);
+      (window as any).Analytics?.track?.('file_validation_failed', {
+        reason: 'wrong_type_or_size',
+        file_ext: '.' + file.name.split('.').pop()!.toLowerCase(),
+        file_size_kb: Math.round(file.size / 1024),
+      });
+      return;
+    }
+
+    setFileName(file.name);
+    setFileSize(formatFileSize(file.size));
+    try { sessionStorage.setItem('gaslamar_upload_start', String(Date.now())); } catch (_) {}
+    (window as any).Analytics?.track?.('file_selected', { method: 'input' });
+
+    readFileAsEncodedBlob(file)
+      .then(blob => {
+        if (blob.trim().length < MIN_CV_TEXT_LENGTH) {
+          setScanWarning(true);
+          setCvText('');
+        } else {
+          setScanWarning(false);
+          setCvText(blob);
+          try {
+            sessionStorage.setItem('gaslamar_cv_draft', blob);
+            sessionStorage.setItem('gaslamar_filename_draft', file.name);
+          } catch (_) {}
+        }
+      })
+      .catch(readErr => {
+        setFileError((readErr as Error).message);
+        setCvText('');
+        setFileName(null);
+        setFileSize(null);
+      });
+  }
+
+  function handleRemove() {
+    setFileName(null);
+    setFileSize(null);
+    setCvText('');
+    setFileError('');
+    setScanWarning(false);
+  }
+
+  function handleJdChange(value: string) {
+    setJd(value);
+    setJdTouched(true);
+  }
+
+  function handleSubmit() {
+    setJdTouched(true);
+
+    if (!hasFile) {
+      setFileError('Mohon upload CV kamu terlebih dahulu.');
+      return;
+    }
+    const jobDesc = jd.trim();
+    if (jobDesc.length < MIN_JD_LENGTH) {
+      setJdError(
+        jobDesc.length === 0
+          ? `Job description wajib diisi. Tulis minimal ${MIN_JD_LENGTH} karakter untuk analisis yang akurat.`
+          : `Job description terlalu pendek. Tulis minimal ${MIN_JD_LENGTH} karakter.`
+      );
+      return;
+    }
+
+    setLoading(true);
+    try {
+      sessionStorage.setItem('gaslamar_cv_pending', cvText);
+      sessionStorage.setItem('gaslamar_jd_pending', jobDesc);
+      sessionStorage.setItem('gaslamar_filename',   fileName!);
+      sessionStorage.setItem('gaslamar_had_jd',     jobDesc.length >= 50 ? '1' : '0');
+    } catch (_) {
+      setFileError('Browser kamu memblokir penyimpanan sementara (mode pribadi?). Coba gunakan mode normal.');
+      setLoading(false);
+      return;
+    }
+
+    (window as any).Analytics?.track?.('upload_submitted', { jd_length: jobDesc.length });
+    window.location.href = 'analyzing.html';
+  }
+
+  const noticeCls: Record<NoticeType, string> = {
+    info:    'bg-blue-50 border border-blue-200 text-blue-800',
+    warning: 'bg-amber-50 border border-amber-200 text-amber-800',
+    error:   'bg-red-50 border border-red-200 text-red-800',
+  };
+
+  return (
+    <div
+      className="min-h-screen text-gray-900 font-sans"
+      style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -20%,rgba(37,99,235,0.08),transparent)' }}
+    >
+      {/* Skip link */}
+      <a
+        href="#upload-form"
+        className="absolute left-[-9999px] top-0 z-[9999] bg-slate-900 text-white px-4 py-2 text-sm font-semibold rounded-br-lg focus:left-0"
+      >
+        Langsung ke form upload
+      </a>
+
+      {/* Navbar */}
+      <nav
+        className="border-b py-4 px-6 flex items-center sticky top-0 z-50 backdrop-blur-[14px]"
+        style={{ borderColor: 'rgba(148,163,184,0.18)', background: 'rgba(255,255,255,0.88)' }}
+      >
+        <a href="index.html" className="font-extrabold text-lg text-slate-900 no-underline tracking-tight">
+          GasLamar
+        </a>
+      </nav>
+
+      <main className="max-w-2xl mx-auto px-4 py-8 sm:py-12" id="upload-form">
+
+        {/* Notices */}
+        {notices.map((n, i) => (
+          <div key={i} className={`rounded-[16px] px-4 py-3 text-sm mb-4 ${noticeCls[n.type]}`} role="status">
+            {n.text}
+            {n.link && (
+              <> <a href={n.link.href} className="font-semibold underline ml-1">{n.link.label}</a></>
+            )}
+          </div>
+        ))}
+
+        {/* Card */}
+        <div
+          className="rounded-[24px] p-6 sm:p-8"
+          style={{
+            background:     'rgba(255,255,255,0.84)',
+            border:         '1px solid rgba(148,163,184,0.18)',
+            boxShadow:      SHADOW,
+            backdropFilter: 'blur(14px)',
+          }}
+        >
+          <div className="mb-6">
+            <h1
+              className="text-[clamp(1.6rem,4vw,2.2rem)] font-semibold leading-tight text-slate-900 mb-1"
+              style={SERIF}
+            >
+              Upload CV kamu
+            </h1>
+            <p className="text-sm text-slate-500">
+              Kami akan analisis dan bandingkan dengan job yang kamu targetkan
+            </p>
+          </div>
+
+          <UploadSteps currentStep={step} />
+          <TierIndicator tier={tier} />
+
+          <div>
+            <label className="block text-sm font-semibold mb-2" htmlFor="cv-file">
+              📄 1. Upload CV Kamu
+            </label>
+            <CvDropzone
+              fileName={fileName}
+              fileSize={fileSize}
+              error={fileError}
+              scanWarning={scanWarning}
+              onFileSelect={handleFileSelect}
+              onRemove={handleRemove}
+            />
+          </div>
+
+          <JobDescriptionInput
+            value={jd}
+            onChange={handleJdChange}
+            error={jdError}
+            touched={jdTouched}
+          />
+
+          <SubmitSection
+            isValid={isValid}
+            isLoading={loading}
+            hint={submitHint}
+            onSubmit={handleSubmit}
+          />
+        </div>
+
+        <a
+          href="mailto:support@gaslamar.com?subject=Bantuan%20Upload%20CV%20-%20GasLamar"
+          className="block text-center mt-4 text-sm text-slate-400 hover:text-slate-600 transition-colors"
+        >
+          📧 Butuh bantuan? Hubungi support
+        </a>
+      </main>
+
+      <footer className="text-center py-6 text-xs text-slate-400">
+        <a href="privacy.html" className="text-slate-400 no-underline hover:underline mx-2">Kebijakan Privasi</a>
+        ·
+        <a href="terms.html" className="text-slate-400 no-underline hover:underline mx-2">Syarat Layanan</a>
+      </footer>
+    </div>
+  );
+}

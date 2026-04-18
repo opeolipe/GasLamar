@@ -2,7 +2,9 @@ name: Deploy Staging (Sandbox)
 
 on:
   push:
-    branches: ['claude/build-gaslamar-cv-app-LxKHz']
+    branches:
+      - 'claude/build-gaslamar-cv-app-LxKHz'
+      - 'claude/deploy-homepage-update-j3e8K'
 
 jobs:
   test:
