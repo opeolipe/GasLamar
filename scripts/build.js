@@ -34,6 +34,10 @@ fs.mkdirSync(OUT, { recursive: true });
  * config.js must precede analytics.js (sets WORKER_URL used by analytics stubs).
  */
 const BUNDLES = {
+  'analytics-init': [
+    'posthog-init.js',
+    'analytics.js',
+  ],
   index: [
     'posthog-init.js',
     'analytics.js',

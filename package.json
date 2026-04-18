@@ -5,15 +5,24 @@
   "scripts": {
     "build:vendor": "node scripts/vendor.js",
     "build:js": "node scripts/build.js",
-    "build": "npm run build:vendor && npm run build:js",
+    "build:react": "node scripts/build-react.js",
+    "build": "npm run build:vendor && npm run build:js && npm run build:react",
     "dev": "node scripts/build.js --watch"
   },
   "dependencies": {
+    "clsx": "^2.1.1",
     "docx": "8.5.0",
     "jspdf": "2.5.1",
+    "lucide-react": "^1.8.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "tailwind-merge": "^3.5.0",
     "tailwindcss": "^3.4.0"
   },
   "devDependencies": {
-    "esbuild": "^0.28.0"
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "esbuild": "^0.28.0",
+    "typescript": "^6.0.3"
   }
 }
