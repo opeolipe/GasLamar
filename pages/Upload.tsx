@@ -268,7 +268,7 @@ export default function Upload() {
         </a>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 pb-8" id="upload-form">
+      <main className="max-w-screen-xl mx-auto px-6 pt-14 pb-8" id="upload-form">
 
         {/* Notices */}
         {notices.map((n, i) => (
