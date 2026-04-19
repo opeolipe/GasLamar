@@ -65,8 +65,7 @@ export default function CvDropzone({ fileName, fileSize, error, onFileSelect, on
         ) : (
           <div>
             <div className="text-3xl mb-2">📁</div>
-            <div className="font-semibold text-slate-700 mb-1">Drag &amp; drop CV di sini</div>
-            <div className="text-sm text-slate-400 mb-3">atau</div>
+            <div className="font-semibold text-slate-700 mb-3">Upload CV kamu</div>
             <button
               type="button"
               className="min-h-[44px] px-5 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium inline-flex items-center transition-colors"

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import TierIndicator       from '@/components/upload/TierIndicator';
 import CvDropzone          from '@/components/upload/CvDropzone';
 import JobDescriptionInput from '@/components/upload/JobDescriptionInput';
@@ -44,6 +44,9 @@ export default function Upload() {
   const [loading,  setLoading]  = useState(false);
   const [tier,     setTier]     = useState<string | null>(null);
   const [notices,  setNotices]  = useState<Notice[]>([]);
+
+  // JD textarea ref — used for auto-scroll after CV upload
+  const jdRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Derived
   const hasFile: boolean = !!fileName && !!cvText;
@@ -160,6 +163,7 @@ export default function Upload() {
             sessionStorage.setItem('gaslamar_cv_draft', blob);
             sessionStorage.setItem('gaslamar_filename_draft', file.name);
           } catch (_) {}
+          handleCVUploaded();
         }
       })
       .catch(readErr => {
@@ -168,6 +172,14 @@ export default function Upload() {
         setFileName(null);
         setFileSize(null);
       });
+  }
+
+  function handleCVUploaded() {
+    if (jd.trim()) return;
+    setTimeout(() => {
+      jdRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      jdRef.current?.focus();
+    }, 300);
   }
 
   function handleRemove() {
@@ -251,15 +263,15 @@ export default function Upload() {
         {/* ZONE 1: Hero (no box) */}
         <div className="text-center mb-8">
           <h1
-            className="text-[clamp(2rem,4vw,2.8rem)] font-semibold leading-tight text-slate-900 mb-3 max-w-[20ch] mx-auto"
+            className="text-[clamp(2rem,4vw,2.8rem)] font-semibold leading-tight text-slate-900 mb-2 max-w-[20ch] mx-auto"
             style={{ fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.03em' }}
           >
-            Cek peluang interview kamu sebelum apply
+            Cek peluang interview kamu
           </h1>
-          <p className="text-base text-slate-500 max-w-[48ch] mx-auto mb-2">
-            Upload CV + job description — tahu peluang kamu dalam 30 detik
+          <p className="text-sm text-slate-500 max-w-[48ch] mx-auto mb-1.5">
+            Upload CV + job description → tahu peluang kamu dalam 30 detik
           </p>
-          <p className="text-sm text-slate-400">Tanpa daftar&nbsp;•&nbsp;hasil dalam ±30 detik</p>
+          <p className="text-xs text-slate-400">Tanpa daftar&nbsp;•&nbsp;hasil dalam ±30 detik</p>
         </div>
 
         {/* ZONE 2: Form panel (soft panel) */}
@@ -287,8 +299,9 @@ export default function Upload() {
           </div>
 
           {/* GROUP 2: Job target */}
-          <div className="border-t pt-5" style={{ borderColor: 'rgba(148,163,184,0.18)' }}>
+          <div className="border-t pt-5" style={{ borderColor: 'rgba(148,163,184,0.10)' }}>
             <JobDescriptionInput
+              ref={jdRef}
               value={jd}
               onChange={handleJdChange}
             />

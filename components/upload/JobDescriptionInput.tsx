@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, forwardRef } from 'react';
 import UrlFetcher from './UrlFetcher';
 import { MAX_JD_CHARS } from '@/lib/uploadValidation';
 import { evaluateJDQuality } from '@/utils/evaluateJDQuality';
@@ -8,7 +8,7 @@ interface Props {
   onChange: (value: string) => void;
 }
 
-export default function JobDescriptionInput({ value, onChange }: Props) {
+const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobDescriptionInput({ value, onChange }, ref) {
   const [showFetcher, setShowFetcher] = useState(false);
   const count   = value.length;
   const trimmed = value.trim();
@@ -39,7 +39,9 @@ export default function JobDescriptionInput({ value, onChange }: Props) {
           />
         ) : (
           <p className="text-sm text-slate-500">
-            Paste job description atau{' '}
+            Paste job description{' '}
+            <span className="text-slate-400">(requirements / tanggung jawab)</span>
+            {' '}atau{' '}
             <button
               type="button"
               onClick={() => setShowFetcher(true)}
@@ -54,6 +56,7 @@ export default function JobDescriptionInput({ value, onChange }: Props) {
 
       <div>
         <textarea
+          ref={ref}
           id="job-desc"
           value={value}
           onChange={handleChange}
@@ -63,8 +66,8 @@ export default function JobDescriptionInput({ value, onChange }: Props) {
           className={textareaCls}
           aria-label="Job description atau lowongan kerja yang kamu targetkan"
         />
-        <div className="text-right text-xs mt-1 text-slate-400">
-          {count.toLocaleString('id-ID')} / 5.000 karakter
+        <div className="text-right text-[10px] mt-1 text-slate-300">
+          {count.toLocaleString('id-ID')} / 5.000
         </div>
       </div>
 
@@ -77,4 +80,6 @@ export default function JobDescriptionInput({ value, onChange }: Props) {
       )}
     </div>
   );
-}
+});
+
+export default JobDescriptionInput;

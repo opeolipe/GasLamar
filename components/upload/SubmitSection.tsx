@@ -21,8 +21,8 @@ export default function SubmitSection({ jobDescription, isValid, isLoading, onSu
         id="submit-btn"
         onClick={onSubmit}
         disabled={!canSubmit}
-        className="min-h-[56px] w-full rounded-full px-6 py-4 text-white font-bold text-base border-0 transition-all hover:-translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0 flex items-center justify-center gap-2"
-        style={{ background: 'linear-gradient(180deg,#2563eb,#1d4ed8)', boxShadow: '0 18px 44px rgba(15,23,42,0.08)' }}
+        className="min-h-[56px] w-full rounded-full px-6 py-4 text-white font-bold text-base border-0 transition-all hover:-translate-y-[2px] disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0 flex items-center justify-center gap-2 group"
+        style={{ background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', boxShadow: '0 8px 24px rgba(37,99,235,0.35), 0 2px 8px rgba(37,99,235,0.20)' }}
         aria-label="Mulai analisis CV kamu"
       >
         {isLoading ? (
@@ -30,7 +30,7 @@ export default function SubmitSection({ jobDescription, isValid, isLoading, onSu
             <span className="inline-block w-5 h-5 border-[3px] border-white/30 border-t-white rounded-full animate-spin" />
             Menganalisis CV kamu...
           </>
-        ) : '👉 Analisis CV Saya'}
+        ) : '👉 Cek peluang saya'}
       </button>
 
       <p className="text-center text-xs text-slate-400 mt-4">
