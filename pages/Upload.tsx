@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import UploadSteps         from '@/components/upload/UploadSteps';
 import TierIndicator       from '@/components/upload/TierIndicator';
 import CvDropzone          from '@/components/upload/CvDropzone';
 import JobDescriptionInput from '@/components/upload/JobDescriptionInput';
@@ -16,7 +15,6 @@ import {
 } from '@/lib/uploadValidation';
 
 const SHADOW = '0 18px 44px rgba(15, 23, 42, 0.08)';
-const SERIF  = { fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.03em' } as const;
 
 type NoticeType = 'info' | 'warning' | 'error';
 interface Notice {
@@ -53,7 +51,6 @@ export default function Upload() {
   const hasFile: boolean = !!fileName && !!cvText;
   const jdOk:    boolean = jd.trim().length >= MIN_JD_LENGTH;
   const isValid: boolean = hasFile && jdOk;
-  const step: 1 | 2 | 3 = loading ? 3 : hasFile ? 2 : 1;
 
   const submitHint = !fileName
     ? '📄 Upload CV kamu dulu sebelum analisis'
@@ -252,10 +249,7 @@ export default function Upload() {
   };
 
   return (
-    <div
-      className="min-h-screen text-gray-900 font-sans"
-      style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -20%,rgba(37,99,235,0.08),transparent)' }}
-    >
+    <div className="min-h-screen bg-white text-gray-900 font-sans">
       {/* Skip link */}
       <a
         href="#upload-form"
@@ -274,7 +268,7 @@ export default function Upload() {
         </a>
       </nav>
 
-      <main className="max-w-2xl mx-auto px-4 py-8 sm:py-12" id="upload-form">
+      <main className="max-w-[960px] mx-auto px-6 pt-14 pb-8" id="upload-form">
 
         {/* Notices */}
         {notices.map((n, i) => (
@@ -286,29 +280,26 @@ export default function Upload() {
           </div>
         ))}
 
-        {/* Card */}
+        {/* ZONE 1: Hero (no box) */}
+        <div className="text-center mb-8">
+          <h1 className="text-[clamp(2rem,4vw,2.8rem)] font-extrabold leading-tight tracking-tight text-slate-900 mb-3 max-w-[20ch] mx-auto">
+            Cek peluang interview kamu sebelum apply
+          </h1>
+          <p className="text-lg text-slate-500 max-w-[48ch] mx-auto">
+            Upload CV + job description — tahu peluang kamu dalam 30 detik
+          </p>
+        </div>
+
+        {/* ZONE 2: Form panel (soft panel) */}
         <div
-          className="rounded-[24px] p-6 sm:p-8"
+          className="rounded-[24px] p-6 sm:p-8 max-w-[820px] mx-auto"
           style={{
-            background:     'rgba(255,255,255,0.84)',
-            border:         '1px solid rgba(148,163,184,0.18)',
+            background:     'rgba(255,255,255,0.88)',
+            border:         '1px solid rgba(148,163,184,0.14)',
             boxShadow:      SHADOW,
             backdropFilter: 'blur(14px)',
           }}
         >
-          <div className="mb-6">
-            <h1
-              className="text-[clamp(1.6rem,4vw,2.2rem)] font-semibold leading-tight text-slate-900 mb-1"
-              style={SERIF}
-            >
-              Upload CV kamu
-            </h1>
-            <p className="text-sm text-slate-500">
-              Kami akan analisis dan bandingkan dengan job yang kamu targetkan
-            </p>
-          </div>
-
-          <UploadSteps currentStep={step} />
           <TierIndicator tier={tier} />
 
           <div>
@@ -332,6 +323,10 @@ export default function Upload() {
             touched={jdTouched}
           />
 
+          <p className="text-center text-sm font-semibold text-slate-900 mt-6 mb-0">
+            Tahu peluang kamu sebelum apply
+          </p>
+
           <SubmitSection
             isValid={isValid}
             isLoading={loading}
@@ -342,7 +337,7 @@ export default function Upload() {
 
         <a
           href="mailto:support@gaslamar.com?subject=Bantuan%20Upload%20CV%20-%20GasLamar"
-          className="block text-center mt-4 text-sm text-slate-400 hover:text-slate-600 transition-colors"
+          className="block text-center mt-6 text-sm text-slate-400 hover:text-slate-600 transition-colors"
         >
           📧 Butuh bantuan? Hubungi support
         </a>
