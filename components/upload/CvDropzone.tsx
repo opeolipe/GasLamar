@@ -90,12 +90,14 @@ export default function CvDropzone({ fileName, fileSize, error, onFileSelect, on
         />
       </div>
 
-      <p className="text-xs text-slate-400 mt-2">Gunakan CV berbentuk teks (bukan scan)</p>
+      <p className="text-xs text-slate-400 mt-2">Gunakan CV berbentuk teks agar hasil lebih akurat</p>
 
       {error && (
-        <div className="mt-3 rounded-xl bg-red-50 border border-red-200 p-3 text-xs text-red-700">
-          {error}
-        </div>
+        <p className="text-xs text-red-600 mt-2">{error}</p>
+      )}
+
+      {!error && fileName && (
+        <p className="text-xs text-emerald-600 mt-2">✓ CV siap dianalisis</p>
       )}
     </div>
   );

@@ -5,7 +5,6 @@ import JobDescriptionInput from '@/components/upload/JobDescriptionInput';
 import SubmitSection       from '@/components/upload/SubmitSection';
 import {
   VALID_TIERS,
-  MIN_JD_LENGTH,
   MIN_CV_TEXT_LENGTH,
   validateFile,
   formatFileSize,
@@ -13,6 +12,7 @@ import {
   escapeHtml,
   unescapeHtml,
 } from '@/lib/uploadValidation';
+import { evaluateJDQuality } from '@/utils/evaluateJDQuality';
 
 const SHADOW = '0 18px 44px rgba(15, 23, 42, 0.08)';
 
@@ -38,9 +38,7 @@ export default function Upload() {
   const [scanWarning, setScanWarning] = useState(false);
 
   // JD state
-  const [jd,        setJd]        = useState('');
-  const [jdError,   setJdError]   = useState('');
-  const [jdTouched, setJdTouched] = useState(false);
+  const [jd, setJd] = useState('');
 
   // UI
   const [loading,  setLoading]  = useState(false);
@@ -49,7 +47,7 @@ export default function Upload() {
 
   // Derived
   const hasFile: boolean = !!fileName && !!cvText;
-  const jdOk:    boolean = jd.trim().length >= MIN_JD_LENGTH;
+  const jdOk:    boolean = evaluateJDQuality(jd).isValid;
   const isValid: boolean = hasFile && jdOk;
 
   // Mount: read URL params + restore drafts
@@ -117,20 +115,6 @@ export default function Upload() {
     }
   }, []);
 
-  // Persist JD draft + revalidate on change
-  useEffect(() => {
-    try { sessionStorage.setItem('gaslamar_jd_draft', escapeHtml(jd)); } catch (_) {}
-    if (!jdTouched) return;
-    const trimLen = jd.trim().length;
-    if (trimLen === 0) {
-      setJdError(`Job description wajib diisi. Tulis minimal ${MIN_JD_LENGTH} karakter untuk analisis yang akurat.`);
-    } else if (trimLen < MIN_JD_LENGTH) {
-      setJdError(`Job description terlalu pendek. Tulis minimal ${MIN_JD_LENGTH} karakter untuk analisis yang akurat.`);
-    } else {
-      setJdError('');
-    }
-  }, [jd, jdTouched]);
-
   // Sync back-navigation (BFcache restore)
   useEffect(() => {
     function onPageShow(e: PageTransitionEvent) {
@@ -196,25 +180,16 @@ export default function Upload() {
 
   function handleJdChange(value: string) {
     setJd(value);
-    setJdTouched(true);
+    try { sessionStorage.setItem('gaslamar_jd_draft', escapeHtml(value)); } catch (_) {}
   }
 
   function handleSubmit() {
-    setJdTouched(true);
-
     if (!hasFile) {
       setFileError('Mohon upload CV kamu terlebih dahulu.');
       return;
     }
     const jobDesc = jd.trim();
-    if (jobDesc.length < MIN_JD_LENGTH) {
-      setJdError(
-        jobDesc.length === 0
-          ? `Job description wajib diisi. Tulis minimal ${MIN_JD_LENGTH} karakter untuk analisis yang akurat.`
-          : `Job description terlalu pendek. Tulis minimal ${MIN_JD_LENGTH} karakter.`
-      );
-      return;
-    }
+    if (!evaluateJDQuality(jobDesc).isValid) return;
 
     setLoading(true);
     try {
@@ -313,8 +288,6 @@ export default function Upload() {
             <JobDescriptionInput
               value={jd}
               onChange={handleJdChange}
-              error={jdError}
-              touched={jdTouched}
             />
           </div>
 

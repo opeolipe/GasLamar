@@ -16,7 +16,7 @@ export default function SubmitSection({ isValid, isLoading, onSubmit }: Props) {
         type="button"
         id="submit-btn"
         onClick={onSubmit}
-        disabled={!isValid || isLoading}
+        disabled={!(isValid && !isLoading)}
         className="min-h-[56px] w-full rounded-full px-6 py-4 text-white font-bold text-base border-0 transition-all bg-gradient-to-b from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 hover:shadow-md hover:-translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0 flex items-center justify-center gap-2"
         aria-label="Mulai analisis CV kamu"
       >

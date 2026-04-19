@@ -1,17 +1,22 @@
 import { useState } from 'react';
 import UrlFetcher from './UrlFetcher';
 import { MAX_JD_CHARS } from '@/lib/uploadValidation';
+import { useInlineValidation } from '@/hooks/useInlineValidation';
+import { evaluateJDQuality } from '@/utils/evaluateJDQuality';
 
 interface Props {
   value:    string;
   onChange: (value: string) => void;
-  error:    string;
-  touched:  boolean;
 }
 
-export default function JobDescriptionInput({ value, onChange, error, touched }: Props) {
+export default function JobDescriptionInput({ value, onChange }: Props) {
   const [showFetcher, setShowFetcher] = useState(false);
   const count = value.length;
+
+  const validation = useInlineValidation({
+    value,
+    validate: (v: string) => evaluateJDQuality(v).message,
+  });
 
   const textareaCls = [
     'w-full min-h-[140px] rounded-2xl border border-dashed bg-transparent p-5',
@@ -20,8 +25,11 @@ export default function JobDescriptionInput({ value, onChange, error, touched }:
   ].join(' ');
 
   function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    const raw = e.target.value;
-    onChange(raw.length > MAX_JD_CHARS ? raw.slice(0, MAX_JD_CHARS) : raw);
+    const raw = e.target.value.length > MAX_JD_CHARS
+      ? e.target.value.slice(0, MAX_JD_CHARS)
+      : e.target.value;
+    onChange(raw);
+    validation.onChange(raw);
   }
 
   return (
@@ -56,6 +64,7 @@ export default function JobDescriptionInput({ value, onChange, error, touched }:
           id="job-desc"
           value={value}
           onChange={handleChange}
+          onBlur={validation.onBlur}
           rows={6}
           maxLength={MAX_JD_CHARS}
           placeholder={`Contoh:\nPosisi: Digital Marketing Specialist\n\nKualifikasi:\n- Pengalaman 2+ tahun di social media marketing\n- Familiar dengan Google Analytics & Facebook Ads\n\nTanggung Jawab:\n- Kelola konten Instagram, TikTok, LinkedIn`}
@@ -67,10 +76,12 @@ export default function JobDescriptionInput({ value, onChange, error, touched }:
         </div>
       </div>
 
-      {touched && error && (
-        <div className="mt-2 rounded-[12px] px-4 py-2.5 text-sm text-red-700 bg-red-50 border border-red-200">
-          {error}
-        </div>
+      {validation.error && (
+        <p className="text-xs text-red-600 mt-2">{validation.error}</p>
+      )}
+
+      {validation.touched && !validation.error && evaluateJDQuality(value).isValid && (
+        <p className="text-xs text-emerald-600 mt-2">✓ Siap dianalisis</p>
       )}
     </div>
   );
