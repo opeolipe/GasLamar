@@ -9,7 +9,7 @@ interface Props {
   onRemove:     () => void;
 }
 
-export default function CvDropzone({ fileName, fileSize, error, scanWarning, onFileSelect, onRemove }: Props) {
+export default function CvDropzone({ fileName, fileSize, error, onFileSelect, onRemove }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   function onDragOver(e: React.DragEvent) {
@@ -90,15 +90,8 @@ export default function CvDropzone({ fileName, fileSize, error, scanWarning, onF
         />
       </div>
 
-      <p className="text-xs text-slate-400 mt-2">
-        Gunakan CV berbentuk teks (bukan scan/foto) agar analisis lebih akurat
-      </p>
+      <p className="text-xs text-slate-400 mt-2">Gunakan CV berbentuk teks (bukan scan)</p>
 
-      {scanWarning && (
-        <div className="mt-3 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
-          ⚠️ CV kamu sepertinya file gambar atau hasil scan. Coba download ulang dari Canva/Word sebagai PDF teks, lalu upload lagi.
-        </div>
-      )}
       {error && (
         <div className="mt-3 rounded-xl bg-red-50 border border-red-200 p-3 text-xs text-red-700">
           {error}

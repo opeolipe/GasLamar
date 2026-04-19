@@ -52,16 +52,6 @@ export default function Upload() {
   const jdOk:    boolean = jd.trim().length >= MIN_JD_LENGTH;
   const isValid: boolean = hasFile && jdOk;
 
-  const submitHint = !fileName
-    ? '📄 Upload CV kamu dulu sebelum analisis'
-    : scanWarning
-    ? '⚠️ CV tidak bisa dibaca — coba upload ulang file teks'
-    : fileName && !cvText
-    ? '⌛ Membaca CV kamu...'
-    : !jdOk
-    ? '✍️ Isi job description dulu (min. 100 karakter)'
-    : null;
-
   // Mount: read URL params + restore drafts
   useEffect(() => {
     const params     = new URLSearchParams(window.location.search);
@@ -335,7 +325,6 @@ export default function Upload() {
           <SubmitSection
             isValid={isValid}
             isLoading={loading}
-            hint={submitHint}
             onSubmit={handleSubmit}
           />
         </div>

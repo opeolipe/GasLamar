@@ -9,7 +9,7 @@ interface Props {
 export default function UrlFetcher({ onFetchSuccess, onClose }: Props) {
   const [url,     setUrl]     = useState('');
   const [loading, setLoading] = useState(false);
-  const [status,  setStatus]  = useState<{ text: string; ok: boolean } | null>(null);
+  const [error,   setError]   = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
@@ -17,7 +17,7 @@ export default function UrlFetcher({ onFetchSuccess, onClose }: Props) {
   async function handleFetch() {
     if (!url.trim()) { inputRef.current?.focus(); return; }
     setLoading(true);
-    setStatus({ text: '⏳ Mengambil job description...', ok: true });
+    setError('');
     try {
       const res  = await fetch(`${WORKER_URL}/fetch-job-url`, {
         method:  'POST',
@@ -26,13 +26,12 @@ export default function UrlFetcher({ onFetchSuccess, onClose }: Props) {
       });
       const data = await res.json();
       if (!res.ok) {
-        setStatus({ text: '⚠️ ' + (data.message || 'Gagal mengambil. Coba copy-paste manual.'), ok: false });
+        setError('Gagal mengambil, coba manual');
       } else {
-        setStatus({ text: '✅ Job description berhasil diambil. Periksa dan edit seperlunya.', ok: true });
         onFetchSuccess(data.job_desc);
       }
     } catch {
-      setStatus({ text: '⚠️ Tidak bisa terhubung ke server. Coba lagi.', ok: false });
+      setError('Gagal mengambil, coba manual');
     } finally {
       setLoading(false);
     }
@@ -68,10 +67,8 @@ export default function UrlFetcher({ onFetchSuccess, onClose }: Props) {
           ✕
         </button>
       </div>
-      {status && (
-        <p className={`text-xs mt-1.5 ${status.ok ? 'text-slate-500' : 'text-red-600'}`}>
-          {status.text}
-        </p>
+      {error && (
+        <p className="text-xs mt-1.5 text-red-600">{error}</p>
       )}
     </div>
   );
