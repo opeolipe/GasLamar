@@ -14,8 +14,8 @@
     "secret:set": "echo 'Run: wrangler secret put ANTHROPIC_API_KEY && wrangler secret put MAYAR_API_KEY && wrangler secret put MAYAR_API_KEY_SANDBOX && wrangler secret put MAYAR_WEBHOOK_SECRET'"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.5.41",
-    "vitest": "^2.1.9",
+    "@cloudflare/vitest-pool-workers": "^0.14.7",
+    "vitest": "^4.1.4",
     "wrangler": "^3.0.0"
   }
 }
