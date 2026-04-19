@@ -38,7 +38,7 @@ export default function CvDropzone({ fileName, fileSize, error, scanWarning, onF
         tabIndex={0}
         role="button"
         aria-label="Area upload CV — klik atau tekan Enter untuk memilih file"
-        className={`min-h-[160px] rounded-[16px] border border-dashed border-slate-300/40 bg-slate-50/80 grid place-items-center p-5 text-center transition-all hover:border-blue-400/50 hover:bg-blue-50/50 ${!fileName ? 'cursor-pointer' : ''}`}
+        className={`min-h-[160px] rounded-[16px] border-[1.5px] border-dashed border-slate-300 bg-transparent grid place-items-center p-5 text-center transition-all hover:border-slate-900 hover:bg-[rgba(15,23,42,0.02)] ${!fileName ? 'cursor-pointer' : ''}`}
         onClick={() => { if (!fileName) inputRef.current?.click(); }}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
@@ -90,19 +90,17 @@ export default function CvDropzone({ fileName, fileSize, error, scanWarning, onF
         />
       </div>
 
-      <p className="text-xs text-amber-700 mt-2">
-        ⚠️ Gunakan CV berbentuk teks (bukan scan/foto) agar analisis lebih akurat
+      <p className="text-xs text-slate-400 mt-2">
+        Gunakan CV berbentuk teks (bukan scan/foto) agar analisis lebih akurat
       </p>
 
       {scanWarning && (
-        <div className="mt-2 rounded-[12px] px-4 py-2.5 text-sm text-amber-800 bg-amber-50 border border-amber-200">
-          <strong>CV tidak bisa dibaca.</strong> CV kamu sepertinya file gambar atau hasil scan. Coba download ulang CV kamu dari Canva/Word sebagai PDF teks, lalu upload lagi.
-        </div>
+        <p className="text-xs text-slate-500 mt-1.5">
+          ⚠️ CV kamu sepertinya file gambar atau hasil scan. Coba download ulang dari Canva/Word sebagai PDF teks, lalu upload lagi.
+        </p>
       )}
       {error && (
-        <div className="mt-2 rounded-[12px] px-4 py-2.5 text-sm text-red-700 bg-red-50 border border-red-200">
-          {error}
-        </div>
+        <p className="text-xs text-red-600 mt-1.5">{error}</p>
       )}
     </div>
   );
