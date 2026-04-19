@@ -68,8 +68,8 @@ export default function SubmitSection({ isValid, isLoading, hint, onSubmit }: Pr
         id="submit-btn"
         onClick={onSubmit}
         disabled={!isValid || isLoading}
-        className="min-h-[56px] w-full rounded-[16px] px-6 py-4 text-white font-bold text-base border-0 transition-all hover:-translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0 flex items-center justify-center gap-2"
-        style={{ background: 'linear-gradient(180deg,#2563eb,#1d4ed8)', boxShadow: SHADOW }}
+        className="min-h-[56px] w-full rounded-full px-6 py-4 text-white font-bold text-base border-0 transition-all hover:-translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0 flex items-center justify-center gap-2"
+        style={{ background: '#0F172A' }}
         aria-label="Mulai analisis CV kamu"
       >
         {isLoading ? (
@@ -96,13 +96,9 @@ export default function SubmitSection({ isValid, isLoading, hint, onSubmit }: Pr
         </div>
       )}
 
-      <div className="flex flex-wrap justify-center gap-x-5 gap-y-1.5 mt-5 text-xs text-slate-400">
-        <span>🔒 CV tidak disimpan</span>
-        <span>⚡ Proses ±30 detik</span>
-        <span>❌ Tidak perlu daftar</span>
-        <span>⏰ Preview gratis 2 jam</span>
-        <span>💳 Link download 7–30 hari</span>
-      </div>
+      <p className="text-center text-xs text-slate-400 mt-4">
+        CV tidak disimpan • tanpa registrasi • hasil dalam ±30 detik
+      </p>
     </div>
   );
 }
