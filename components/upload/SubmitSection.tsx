@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 
-const SHADOW = '0 18px 44px rgba(15, 23, 42, 0.08)';
-
 const PROGRESS_STEPS = [
   { pct: 25, delay: 2000  },
   { pct: 45, delay: 8000  },
@@ -18,22 +16,10 @@ interface Props {
 }
 
 export default function SubmitSection({ isValid, isLoading, hint, onSubmit }: Props) {
-  const [progress,     setProgress]     = useState(0);
-  const [loadingText,  setLoadingText]  = useState('Menyiapkan analisis...');
-  const [scrollHidden, setScrollHidden] = useState(false);
-  const btnRef   = useRef<HTMLButtonElement>(null);
-  const timers   = useRef<ReturnType<typeof setTimeout>[]>([]);
-
-  // Hide scroll hint when button enters viewport
-  useEffect(() => {
-    const btn = btnRef.current;
-    if (!btn || !('IntersectionObserver' in window)) return;
-    const obs = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting) { setScrollHidden(true); obs.disconnect(); }
-    }, { threshold: 0.5 });
-    obs.observe(btn);
-    return () => obs.disconnect();
-  }, []);
+  const [progress,    setProgress]    = useState(0);
+  const [loadingText, setLoadingText] = useState('Menyiapkan analisis...');
+  const btnRef  = useRef<HTMLButtonElement>(null);
+  const timers  = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   // Simulate progress while loading
   useEffect(() => {
@@ -53,15 +39,6 @@ export default function SubmitSection({ isValid, isLoading, hint, onSubmit }: Pr
 
   return (
     <div className="mt-6">
-      {!scrollHidden && (
-        <div className="text-center text-slate-400 text-xs mb-3 animate-bounce" aria-hidden="true">
-          <svg className="block mx-auto mb-1" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-          Scroll untuk tombol analisis
-        </div>
-      )}
-
       <button
         ref={btnRef}
         type="button"

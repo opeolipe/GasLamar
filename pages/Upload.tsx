@@ -285,14 +285,15 @@ export default function Upload() {
           <h1 className="text-[clamp(2rem,4vw,2.8rem)] font-extrabold leading-tight tracking-tight text-slate-900 mb-3 max-w-[20ch] mx-auto">
             Cek peluang interview kamu sebelum apply
           </h1>
-          <p className="text-lg text-slate-500 max-w-[48ch] mx-auto">
+          <p className="text-base text-slate-500 max-w-[48ch] mx-auto mb-2">
             Upload CV + job description — tahu peluang kamu dalam 30 detik
           </p>
+          <p className="text-sm text-slate-400">Tanpa daftar&nbsp;•&nbsp;hasil dalam ±30 detik</p>
         </div>
 
         {/* ZONE 2: Form panel (soft panel) */}
         <div
-          className="rounded-[24px] p-6 sm:p-8 max-w-[820px] mx-auto"
+          className="rounded-[24px] px-8 py-9 max-w-[880px] mx-auto"
           style={{
             background:     'rgba(255,255,255,0.88)',
             border:         '1px solid rgba(148,163,184,0.14)',
@@ -302,7 +303,8 @@ export default function Upload() {
         >
           <TierIndicator tier={tier} />
 
-          <div>
+          {/* GROUP 1: Upload CV */}
+          <div className="mb-6">
             <label className="block text-sm font-semibold mb-2" htmlFor="cv-file">
               📄 1. Upload CV Kamu
             </label>
@@ -316,14 +318,17 @@ export default function Upload() {
             />
           </div>
 
-          <JobDescriptionInput
-            value={jd}
-            onChange={handleJdChange}
-            error={jdError}
-            touched={jdTouched}
-          />
+          {/* GROUP 2: Job target */}
+          <div className="border-t pt-5" style={{ borderColor: 'rgba(148,163,184,0.18)' }}>
+            <JobDescriptionInput
+              value={jd}
+              onChange={handleJdChange}
+              error={jdError}
+              touched={jdTouched}
+            />
+          </div>
 
-          <p className="text-center text-sm font-semibold text-slate-900 mt-6 mb-0">
+          <p className="text-center text-[0.85rem] text-slate-500 mt-4 mb-0">
             Tahu peluang kamu sebelum apply
           </p>
 
