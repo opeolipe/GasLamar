@@ -1,28 +1,23 @@
-export function evaluateJDQuality(text: string): { isValid: boolean; missing: string[] } {
+export function evaluateJDQuality(text: string): { isValid: boolean; message: string | null } {
   const clean = text.trim().toLowerCase();
 
-  if (!clean) return { isValid: false, missing: [] };
+  if (!clean) return { isValid: false, message: null };
 
-  const missing: string[] = [];
-
-  if (clean.length < 80) {
-    missing.push('detail job description');
-  }
+  if (clean.length < 80)
+    return { isValid: false, message: 'Tambahkan sedikit detail agar analisis lebih akurat' };
 
   const hasStructure =
     /requirement|qualification|skill|responsibilit|duties/.test(clean) ||
     /kualifikasi|syarat|kemampuan|tanggung jawab|tugas|jobdesk/.test(clean);
 
-  if (!hasStructure) {
-    missing.push('kualifikasi / tanggung jawab');
-  }
+  if (!hasStructure)
+    return { isValid: false, message: 'Tambahkan bagian kualifikasi atau tanggung jawab' };
 
   const hasCompany =
     /pt |cv |inc|ltd|llc|company|perusahaan|yayasan|firm/.test(clean);
 
-  if (!hasCompany) {
-    missing.push('nama perusahaan');
-  }
+  if (!hasCompany)
+    return { isValid: false, message: 'Tambahkan nama perusahaan agar konteks lebih jelas' };
 
-  return { isValid: missing.length === 0, missing };
+  return { isValid: true, message: null };
 }

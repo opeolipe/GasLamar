@@ -68,13 +68,11 @@ export default function JobDescriptionInput({ value, onChange }: Props) {
         </div>
       </div>
 
-      {trimmed && quality.missing.length > 0 && (
-        <p className="text-xs text-slate-500 mt-2">
-          Tambahkan: {quality.missing.slice(0, 3).join(' · ')}
-        </p>
+      {trimmed && quality.message && (
+        <p className="text-xs text-slate-500 mt-2">{quality.message}</p>
       )}
 
-      {trimmed && quality.isValid && (
+      {trimmed && !quality.message && (
         <p className="text-xs text-emerald-600 mt-2">✓ Siap dianalisis</p>
       )}
     </div>
