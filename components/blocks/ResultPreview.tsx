@@ -39,9 +39,7 @@ const GAPS = [
 type Tab = "Hasil" | "Gap" | "Perbaikan";
 const TABS: Tab[] = ["Hasil", "Gap", "Perbaikan"];
 
-export interface ResultPreviewProps { onOpenUpload: () => void }
-
-export default function ResultPreview({ onOpenUpload }: ResultPreviewProps) {
+export default function ResultPreview() {
   const [tab, setTab] = useState<Tab>("Hasil");
 
   return (
@@ -133,13 +131,13 @@ export default function ResultPreview({ onOpenUpload }: ResultPreviewProps) {
             <div className="text-sm mb-3" style={{ color: "#94a3b8", textDecoration: "line-through" }}>❌ "Bertanggung jawab mengelola tugas harian."</div>
             <div className="text-sm font-bold mb-2" style={{ color: "#0f172a" }}>✅ "Mengelola operasional harian untuk memastikan proses berjalan lancar dan efisien."</div>
             <p className="text-sm text-slate-400 mb-5">Jika ada data, tambahkan hasil konkret, misalnya: "Meningkatkan efisiensi proses sebesar X%"</p>
-            <button
-              onClick={onOpenUpload}
-              className="min-h-[48px] rounded-[16px] px-5 text-sm font-bold text-[#2563eb] cursor-pointer transition-all hover:-translate-y-[1px]"
+            <a
+              href="upload.html"
+              className="inline-flex items-center min-h-[48px] rounded-[16px] px-5 text-sm font-bold text-[#2563eb] no-underline transition-all hover:-translate-y-[1px]"
               style={{ border: "1px solid rgba(37,99,235,0.18)", background: "white" }}
             >
               → Lanjutkan perbaikan CV
-            </button>
+            </a>
           </div>
         )}
       </div>
