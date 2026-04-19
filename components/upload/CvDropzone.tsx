@@ -14,14 +14,14 @@ export default function CvDropzone({ fileName, fileSize, error, scanWarning, onF
 
   function onDragOver(e: React.DragEvent) {
     e.preventDefault();
-    e.currentTarget.classList.add('!border-blue-400/50', '!bg-blue-50/50');
+    e.currentTarget.classList.add('!border-blue-500', '!bg-blue-50/40');
   }
   function onDragLeave(e: React.DragEvent) {
-    e.currentTarget.classList.remove('!border-blue-400/50', '!bg-blue-50/50');
+    e.currentTarget.classList.remove('!border-blue-500', '!bg-blue-50/40');
   }
   function onDrop(e: React.DragEvent) {
     e.preventDefault();
-    e.currentTarget.classList.remove('!border-blue-400/50', '!bg-blue-50/50');
+    e.currentTarget.classList.remove('!border-blue-500', '!bg-blue-50/40');
     const f = e.dataTransfer.files[0];
     if (f) onFileSelect(f);
   }
@@ -38,7 +38,7 @@ export default function CvDropzone({ fileName, fileSize, error, scanWarning, onF
         tabIndex={0}
         role="button"
         aria-label="Area upload CV — klik atau tekan Enter untuk memilih file"
-        className={`min-h-[160px] rounded-2xl border-2 border-dashed border-slate-300 bg-transparent grid place-items-center p-5 text-center transition-all hover:border-slate-900 hover:bg-[rgba(15,23,42,0.02)] ${!fileName ? 'cursor-pointer' : ''}`}
+        className={`min-h-[160px] rounded-2xl border-2 border-dashed border-slate-300 bg-transparent grid place-items-center p-5 text-center transition-all hover:border-blue-400 hover:bg-blue-50/30 ${!fileName ? 'cursor-pointer' : ''}`}
         onClick={() => { if (!fileName) inputRef.current?.click(); }}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
@@ -70,7 +70,7 @@ export default function CvDropzone({ fileName, fileSize, error, scanWarning, onF
             <div className="text-sm text-slate-400 mb-3">atau</div>
             <button
               type="button"
-              className="min-h-[44px] px-5 py-2 rounded-full bg-slate-900 text-white text-sm font-medium inline-flex items-center"
+              className="min-h-[44px] px-5 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium inline-flex items-center transition-colors"
               onClick={(e) => { e.stopPropagation(); inputRef.current?.click(); }}
               aria-label="Pilih file CV dari komputer kamu"
             >

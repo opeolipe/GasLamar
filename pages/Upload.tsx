@@ -268,7 +268,7 @@ export default function Upload() {
         </a>
       </nav>
 
-      <main className="max-w-[960px] mx-auto px-6 pt-14 pb-8" id="upload-form">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 pb-8" id="upload-form">
 
         {/* Notices */}
         {notices.map((n, i) => (
@@ -293,7 +293,7 @@ export default function Upload() {
 
         {/* ZONE 2: Form panel (soft panel) */}
         <div
-          className="rounded-[24px] px-8 py-9 max-w-[880px] mx-auto"
+          className="rounded-[24px] px-4 py-6 sm:px-8 sm:py-9 max-w-4xl mx-auto"
           style={{
             background:     'rgba(255,255,255,0.88)',
             border:         '1px solid rgba(148,163,184,0.14)',

@@ -55,7 +55,7 @@ export default function UrlFetcher({ onFetchSuccess, onClose }: Props) {
           type="button"
           onClick={handleFetch}
           disabled={loading}
-          className="min-h-[44px] px-4 py-2 bg-blue-600 text-white rounded-[10px] text-sm font-semibold disabled:opacity-60 whitespace-nowrap"
+          className="min-h-[44px] px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-[10px] text-sm font-semibold disabled:opacity-60 whitespace-nowrap transition-colors"
         >
           {loading ? 'Mengambil...' : 'Ambil'}
         </button>

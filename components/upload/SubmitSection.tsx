@@ -45,7 +45,7 @@ export default function SubmitSection({ isValid, isLoading, hint, onSubmit }: Pr
         id="submit-btn"
         onClick={onSubmit}
         disabled={!isValid || isLoading}
-        className="min-h-[56px] w-full rounded-full px-6 py-4 text-white font-bold text-base border-0 transition-all bg-slate-900 hover:bg-slate-800 hover:shadow-md hover:-translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0 flex items-center justify-center gap-2"
+        className="min-h-[56px] w-full rounded-full px-6 py-4 text-white font-bold text-base border-0 transition-all bg-blue-600 hover:bg-blue-700 hover:shadow-md hover:-translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0 flex items-center justify-center gap-2"
         aria-label="Mulai analisis CV kamu"
       >
         {isLoading ? (
