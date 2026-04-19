@@ -296,6 +296,7 @@ export default function Upload() {
           </p>
 
           <SubmitSection
+            jobDescription={jd}
             isValid={isValid}
             isLoading={loading}
             onSubmit={handleSubmit}

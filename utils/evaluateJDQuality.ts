@@ -1,22 +1,28 @@
-import { MIN_JD_LENGTH } from '@/lib/uploadValidation';
+export function evaluateJDQuality(text: string): { isValid: boolean; missing: string[] } {
+  const clean = text.trim().toLowerCase();
 
-const QUALITY_KEYWORDS = [
-  // Indonesian
-  'pengalaman', 'kualifikasi', 'persyaratan', 'tanggung jawab', 'diutamakan',
-  'minimal', 'tahun', 'kemampuan', 'keahlian', 'posisi', 'syarat', 'wajib',
-  // English
-  'experience', 'requirements', 'qualifications', 'responsibilities',
-  'skills', 'minimum', 'years', 'preferred', 'required',
-];
+  if (!clean) return { isValid: false, missing: [] };
 
-export function evaluateJDQuality(text: string): { isValid: boolean; message: string | null } {
-  const trimmed = text.trim();
-  if (!trimmed) return { isValid: false, message: null };
-  if (trimmed.length < MIN_JD_LENGTH)
-    return { isValid: false, message: 'Tambahkan sedikit detail agar analisis lebih akurat' };
-  const lower = trimmed.toLowerCase();
-  const hasKeyword = QUALITY_KEYWORDS.some(k => lower.includes(k));
-  if (!hasKeyword)
-    return { isValid: false, message: 'Pastikan ada kualifikasi atau tanggung jawab dari lowongan' };
-  return { isValid: true, message: null };
+  const missing: string[] = [];
+
+  if (clean.length < 80) {
+    missing.push('detail job description');
+  }
+
+  const hasStructure =
+    /requirement|qualification|skill|responsibilit|duties/.test(clean) ||
+    /kualifikasi|syarat|kemampuan|tanggung jawab|tugas|jobdesk/.test(clean);
+
+  if (!hasStructure) {
+    missing.push('kualifikasi / tanggung jawab');
+  }
+
+  const hasCompany =
+    /pt |cv |inc|ltd|llc|company|perusahaan|yayasan|firm/.test(clean);
+
+  if (!hasCompany) {
+    missing.push('nama perusahaan');
+  }
+
+  return { isValid: missing.length === 0, missing };
 }

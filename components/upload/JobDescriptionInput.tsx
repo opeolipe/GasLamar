@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import UrlFetcher from './UrlFetcher';
 import { MAX_JD_CHARS } from '@/lib/uploadValidation';
-import { useInlineValidation } from '@/hooks/useInlineValidation';
 import { evaluateJDQuality } from '@/utils/evaluateJDQuality';
 
 interface Props {
@@ -11,12 +10,9 @@ interface Props {
 
 export default function JobDescriptionInput({ value, onChange }: Props) {
   const [showFetcher, setShowFetcher] = useState(false);
-  const count = value.length;
-
-  const validation = useInlineValidation({
-    value,
-    validate: (v: string) => evaluateJDQuality(v).message,
-  });
+  const count   = value.length;
+  const trimmed = value.trim();
+  const quality = evaluateJDQuality(value);
 
   const textareaCls = [
     'w-full min-h-[140px] rounded-2xl border border-dashed bg-transparent p-5',
@@ -25,11 +21,8 @@ export default function JobDescriptionInput({ value, onChange }: Props) {
   ].join(' ');
 
   function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    const raw = e.target.value.length > MAX_JD_CHARS
-      ? e.target.value.slice(0, MAX_JD_CHARS)
-      : e.target.value;
-    onChange(raw);
-    validation.onChange(raw);
+    const raw = e.target.value;
+    onChange(raw.length > MAX_JD_CHARS ? raw.slice(0, MAX_JD_CHARS) : raw);
   }
 
   return (
@@ -64,7 +57,6 @@ export default function JobDescriptionInput({ value, onChange }: Props) {
           id="job-desc"
           value={value}
           onChange={handleChange}
-          onBlur={validation.onBlur}
           rows={6}
           maxLength={MAX_JD_CHARS}
           placeholder={`Contoh:\nPosisi: Digital Marketing Specialist\n\nKualifikasi:\n- Pengalaman 2+ tahun di social media marketing\n- Familiar dengan Google Analytics & Facebook Ads\n\nTanggung Jawab:\n- Kelola konten Instagram, TikTok, LinkedIn`}
@@ -76,11 +68,13 @@ export default function JobDescriptionInput({ value, onChange }: Props) {
         </div>
       </div>
 
-      {validation.error && (
-        <p className="text-xs text-red-600 mt-2">{validation.error}</p>
+      {trimmed && quality.missing.length > 0 && (
+        <p className="text-xs text-slate-500 mt-2">
+          Tambahkan: {quality.missing.slice(0, 3).join(' · ')}
+        </p>
       )}
 
-      {validation.touched && !validation.error && evaluateJDQuality(value).isValid && (
+      {trimmed && quality.isValid && (
         <p className="text-xs text-emerald-600 mt-2">✓ Siap dianalisis</p>
       )}
     </div>
