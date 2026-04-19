@@ -21,7 +21,8 @@ export default function SubmitSection({ jobDescription, isValid, isLoading, onSu
         id="submit-btn"
         onClick={onSubmit}
         disabled={!canSubmit}
-        className="min-h-[56px] w-full rounded-full px-6 py-4 text-white font-bold text-base border-0 transition-all bg-gradient-to-b from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 hover:shadow-md hover:-translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0 flex items-center justify-center gap-2"
+        className="min-h-[56px] w-full rounded-full px-6 py-4 text-white font-bold text-base border-0 transition-all hover:-translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0 flex items-center justify-center gap-2"
+        style={{ background: 'linear-gradient(180deg,#2563eb,#1d4ed8)', boxShadow: '0 18px 44px rgba(15,23,42,0.08)' }}
         aria-label="Mulai analisis CV kamu"
       >
         {isLoading ? (

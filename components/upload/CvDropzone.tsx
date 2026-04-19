@@ -4,12 +4,11 @@ interface Props {
   fileName:     string | null;
   fileSize:     string | null;
   error:        string;
-  scanWarning:  boolean;
   onFileSelect: (file: File) => void;
   onRemove:     () => void;
 }
 
-export default function CvDropzone({ fileName, fileSize, error, onFileSelect, onRemove }: Props) {
+export default function CvDropzone({ fileName, fileSize, error, onFileSelect, onRemove  }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   function onDragOver(e: React.DragEvent) {

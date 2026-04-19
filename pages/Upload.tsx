@@ -214,7 +214,10 @@ export default function Upload() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 font-sans">
+    <div
+      className="min-h-screen text-gray-900 font-sans"
+      style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37,99,235,0.08), transparent)' }}
+    >
       {/* Skip link */}
       <a
         href="#upload-form"
@@ -247,7 +250,10 @@ export default function Upload() {
 
         {/* ZONE 1: Hero (no box) */}
         <div className="text-center mb-8">
-          <h1 className="text-[clamp(2rem,4vw,2.8rem)] font-extrabold leading-tight tracking-tight text-slate-900 mb-3 max-w-[20ch] mx-auto">
+          <h1
+            className="text-[clamp(2rem,4vw,2.8rem)] font-semibold leading-tight text-slate-900 mb-3 max-w-[20ch] mx-auto"
+            style={{ fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.03em' }}
+          >
             Cek peluang interview kamu sebelum apply
           </h1>
           <p className="text-base text-slate-500 max-w-[48ch] mx-auto mb-2">
@@ -270,14 +276,11 @@ export default function Upload() {
 
           {/* GROUP 1: Upload CV */}
           <div className="mb-6">
-            <label className="block text-sm font-semibold mb-2" htmlFor="cv-file">
-              📄 1. Upload CV Kamu
-            </label>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400 mb-3">Upload CV</p>
             <CvDropzone
               fileName={fileName}
               fileSize={fileSize}
               error={fileError}
-              scanWarning={scanWarning}
               onFileSelect={handleFileSelect}
               onRemove={handleRemove}
             />
@@ -290,10 +293,6 @@ export default function Upload() {
               onChange={handleJdChange}
             />
           </div>
-
-          <p className="text-center text-[0.85rem] text-slate-500 mt-4 mb-0">
-            Tahu peluang kamu sebelum apply
-          </p>
 
           <SubmitSection
             jobDescription={jd}
