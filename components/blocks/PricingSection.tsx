@@ -35,9 +35,7 @@ const TIERS: Tier[] = [
 const SHADOW = "0 18px 44px rgba(15, 23, 42, 0.08)";
 const SERIF = { fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: "-0.03em" } as const;
 
-export interface PricingSectionProps { onOpenUpload: () => void }
-
-export default function PricingSection({ onOpenUpload }: PricingSectionProps) {
+export default function PricingSection() {
   return (
     <section className="py-8">
       {/* Mid-page CTA */}
@@ -45,13 +43,13 @@ export default function PricingSection({ onOpenUpload }: PricingSectionProps) {
         <h2 className="text-[clamp(2rem,4vw,3rem)] font-semibold leading-tight mb-6" style={SERIF}>
           Siap tahu peluang kamu?
         </h2>
-        <button
-          onClick={onOpenUpload}
-          className="min-h-[52px] rounded-[16px] px-[26px] py-3 text-white text-base font-bold border-0 cursor-pointer transition-all hover:-translate-y-[1px]"
+        <a
+          href="upload.html"
+          className="inline-flex items-center justify-center min-h-[52px] rounded-[16px] px-[26px] py-3 text-white text-base font-bold no-underline transition-all hover:-translate-y-[1px]"
           style={{ background: "linear-gradient(180deg,#2563eb,#1d4ed8)", boxShadow: SHADOW }}
         >
           Cek Peluang Saya
-        </button>
+        </a>
       </div>
 
       {/* Pricing subtitle */}
@@ -98,9 +96,9 @@ export default function PricingSection({ onOpenUpload }: PricingSectionProps) {
               ))}
             </ul>
 
-            <button
-              onClick={onOpenUpload}
-              className={`w-full rounded-[14px] py-2.5 font-bold text-sm cursor-pointer transition-all hover:-translate-y-[1px] ${
+            <a
+              href="upload.html"
+              className={`w-full rounded-[14px] py-2.5 font-bold text-sm no-underline flex items-center justify-center transition-all hover:-translate-y-[1px] ${
                 tier.featured
                   ? "text-white border-0"
                   : "bg-white text-blue-600 border border-blue-200"
@@ -108,7 +106,7 @@ export default function PricingSection({ onOpenUpload }: PricingSectionProps) {
               style={tier.featured ? { background: "linear-gradient(180deg,#2563eb,#1d4ed8)" } : {}}
             >
               Coba analisis gratis
-            </button>
+            </a>
           </div>
         ))}
       </div>
