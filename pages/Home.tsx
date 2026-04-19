@@ -1,67 +1,55 @@
-import { useState } from "react";
-import HeroUpload from "@/components/blocks/HeroUpload";
+import HeroUpload    from "@/components/blocks/HeroUpload";
 import ResultPreview from "@/components/blocks/ResultPreview";
 import PricingSection from "@/components/blocks/PricingSection";
-import FaqSection from "@/components/blocks/FaqSection";
+import FaqSection    from "@/components/blocks/FaqSection";
 import FooterSection from "@/components/blocks/FooterSection";
 
 const SHADOW = "0 18px 44px rgba(15, 23, 42, 0.08)";
 const SERIF = { fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: "-0.03em" } as const;
 
 const HOW_STEPS = [
-  { n: "1", title: "Upload CV", bg: "rgba(37,99,235,0.08)", color: "#2563eb" },
-  { n: "2", title: "Analisis otomatis", bg: "rgba(245,158,11,0.08)", color: "#d97706" },
-  { n: "3", title: "Dapat status + perbaikan", bg: "rgba(16,185,129,0.08)", color: "#059669" },
+  { n: "1", title: "Upload CV",               bg: "rgba(37,99,235,0.08)",    color: "#2563eb" },
+  { n: "2", title: "Analisis otomatis",        bg: "rgba(245,158,11,0.08)",   color: "#d97706" },
+  { n: "3", title: "Dapat status + perbaikan", bg: "rgba(16,185,129,0.08)",   color: "#059669" },
 ];
 
 const BENEFITS = [
-  { title: "Disesuaikan dengan job", desc: "Setiap CV dibaca terhadap lowongan yang kamu incar." },
-  { title: "CV bilingual", desc: "Tetap siap untuk perusahaan lokal dan multinasional." },
-  { title: "Langsung diperbaiki", desc: "Gap utama langsung diubah jadi bullet yang lebih kuat." },
+  { title: "Disesuaikan dengan job",  desc: "Setiap CV dibaca terhadap lowongan yang kamu incar." },
+  { title: "CV bilingual",            desc: "Tetap siap untuk perusahaan lokal dan multinasional." },
+  { title: "Langsung diperbaiki",     desc: "Gap utama langsung diubah jadi bullet yang lebih kuat." },
 ];
 
 export default function Home() {
-  const [isDesktopOpen, setIsDesktopOpen] = useState(false);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
-
-  function openUpload() {
-    if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
-      setIsMobileOpen(true);
-    } else {
-      setIsDesktopOpen(true);
-    }
-  }
-  function closeUpload() { setIsDesktopOpen(false); setIsMobileOpen(false); }
-
   return (
-    <div className="min-h-screen text-gray-900 font-sans" style={{ background: "radial-gradient(ellipse 80% 50% at 50% -20%,rgba(37,99,235,0.08),transparent)" }}>
+    <div
+      className="min-h-screen text-gray-900 font-sans"
+      style={{ background: "radial-gradient(ellipse 80% 50% at 50% -20%,rgba(37,99,235,0.08),transparent)" }}
+    >
       {/* Navbar */}
-      <nav className="border-b py-4 px-6 flex items-center justify-between sticky top-0 z-50 backdrop-blur-[14px]" style={{ borderColor: "rgba(148,163,184,0.18)", background: "rgba(255,255,255,0.88)" }}>
+      <nav
+        className="border-b py-4 px-6 flex items-center justify-between sticky top-0 z-50 backdrop-blur-[14px]"
+        style={{ borderColor: "rgba(148,163,184,0.18)", background: "rgba(255,255,255,0.88)" }}
+      >
         <a href="index.html" className="font-extrabold text-lg text-slate-900 no-underline tracking-tight">
           GasLamar
         </a>
-        <button
-          onClick={openUpload}
-          className="inline-flex items-center text-white font-bold text-sm px-5 py-2 rounded-full cursor-pointer border-0 transition-all hover:-translate-y-[1px]"
+        <a
+          href="upload.html"
+          className="inline-flex items-center text-white font-bold text-sm px-5 py-2 rounded-full no-underline transition-all hover:-translate-y-[1px]"
           style={{ background: "linear-gradient(180deg,#2563eb,#1d4ed8)", boxShadow: SHADOW }}
         >
           Cek Peluang Saya
-        </button>
+        </a>
       </nav>
 
       <main className="max-w-screen-xl mx-auto px-6">
         {/* Hero */}
         <section className="py-12 lg:py-16">
-          <HeroUpload
-            isDesktopOpen={isDesktopOpen}
-            isMobileOpen={isMobileOpen}
-            onOpen={openUpload}
-            onClose={closeUpload}
-          />
+          <HeroUpload />
         </section>
 
         {/* Result preview */}
-        <ResultPreview onOpenUpload={openUpload} />
+        <ResultPreview />
 
         {/* How it works */}
         <section className="py-8 md:py-12">
@@ -95,22 +83,21 @@ export default function Home() {
               ))}
             </div>
           </div>
-
         </section>
 
         {/* Pricing */}
-        <PricingSection onOpenUpload={openUpload} />
+        <PricingSection />
 
-        {/* Inline bottom CTA — lightweight */}
+        {/* Inline bottom CTA */}
         <div className="text-center py-8 mb-4">
           <p className="text-lg font-semibold text-slate-700 mb-4" style={SERIF}>Siap cek peluang kamu?</p>
-          <button
-            onClick={openUpload}
-            className="min-h-[52px] rounded-[16px] px-[26px] py-3 text-white text-base font-bold border-0 cursor-pointer transition-all hover:-translate-y-[1px]"
+          <a
+            href="upload.html"
+            className="inline-flex items-center justify-center min-h-[52px] rounded-[16px] px-[26px] py-3 text-white text-base font-bold no-underline transition-all hover:-translate-y-[1px]"
             style={{ background: "linear-gradient(180deg,#2563eb,#1d4ed8)", boxShadow: SHADOW }}
           >
             Cek Peluang Saya
-          </button>
+          </a>
         </div>
 
         {/* FAQ */}
