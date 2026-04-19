@@ -39,7 +39,9 @@ export default function JobDescriptionInput({ value, onChange }: Props) {
           />
         ) : (
           <p className="text-sm text-slate-500">
-            Paste job description atau{' '}
+            Paste job description{' '}
+            <span className="text-slate-400">(requirements / tanggung jawab)</span>
+            {' '}atau{' '}
             <button
               type="button"
               onClick={() => setShowFetcher(true)}
@@ -63,8 +65,8 @@ export default function JobDescriptionInput({ value, onChange }: Props) {
           className={textareaCls}
           aria-label="Job description atau lowongan kerja yang kamu targetkan"
         />
-        <div className="text-right text-xs mt-1 text-slate-400">
-          {count.toLocaleString('id-ID')} / 5.000 karakter
+        <div className="text-right text-[10px] mt-1 text-slate-300">
+          {count.toLocaleString('id-ID')} / 5.000
         </div>
       </div>
 

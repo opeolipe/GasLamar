@@ -251,15 +251,15 @@ export default function Upload() {
         {/* ZONE 1: Hero (no box) */}
         <div className="text-center mb-8">
           <h1
-            className="text-[clamp(2rem,4vw,2.8rem)] font-semibold leading-tight text-slate-900 mb-3 max-w-[20ch] mx-auto"
+            className="text-[clamp(2rem,4vw,2.8rem)] font-semibold leading-tight text-slate-900 mb-2 max-w-[20ch] mx-auto"
             style={{ fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.03em' }}
           >
-            Cek peluang interview kamu sebelum apply
+            Cek peluang interview kamu
           </h1>
-          <p className="text-base text-slate-500 max-w-[48ch] mx-auto mb-2">
-            Upload CV + job description — tahu peluang kamu dalam 30 detik
+          <p className="text-sm text-slate-500 max-w-[48ch] mx-auto mb-1.5">
+            Upload CV + job description → tahu peluang kamu dalam 30 detik
           </p>
-          <p className="text-sm text-slate-400">Tanpa daftar&nbsp;•&nbsp;hasil dalam ±30 detik</p>
+          <p className="text-xs text-slate-400">Tanpa daftar&nbsp;•&nbsp;hasil dalam ±30 detik</p>
         </div>
 
         {/* ZONE 2: Form panel (soft panel) */}
@@ -287,7 +287,7 @@ export default function Upload() {
           </div>
 
           {/* GROUP 2: Job target */}
-          <div className="border-t pt-5" style={{ borderColor: 'rgba(148,163,184,0.18)' }}>
+          <div className="border-t pt-5" style={{ borderColor: 'rgba(148,163,184,0.10)' }}>
             <JobDescriptionInput
               value={jd}
               onChange={handleJdChange}
