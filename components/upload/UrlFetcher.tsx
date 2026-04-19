@@ -48,7 +48,7 @@ export default function UrlFetcher({ onFetchSuccess, onClose }: Props) {
           onChange={(e) => setUrl(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleFetch()}
           placeholder="https://www.linkedin.com/jobs/view/…"
-          className="flex-1 min-h-[44px] px-3 py-2 border border-blue-200 rounded-[10px] text-sm outline-none focus:border-blue-500 transition-colors font-sans bg-white"
+          className="flex-1 min-h-[44px] px-3 py-2 border border-blue-200 rounded-[10px] text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors font-sans bg-white"
           aria-label="URL halaman lowongan kerja (LinkedIn, Glints, JobStreet, dll)"
         />
         <button

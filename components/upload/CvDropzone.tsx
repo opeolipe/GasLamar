@@ -38,7 +38,7 @@ export default function CvDropzone({ fileName, fileSize, error, scanWarning, onF
         tabIndex={0}
         role="button"
         aria-label="Area upload CV — klik atau tekan Enter untuk memilih file"
-        className={`min-h-[160px] rounded-[16px] border-[1.5px] border-dashed border-slate-300 bg-transparent grid place-items-center p-5 text-center transition-all hover:border-slate-900 hover:bg-[rgba(15,23,42,0.02)] ${!fileName ? 'cursor-pointer' : ''}`}
+        className={`min-h-[160px] rounded-2xl border-2 border-dashed border-slate-300 bg-transparent grid place-items-center p-5 text-center transition-all hover:border-slate-900 hover:bg-[rgba(15,23,42,0.02)] ${!fileName ? 'cursor-pointer' : ''}`}
         onClick={() => { if (!fileName) inputRef.current?.click(); }}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
@@ -95,12 +95,14 @@ export default function CvDropzone({ fileName, fileSize, error, scanWarning, onF
       </p>
 
       {scanWarning && (
-        <p className="text-xs text-slate-500 mt-1.5">
+        <div className="mt-3 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
           ⚠️ CV kamu sepertinya file gambar atau hasil scan. Coba download ulang dari Canva/Word sebagai PDF teks, lalu upload lagi.
-        </p>
+        </div>
       )}
       {error && (
-        <p className="text-xs text-red-600 mt-1.5">{error}</p>
+        <div className="mt-3 rounded-xl bg-red-50 border border-red-200 p-3 text-xs text-red-700">
+          {error}
+        </div>
       )}
     </div>
   );

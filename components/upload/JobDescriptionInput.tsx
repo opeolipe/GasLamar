@@ -24,11 +24,12 @@ export default function JobDescriptionInput({ value, onChange, error, touched }:
     : 'text-slate-400';
 
   const textareaCls = [
-    'w-full min-h-[140px] rounded-[16px] border border-dashed bg-transparent p-5',
+    'w-full min-h-[140px] rounded-2xl border border-dashed bg-transparent p-5',
     'text-slate-900 resize-y outline-none text-sm font-sans transition-all',
+    'focus:ring-2 focus:ring-offset-2',
     meetsMin
-      ? 'border-emerald-400/60 focus:border-emerald-500/60 focus:shadow-[0_0_0_4px_rgba(16,185,129,0.08)]'
-      : 'border-slate-300 focus:border-blue-500/50 focus:shadow-[0_0_0_4px_rgba(37,99,235,0.08)]',
+      ? 'border-emerald-400/60 focus:border-emerald-500/60 focus:ring-emerald-100'
+      : 'border-slate-300 focus:border-blue-500/50 focus:ring-slate-200',
   ].join(' ');
 
   function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
@@ -48,25 +49,26 @@ export default function JobDescriptionInput({ value, onChange, error, touched }:
         </span>
       </label>
 
-      {/* Helper hint */}
-      <div className="mb-3">
+      {/* Helper card */}
+      <div className="bg-blue-50/60 border border-blue-200 rounded-2xl p-4 mb-4">
         {showFetcher ? (
           <UrlFetcher
             onFetchSuccess={(text) => { onChange(text.slice(0, MAX_JD_CHARS)); setShowFetcher(false); }}
             onClose={() => setShowFetcher(false)}
           />
         ) : (
-          <p className="text-sm font-medium text-slate-700">
-            💡 Belum punya job description? Paste manual atau{' '}
+          <>
+            <p className="font-semibold text-blue-800 text-sm mb-0.5">💡 Belum punya Job Description?</p>
+            <p className="text-xs text-blue-700 mb-3">Pilih salah satu cara di bawah — atau paste manual langsung ke kotak teks</p>
             <button
               type="button"
               onClick={() => setShowFetcher(true)}
-              className="underline underline-offset-2 hover:text-slate-900 transition-colors"
+              className="min-h-[36px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-blue-200 text-blue-700 text-xs font-semibold hover:bg-blue-50 transition-colors"
               aria-label="Ambil job description dari URL loker seperti LinkedIn, Glints, atau JobStreet"
             >
-              Ambil dari URL →
+              🔗 Ambil dari URL Loker
             </button>
-          </p>
+          </>
         )}
       </div>
 
