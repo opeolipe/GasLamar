@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import TierIndicator       from '@/components/upload/TierIndicator';
 import CvDropzone          from '@/components/upload/CvDropzone';
 import JobDescriptionInput from '@/components/upload/JobDescriptionInput';
@@ -44,6 +44,9 @@ export default function Upload() {
   const [loading,  setLoading]  = useState(false);
   const [tier,     setTier]     = useState<string | null>(null);
   const [notices,  setNotices]  = useState<Notice[]>([]);
+
+  // JD textarea ref — used for auto-scroll after CV upload
+  const jdRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Derived
   const hasFile: boolean = !!fileName && !!cvText;
@@ -160,6 +163,7 @@ export default function Upload() {
             sessionStorage.setItem('gaslamar_cv_draft', blob);
             sessionStorage.setItem('gaslamar_filename_draft', file.name);
           } catch (_) {}
+          handleCVUploaded();
         }
       })
       .catch(readErr => {
@@ -168,6 +172,14 @@ export default function Upload() {
         setFileName(null);
         setFileSize(null);
       });
+  }
+
+  function handleCVUploaded() {
+    if (jd.trim()) return;
+    setTimeout(() => {
+      jdRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      jdRef.current?.focus();
+    }, 300);
   }
 
   function handleRemove() {
@@ -289,6 +301,7 @@ export default function Upload() {
           {/* GROUP 2: Job target */}
           <div className="border-t pt-5" style={{ borderColor: 'rgba(148,163,184,0.10)' }}>
             <JobDescriptionInput
+              ref={jdRef}
               value={jd}
               onChange={handleJdChange}
             />

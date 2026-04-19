@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, forwardRef } from 'react';
 import UrlFetcher from './UrlFetcher';
 import { MAX_JD_CHARS } from '@/lib/uploadValidation';
 import { evaluateJDQuality } from '@/utils/evaluateJDQuality';
@@ -8,7 +8,7 @@ interface Props {
   onChange: (value: string) => void;
 }
 
-export default function JobDescriptionInput({ value, onChange }: Props) {
+const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobDescriptionInput({ value, onChange }, ref) {
   const [showFetcher, setShowFetcher] = useState(false);
   const count   = value.length;
   const trimmed = value.trim();
@@ -56,6 +56,7 @@ export default function JobDescriptionInput({ value, onChange }: Props) {
 
       <div>
         <textarea
+          ref={ref}
           id="job-desc"
           value={value}
           onChange={handleChange}
@@ -79,4 +80,6 @@ export default function JobDescriptionInput({ value, onChange }: Props) {
       )}
     </div>
   );
-}
+});
+
+export default JobDescriptionInput;
