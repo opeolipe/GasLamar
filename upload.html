@@ -516,9 +516,12 @@
       .btn-fetch-submit { flex: 1; }
     }
   </style>
+  <link rel="stylesheet" href="css/tailwind.css">
 </head>
 <body>
-<a href="#upload-form" class="skip-to-content">Langsung ke form upload</a>
+  <div id="upload-root"></div>
+<!-- legacy static content removed — page now rendered by upload-react.bundle.js -->
+<!--
 <div class="container">
   <a href="index.html" class="back-link" title="Kembali ke halaman utama GasLamar">← Kembali ke beranda</a>
 
@@ -653,7 +656,9 @@
   <a href="privacy.html">Kebijakan Privasi</a> · <a href="terms.html">Syarat Layanan</a>
 </footer>
 
-<script defer src="js/dist/upload.bundle.js?v=1"></script>
+-->
+<script defer src="js/dist/analytics-init.bundle.js?v=1"></script>
+<script defer src="js/dist/upload-react.bundle.js?v=1"></script>
   <!-- PostHog array.js — loaded after the bundle so posthog.init() with all disable flags
        is queued before PostHog library processes it (defer execution order guarantee). -->
   <script defer src="https://eu-assets.i.posthog.com/static/array.js" crossorigin="anonymous"></script>
