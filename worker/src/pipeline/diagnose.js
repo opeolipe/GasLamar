@@ -73,7 +73,7 @@ INSTRUKSI: Tulis gap HANYA berdasarkan skill_kurang di atas. Jangan tambahkan ga
 }
 
 async function attemptDiagnose(userMessage, env) {
-  const result = await callClaude(env, SKILL_DIAGNOSE, userMessage, 1200, 'claude-haiku-4-5-20251001');
+  const result = await callClaude(env, SKILL_DIAGNOSE, userMessage, 1500, 'claude-haiku-4-5-20251001');
   if (result?.stop_reason === 'max_tokens') {
     throw new Error('TRUNCATED');
   }
