@@ -349,9 +349,9 @@ export default function Result() {
             {/* 6D Score Breakdown — preview with gated details */}
             {data.skor_6d && Object.keys(data.skor_6d).length > 0 && (
               <div style={CARD_STYLE}>
-                <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0F172A', margin: '0 0 1rem' }}>
-                  📊 Skor 6 Dimensi
-                </h3>
+                <p style={{ fontSize: '0.72rem', fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.3rem' }}>
+                  Ini yang paling dilihat HR dalam 7–10 detik
+                </p>
 
                 {/* Bars — always visible */}
                 <ScoreBars dimensions={data.skor_6d} mode="preview" />

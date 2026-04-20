@@ -335,7 +335,7 @@ export default function DownloadReady({
             {dimensions && Object.keys(dimensions).length > 0 && (
               <div className="rounded-[20px] p-5 mb-5" style={{ background: 'rgba(248,250,252,0.8)', border: '1px solid rgba(148,163,184,0.18)' }}>
                 <h4 className="font-semibold text-slate-900 mb-4" style={{ fontSize: '0.95rem' }}>
-                  📊 Breakdown Skor 6 Dimensi — Penjelasan Lengkap
+                  Ini yang paling dilihat HR — penjelasan lengkap
                 </h4>
                 <ScoreBars dimensions={dimensions} mode="full" />
               </div>

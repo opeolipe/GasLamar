@@ -381,9 +381,9 @@ function renderSkor6D(skor6d) {
   if (!section || !bars) return;
 
   const DIM_LABELS = {
-    north_star:       { label: 'Kesesuaian Role',          icon: '🎯' },
-    recruiter_signal: { label: 'Daya Tarik CV',            icon: '👁️' },
     portfolio:        { label: 'Bukti Nyata di CV',        icon: '📋' },
+    recruiter_signal: { label: 'Daya Tarik CV',            icon: '👁️' },
+    north_star:       { label: 'Kesesuaian Role',          icon: '🎯' },
     effort:           { label: 'Kemudahan Perbaiki',       icon: '⚡' },
     risk:             { label: 'Relevansi Jangka Panjang', icon: '🛡️' },
     // opportunity_cost excluded: derived entirely from effort (effort < 5 ? 5 : 10)

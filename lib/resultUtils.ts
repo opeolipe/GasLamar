@@ -69,14 +69,16 @@ export const VERDICT_CONFIG = {
 // independent user-facing signal. The backend still computes and includes it
 // in the skor total; we simply don't display it as a separate dimension.
 //
-// Display order is intentional: fit → visibility → proof → ease → longevity.
+// Display order is intentional: emotional impact first, planning layer last.
+// portfolio → recruiter_signal → north_star → effort → risk
+// (biggest "aha" moments up front, future/context at the bottom)
 
 export const DIM_LABELS: Record<string, { label: string; icon: string; desc: string; hint: string }> = {
-  north_star: {
-    label: 'Kesesuaian Role',
-    icon:  '🎯',
-    desc:  'Seberapa cocok latar belakang dan pengalaman kamu dengan kebutuhan spesifik posisi yang dilamar.',
-    hint:  'Tambahkan kata kunci dari job description ke ringkasan dan bullet point pengalaman kamu.',
+  portfolio: {
+    label: 'Bukti Nyata di CV',
+    icon:  '📋',
+    desc:  'Seberapa kuat CV kamu menunjukkan hasil nyata — angka, metrik, dan pencapaian konkret.',
+    hint:  'Ubah setiap bullet jadi pernyataan berbasis dampak: "Meningkatkan X sebesar Y% dalam Z bulan."',
   },
   recruiter_signal: {
     label: 'Daya Tarik CV',
@@ -84,11 +86,11 @@ export const DIM_LABELS: Record<string, { label: string; icon: string; desc: str
     desc:  'Seberapa cepat CV kamu menarik perhatian HR dalam 7 detik pertama saat CV di-scan.',
     hint:  'Perkuat bagian atas CV dengan headline dan summary yang mencantumkan pencapaian terkuat kamu.',
   },
-  portfolio: {
-    label: 'Bukti Nyata di CV',
-    icon:  '📋',
-    desc:  'Seberapa kuat CV kamu menunjukkan hasil nyata — angka, metrik, dan pencapaian konkret.',
-    hint:  'Ubah setiap bullet jadi pernyataan berbasis dampak: "Meningkatkan X sebesar Y% dalam Z bulan."',
+  north_star: {
+    label: 'Kesesuaian Role',
+    icon:  '🎯',
+    desc:  'Seberapa cocok latar belakang dan pengalaman kamu dengan kebutuhan spesifik posisi yang dilamar.',
+    hint:  'Tambahkan kata kunci dari job description ke ringkasan dan bullet point pengalaman kamu.',
   },
   effort: {
     label: 'Kemudahan Perbaiki',
