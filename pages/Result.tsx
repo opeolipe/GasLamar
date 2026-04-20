@@ -27,12 +27,13 @@ console.log(
 );
 
 const CARD_STYLE: React.CSSProperties = {
-  background:  'white',
-  borderRadius: 32,
-  boxShadow:   '0 20px 35px -12px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.02)',
-  padding:     '2rem',
-  border:      '1px solid #EEF2F6',
-  marginBottom: '1.5rem',
+  background:     'rgba(255,255,255,0.88)',
+  borderRadius:   24,
+  boxShadow:      '0 18px 44px rgba(15,23,42,0.08)',
+  padding:        '1.5rem',
+  border:         '1px solid rgba(148,163,184,0.14)',
+  backdropFilter: 'blur(14px)',
+  marginBottom:   '1.25rem',
 };
 
 export default function Result() {
@@ -227,11 +228,14 @@ export default function Result() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div style={{ fontFamily: "'Inter',-apple-system,BlinkMacSystemFont,sans-serif", background: '#F9FAFB', color: '#111827', lineHeight: 1.5, padding: '2rem 1rem', minHeight: '100vh' }}>
+    <div
+      className="min-h-screen text-gray-900 font-sans"
+      style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37,99,235,0.08), transparent)' }}
+    >
 
       {/* 5-minute expiry toast */}
       {showExpiryToast && (
-        <div role="alert" aria-live="assertive" style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9000, background: '#DC2626', color: '#fff', textAlign: 'center', fontSize: '0.85rem', fontWeight: 600, padding: '0.7rem 1rem' }}>
+        <div role="alert" aria-live="assertive" className="fixed top-0 left-0 right-0 z-[9000] bg-red-600 text-white text-center text-sm font-semibold px-4 py-2.5">
           ⏳ Sesi analisis akan berakhir dalam 5 menit. Simpan hasil atau lanjutkan ke pembayaran.
         </div>
       )}
@@ -241,15 +245,25 @@ export default function Result() {
         Langsung ke konten utama
       </a>
 
-      <main id="main-content" style={{ maxWidth: 980, margin: '0 auto' }}>
+      {/* Navbar */}
+      <nav
+        className="border-b py-4 px-6 flex items-center sticky top-0 z-50 backdrop-blur-[14px]"
+        style={{ borderColor: 'rgba(148,163,184,0.18)', background: 'rgba(255,255,255,0.88)' }}
+      >
+        <a href="index.html" className="font-extrabold text-lg text-slate-900 no-underline tracking-tight">
+          GasLamar
+        </a>
+      </nav>
+
+      <main id="main-content" className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         <h1 className="sr-only">Hasil Analisis CV</h1>
 
         {/* ── Loading ── */}
         {loading && (
           <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem 2rem' }}>
-            <div style={{ width: 32, height: 32, border: '3px solid #E2E8F0', borderTopColor: '#0F172A', borderRadius: '50%', animation: 'gasResultSpin 0.8s linear infinite', display: 'inline-block', marginBottom: '1rem' }} />
-            <p style={{ fontWeight: 600, fontSize: '1.1rem', margin: '0 0 0.5rem' }}>Memuat hasil analisis...</p>
-            <p style={{ color: '#5B6E8C', fontSize: '0.85rem', margin: 0 }}>Sebentar lagi</p>
+            <div style={{ width: 28, height: 28, border: '3px solid #BFDBFE', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'gasResultSpin 0.8s linear infinite', display: 'inline-block', marginBottom: '1rem' }} />
+            <p style={{ fontWeight: 600, fontSize: '1.1rem', margin: '0 0 0.5rem', fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>Memuat hasil analisis…</p>
+            <p style={{ color: '#94A3B8', fontSize: '0.82rem', margin: 0 }}>Sebentar lagi</p>
           </div>
         )}
 
@@ -257,15 +271,15 @@ export default function Result() {
         {noSession && !loading && (
           <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '2.5rem 1.5rem' }}>
             <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>🔍</div>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 700, margin: '0 0 0.5rem' }}>
+            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, margin: '0 0 0.5rem', fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>
               Sesi Analisis Tidak Ditemukan
             </h2>
-            <p style={{ color: '#6B7280', fontSize: '0.9rem', margin: '0 0 1.5rem', lineHeight: 1.6 }}>
+            <p style={{ color: '#64748B', fontSize: '0.85rem', margin: '0 0 1.5rem', lineHeight: 1.7 }}>
               {noSession === 'expired'
                 ? <>⏰ Sesi analisis sudah berakhir (berlaku 2 jam).<br />Silakan upload ulang CV kamu untuk memulai analisis baru.</>
                 : <>Sesi analisis tidak ditemukan atau sudah kadaluarsa.<br />Silakan upload CV kamu kembali untuk memulai analisis baru.</>}
             </p>
-            <a href="upload.html" style={{ display: 'inline-block', background: '#0F172A', color: '#fff', fontWeight: 600, padding: '0.65rem 1.5rem', borderRadius: 10, textDecoration: 'none', fontSize: '0.9rem' }}>
+            <a href="upload.html" style={{ display: 'inline-block', background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: '#fff', fontWeight: 600, padding: '0.65rem 1.5rem', borderRadius: 60, textDecoration: 'none', fontSize: '0.88rem', boxShadow: '0 8px 24px rgba(37,99,235,0.25)' }}>
               Upload CV Lagi →
             </a>
           </div>
@@ -275,9 +289,9 @@ export default function Result() {
         {error && !loading && (
           <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem 2rem' }}>
             <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>⚠️</div>
-            <h2 style={{ fontWeight: 700, fontSize: '1.3rem', margin: '0 0 0.5rem' }}>Analisis Gagal</h2>
-            <p style={{ color: '#5B6E8C', fontSize: '0.9rem', margin: '0 0 1.5rem' }}>{error}</p>
-            <a href="upload.html" style={{ display: 'inline-block', background: '#0F172A', color: 'white', fontWeight: 700, padding: '0.75rem 1.5rem', borderRadius: 60, textDecoration: 'none' }}>
+            <h2 style={{ fontWeight: 600, fontSize: '1.2rem', margin: '0 0 0.5rem', fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>Analisis Gagal</h2>
+            <p style={{ color: '#64748B', fontSize: '0.85rem', margin: '0 0 1.5rem' }}>{error}</p>
+            <a href="upload.html" style={{ display: 'inline-block', background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', fontWeight: 700, padding: '0.75rem 1.5rem', borderRadius: 60, textDecoration: 'none', boxShadow: '0 8px 24px rgba(37,99,235,0.25)' }}>
               Coba Lagi
             </a>
           </div>
@@ -369,14 +383,14 @@ export default function Result() {
 
             {/* Session expired by payment error */}
             {sessionExpiredByPay && (
-              <div style={{ marginBottom: '1rem', padding: '1rem', background: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: 16, textAlign: 'center' }}>
-                <p style={{ color: '#92400E', fontWeight: 600, fontSize: '0.9rem', margin: '0 0 0.5rem' }}>
+              <div style={{ marginBottom: '1rem', padding: '1rem', background: '#FFFBEB', border: '1px solid rgba(252,211,77,0.5)', borderRadius: 16, textAlign: 'center' }}>
+                <p style={{ color: '#92400E', fontWeight: 600, fontSize: '0.88rem', margin: '0 0 0.5rem' }}>
                   Sesi analisis sudah kedaluwarsa (30 menit)
                 </p>
                 <p style={{ color: '#78350F', fontSize: '0.8rem', margin: '0 0 0.75rem' }}>
                   Upload ulang CV kamu untuk melanjutkan.
                 </p>
-                <a href="upload.html" style={{ display: 'inline-block', background: '#0F172A', color: 'white', fontWeight: 700, padding: '0.65rem 1.5rem', borderRadius: 60, textDecoration: 'none', fontSize: '0.9rem' }}>
+                <a href="upload.html" style={{ display: 'inline-block', background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', fontWeight: 700, padding: '0.65rem 1.5rem', borderRadius: 60, textDecoration: 'none', fontSize: '0.88rem', boxShadow: '0 8px 24px rgba(37,99,235,0.25)' }}>
                   Upload CV Lagi →
                 </a>
               </div>
@@ -388,7 +402,7 @@ export default function Result() {
                 onClick={proceedToPayment}
                 disabled={payBtnDisabled}
                 aria-label="Lihat CV hasil rewrite lengkap"
-                style={{ background: '#0F172A', color: 'white', border: 'none', borderRadius: 60, padding: '0.85rem 1.5rem', fontWeight: 700, cursor: payBtnDisabled ? 'not-allowed' : 'pointer', width: '100%', transition: '0.2s', fontFamily: 'inherit', fontSize: '1rem', opacity: payBtnDisabled ? 0.5 : 1 }}
+                style={{ background: payBtnDisabled ? '#CBD5E1' : 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', border: 'none', borderRadius: 60, padding: '0.9rem 1.5rem', fontWeight: 700, cursor: payBtnDisabled ? 'not-allowed' : 'pointer', width: '100%', transition: '0.2s', fontFamily: 'inherit', fontSize: '1rem', opacity: payBtnDisabled ? 0.6 : 1, boxShadow: payBtnDisabled ? 'none' : '0 8px 24px rgba(37,99,235,0.30)' }}
               >
                 {payBtnLabel}
               </button>
@@ -405,18 +419,16 @@ export default function Result() {
             </div>
 
             {/* Trust footer */}
-            <div style={{ background: '#F1F5F9', borderRadius: 20, padding: '0.8rem', textAlign: 'center', fontSize: '0.75rem', color: '#4B5563', marginTop: '1.5rem' }}>
-              💳 Pembayaran aman via Mayar · VA, QRIS, e-wallet · Tidak puas? Hubungi kami di support@gaslamar.com
-            </div>
+            <p className="text-center text-xs text-slate-400 mt-5">
+              💳 Pembayaran aman via Mayar &nbsp;·&nbsp; VA, QRIS, e-wallet &nbsp;·&nbsp; Tidak puas? Hubungi <a href="mailto:support@gaslamar.com" className="underline hover:text-slate-600">support@gaslamar.com</a>
+            </p>
 
             {/* Back link */}
-            <footer aria-label="Navigasi balik">
-              <div style={{ textAlign: 'center', marginBottom: '2rem', marginTop: '1rem' }}>
-                <a href="upload.html" style={{ fontSize: '0.85rem', color: '#9CA3AF', textDecoration: 'none' }}>
-                  ← Upload CV lain
-                </a>
-              </div>
-            </footer>
+            <div className="text-center mt-4 mb-2">
+              <a href="upload.html" className="text-sm text-slate-400 hover:text-slate-600 transition-colors no-underline">
+                ← Upload CV lain
+              </a>
+            </div>
 
             {/* Detail analysis (collapsible) */}
             <DetailAnalysis
@@ -426,10 +438,10 @@ export default function Result() {
             />
 
             {/* Legal footer */}
-            <footer style={{ textAlign: 'center', padding: '1.5rem 0 2rem', fontSize: '0.75rem', color: '#9CA3AF' }}>
-              <a href="privacy.html" style={{ color: '#6B7280', textDecoration: 'none', margin: '0 0.5rem' }}>Kebijakan Privasi</a>
+            <footer className="text-center py-6 text-xs text-slate-400">
+              <a href="privacy.html" className="text-slate-400 no-underline hover:underline mx-2">Kebijakan Privasi</a>
               ·
-              <a href="terms.html" style={{ color: '#6B7280', textDecoration: 'none', margin: '0 0.5rem' }}>Syarat Layanan</a>
+              <a href="terms.html" className="text-slate-400 no-underline hover:underline mx-2">Syarat Layanan</a>
             </footer>
           </>
         )}

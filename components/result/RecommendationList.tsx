@@ -6,8 +6,8 @@ export default function RecommendationList({ recommendations }: Props) {
   const visible = recommendations.slice(0, 3);
 
   return (
-    <div style={{ background: '#F0FDF4', borderLeft: '4px solid #10B981', borderRadius: 20, padding: '1.5rem', margin: '1.5rem 0', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-      <h4 style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, marginBottom: '0.75rem', color: '#065F46', fontSize: '1.05rem', margin: '0 0 0.75rem' }}>
+    <div style={{ background: '#F0FDF4', borderLeft: '3px solid #10B981', borderRadius: 20, padding: '1.25rem 1.5rem', margin: '1.25rem 0' }}>
+      <h4 style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, color: '#065F46', fontSize: '0.95rem', margin: '0 0 0.75rem' }}>
         🔥 Perbaiki ini dulu
       </h4>
       <ol style={{ marginLeft: '1.2rem', fontSize: '0.9rem', margin: '0 0 0.75rem 1.2rem', padding: 0 }}>

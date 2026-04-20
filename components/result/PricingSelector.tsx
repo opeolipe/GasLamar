@@ -12,7 +12,7 @@ export default function PricingSelector({ selectedTier, onSelect, score }: Props
   const rec = score !== undefined ? tierRecommendation(score) : null;
 
   return (
-    <div style={{ background: 'white', borderRadius: 32, boxShadow: '0 20px 35px -12px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.02)', padding: '2rem', border: '1px solid #EEF2F6', marginBottom: '1.5rem' }}>
+    <div style={{ background: 'rgba(255,255,255,0.88)', borderRadius: 24, boxShadow: '0 18px 44px rgba(15,23,42,0.08)', padding: '1.5rem', border: '1px solid rgba(148,163,184,0.14)', backdropFilter: 'blur(14px)', marginBottom: '1.25rem' }}>
       <h3 style={{ textAlign: 'center', marginBottom: '0.5rem', fontSize: '1.3rem', fontWeight: 700, margin: '0 0 0.5rem' }}>
         Pilih versi CV yang ingin kamu gunakan
       </h3>
@@ -56,14 +56,14 @@ export default function PricingSelector({ selectedTier, onSelect, score }: Props
                 padding:      '1.2rem',
                 textAlign:    'center',
                 border:       selected
-                  ? '2px solid #0F172A'
+                  ? '2px solid #2563eb'
                   : popular
                   ? '1.5px solid #CBD5E1'
-                  : '1px solid #EDF2F7',
+                  : '1px solid rgba(148,163,184,0.20)',
                 cursor:       'pointer',
                 position:     'relative',
                 transition:   '0.2s',
-                boxShadow:    selected ? '0 0 0 3px rgba(15,23,42,0.10)' : 'none',
+                boxShadow:    selected ? '0 0 0 3px rgba(37,99,235,0.12)' : 'none',
                 fontFamily:   'inherit',
                 width:        '100%',
               }}
