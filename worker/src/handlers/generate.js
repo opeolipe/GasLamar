@@ -29,6 +29,16 @@ export async function handleGenerate(request, env, ctx) {
   }
 
   const { job_desc: newJobDesc } = body;
+
+  // Optional preview consistency fields — lightweight strings, validated below
+  const rawPrimaryIssue   = body.primary_issue;
+  const rawPreviewSample  = body.preview_sample;
+  const rawPreviewAfter   = body.preview_after;
+
+  const VALID_ISSUES = new Set(['portfolio', 'recruiter_signal', 'north_star', 'effort', 'risk']);
+  const primaryIssue  = typeof rawPrimaryIssue  === 'string' && VALID_ISSUES.has(rawPrimaryIssue)  ? rawPrimaryIssue  : null;
+  const previewSample = typeof rawPreviewSample === 'string' && rawPreviewSample.length  <= 500     ? rawPreviewSample : null;
+  const previewAfter  = typeof rawPreviewAfter  === 'string' && rawPreviewAfter.length   <= 500     ? rawPreviewAfter  : null;
   // score and gaps are optional analytics fields forwarded to the CV-ready email.
   // Validate before use: score must be a finite number 0–100; gaps must be an
   // array of short strings. Reject the entire request if types are wrong.
@@ -101,13 +111,14 @@ export async function handleGenerate(request, env, ctx) {
     // Run ID and EN tailoring in parallel to stay within Cloudflare's 30s wall-clock limit.
     // Sequential calls could reach 50s (2 × 25s Claude timeout) and hard-kill the Worker.
     let cvId, cvEn;
+    const tailorOpts = { issue: primaryIssue, previewSample, previewAfter };
     if (isBilingual) {
       [cvId, cvEn] = await Promise.all([
-        tailorCVID(cv_text, effectiveJobDesc, env),
-        tailorCVEN(cv_text, effectiveJobDesc, env),
+        tailorCVID(cv_text, effectiveJobDesc, env, 'pdf', tailorOpts),
+        tailorCVEN(cv_text, effectiveJobDesc, env, 'pdf', tailorOpts),
       ]);
     } else {
-      cvId = await tailorCVID(cv_text, effectiveJobDesc, env);
+      cvId = await tailorCVID(cv_text, effectiveJobDesc, env, 'pdf', tailorOpts);
       cvEn = null;
     }
 
