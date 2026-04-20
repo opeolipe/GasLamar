@@ -42,6 +42,7 @@ const CARD_STYLE: React.CSSProperties = {
 export default function Result() {
   const { data, cvKey, analyzeTime, loading, error, noSession } = useResultData();
   const countdown = useSessionCountdown(analyzeTime);
+  const [cvText]  = useState(() => sessionStorage.getItem('gaslamar_cv_pending') || '');
 
   // Pricing & payment state
   const [selectedTier,         setSelectedTier]         = useState<string | null>(null);
@@ -354,7 +355,13 @@ export default function Result() {
               return (
               <div style={CARD_STYLE}>
                 {primaryIssue && <PrimaryHighlight issueKey={primaryIssue} />}
-                {primaryIssue && <DimRewritePreview issue={primaryIssue} />}
+                {primaryIssue && <DimRewritePreview issue={primaryIssue} cvText={cvText || undefined} />}
+
+                {primaryIssue && (
+                  <p style={{ fontSize: '0.8rem', color: '#64748B', margin: '0 0 0.75rem', lineHeight: 1.6 }}>
+                    Masalah ini yang paling mempengaruhi peluang kamu:
+                  </p>
+                )}
 
                 <p style={{ fontSize: '0.72rem', fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.75rem' }}>
                   Ini yang paling dilihat HR dalam 7–10 detik
