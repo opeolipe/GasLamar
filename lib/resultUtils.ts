@@ -80,20 +80,20 @@ export const DIM_LABELS: Record<string, { label: string; icon: string; desc: str
   effort: {
     label: 'Kemudahan Perbaiki',
     icon:  '⚡',
-    desc:  'Seberapa mudah gap di CV kamu bisa diperbaiki dalam waktu singkat tanpa pengalaman tambahan.',
-    hint:  'Fokus pada bagian yang bisa langsung diperbaiki: format, kata kunci, dan penulisan bullet.',
+    desc:  'Seberapa cepat gap antara CV kamu dan job description ini bisa ditutup — berdasarkan jumlah dan jenis skill yang kurang.',
+    hint:  'Semakin banyak skill yang kurang, semakin lama waktu yang dibutuhkan. Prioritaskan skill yang paling sering disebut di JD.',
   },
   opportunity_cost: {
-    label: 'Biaya Peluang',
+    label: 'Biaya Perbaikan',
     icon:  '💰',
-    desc:  'Seberapa besar peluang yang hilang jika CV ini dikirim tanpa perbaikan ke posisi ini.',
-    hint:  'Pastikan setiap bullet menunjukkan kontribusi konkret — bukan sekadar daftar tugas.',
+    desc:  'Seberapa besar usaha dan biaya yang dibutuhkan untuk menutup gap ke posisi ini — waktu, uang, atau pengorbanan karir.',
+    hint:  'Gap yang ada bisa ditutup dengan cara yang terjangkau — tanpa harus berhenti kerja atau investasi besar.',
   },
   risk: {
     label: 'Relevansi Jangka Panjang',
     icon:  '🛡️',
-    desc:  'Seberapa relevan profil kamu untuk posisi serupa di masa depan, bukan hanya untuk posisi ini.',
-    hint:  'Sertakan skill yang sedang naik daun di industri kamu untuk memperkuat daya tahan CV.',
+    desc:  'Seberapa aman skill yang diminta posisi ini dari risiko tergantikan teknologi atau perubahan industri dalam 2–3 tahun ke depan.',
+    hint:  'Posisi yang mengandalkan skill fundamental (Excel, komunikasi, manajemen) lebih aman jangka panjang dibanding skill yang sangat spesifik.',
   },
   portfolio: {
     label: 'Bukti Nyata di CV',

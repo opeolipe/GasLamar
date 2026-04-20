@@ -4,12 +4,12 @@ import { DIM_LABELS } from '@/lib/resultUtils';
 const PRIORITY = ['portfolio', 'recruiter_signal', 'north_star', 'effort', 'opportunity_cost', 'risk'];
 
 const ISSUE_LABELS: Record<string, string> = {
-  portfolio:        'Belum ada bukti hasil kerja yang jelas',
+  portfolio:        'Belum ada bukti hasil kerja yang jelas di CV',
   recruiter_signal: 'CV belum menarik di 7 detik pertama',
   north_star:       'CV belum cukup relevan dengan job ini',
-  effort:           'Masih banyak yang perlu diperbaiki sebelum siap lamar',
-  opportunity_cost: 'CV ini berisiko melewatkan peluang besar',
-  risk:             'Profil kurang relevan untuk posisi jenis ini',
+  effort:           'Gap ke posisi ini butuh waktu yang cukup lama untuk ditutup',
+  opportunity_cost: 'Dibutuhkan usaha besar untuk menutup gap ke posisi ini',
+  risk:             'Skill yang dibutuhkan posisi ini berisiko tergantikan teknologi',
 };
 
 interface DimItem {
