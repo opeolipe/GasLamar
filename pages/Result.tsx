@@ -12,6 +12,7 @@ import DetailAnalysis                          from '@/components/result/DetailA
 import RedFlags                                from '@/components/result/RedFlags';
 import ScoreBars                               from '@/components/6d/ScoreBars';
 import PrimaryHighlight                        from '@/components/6d/PrimaryHighlight';
+import DimRewritePreview                       from '@/components/6d/RewritePreview';
 import { useResultData }                       from '@/hooks/useResultData';
 import { useSessionCountdown }                 from '@/hooks/useSessionCountdown';
 import { WORKER_URL, TIER_CONFIG, EMAIL_REGEX, formatPrice, DIM_LABELS, getPrimaryIssue } from '@/lib/resultUtils';
@@ -353,6 +354,7 @@ export default function Result() {
               return (
               <div style={CARD_STYLE}>
                 {primaryIssue && <PrimaryHighlight issueKey={primaryIssue} />}
+                {primaryIssue && <DimRewritePreview issue={primaryIssue} />}
 
                 <p style={{ fontSize: '0.72rem', fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.75rem' }}>
                   Ini yang paling dilihat HR dalam 7–10 detik
