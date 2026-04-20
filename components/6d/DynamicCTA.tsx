@@ -1,3 +1,5 @@
+import { getUrgencyMessage } from '@/lib/resultUtils';
+
 const CTA_COPY: Record<string, string> = {
   portfolio:        'Tambahkan bukti hasil kerja di CV saya',
   recruiter_signal: 'Bikin CV saya lebih menarik di 7 detik pertama',
@@ -10,10 +12,12 @@ const FALLBACK = 'Lihat versi lengkap CV saya';
 
 interface Props {
   issueKey?: string | null;
+  score?:    number;
 }
 
-export default function DynamicCTA({ issueKey }: Props) {
-  const label = (issueKey && CTA_COPY[issueKey]) || FALLBACK;
+export default function DynamicCTA({ issueKey, score }: Props) {
+  const label   = (issueKey && CTA_COPY[issueKey]) || FALLBACK;
+  const urgency = getUrgencyMessage(issueKey, score ?? 10);
 
   function scrollToPricing() {
     document.getElementById('pricing-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -28,6 +32,11 @@ export default function DynamicCTA({ issueKey }: Props) {
       >
         🔓 {label}
       </button>
+      {urgency && (
+        <p className="text-xs text-slate-500 text-center mt-2">
+          {urgency}
+        </p>
+      )}
       <p className="text-xs text-slate-500 text-center mt-2">
         Dapatkan versi CV yang sudah diperbaiki &amp; siap kirim
       </p>

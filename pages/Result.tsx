@@ -387,7 +387,7 @@ export default function Result() {
                 </div>
 
                 {/* Dynamic CTA — personalized to primary issue */}
-                <DynamicCTA issueKey={primaryIssue} />
+                <DynamicCTA issueKey={primaryIssue} score={primaryIssue ? data.skor_6d![primaryIssue] : undefined} />
               </div>
               );
             })()}

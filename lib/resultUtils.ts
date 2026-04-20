@@ -171,6 +171,14 @@ export function tierRecommendation(score: number): { msg: string; tier: string }
   };
 }
 
+export function getUrgencyMessage(issueKey: string | null | undefined, score: number): string | null {
+  if (!issueKey || score >= 6) return null;
+  if (issueKey === 'portfolio' || issueKey === 'recruiter_signal' || issueKey === 'north_star') {
+    return 'Peluang kamu bisa meningkat signifikan setelah perbaikan ini';
+  }
+  return null;
+}
+
 // ── Email ────────────────────────────────────────────────────────────────────
 
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
