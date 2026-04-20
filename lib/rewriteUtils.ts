@@ -2,21 +2,48 @@ import { cleanLine } from '@/lib/cvUtils';
 
 const DEFAULT_SAMPLE  = 'Bertanggung jawab menjalankan tugas harian';
 const MIN_LINE_LENGTH = 15;
+const MIN_WORD_COUNT  = 3;
 
-// Covers: 30%, 1.5x, 3k, 5m, and time/count units
+// Covers: 30%, 1.5x, 3k, 5m, time units, plain counts
 const METRIC_PATTERN = /\b\d+(\.\d+)?\s*(%|x|k|m)?\b|\b\d+\s*(bulan|tahun|minggu|hari)\b/gi;
 
-// Strong outcome phrases that shouldn't appear unless already in original
-const INFLATED_CLAIM_PATTERNS = [
-  /\bmemimpin\s+tim\b/i,
-  /\bmeningkatkan\s+revenue\b/i,
-  /\bmengoptimalkan\s+biaya\b/i,
-  /\btim\s+\d+\s*(orang|anggota)\b/i,
-  /\bmempercepat\s+pertumbuhan\b/i,
+// Inflated phrases with optional implication bypass:
+// if `before` matches `impliedBy`, the phrase was already implied → don't flag it
+const INFLATED_CLAIM_PATTERNS: Array<{ pattern: RegExp; impliedBy?: RegExp }> = [
+  {
+    pattern:   /\bmemimpin\s+tim\b/i,
+    impliedBy: /\b(mengelola|memimpin|koordinir|kepala|lead|manager|supervisi)\b/i,
+  },
+  {
+    pattern:   /\bmeningkatkan\s+revenue\b/i,
+    impliedBy: /\b(revenue|pendapatan|penjualan|omzet|sales)\b/i,
+  },
+  {
+    pattern:   /\bmengoptimalkan\s+biaya\b/i,
+    impliedBy: /\b(biaya|anggaran|budget|cost)\b/i,
+  },
+  {
+    // always reject — specific count is always a new invented claim
+    pattern: /\btim\s+\d+\s*(orang|anggota)\b/i,
+  },
+  {
+    pattern:   /\bmempercepat\s+pertumbuhan\b/i,
+    impliedBy: /\b(pertumbuhan|growth|kembang)\b/i,
+  },
 ];
 
-// Acronyms (SQL, API) and CamelCase words (TypeScript, VueJs) — likely tech tools
+// ALL-CAPS acronyms (SQL, API) or CamelCase (TypeScript, VueJs) — likely tool names
 const TOOL_TERM_PATTERN = /\b([A-Z]{2,}|[A-Z][a-z]+[A-Z]\w*)\b/g;
+
+// Filler improvements that add no real information
+const WEAK_FILLER = [
+  'lebih baik',
+  'lebih efektif',
+  'lebih optimal',
+  'lebih maksimal',
+  'dengan baik',
+  'secara efektif',
+];
 
 interface RewritePair {
   before: string;
@@ -42,14 +69,28 @@ function extractToolTerms(text: string): Set<string> {
 }
 
 function addsNewClaims(before: string, after: string): boolean {
+  // New tech tool acronyms/CamelCase terms not present in original
   const beforeTools = extractToolTerms(before);
   for (const term of extractToolTerms(after)) {
     if (!beforeTools.has(term)) return true;
   }
-  for (const pattern of INFLATED_CLAIM_PATTERNS) {
-    if (pattern.test(after) && !pattern.test(before)) return true;
+
+  // Scope-inflation phrases — skip if the phrase was already implied by `before`
+  for (const { pattern, impliedBy } of INFLATED_CLAIM_PATTERNS) {
+    if (pattern.test(after) && !pattern.test(before)) {
+      if (impliedBy && impliedBy.test(before)) continue; // implied → allow
+      return true;
+    }
   }
+
   return false;
+}
+
+// ── Weak improvement detection ───────────────────────────────────────────────
+
+function isWeakImprovement(before: string, after: string): boolean {
+  const added = after.slice(before.length).toLowerCase();
+  return WEAK_FILLER.some(phrase => added.includes(phrase));
 }
 
 // ── Validation ───────────────────────────────────────────────────────────────
@@ -59,6 +100,7 @@ export function validateRewrite(before: string, after: string): boolean {
   if (before.trim() === after.trim()) return false;
   if (addsNewNumbers(before, after)) return false;
   if (addsNewClaims(before, after)) return false;
+  if (isWeakImprovement(before, after)) return false;
   if (after.length <= before.length) return false;
   return true;
 }
@@ -122,8 +164,9 @@ export function generateRewritePreview(issue: string, sampleText?: string): Rewr
 
 export function generateRewrite(issue: string, originalLine: string | null): RewritePair | null {
   if (!originalLine) return null;
-  const clean = cleanLine(originalLine);
-  if (clean.length < MIN_LINE_LENGTH) return null;
+  const clean     = cleanLine(originalLine);
+  const wordCount = clean.split(/\s+/).filter(Boolean).length;
+  if (clean.length < MIN_LINE_LENGTH || wordCount < MIN_WORD_COUNT) return null;
 
   const candidates: Record<string, RewritePair> = {
     portfolio: {
