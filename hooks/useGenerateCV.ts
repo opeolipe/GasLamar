@@ -16,6 +16,7 @@ export interface CVContent {
   creditsRemaining: number;
   totalCredits:     number;
   tier:             string;
+  isTrusted?:       boolean;
 }
 
 export interface GenerateCVError {
@@ -203,6 +204,7 @@ export function useGenerateCV(): UseGenerateCVReturn {
         const {
           cv_id,
           cv_en,
+          is_trusted,
           credits_remaining,
           total_credits,
           job_title,
@@ -210,6 +212,7 @@ export function useGenerateCV(): UseGenerateCVReturn {
         } = await genRes.json() as {
           cv_id:             string;
           cv_en?:            string;
+          is_trusted?:       boolean;
           credits_remaining: number;
           total_credits:     number;
           job_title?:        string;
@@ -244,6 +247,7 @@ export function useGenerateCV(): UseGenerateCVReturn {
             creditsRemaining: credits_remaining ?? 0,
             totalCredits:     total_credits     ?? 1,
             tier:             confirmedTier,
+            isTrusted:        is_trusted ?? false,
           });
           setStatus('done');
         }, 500);

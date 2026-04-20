@@ -1,49 +1,40 @@
 /**
  * Server-side rewrite validation guard.
- * Mirrors lib/rewriteUtils.ts logic for use in the Cloudflare Worker
- * (which cannot import TypeScript frontend modules).
+ * Logic is driven by shared/rewriteRules.js constants — the single source
+ * of truth shared with the frontend (lib/rewriteUtils.ts).
  */
 
-const MIN_LINE_LENGTH = 15;
+import {
+  MIN_LINE_LENGTH,
+  MATCH_THRESHOLD,
+  METRIC_PATTERN_SRC,
+  TOOL_TERM_PATTERN_SRC,
+  WEAK_FILLER,
+  INFLATION_RULES,
+  ISSUE_FALLBACK_SUFFIX,
+  GENERIC_FALLBACK_SUFFIX,
+  FALLBACK_NOTE,
+  DOCX_GUIDANCE,
+} from '../../shared/rewriteRules.js';
 
-const METRIC_PATTERN = /\b\d+(\.\d+)?\s*(%|x|k|m)?\b|\b\d+\s*(bulan|tahun|minggu|hari)\b/gi;
-
-const INFLATED_CLAIM_PATTERNS = [
-  { pattern: /\bmemimpin\s+tim\b/i,           impliedBy: /\b(mengelola|memimpin|koordinir|kepala|lead|manager|supervisi)\b/i },
-  { pattern: /\bmeningkatkan\s+revenue\b/i,    impliedBy: /\b(revenue|pendapatan|penjualan|omzet|sales)\b/i },
-  { pattern: /\bmengoptimalkan\s+biaya\b/i,    impliedBy: /\b(biaya|anggaran|budget|cost)\b/i },
-  { pattern: /\btim\s+\d+\s*(orang|anggota)\b/i },   // always reject — specific count
-  { pattern: /\bmempercepat\s+pertumbuhan\b/i, impliedBy: /\b(pertumbuhan|growth|kembang)\b/i },
-];
-
-const TOOL_TERM_PATTERN = /\b([A-Z]{2,}|[A-Z][a-z]+[A-Z]\w*)\b/g;
-
-const WEAK_FILLER = [
-  'lebih baik', 'lebih efektif', 'lebih optimal',
-  'lebih maksimal', 'dengan baik', 'secara efektif',
-];
-
-// Section headings — never rewrite these
+// Section headings — structure lines, never rewrite
 const SECTION_HEADING_PATTERN =
   /^(RINGKASAN PROFESIONAL|PENGALAMAN KERJA|PENDIDIKAN|KEAHLIAN|SERTIFIKASI|PROFESSIONAL SUMMARY|WORK EXPERIENCE|EDUCATION|SKILLS|CERTIFICATIONS)$/i;
 
-// Date/company header lines — never rewrite these
+// Date/company header lines — preserve verbatim
 const META_LINE_PATTERN = /^\d{4}|^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i;
 
-const DOCX_GUIDANCE = '(catatan: tambahkan hasil konkret jika ada, misalnya: waktu ↓ atau output ↑)';
-
-const ISSUE_FALLBACK = {
-  portfolio:        t => t + ' untuk menunjukkan dampak kerja secara lebih jelas',
-  recruiter_signal: t => t + ' dengan fokus yang lebih spesifik pada peran dan hasil',
-  north_star:       t => t + ' yang relevan dengan posisi yang ditargetkan',
-  effort:           t => t + ' dengan konteks skill yang dibutuhkan untuk role ini',
-  risk:             t => t + ' menggunakan pendekatan yang masih relevan saat ini',
-};
+// Pre-compile inflation patterns from shared rules
+const INFLATION_COMPILED = INFLATION_RULES.map(r => ({
+  pattern:   new RegExp(r.patternSrc, r.flags),
+  impliedBy: r.impliedBySrc ? new RegExp(r.impliedBySrc, r.impliedFlags ?? 'i') : null,
+}));
 
 // ── Metric helpers ────────────────────────────────────────────────────────────
 
 function extractMetrics(text) {
-  return (text.match(METRIC_PATTERN) || []).map(s => s.toLowerCase().trim());
+  return (text.match(new RegExp(METRIC_PATTERN_SRC, 'gi')) || [])
+    .map(s => s.toLowerCase().trim());
 }
 
 export function addsNewNumbers(before, after) {
@@ -54,7 +45,9 @@ export function addsNewNumbers(before, after) {
 // ── Claim guard ───────────────────────────────────────────────────────────────
 
 function extractToolTerms(text) {
-  return new Set((text.match(TOOL_TERM_PATTERN) || []).map(s => s.toLowerCase()));
+  return new Set(
+    (text.match(new RegExp(TOOL_TERM_PATTERN_SRC, 'g')) || []).map(s => s.toLowerCase()),
+  );
 }
 
 export function addsNewClaims(before, after) {
@@ -62,7 +55,7 @@ export function addsNewClaims(before, after) {
   for (const term of extractToolTerms(after)) {
     if (!beforeTools.has(term)) return true;
   }
-  for (const { pattern, impliedBy } of INFLATED_CLAIM_PATTERNS) {
+  for (const { pattern, impliedBy } of INFLATION_COMPILED) {
     if (pattern.test(after) && !pattern.test(before)) {
       if (impliedBy && impliedBy.test(before)) continue;
       return true;
@@ -124,43 +117,44 @@ function wordOverlap(a, b) {
   return count / wordsA.size;
 }
 
-function findBestMatch(line, candidates, threshold = 0.4) {
+function findBestMatch(line, candidates) {
   let best = null, bestScore = 0;
   for (const c of candidates) {
     const score = wordOverlap(line, c);
     if (score > bestScore) { bestScore = score; best = c; }
   }
-  return bestScore >= threshold ? best : null;
+  return bestScore >= MATCH_THRESHOLD ? best : null;
 }
 
 // ── Safe fallback ─────────────────────────────────────────────────────────────
 
 function safeRewriteLine(original, issue) {
-  const fn = (issue && ISSUE_FALLBACK[issue]) ||
-    (t => t + ' dengan hasil yang lebih jelas dan terstruktur');
-  return fn(original);
+  const suffix = (issue && ISSUE_FALLBACK_SUFFIX[issue]) ?? GENERIC_FALLBACK_SUFFIX;
+  return original + suffix;
 }
 
 // ── Main post-processor ───────────────────────────────────────────────────────
 
 /**
- * Post-process LLM CV output:
- * 1. Validate each bullet against the original CV — fall back if hallucination detected
- * 2. Force preview line consistency (if previewSample + previewAfter provided)
- * 3. Append docx guidance notes if mode === 'docx'
+ * Post-process LLM CV output.
  *
- * @param {string}      llmText         - Raw LLM output
- * @param {string}      originalCVText  - User's original CV (for reference matching)
- * @param {string|null} issue           - Primary issue key for issue-aware fallback
- * @param {string}      mode            - 'pdf' (clean) | 'docx' (with guidance notes)
- * @param {object}      opts            - { previewSample?, previewAfter? }
- * @returns {string}
+ * Returns { text, isTrusted } where:
+ *   - text:      the final CV string (safe to show to user)
+ *   - isTrusted: true when the LLM output passed all validation checks
+ *                (no fallbacks were needed); false if any bullet was replaced
+ *
+ * @param {string}      llmText
+ * @param {string}      originalCVText
+ * @param {string|null} issue
+ * @param {string}      mode            'pdf' | 'docx'
+ * @param {object}      opts            { previewSample?, previewAfter? }
  */
 export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf', opts = {}) {
   const { previewSample, previewAfter } = opts;
   const originalLines = extractBulletLines(originalCVText);
+  let usedFallback    = false;
 
-  // Step 1: validate each bullet line
+  // Step 1 — validate each bullet; replace hallucinated lines with safe fallback
   const outputLines = llmText.split('\n');
   const validated   = outputLines.map(line => {
     const trimmed = line.trim();
@@ -173,9 +167,10 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
     if (clean.length < MIN_LINE_LENGTH)         return line;
 
     const original = findBestMatch(clean, originalLines);
-    if (!original) return line; // no reference match — keep LLM output
+    if (!original) return line; // no reference match — trust LLM
 
     if (!validateRewrite(original, clean)) {
+      usedFallback = true;
       const prefix = line.match(/^(\s*[-•*]\s*)/)?.[1] ?? '';
       return prefix + safeRewriteLine(original, issue);
     }
@@ -185,23 +180,32 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
 
   let result = validated.join('\n');
 
-  // Step 2: force preview consistency — replace the matching line with exact preview.after
+  // Step 2 — preview consistency: inject exact preview.after into matching bullet
+  // Only if previewAfter itself passes validation (never blindly trust FE data)
   if (previewSample && previewAfter) {
-    let replaced = false;
-    const consistencyLines = result.split('\n').map(line => {
-      if (replaced) return line;
-      const clean = cleanLine(line.trim());
-      if (wordOverlap(clean, previewSample) >= 0.5) {
-        replaced = true;
-        const prefix = line.match(/^(\s*[-•*]\s*)/)?.[1] ?? '';
-        return prefix + previewAfter;
-      }
-      return line;
-    });
-    result = consistencyLines.join('\n');
+    const previewValid = validateRewrite(
+      cleanLine(previewSample),
+      previewAfter,
+    );
+
+    if (previewValid) {
+      let replaced = false;
+      const consistencyLines = result.split('\n').map(line => {
+        if (replaced) return line;
+        const clean = cleanLine(line.trim());
+        if (wordOverlap(clean, previewSample) >= MATCH_THRESHOLD) {
+          replaced = true;
+          const prefix = line.match(/^(\s*[-•*]\s*)/)?.[1] ?? '';
+          return prefix + previewAfter;
+        }
+        return line;
+      });
+      result = consistencyLines.join('\n');
+    }
+    // if previewAfter fails validation: silently skip — keep validated LLM line
   }
 
-  // Step 3: DOCX mode — append guidance hint after each bullet
+  // Step 3 — DOCX mode: append guidance hint after each bullet
   if (mode === 'docx') {
     const docxLines = result.split('\n').flatMap(line => {
       if (!line.trim() || !isBulletLine(line.trim())) return [line];
@@ -210,5 +214,5 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
     result = docxLines.join('\n');
   }
 
-  return result;
+  return { text: result, isTrusted: !usedFallback };
 }

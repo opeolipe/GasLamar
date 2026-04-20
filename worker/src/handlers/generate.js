@@ -110,16 +110,21 @@ export async function handleGenerate(request, env, ctx) {
     // Generate from KV data only — never from request body (except allowed job_desc override).
     // Run ID and EN tailoring in parallel to stay within Cloudflare's 30s wall-clock limit.
     // Sequential calls could reach 50s (2 × 25s Claude timeout) and hard-kill the Worker.
-    let cvId, cvEn;
+    let cvId, cvEn, isTrusted;
     const tailorOpts = { issue: primaryIssue, previewSample, previewAfter };
     if (isBilingual) {
-      [cvId, cvEn] = await Promise.all([
+      const [idResult, enResult] = await Promise.all([
         tailorCVID(cv_text, effectiveJobDesc, env, 'pdf', tailorOpts),
         tailorCVEN(cv_text, effectiveJobDesc, env, 'pdf', tailorOpts),
       ]);
+      cvId      = idResult.text;
+      cvEn      = enResult.text;
+      isTrusted = idResult.isTrusted && enResult.isTrusted;
     } else {
-      cvId = await tailorCVID(cv_text, effectiveJobDesc, env, 'pdf', tailorOpts);
-      cvEn = null;
+      const idResult = await tailorCVID(cv_text, effectiveJobDesc, env, 'pdf', tailorOpts);
+      cvId      = idResult.text;
+      cvEn      = null;
+      isTrusted = idResult.isTrusted;
     }
 
     const newCreditsRemaining = creditsRemaining - 1;
@@ -144,7 +149,7 @@ export async function handleGenerate(request, env, ctx) {
     }
 
     const { job_title, company } = extractJobMetadata(effectiveJobDesc);
-    return jsonResponse({ cv_id: cvId, cv_en: cvEn, credits_remaining: newCreditsRemaining, total_credits: session.total_credits ?? 1, job_title: job_title ?? null, company: company ?? null }, 200, request, env);
+    return jsonResponse({ cv_id: cvId, cv_en: cvEn, is_trusted: isTrusted, credits_remaining: newCreditsRemaining, total_credits: session.total_credits ?? 1, job_title: job_title ?? null, company: company ?? null }, 200, request, env);
   } catch (e) {
     // On failure, reset to 'paid' so user can retry (don't consume the credit)
     logError('generate_failed', { session_id, error: e.message });

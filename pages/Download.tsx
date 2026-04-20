@@ -340,6 +340,7 @@ export default function Download() {
               showMobileFallback={showMobileFb}
               dimensions={dimensions}
               primaryIssue={resultData?.primaryIssue ?? null}
+              isTrusted={content?.isTrusted}
             />
           </div>
         )}
