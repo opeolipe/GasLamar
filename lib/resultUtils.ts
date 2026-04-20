@@ -106,6 +106,18 @@ export const DIM_LABELS: Record<string, { label: string; icon: string; desc: str
   },
 };
 
+// ── 6D Primary Issue ─────────────────────────────────────────────────────────
+
+export const HIGHLIGHT_PRIORITY = ['portfolio', 'recruiter_signal', 'north_star', 'effort', 'risk'] as const;
+export const HIGHLIGHT_THRESHOLD = 7;
+
+export function getPrimaryIssue(scores: Record<string, number>): string | null {
+  for (const key of HIGHLIGHT_PRIORITY) {
+    if (typeof scores[key] === 'number' && scores[key] < HIGHLIGHT_THRESHOLD) return key;
+  }
+  return null;
+}
+
 // ── Score utilities ──────────────────────────────────────────────────────────
 
 export type ScoreBucket = 'high' | 'medium' | 'low';

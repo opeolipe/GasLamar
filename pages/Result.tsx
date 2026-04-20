@@ -11,9 +11,10 @@ import EmailCapture                            from '@/components/result/EmailCa
 import DetailAnalysis                          from '@/components/result/DetailAnalysis';
 import RedFlags                                from '@/components/result/RedFlags';
 import ScoreBars                               from '@/components/6d/ScoreBars';
+import PrimaryHighlight                        from '@/components/6d/PrimaryHighlight';
 import { useResultData }                       from '@/hooks/useResultData';
 import { useSessionCountdown }                 from '@/hooks/useSessionCountdown';
-import { WORKER_URL, TIER_CONFIG, EMAIL_REGEX, formatPrice, DIM_LABELS } from '@/lib/resultUtils';
+import { WORKER_URL, TIER_CONFIG, EMAIL_REGEX, formatPrice, DIM_LABELS, getPrimaryIssue } from '@/lib/resultUtils';
 
 // ── DevTools notice (educational, not a security control) ──────────────────
 console.log(
@@ -347,14 +348,18 @@ export default function Result() {
             )}
 
             {/* 6D Score Breakdown — preview with gated details */}
-            {data.skor_6d && Object.keys(data.skor_6d).length > 0 && (
+            {data.skor_6d && Object.keys(data.skor_6d).length > 0 && (() => {
+              const primaryIssue = getPrimaryIssue(data.skor_6d!);
+              return (
               <div style={CARD_STYLE}>
-                <p style={{ fontSize: '0.72rem', fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.3rem' }}>
+                {primaryIssue && <PrimaryHighlight issueKey={primaryIssue} />}
+
+                <p style={{ fontSize: '0.72rem', fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.75rem' }}>
                   Ini yang paling dilihat HR dalam 7–10 detik
                 </p>
 
                 {/* Bars — always visible */}
-                <ScoreBars dimensions={data.skor_6d} mode="preview" />
+                <ScoreBars dimensions={data.skor_6d!} mode="preview" primaryKey={primaryIssue ?? undefined} />
 
                 {/* Blurred teaser of full explanations */}
                 <div style={{ position: 'relative', marginTop: '1.25rem', borderRadius: 12, overflow: 'hidden', maxHeight: 88 }}>
@@ -384,7 +389,8 @@ export default function Result() {
                   </button>
                 </div>
               </div>
-            )}
+              );
+            })()}
 
             {/* Before → After projection */}
             {data.skor_sesudah !== undefined && (
