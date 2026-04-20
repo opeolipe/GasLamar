@@ -1,14 +1,15 @@
 import { DIM_LABELS } from '@/lib/resultUtils';
 
-// Priority order: most impactful weak dimension first
-const PRIORITY = ['portfolio', 'recruiter_signal', 'north_star', 'effort', 'opportunity_cost', 'risk'];
+// Priority order: most impactful weak dimension first.
+// opportunity_cost is excluded — it is always equal to (effort < 5 ? 5 : 10)
+// and adds no independent signal beyond what effort already captures.
+const PRIORITY = ['portfolio', 'recruiter_signal', 'north_star', 'effort', 'risk'];
 
 const ISSUE_LABELS: Record<string, string> = {
   portfolio:        'Belum ada bukti hasil kerja yang jelas di CV',
   recruiter_signal: 'CV belum menarik di 7 detik pertama',
   north_star:       'CV belum cukup relevan dengan job ini',
   effort:           'Gap ke posisi ini butuh waktu yang cukup lama untuk ditutup',
-  opportunity_cost: 'Dibutuhkan usaha besar untuk menutup gap ke posisi ini',
   risk:             'Skill yang dibutuhkan posisi ini berisiko tergantikan teknologi',
 };
 

@@ -63,6 +63,13 @@ export const VERDICT_CONFIG = {
 } as const;
 
 // ── 6D Dimensions ────────────────────────────────────────────────────────────
+//
+// opportunity_cost is intentionally excluded here — it is 100% derived from
+// effort (opportunity_cost = effort < 5 ? 5 : 10) and therefore carries no
+// independent user-facing signal. The backend still computes and includes it
+// in the skor total; we simply don't display it as a separate dimension.
+//
+// Display order is intentional: fit → visibility → proof → ease → longevity.
 
 export const DIM_LABELS: Record<string, { label: string; icon: string; desc: string; hint: string }> = {
   north_star: {
@@ -77,29 +84,23 @@ export const DIM_LABELS: Record<string, { label: string; icon: string; desc: str
     desc:  'Seberapa cepat CV kamu menarik perhatian HR dalam 7 detik pertama saat CV di-scan.',
     hint:  'Perkuat bagian atas CV dengan headline dan summary yang mencantumkan pencapaian terkuat kamu.',
   },
+  portfolio: {
+    label: 'Bukti Nyata di CV',
+    icon:  '📋',
+    desc:  'Seberapa kuat CV kamu menunjukkan hasil nyata — angka, metrik, dan pencapaian konkret.',
+    hint:  'Ubah setiap bullet jadi pernyataan berbasis dampak: "Meningkatkan X sebesar Y% dalam Z bulan."',
+  },
   effort: {
     label: 'Kemudahan Perbaiki',
     icon:  '⚡',
     desc:  'Seberapa cepat gap antara CV kamu dan job description ini bisa ditutup — berdasarkan jumlah dan jenis skill yang kurang.',
     hint:  'Semakin banyak skill yang kurang, semakin lama waktu yang dibutuhkan. Prioritaskan skill yang paling sering disebut di JD.',
   },
-  opportunity_cost: {
-    label: 'Biaya Perbaikan',
-    icon:  '💰',
-    desc:  'Seberapa besar usaha dan biaya yang dibutuhkan untuk menutup gap ke posisi ini — waktu, uang, atau pengorbanan karir.',
-    hint:  'Gap yang ada bisa ditutup dengan cara yang terjangkau — tanpa harus berhenti kerja atau investasi besar.',
-  },
   risk: {
     label: 'Relevansi Jangka Panjang',
     icon:  '🛡️',
     desc:  'Seberapa aman skill yang diminta posisi ini dari risiko tergantikan teknologi atau perubahan industri dalam 2–3 tahun ke depan.',
     hint:  'Posisi yang mengandalkan skill fundamental (Excel, komunikasi, manajemen) lebih aman jangka panjang dibanding skill yang sangat spesifik.',
-  },
-  portfolio: {
-    label: 'Bukti Nyata di CV',
-    icon:  '📋',
-    desc:  'Seberapa kuat CV kamu menunjukkan hasil nyata — angka, metrik, dan pencapaian konkret.',
-    hint:  'Ubah setiap bullet jadi pernyataan berbasis dampak: "Meningkatkan X sebesar Y% dalam Z bulan."',
   },
 };
 

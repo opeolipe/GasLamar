@@ -381,12 +381,12 @@ function renderSkor6D(skor6d) {
   if (!section || !bars) return;
 
   const DIM_LABELS = {
-    north_star:       { label: 'Kesesuaian Role', icon: '🎯' },
-    recruiter_signal: { label: 'Daya Tarik CV',   icon: '👁️' },
-    effort:           { label: 'Kemudahan Perbaiki', icon: '⚡' },
-    opportunity_cost: { label: 'Biaya Perbaikan', icon: '💰' },
+    north_star:       { label: 'Kesesuaian Role',          icon: '🎯' },
+    recruiter_signal: { label: 'Daya Tarik CV',            icon: '👁️' },
+    portfolio:        { label: 'Bukti Nyata di CV',        icon: '📋' },
+    effort:           { label: 'Kemudahan Perbaiki',       icon: '⚡' },
     risk:             { label: 'Relevansi Jangka Panjang', icon: '🛡️' },
-    portfolio:        { label: 'Bukti Nyata di CV', icon: '📋' },
+    // opportunity_cost excluded: derived entirely from effort (effort < 5 ? 5 : 10)
   };
 
   bars.innerHTML = Object.entries(DIM_LABELS).map(([key, { label, icon }]) => {
