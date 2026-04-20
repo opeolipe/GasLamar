@@ -13,6 +13,7 @@ import RedFlags                                from '@/components/result/RedFlag
 import ScoreBars                               from '@/components/6d/ScoreBars';
 import PrimaryHighlight                        from '@/components/6d/PrimaryHighlight';
 import DimRewritePreview                       from '@/components/6d/RewritePreview';
+import DynamicCTA                              from '@/components/6d/DynamicCTA';
 import { useResultData }                       from '@/hooks/useResultData';
 import { useSessionCountdown }                 from '@/hooks/useSessionCountdown';
 import { WORKER_URL, TIER_CONFIG, EMAIL_REGEX, formatPrice, DIM_LABELS, getPrimaryIssue } from '@/lib/resultUtils';
@@ -385,18 +386,8 @@ export default function Result() {
                   <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 0%, rgba(255,255,255,0.96) 65%, #fff 100%)', pointerEvents: 'none' }} />
                 </div>
 
-                {/* Lock CTA */}
-                <div style={{ marginTop: '0.75rem', padding: '1rem', background: 'rgba(37,99,235,0.04)', border: '1px solid rgba(37,99,235,0.12)', borderRadius: 16, textAlign: 'center' }}>
-                  <p style={{ fontSize: '0.8rem', color: '#1E40AF', fontWeight: 600, margin: '0 0 0.65rem' }}>
-                    🔒 Lihat penjelasan detail + cara memperbaiki
-                  </p>
-                  <button
-                    onClick={() => document.getElementById('pricing-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                    style={{ background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', border: 'none', borderRadius: 60, padding: '0.65rem 1.5rem', fontWeight: 700, cursor: 'pointer', fontSize: '0.88rem', fontFamily: 'inherit', boxShadow: '0 8px 24px rgba(37,99,235,0.30)' }}
-                  >
-                    Lihat cara memperbaiki CV
-                  </button>
-                </div>
+                {/* Dynamic CTA — personalized to primary issue */}
+                <DynamicCTA issueKey={primaryIssue} />
               </div>
               );
             })()}
