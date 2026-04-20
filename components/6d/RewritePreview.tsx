@@ -19,6 +19,11 @@ export default function RewritePreview({ preview }: Props) {
       {preview.note && (
         <p className="text-xs text-slate-500 mt-1">{preview.note}</p>
       )}
+      {preview.personalized && (
+        <p className="text-xs text-slate-400 mt-2">
+          Perbaikan ini menggunakan informasi dari CV kamu (tanpa menambahkan data baru)
+        </p>
+      )}
     </div>
   );
 }

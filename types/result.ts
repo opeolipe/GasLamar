@@ -1,7 +1,8 @@
 export interface RewritePreviewData {
-  before: string;
-  after:  string;
-  note?:  string | null;
+  before:        string;
+  after:         string;
+  note?:         string | null;
+  personalized?: boolean;
 }
 
 export interface ResultData {

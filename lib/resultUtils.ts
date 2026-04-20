@@ -175,16 +175,25 @@ export function tierRecommendation(score: number): { msg: string; tier: string }
 }
 
 export function buildResultData({ skor6d, cvText, fullRewrite }: BuildResultInput): ResultData {
-  const primaryIssue   = getPrimaryIssue(skor6d);
-  const sampleLine     = cvText ? (extractSampleLine(cvText) ?? null) : null;
-  const rewritePreview = primaryIssue
-    ? (sampleLine ? generateRewrite(primaryIssue, sampleLine) : generateRewritePreview(primaryIssue))
-    : null;
+  const primaryIssue = getPrimaryIssue(skor6d);
+  const sampleLine   = cvText ? (extractSampleLine(cvText) ?? null) : null;
+
+  let rewritePreview = null;
+  if (primaryIssue) {
+    const personalized = sampleLine ? generateRewrite(primaryIssue, sampleLine) : null;
+    if (personalized) {
+      rewritePreview = { ...personalized, personalized: true };
+    } else {
+      // generateRewrite returned null (line too short or no sample) — use generic template
+      rewritePreview = generateRewritePreview(primaryIssue) ?? null;
+    }
+  }
+
   return {
     scores:         skor6d,
     primaryIssue,
     sampleLine,
-    rewritePreview: rewritePreview ?? null,
+    rewritePreview,
     fullRewrite:    fullRewrite ?? null,
   };
 }

@@ -1,8 +1,22 @@
 import { cleanLine } from '@/lib/cvUtils';
 
-const DEFAULT_SAMPLE = 'Bertanggung jawab menjalankan tugas harian';
+const DEFAULT_SAMPLE  = 'Bertanggung jawab menjalankan tugas harian';
+const MIN_LINE_LENGTH = 15;
 
-const FAKE_NUM_PATTERN = /\d+%|\d+\s*(bulan|tahun)/gi;
+// Covers: 30%, 1.5x, 3k, 5m, and time/count units
+const METRIC_PATTERN = /\b\d+(\.\d+)?\s*(%|x|k|m)?\b|\b\d+\s*(bulan|tahun|minggu|hari)\b/gi;
+
+// Strong outcome phrases that shouldn't appear unless already in original
+const INFLATED_CLAIM_PATTERNS = [
+  /\bmemimpin\s+tim\b/i,
+  /\bmeningkatkan\s+revenue\b/i,
+  /\bmengoptimalkan\s+biaya\b/i,
+  /\btim\s+\d+\s*(orang|anggota)\b/i,
+  /\bmempercepat\s+pertumbuhan\b/i,
+];
+
+// Acronyms (SQL, API) and CamelCase words (TypeScript, VueJs) — likely tech tools
+const TOOL_TERM_PATTERN = /\b([A-Z]{2,}|[A-Z][a-z]+[A-Z]\w*)\b/g;
 
 interface RewritePair {
   before: string;
@@ -10,29 +24,65 @@ interface RewritePair {
   note?:  string | null;
 }
 
-// Returns false only when the rewrite adds NEW metric-style numbers not present in the original.
-// Numbers already in `before` are preserved in `after` (since we append), so we must not penalise them.
-function addsNewNumbers(before: string, after: string): boolean {
-  const beforeNums = new Set((before.match(FAKE_NUM_PATTERN) || []).map(s => s.toLowerCase()));
-  const afterNums  = (after.match(FAKE_NUM_PATTERN) || []).map(s => s.toLowerCase());
-  return afterNums.some(n => !beforeNums.has(n));
+// ── Metric helpers ───────────────────────────────────────────────────────────
+
+function extractMetrics(text: string): string[] {
+  return (text.match(METRIC_PATTERN) || []).map(s => s.toLowerCase().trim());
 }
+
+function addsNewNumbers(before: string, after: string): boolean {
+  const beforeSet = new Set(extractMetrics(before));
+  return extractMetrics(after).some(m => !beforeSet.has(m));
+}
+
+// ── Claim guard ──────────────────────────────────────────────────────────────
+
+function extractToolTerms(text: string): Set<string> {
+  return new Set((text.match(TOOL_TERM_PATTERN) || []).map(s => s.toLowerCase()));
+}
+
+function addsNewClaims(before: string, after: string): boolean {
+  const beforeTools = extractToolTerms(before);
+  for (const term of extractToolTerms(after)) {
+    if (!beforeTools.has(term)) return true;
+  }
+  for (const pattern of INFLATED_CLAIM_PATTERNS) {
+    if (pattern.test(after) && !pattern.test(before)) return true;
+  }
+  return false;
+}
+
+// ── Validation ───────────────────────────────────────────────────────────────
 
 export function validateRewrite(before: string, after: string): boolean {
   if (!before || !after) return false;
   if (before.trim() === after.trim()) return false;
   if (addsNewNumbers(before, after)) return false;
+  if (addsNewClaims(before, after)) return false;
   if (after.length <= before.length) return false;
   return true;
 }
 
-function safeRewrite(original: string): RewritePair {
+// ── Issue-aware fallback ─────────────────────────────────────────────────────
+
+const ISSUE_FALLBACK: Record<string, (t: string) => string> = {
+  portfolio:        t => t + ' untuk menunjukkan dampak kerja secara lebih jelas',
+  recruiter_signal: t => t + ' dengan fokus yang lebih spesifik pada peran dan hasil',
+  north_star:       t => t + ' yang relevan dengan posisi yang ditargetkan',
+  effort:           t => t + ' dengan konteks skill yang dibutuhkan untuk role ini',
+  risk:             t => t + ' menggunakan pendekatan yang masih relevan saat ini',
+};
+
+function safeRewrite(original: string, issue: string): RewritePair {
+  const fallbackFn = ISSUE_FALLBACK[issue] ?? ((t: string) => t + ' dengan hasil yang lebih jelas dan terstruktur');
   return {
     before: original,
-    after:  original + ' dengan hasil yang lebih jelas dan terstruktur',
+    after:  fallbackFn(original),
     note:   '(tambahkan hasil konkret jika ada, misalnya: waktu ↓ atau output ↑)',
   };
 }
+
+// ── generateRewritePreview (generic templates, no CV text) ───────────────────
 
 export function generateRewritePreview(issue: string, sampleText?: string): RewritePair | null {
   const text = sampleText || DEFAULT_SAMPLE;
@@ -68,9 +118,12 @@ export function generateRewritePreview(issue: string, sampleText?: string): Rewr
   }
 }
 
+// ── generateRewrite (personalized, validated) ────────────────────────────────
+
 export function generateRewrite(issue: string, originalLine: string | null): RewritePair | null {
   if (!originalLine) return null;
   const clean = cleanLine(originalLine);
+  if (clean.length < MIN_LINE_LENGTH) return null;
 
   const candidates: Record<string, RewritePair> = {
     portfolio: {
@@ -103,5 +156,5 @@ export function generateRewrite(issue: string, originalLine: string | null): Rew
   const candidate = candidates[issue];
   if (!candidate) return null;
 
-  return validateRewrite(candidate.before, candidate.after) ? candidate : safeRewrite(clean);
+  return validateRewrite(candidate.before, candidate.after) ? candidate : safeRewrite(clean, issue);
 }
