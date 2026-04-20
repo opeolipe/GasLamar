@@ -26,6 +26,7 @@ interface Props {
   onUrlFetch:       (url: string) => Promise<string>;
   showMobileFallback: boolean;
   dimensions?:      Record<string, number>;
+  primaryIssue?:    string | null;
 }
 
 // ── DownloadSteps ────────────────────────────────────────────────────────────
@@ -209,6 +210,7 @@ export default function DownloadReady({
   onUrlFetch,
   showMobileFallback,
   dimensions,
+  primaryIssue,
 }: Props) {
   const bilingual        = isBilingual(tier);
   const [feedbackDone,  setFeedbackDone]  = useState(false);
@@ -337,7 +339,7 @@ export default function DownloadReady({
                 <h4 className="font-semibold text-slate-900 mb-4" style={{ fontSize: '0.95rem' }}>
                   Ini yang paling dilihat HR — penjelasan lengkap
                 </h4>
-                <ScoreBars dimensions={dimensions} mode="full" />
+                <ScoreBars dimensions={dimensions} mode="full" primaryKey={primaryIssue ?? undefined} />
               </div>
             )}
 

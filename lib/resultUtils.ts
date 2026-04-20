@@ -1,4 +1,7 @@
 export { WORKER_URL } from '@/lib/uploadValidation';
+import { extractSampleLine }                        from '@/lib/cvUtils';
+import { generateRewrite, generateRewritePreview }  from '@/lib/rewriteUtils';
+import type { ResultData, BuildResultInput }         from '@/types/result';
 
 // ── Data shape from /analyze response ──────────────────────────────────────
 
@@ -168,6 +171,21 @@ export function tierRecommendation(score: number): { msg: string; tier: string }
   return {
     msg: 'CV kamu sudah cukup kuat! <strong>Single</strong> cukup untuk tailoring ke posisi ini.',
     tier: 'single',
+  };
+}
+
+export function buildResultData({ skor6d, cvText, fullRewrite }: BuildResultInput): ResultData {
+  const primaryIssue   = getPrimaryIssue(skor6d);
+  const sampleLine     = cvText ? (extractSampleLine(cvText) ?? null) : null;
+  const rewritePreview = primaryIssue
+    ? (sampleLine ? generateRewrite(primaryIssue, sampleLine) : generateRewritePreview(primaryIssue))
+    : null;
+  return {
+    scores:         skor6d,
+    primaryIssue,
+    sampleLine,
+    rewritePreview: rewritePreview ?? null,
+    fullRewrite:    fullRewrite ?? null,
   };
 }
 

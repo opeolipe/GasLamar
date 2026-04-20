@@ -16,7 +16,7 @@ import DimRewritePreview                       from '@/components/6d/RewritePrev
 import DynamicCTA                              from '@/components/6d/DynamicCTA';
 import { useResultData }                       from '@/hooks/useResultData';
 import { useSessionCountdown }                 from '@/hooks/useSessionCountdown';
-import { WORKER_URL, TIER_CONFIG, EMAIL_REGEX, formatPrice, DIM_LABELS, getPrimaryIssue } from '@/lib/resultUtils';
+import { WORKER_URL, TIER_CONFIG, EMAIL_REGEX, formatPrice, DIM_LABELS, buildResultData } from '@/lib/resultUtils';
 
 // ── DevTools notice (educational, not a security control) ──────────────────
 console.log(
@@ -352,11 +352,12 @@ export default function Result() {
 
             {/* 6D Score Breakdown — preview with gated details */}
             {data.skor_6d && Object.keys(data.skor_6d).length > 0 && (() => {
-              const primaryIssue = getPrimaryIssue(data.skor_6d!);
+              const result       = buildResultData({ skor6d: data.skor_6d!, cvText: cvText || undefined });
+              const { primaryIssue, scores, rewritePreview } = result;
               return (
               <div style={CARD_STYLE}>
                 {primaryIssue && <PrimaryHighlight issueKey={primaryIssue} />}
-                {primaryIssue && <DimRewritePreview issue={primaryIssue} cvText={cvText || undefined} />}
+                <DimRewritePreview preview={rewritePreview} />
 
                 {primaryIssue && (
                   <p style={{ fontSize: '0.8rem', color: '#64748B', margin: '0 0 0.75rem', lineHeight: 1.6 }}>
@@ -369,7 +370,7 @@ export default function Result() {
                 </p>
 
                 {/* Bars — always visible */}
-                <ScoreBars dimensions={data.skor_6d!} mode="preview" primaryKey={primaryIssue ?? undefined} />
+                <ScoreBars dimensions={scores} mode="preview" primaryKey={primaryIssue ?? undefined} />
 
                 {/* Blurred teaser of full explanations */}
                 <div style={{ position: 'relative', marginTop: '1.25rem', borderRadius: 12, overflow: 'hidden', maxHeight: 88 }}>
@@ -387,7 +388,7 @@ export default function Result() {
                 </div>
 
                 {/* Dynamic CTA — personalized to primary issue */}
-                <DynamicCTA issueKey={primaryIssue} score={primaryIssue ? data.skor_6d![primaryIssue] : undefined} />
+                <DynamicCTA issueKey={primaryIssue} score={primaryIssue ? scores[primaryIssue] : undefined} />
               </div>
               );
             })()}

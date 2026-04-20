@@ -54,6 +54,10 @@ export function useResultData(): ResultDataState {
 
     // All checks passed — consume from sessionStorage (security: keep in memory only)
     sessionStorage.removeItem('gaslamar_scoring');
+    // Persist 6D scores separately so Download page can access them after scoring is consumed
+    if (parsed.skor_6d) {
+      try { sessionStorage.setItem('gaslamar_6d_scores', JSON.stringify(parsed.skor_6d)); } catch (_) {}
+    }
 
     // Analytics
     try {

@@ -1,14 +1,10 @@
-import { generateRewritePreview, generateRewrite } from '@/lib/rewriteUtils';
-import { extractSampleLine }                       from '@/lib/cvUtils';
+import type { RewritePreviewData } from '@/types/result';
 
 interface Props {
-  issue:    string;
-  cvText?:  string;
+  preview: RewritePreviewData | null;
 }
 
-export default function RewritePreview({ issue, cvText }: Props) {
-  const sample  = cvText ? extractSampleLine(cvText) : null;
-  const preview = sample ? generateRewrite(issue, sample) : generateRewritePreview(issue);
+export default function RewritePreview({ preview }: Props) {
   if (!preview) return null;
 
   return (

@@ -13,6 +13,8 @@ import {
   WORKER_URL,
   buildSecretHeaders,
 } from '@/lib/downloadUtils';
+import { buildResultData } from '@/lib/resultUtils';
+import type { ResultData } from '@/types/result';
 import SessionError   from '@/components/download/SessionError';
 import WaitingPayment from '@/components/download/WaitingPayment';
 import GeneratingCV   from '@/components/download/GeneratingCV';
@@ -204,17 +206,20 @@ export default function Download() {
 
   // ── Derived values ────────────────────────────────────────────────────────
 
-  const content          = generate.content;
-  const tier             = content?.tier ?? session.sessionData?.tier ?? null;
+  const content    = generate.content;
+  const tier       = content?.tier ?? session.sessionData?.tier ?? null;
 
-  const dimensions: Record<string, number> | undefined = (() => {
+  const [resultData] = useState<ResultData | null>(() => {
     try {
-      const raw = sessionStorage.getItem('gaslamar_scoring');
-      if (!raw) return undefined;
-      const parsed = JSON.parse(raw);
-      return parsed?.skor_6d ?? undefined;
-    } catch { return undefined; }
-  })();
+      const raw6d  = sessionStorage.getItem('gaslamar_6d_scores');
+      if (!raw6d) return null;
+      const skor6d = JSON.parse(raw6d) as Record<string, number>;
+      const cvText = sessionStorage.getItem('gaslamar_cv_pending') || '';
+      return buildResultData({ skor6d, cvText: cvText || undefined });
+    } catch { return null; }
+  });
+
+  const dimensions = resultData?.scores;
   const creditsRemaining = content?.creditsRemaining ?? session.sessionData?.creditsRemaining ?? 1;
   const totalCredits     = content?.totalCredits     ?? session.sessionData?.totalCredits     ?? 1;
   const bilingual        = tier ? isBilingual(tier) : false;
@@ -334,6 +339,7 @@ export default function Download() {
               onUrlFetch={handleUrlFetch}
               showMobileFallback={showMobileFb}
               dimensions={dimensions}
+              primaryIssue={resultData?.primaryIssue ?? null}
             />
           </div>
         )}
