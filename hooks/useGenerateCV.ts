@@ -4,6 +4,7 @@ import {
   clearClientSessionData,
   buildSecretHeaders,
 } from '@/lib/downloadUtils';
+import { buildResultData } from '@/lib/resultUtils';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -151,6 +152,18 @@ export function useGenerateCV(): UseGenerateCVReturn {
           if (typeof scoring.score === 'number')                          reqBody.score = scoring.score;
           if (Array.isArray(scoring.gaps) && scoring.gaps.length > 0)   reqBody.gaps  = (scoring.gaps as unknown[]).slice(0, 3);
         } catch (_) { /* ignore malformed sessionStorage */ }
+
+        // Pass preview data for Hasil→Download consistency
+        try {
+          const raw6d  = sessionStorage.getItem('gaslamar_6d_scores');
+          const cvText = sessionStorage.getItem('gaslamar_cv_pending') || '';
+          if (raw6d && cvText) {
+            const rd = buildResultData({ skor6d: JSON.parse(raw6d) as Record<string, number>, cvText });
+            if (rd.primaryIssue) reqBody.primary_issue = rd.primaryIssue;
+            if (rd.sampleLine)   reqBody.preview_sample = rd.sampleLine;
+            if (rd.rewritePreview?.after) reqBody.preview_after = rd.rewritePreview.after;
+          }
+        } catch (_) { /* ignore */ }
 
         const genRes = await fetch(`${WORKER_URL}/generate`, {
           method:      'POST',

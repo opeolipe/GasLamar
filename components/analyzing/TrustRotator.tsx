@@ -18,7 +18,7 @@ export default function TrustRotator() {
 
   return (
     <div
-      className="bg-slate-100 rounded-full px-5 py-2.5 text-center text-[0.8rem] font-medium text-slate-800 my-5 transition-opacity duration-150"
+      className="text-center text-[0.78rem] text-slate-400 my-5 transition-opacity duration-150 px-2"
       style={{ opacity: visible ? 1 : 0 }}
     >
       {TRUST_MESSAGES[idx]}
