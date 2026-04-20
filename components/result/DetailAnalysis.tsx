@@ -1,14 +1,12 @@
 import { useRef }  from 'react';
 import Tooltip      from '@/components/result/Tooltip';
-import { DIM_LABELS } from '@/lib/resultUtils';
 
 interface Props {
   strengths?:  string[];
   hr7Data?:    { kuat: string[]; diabaikan: string[] };
-  dimensions?: Record<string, number>;
 }
 
-export default function DetailAnalysis({ strengths = [], hr7Data, dimensions }: Props) {
+export default function DetailAnalysis({ strengths = [], hr7Data }: Props) {
   const detailsRef = useRef<HTMLDetailsElement>(null);
 
   function handleToggle() {
@@ -19,10 +17,9 @@ export default function DetailAnalysis({ strengths = [], hr7Data, dimensions }: 
     }
   }
 
-  const hasStrengths   = strengths.length > 0;
-  const hasHr7         = hr7Data && (hr7Data.kuat.length > 0 || hr7Data.diabaikan.length > 0);
-  const hasDimensions  = dimensions && Object.keys(dimensions).length > 0;
-  const hasAny         = hasStrengths || hasHr7 || hasDimensions;
+  const hasStrengths = strengths.length > 0;
+  const hasHr7       = hr7Data && (hr7Data.kuat.length > 0 || hr7Data.diabaikan.length > 0);
+  const hasAny       = hasStrengths || hasHr7;
   if (!hasAny) return null;
 
   return (
@@ -32,7 +29,7 @@ export default function DetailAnalysis({ strengths = [], hr7Data, dimensions }: 
       style={{ background: 'white', borderRadius: 24, border: '1px solid #EEF2F6', boxShadow: '0 4px 12px rgba(0,0,0,0.04)', marginBottom: '2rem', overflow: 'hidden' }}
     >
       <summary style={{ padding: '1rem 1.5rem', cursor: 'pointer', fontSize: '0.88rem', fontWeight: 600, color: '#374151', listStyle: 'none', display: 'flex', alignItems: 'center', userSelect: 'none' }}>
-        📊 Lihat detail lengkap (strength, HR view, 6 dimensi)
+        📋 Lihat detail (strength &amp; HR view)
         <span style={{ marginLeft: 'auto', fontSize: '0.65rem', color: '#9CA3AF' }}>▼</span>
       </summary>
 
@@ -70,33 +67,6 @@ export default function DetailAnalysis({ strengths = [], hr7Data, dimensions }: 
                   {(hr7Data!.diabaikan || []).map((s, i) => <li key={i}>{s}</li>)}
                 </ul>
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* 6D Score Breakdown */}
-        {hasDimensions && (
-          <div style={{ background: 'white', borderRadius: 20, border: '1px solid #EEF2F6', padding: '1.2rem' }}>
-            <h4 style={{ margin: '0 0 0.75rem', fontSize: '0.95rem', fontWeight: 700 }}>
-              Breakdown Skor 6 Dimensi
-            </h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
-              {Object.entries(DIM_LABELS).map(([key, { label, icon }]) => {
-                const val   = Math.min(10, Math.max(0, Math.round(dimensions![key] ?? 0)));
-                const pct   = val * 10;
-                const color = val >= 7 ? '#10B981' : val >= 4 ? '#F59E0B' : '#EF4444';
-                return (
-                  <div key={key}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: 2 }}>
-                      <span>{icon} {label}</span>
-                      <span style={{ fontWeight: 600 }}>{val}/10</span>
-                    </div>
-                    <div style={{ background: '#E5E7EB', borderRadius: 4, height: 6 }}>
-                      <div style={{ width: `${pct}%`, background: color, borderRadius: 4, height: 6, transition: 'width 0.6s ease' }} />
-                    </div>
-                  </div>
-                );
-              })}
             </div>
           </div>
         )}

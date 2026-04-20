@@ -10,9 +10,10 @@ import PricingSelector                         from '@/components/result/Pricing
 import EmailCapture                            from '@/components/result/EmailCapture';
 import DetailAnalysis                          from '@/components/result/DetailAnalysis';
 import RedFlags                                from '@/components/result/RedFlags';
+import ScoreBars                               from '@/components/6d/ScoreBars';
 import { useResultData }                       from '@/hooks/useResultData';
 import { useSessionCountdown }                 from '@/hooks/useSessionCountdown';
-import { WORKER_URL, TIER_CONFIG, EMAIL_REGEX, formatPrice } from '@/lib/resultUtils';
+import { WORKER_URL, TIER_CONFIG, EMAIL_REGEX, formatPrice, DIM_LABELS } from '@/lib/resultUtils';
 
 // ── DevTools notice (educational, not a security control) ──────────────────
 console.log(
@@ -345,6 +346,46 @@ export default function Result() {
               </p>
             )}
 
+            {/* 6D Score Breakdown — preview with gated details */}
+            {data.skor_6d && Object.keys(data.skor_6d).length > 0 && (
+              <div style={CARD_STYLE}>
+                <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0F172A', margin: '0 0 1rem' }}>
+                  📊 Skor 6 Dimensi
+                </h3>
+
+                {/* Bars — always visible */}
+                <ScoreBars dimensions={data.skor_6d} mode="preview" />
+
+                {/* Blurred teaser of full explanations */}
+                <div style={{ position: 'relative', marginTop: '1.25rem', borderRadius: 12, overflow: 'hidden', maxHeight: 88 }}>
+                  <div className="blur-sm pointer-events-none select-none" aria-hidden="true">
+                    {Object.entries(DIM_LABELS).slice(0, 2).map(([key, { icon, label, hint }]) => (
+                      <div key={key} style={{ marginBottom: '0.75rem' }}>
+                        <p style={{ fontSize: '0.82rem', color: '#4B5563', margin: '0 0 0.2rem' }}>
+                          {icon} <strong>{label}</strong> — Penjelasan lengkap dan saran perbaikan untuk dimensi ini.
+                        </p>
+                        <p style={{ fontSize: '0.82rem', color: '#1D4ED8', fontWeight: 500, margin: 0 }}>💡 {hint}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 0%, rgba(255,255,255,0.96) 65%, #fff 100%)', pointerEvents: 'none' }} />
+                </div>
+
+                {/* Lock CTA */}
+                <div style={{ marginTop: '0.75rem', padding: '1rem', background: 'rgba(37,99,235,0.04)', border: '1px solid rgba(37,99,235,0.12)', borderRadius: 16, textAlign: 'center' }}>
+                  <p style={{ fontSize: '0.8rem', color: '#1E40AF', fontWeight: 600, margin: '0 0 0.65rem' }}>
+                    🔒 Lihat penjelasan detail + cara memperbaiki
+                  </p>
+                  <button
+                    onClick={() => document.getElementById('pricing-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                    style={{ background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', border: 'none', borderRadius: 60, padding: '0.65rem 1.5rem', fontWeight: 700, cursor: 'pointer', fontSize: '0.88rem', fontFamily: 'inherit', boxShadow: '0 8px 24px rgba(37,99,235,0.30)' }}
+                  >
+                    Lihat cara memperbaiki CV
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Before → After projection */}
             {data.skor_sesudah !== undefined && (
               <BeforeAfterProjection beforeScore={data.skor} afterScore={data.skor_sesudah} />
@@ -357,7 +398,7 @@ export default function Result() {
             />
 
             {/* Pricing CTA heading */}
-            <div style={{ textAlign: 'center', marginBottom: '0.5rem' }}>
+            <div id="pricing-section" style={{ textAlign: 'center', marginBottom: '0.5rem' }}>
               <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
                 👉 Perbaiki CV saya sekarang
               </h3>
@@ -434,7 +475,6 @@ export default function Result() {
             <DetailAnalysis
               strengths={data.kekuatan || []}
               hr7Data={data.hr_7_detik}
-              dimensions={data.skor_6d}
             />
 
             {/* Legal footer */}

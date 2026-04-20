@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import MobileFallback       from '@/components/download/MobileFallback';
 import UpgradeNudge         from '@/components/download/UpgradeNudge';
 import MultiCreditSection   from '@/components/download/MultiCreditSection';
+import ScoreBars            from '@/components/6d/ScoreBars';
 import { isBilingual }      from '@/lib/downloadUtils';
 
 const SHADOW = '0 18px 44px rgba(15, 23, 42, 0.08)';
@@ -24,6 +25,7 @@ interface Props {
   onGenerateNext:   (jobDesc: string) => Promise<void> | void;
   onUrlFetch:       (url: string) => Promise<string>;
   showMobileFallback: boolean;
+  dimensions?:      Record<string, number>;
 }
 
 // ── DownloadSteps ────────────────────────────────────────────────────────────
@@ -206,6 +208,7 @@ export default function DownloadReady({
   onGenerateNext,
   onUrlFetch,
   showMobileFallback,
+  dimensions,
 }: Props) {
   const bilingual        = isBilingual(tier);
   const [feedbackDone,  setFeedbackDone]  = useState(false);
@@ -327,6 +330,16 @@ export default function DownloadReady({
                 <li>✅ CV Bahasa Inggris untuk loker MNC dan remote job internasional</li>
               </ul>
             </div>
+
+            {/* 6D full breakdown */}
+            {dimensions && Object.keys(dimensions).length > 0 && (
+              <div className="rounded-[20px] p-5 mb-5" style={{ background: 'rgba(248,250,252,0.8)', border: '1px solid rgba(148,163,184,0.18)' }}>
+                <h4 className="font-semibold text-slate-900 mb-4" style={{ fontSize: '0.95rem' }}>
+                  📊 Breakdown Skor 6 Dimensi — Penjelasan Lengkap
+                </h4>
+                <ScoreBars dimensions={dimensions} mode="full" />
+              </div>
+            )}
 
             {/* Interview feedback */}
             <div className="rounded-[24px] p-5 text-center" style={{ background: 'rgba(255,255,255,0.84)', border: '1px solid rgba(148,163,184,0.18)' }}>

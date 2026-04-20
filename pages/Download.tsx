@@ -206,6 +206,15 @@ export default function Download() {
 
   const content          = generate.content;
   const tier             = content?.tier ?? session.sessionData?.tier ?? null;
+
+  const dimensions: Record<string, number> | undefined = (() => {
+    try {
+      const raw = sessionStorage.getItem('gaslamar_scoring');
+      if (!raw) return undefined;
+      const parsed = JSON.parse(raw);
+      return parsed?.skor_6d ?? undefined;
+    } catch { return undefined; }
+  })();
   const creditsRemaining = content?.creditsRemaining ?? session.sessionData?.creditsRemaining ?? 1;
   const totalCredits     = content?.totalCredits     ?? session.sessionData?.totalCredits     ?? 1;
   const bilingual        = tier ? isBilingual(tier) : false;
@@ -324,6 +333,7 @@ export default function Download() {
               onGenerateNext={handleGenerateForNewJob}
               onUrlFetch={handleUrlFetch}
               showMobileFallback={showMobileFb}
+              dimensions={dimensions}
             />
           </div>
         )}

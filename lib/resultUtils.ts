@@ -64,13 +64,43 @@ export const VERDICT_CONFIG = {
 
 // ── 6D Dimensions ────────────────────────────────────────────────────────────
 
-export const DIM_LABELS: Record<string, { label: string; icon: string }> = {
-  north_star:       { label: 'Kesesuaian Role',          icon: '🎯' },
-  recruiter_signal: { label: 'Daya Tarik CV',            icon: '👁️' },
-  effort:           { label: 'Kemudahan Perbaiki',       icon: '⚡' },
-  opportunity_cost: { label: 'Biaya Perbaikan',          icon: '💰' },
-  risk:             { label: 'Relevansi Jangka Panjang', icon: '🛡️' },
-  portfolio:        { label: 'Bukti Nyata di CV',        icon: '📋' },
+export const DIM_LABELS: Record<string, { label: string; icon: string; desc: string; hint: string }> = {
+  north_star: {
+    label: 'Kesesuaian Role',
+    icon:  '🎯',
+    desc:  'Seberapa cocok latar belakang dan pengalaman kamu dengan kebutuhan spesifik posisi yang dilamar.',
+    hint:  'Tambahkan kata kunci dari job description ke ringkasan dan bullet point pengalaman kamu.',
+  },
+  recruiter_signal: {
+    label: 'Daya Tarik CV',
+    icon:  '👁️',
+    desc:  'Seberapa cepat CV kamu menarik perhatian HR dalam 7 detik pertama saat CV di-scan.',
+    hint:  'Perkuat bagian atas CV dengan headline dan summary yang mencantumkan pencapaian terkuat kamu.',
+  },
+  effort: {
+    label: 'Kemudahan Perbaiki',
+    icon:  '⚡',
+    desc:  'Seberapa mudah gap di CV kamu bisa diperbaiki dalam waktu singkat tanpa pengalaman tambahan.',
+    hint:  'Fokus pada bagian yang bisa langsung diperbaiki: format, kata kunci, dan penulisan bullet.',
+  },
+  opportunity_cost: {
+    label: 'Biaya Peluang',
+    icon:  '💰',
+    desc:  'Seberapa besar peluang yang hilang jika CV ini dikirim tanpa perbaikan ke posisi ini.',
+    hint:  'Pastikan setiap bullet menunjukkan kontribusi konkret — bukan sekadar daftar tugas.',
+  },
+  risk: {
+    label: 'Relevansi Jangka Panjang',
+    icon:  '🛡️',
+    desc:  'Seberapa relevan profil kamu untuk posisi serupa di masa depan, bukan hanya untuk posisi ini.',
+    hint:  'Sertakan skill yang sedang naik daun di industri kamu untuk memperkuat daya tahan CV.',
+  },
+  portfolio: {
+    label: 'Bukti Nyata di CV',
+    icon:  '📋',
+    desc:  'Seberapa kuat CV kamu menunjukkan hasil nyata — angka, metrik, dan pencapaian konkret.',
+    hint:  'Ubah setiap bullet jadi pernyataan berbasis dampak: "Meningkatkan X sebesar Y% dalam Z bulan."',
+  },
 };
 
 // ── Score utilities ──────────────────────────────────────────────────────────
