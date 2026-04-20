@@ -1,40 +1,89 @@
 import { DIM_LABELS } from '@/lib/resultUtils';
 
+// Priority order: most impactful weak dimension first
+const PRIORITY = ['portfolio', 'recruiter_signal', 'north_star', 'effort', 'opportunity_cost', 'risk'];
+
+const ISSUE_LABELS: Record<string, string> = {
+  portfolio:        'Belum ada bukti hasil kerja yang jelas',
+  recruiter_signal: 'CV belum menarik di 7 detik pertama',
+  north_star:       'CV belum cukup relevan dengan job ini',
+  effort:           'Masih banyak yang perlu diperbaiki sebelum siap lamar',
+  opportunity_cost: 'CV ini berisiko melewatkan peluang besar',
+  risk:             'Profil kurang relevan untuk posisi jenis ini',
+};
+
+interface DimItem {
+  key:   string;
+  label: string;
+  icon:  string;
+  score: number;
+  desc:  string;
+  hint:  string;
+}
+
+function getPrimaryIssue(items: DimItem[]): DimItem | null {
+  for (const key of PRIORITY) {
+    const item = items.find(i => i.key === key);
+    if (item && item.score < 7) return item;
+  }
+  return null;
+}
+
 interface Props {
   dimensions: Record<string, number>;
   mode: 'preview' | 'full';
 }
 
 export default function ScoreBars({ dimensions, mode }: Props) {
-  const items = Object.entries(DIM_LABELS).map(([key, meta]) => ({
+  const items: DimItem[] = Object.entries(DIM_LABELS).map(([key, meta]) => ({
     key,
     ...meta,
     score: Math.min(10, Math.max(0, Math.round(dimensions[key] ?? 0))),
   }));
 
+  const primaryIssue = mode === 'preview' ? getPrimaryIssue(items) : null;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: mode === 'full' ? '1.25rem' : '0.65rem' }}>
-      {items.map(({ key, label, icon, score, desc, hint }) => {
-        const pct   = score * 10;
-        const color = score >= 7 ? '#10B981' : score >= 4 ? '#F59E0B' : '#EF4444';
-        return (
-          <div key={key}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-              <span style={{ fontSize: '0.83rem', fontWeight: 500, color: '#374151' }}>{icon} {label}</span>
-              <span style={{ fontSize: '0.83rem', fontWeight: 700, color, flexShrink: 0, marginLeft: 8 }}>{score}/10</span>
-            </div>
-            <div style={{ background: '#E5E7EB', borderRadius: 4, height: 6 }}>
-              <div style={{ width: `${pct}%`, background: color, borderRadius: 4, height: 6, transition: 'width 0.6s ease' }} />
-            </div>
-            {mode === 'full' && (
-              <div style={{ marginTop: '0.6rem', paddingLeft: '0.1rem' }}>
-                <p style={{ fontSize: '0.82rem', color: '#4B5563', lineHeight: 1.65, margin: '0 0 0.3rem' }}>{desc}</p>
-                <p style={{ fontSize: '0.82rem', color: '#1D4ED8', fontWeight: 500, margin: 0, lineHeight: 1.5 }}>💡 {hint}</p>
+    <div>
+      {/* Priority highlight — preview only */}
+      {primaryIssue && (
+        <div style={{ marginBottom: '1rem' }}>
+          <p style={{ fontSize: '0.72rem', fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.3rem' }}>
+            Masalah utama kamu:
+          </p>
+          <p style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', margin: 0, lineHeight: 1.4 }}>
+            {primaryIssue.icon} {ISSUE_LABELS[primaryIssue.key]}
+          </p>
+        </div>
+      )}
+
+      {/* Bars */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: mode === 'full' ? '1.25rem' : '0.65rem' }}>
+        {items.map(({ key, label, icon, score, desc, hint }) => {
+          const pct        = score * 10;
+          const color      = score >= 7 ? '#10B981' : score >= 4 ? '#F59E0B' : '#EF4444';
+          const isPrimary  = primaryIssue?.key === key;
+          return (
+            <div key={key}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                <span style={{ fontSize: '0.83rem', fontWeight: isPrimary ? 700 : 500, color: isPrimary ? '#0F172A' : '#374151' }}>
+                  {icon} {label}{isPrimary && <span style={{ marginLeft: 6, fontSize: '0.65rem', fontWeight: 700, color: '#EF4444', verticalAlign: 'middle' }}>▲ UTAMA</span>}
+                </span>
+                <span style={{ fontSize: '0.83rem', fontWeight: 700, color, flexShrink: 0, marginLeft: 8 }}>{score}/10</span>
               </div>
-            )}
-          </div>
-        );
-      })}
+              <div style={{ background: '#E5E7EB', borderRadius: 4, height: isPrimary ? 8 : 6 }}>
+                <div style={{ width: `${pct}%`, background: color, borderRadius: 4, height: isPrimary ? 8 : 6, transition: 'width 0.6s ease' }} />
+              </div>
+              {mode === 'full' && (
+                <div style={{ marginTop: '0.6rem', paddingLeft: '0.1rem' }}>
+                  <p style={{ fontSize: '0.82rem', color: '#4B5563', lineHeight: 1.65, margin: '0 0 0.3rem' }}>{desc}</p>
+                  <p style={{ fontSize: '0.82rem', color: '#1D4ED8', fontWeight: 500, margin: 0, lineHeight: 1.5 }}>💡 {hint}</p>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
