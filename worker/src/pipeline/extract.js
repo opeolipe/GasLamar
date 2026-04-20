@@ -16,7 +16,11 @@ import { validateExtractOutput } from './validate.js';
 
 function parseExtractJSON(rawText) {
   const cleaned = rawText.replace(/```json\n?|\n?```/g, '').trim();
-  return JSON.parse(cleaned);
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    throw new Error('INVALID_JSON');
+  }
 }
 
 /**

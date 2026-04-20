@@ -18,7 +18,11 @@ import { validateDiagnoseOutput } from './validate.js';
 
 function parseDiagnoseJSON(rawText) {
   const cleaned = rawText.replace(/```json\n?|\n?```/g, '').trim();
-  return JSON.parse(cleaned);
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    throw new Error('INVALID_JSON');
+  }
 }
 
 /**

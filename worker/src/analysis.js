@@ -34,7 +34,7 @@ export async function analyzeCV(cvText, jobDesc, env) {
   // Bump to analysis_v5_ if the scoring formula or pipeline structure changes.
   // v3 entries (from the monolithic SKILL_ANALYZE pipeline) are intentionally
   // stale and will not be returned.
-  const cacheKey = `analysis_v4_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
+  const cacheKey = `analysis_v5_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
   const cached = await env.GASLAMAR_SESSIONS.get(cacheKey, { type: 'json' });
   if (cached) {
     // Re-apply red-flag penalty for entries cached before this logic was added.
@@ -49,8 +49,8 @@ export async function analyzeCV(cvText, jobDesc, env) {
   // ── Stage 1: EXTRACT ──────────────────────────────────────────────────────
   // Extraction is cached independently so the LLM call is skipped on repeated
   // analysis of identical CV+JD content (e.g. user re-runs after payment).
-  // Bump to extract_v2_ when SKILL_EXTRACT prompt changes significantly.
-  const extractKey = `extract_v1_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
+  // Bump to extract_v3_ when SKILL_EXTRACT prompt changes significantly.
+  const extractKey = `extract_v2_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
   let extractedData = await env.GASLAMAR_SESSIONS.get(extractKey, { type: 'json' });
   if (!extractedData) {
     extractedData = await callExtract(cvText, jobDesc, env);
