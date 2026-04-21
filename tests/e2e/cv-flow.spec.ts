@@ -210,11 +210,11 @@ test.describe('GasLamar CV Flow', () => {
     await page.click('[data-testid="submit-upload"]');
     await page.waitForURL('**/hasil**', { timeout: 60000 });
 
-    // Verify useAnalysisPolling persisted gaslamar_sample before clearing cv_pending.
+    // Verify useAnalysisPolling persisted gaslamar_sample_line before clearing cv_pending.
     // This is the root fix for preview = download consistency (B1).
-    const storedSample = await page.evaluate(() => sessionStorage.getItem('gaslamar_sample'));
-    expect(storedSample).not.toBeNull();
-    
+    // gaslamar_sample_line is a plain string (the best bullet from the CV), not JSON.
+    const storedSample = await page.evaluate(() => sessionStorage.getItem('gaslamar_sample_line'));
+    expect(storedSample).toBeTruthy();
 
     // cv_pending must be cleared at this point
     const cvPending = await page.evaluate(() => sessionStorage.getItem('gaslamar_cv_pending'));
@@ -224,15 +224,15 @@ test.describe('GasLamar CV Flow', () => {
     await setupDownloadSession(page);
     await mockCheckSession(page);
     await mockGetSession(page);
-    await mockGenerate(page, { cv_id: sample.text + ' — Digital Marketing Specialist.' });
+    await mockGenerate(page, { cv_id: storedSample + ' — Digital Marketing Specialist.' });
 
-    await page.goto('/download.html');
+    await page.goto('/download');
     await expect(page.locator('[data-testid="cv-content"]')).toBeVisible({
       timeout: 30000,
     });
 
     const cvText = await page.locator('[data-testid="cv-content"]').textContent();
-    expect(cvText).toContain(sample.text);
+    expect(cvText).toContain(storedSample);
   });
 
   // ── TRUST BADGE POSITIVE ─────────────────────────────────────────────────
