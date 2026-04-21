@@ -11,6 +11,7 @@ interface Props {
 export default function SessionError({ title, message, retryable = false, onRetry, onRestart }: Props) {
   return (
     <div
+      data-testid="error-message"
       className="rounded-[24px] p-8 text-center"
       style={{
         background:     'rgba(255,255,255,0.88)',
@@ -40,6 +41,7 @@ export default function SessionError({ title, message, retryable = false, onRetr
       <div className="flex flex-col gap-3 items-center">
         {retryable && onRetry && (
           <button
+            data-testid="generate-cv-button"
             onClick={onRetry}
             className="min-h-[48px] px-6 rounded-[16px] font-bold text-white text-sm transition-all hover:-translate-y-[1px]"
             style={{ background: 'linear-gradient(180deg,#2563eb,#1d4ed8)', boxShadow: SHADOW }}

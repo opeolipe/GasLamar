@@ -19,6 +19,7 @@ export default function SubmitSection({ jobDescription, isValid, isLoading, onSu
         ref={btnRef}
         type="button"
         id="submit-btn"
+        data-testid="submit-upload"
         onClick={onSubmit}
         disabled={!canSubmit}
         className="min-h-[56px] w-full rounded-full px-6 py-4 text-white font-bold text-base border-0 transition-all hover:-translate-y-[2px] disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0 flex items-center justify-center gap-2 group"

@@ -453,6 +453,7 @@ export default function Result() {
             {/* Pay button */}
             <div style={{ marginTop: '1rem' }}>
               <button
+                data-testid="generate-cv-button"
                 onClick={proceedToPayment}
                 disabled={payBtnDisabled}
                 aria-label="Lihat CV hasil rewrite lengkap"

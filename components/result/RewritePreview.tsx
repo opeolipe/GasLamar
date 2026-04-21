@@ -31,7 +31,7 @@ export default function RewritePreview({ recommendations, gaps }: Props) {
       </p>
 
       {/* First item — fully visible */}
-      <PreviewItem label="✅ Perbaikan #1 — contoh gratis" text={first} />
+      <PreviewItem data-testid="rewrite-after" label="✅ Perbaikan #1 — contoh gratis" text={first} />
 
       {/* Remaining items — blurred with lock overlay */}
       <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden' }}>
@@ -53,9 +53,9 @@ export default function RewritePreview({ recommendations, gaps }: Props) {
   );
 }
 
-function PreviewItem({ label, text }: { label: string; text: string }) {
+function PreviewItem({ label, text, 'data-testid': testId }: { label: string; text: string; 'data-testid'?: string }) {
   return (
-    <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderLeft: '3px solid #10B981', borderRadius: 12, padding: '0.85rem 1rem', marginBottom: '0.6rem' }}>
+    <div data-testid={testId} style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderLeft: '3px solid #10B981', borderRadius: 12, padding: '0.85rem 1rem', marginBottom: '0.6rem' }}>
       <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>
         {label}
       </div>

@@ -34,6 +34,7 @@ export default function CvDropzone({ fileName, fileSize, error, onFileSelect, on
   return (
     <div>
       <div
+        data-testid="dropzone"
         tabIndex={0}
         role="button"
         aria-label="Area upload CV — klik atau tekan Enter untuk memilih file"
@@ -45,7 +46,7 @@ export default function CvDropzone({ fileName, fileSize, error, onFileSelect, on
         onKeyDown={onKeyDown}
       >
         {fileName ? (
-          <div className="flex items-center justify-between gap-3 w-full text-left">
+          <div data-testid="file-preview" className="flex items-center justify-between gap-3 w-full text-left">
             <div className="flex items-center gap-3 flex-1 min-w-0">
               <span className="text-2xl flex-shrink-0">📄</span>
               <div className="min-w-0">
@@ -81,6 +82,7 @@ export default function CvDropzone({ fileName, fileSize, error, onFileSelect, on
           ref={inputRef}
           type="file"
           id="cv-file"
+          data-testid="file-input"
           className="hidden"
           accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
           aria-label="Upload file CV (PDF, DOCX, atau TXT, maks 5MB)"
