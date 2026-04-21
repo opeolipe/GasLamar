@@ -5,30 +5,31 @@
  */
 
 const MIN_LINE_LENGTH = 15;
-const MIN_WORD_COUNT  = 3; // SYNC: must match lib/rewriteUtils.ts MIN_WORD_COUNT
+const MIN_WORD_COUNT  = 3;
+const MATCH_THRESHOLD = 0.6;
 
-const METRIC_PATTERN = /\b\d+(\.\d+)?\s*(%|x|k|m)?\b|\b\d+\s*(bulan|tahun|minggu|hari)\b/gi;
+// Use source strings to avoid shared lastIndex on global regexes
+// SYNC: Must stay identical to shared/rewriteRules.js
+const METRIC_PATTERN_SRC    = String.raw`\b\d+(\.\d+)?\s*(%|x|k|m)?\b|\b\d+\s*(bulan|tahun|minggu|hari)\b`;
+const TOOL_TERM_PATTERN_SRC = String.raw`\b([A-Z]{2,}|[A-Z][a-z]+[A-Z]\w*)\b`;
 
-// SYNC: Must stay identical to lib/rewriteUtils.ts INFLATED_CLAIM_PATTERNS.
-// If you change one, change the other.
+// SYNC: Must stay identical to shared/rewriteRules.js INFLATION_RULES.
 const INFLATED_CLAIM_PATTERNS = [
   // Indonesian
   { pattern: /\bmemimpin\s+tim\b/i,           impliedBy: /\b(mengelola|memimpin|koordinir|kepala|lead|manager|supervisi)\b/i },
   { pattern: /\bmeningkatkan\s+revenue\b/i,    impliedBy: /\b(revenue|pendapatan|penjualan|omzet|sales)\b/i },
   { pattern: /\bmengoptimalkan\s+biaya\b/i,    impliedBy: /\b(biaya|anggaran|budget|cost)\b/i },
-  { pattern: /\btim\s+\d+\s*(orang|anggota)\b/i },   // always reject — specific count
+  { pattern: /\btim\s+\d+\s*(orang|anggota)\b/i },
   { pattern: /\bmempercepat\s+pertumbuhan\b/i, impliedBy: /\b(pertumbuhan|growth|kembang)\b/i },
   // English equivalents
   { pattern: /\bled\s+a\s+team\b/i,            impliedBy: /\b(manage|lead|supervise|head|director|coordinator)\b/i },
   { pattern: /\bincreased\s+revenue\b/i,        impliedBy: /\b(revenue|sales|income|profit)\b/i },
   { pattern: /\boptimized\s+costs?\b/i,         impliedBy: /\b(cost|budget|expense|saving)\b/i },
-  { pattern: /\bteam\s+of\s+\d+\b/i },          // always reject — fabricated team size
+  { pattern: /\bteam\s+of\s+\d+\b/i },
   { pattern: /\baccelerated\s+growth\b/i,       impliedBy: /\b(growth|expand|scale|grow)\b/i },
 ];
 
-const TOOL_TERM_PATTERN = /\b([A-Z]{2,}|[A-Z][a-z]+[A-Z]\w*)\b/g;
-
-// SYNC: Must stay identical to lib/rewriteUtils.ts WEAK_FILLER.
+// SYNC: Must stay identical to shared/rewriteRules.js WEAK_FILLER.
 const WEAK_FILLER = [
   'lebih baik', 'lebih efektif', 'lebih optimal',
   'lebih maksimal', 'dengan baik', 'secara efektif',
@@ -43,17 +44,17 @@ const META_LINE_PATTERN = /^\d{4}|^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|
 
 const DOCX_GUIDANCE_ID  = '(catatan: tambahkan hasil konkret jika ada, misalnya: waktu ↓ atau output ↑)';
 const DOCX_GUIDANCE_EN  = '(note: add concrete results if available, e.g., time ↓ or output ↑)';
-const DOCX_MAX_HINTS    = 3; // append guidance note to first N bullet lines only
+const DOCX_MAX_HINTS    = 3;
 
-// SYNC: Must stay identical to lib/rewriteUtils.ts ISSUE_FALLBACK.
-// If you change one, change the other.
+// SYNC: Must stay identical to shared/rewriteRules.js ISSUE_FALLBACK_SUFFIX.
 const ISSUE_FALLBACK = {
-  portfolio:        t => t + ' untuk menunjukkan dampak kerja secara lebih jelas',
-  recruiter_signal: t => t + ' dengan fokus yang lebih spesifik pada peran dan hasil',
-  north_star:       t => t + ' yang relevan dengan posisi yang ditargetkan',
-  effort:           t => t + ' dengan konteks skill yang dibutuhkan untuk role ini',
-  risk:             t => t + ' menggunakan pendekatan yang masih relevan saat ini',
+  portfolio:        ' untuk menunjukkan dampak kerja secara lebih jelas',
+  recruiter_signal: ' dengan fokus yang lebih spesifik pada peran dan hasil',
+  north_star:       ' yang relevan dengan posisi yang ditargetkan',
+  effort:           ' dengan konteks skill yang dibutuhkan untuk role ini',
+  risk:             ' menggunakan pendekatan yang masih relevan saat ini',
 };
+const GENERIC_FALLBACK_SUFFIX = ' dengan hasil yang lebih jelas dan terstruktur';
 
 // ── Metric helpers ────────────────────────────────────────────────────────────
 
@@ -174,7 +175,7 @@ function findBestMatch(line, candidates) {
 // ── Safe fallback ─────────────────────────────────────────────────────────────
 
 function safeRewriteLine(original, issue) {
-  const suffix = (issue && ISSUE_FALLBACK_SUFFIX[issue]) ?? GENERIC_FALLBACK_SUFFIX;
+  const suffix = (issue && ISSUE_FALLBACK[issue]) ?? GENERIC_FALLBACK_SUFFIX;
   return original + suffix;
 }
 
@@ -200,7 +201,6 @@ function safeRewriteLine(original, issue) {
 export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf', opts = {}) {
   const { previewSample, previewAfter, entitasKlaim = null, language = 'id' } = opts;
   const originalLines = extractBulletLines(originalCVText);
-  let usedFallback    = false;
 
   let fallbackCount = 0;
   let totalBullets  = 0;

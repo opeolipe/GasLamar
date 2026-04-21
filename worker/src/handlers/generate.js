@@ -129,9 +129,6 @@ export async function handleGenerate(request, env, ctx) {
         tailorCVID(cv_text, effectiveJobDesc, env, 'pdf', tailorOpts),
         tailorCVEN(cv_text, effectiveJobDesc, env, 'pdf', tailorOpts),
       ]);
-      cvId      = idResult.text;
-      cvEn      = enResult.text;
-      isTrusted = idResult.isTrusted && enResult.isTrusted;
     } else {
       idResult = await tailorCVID(cv_text, effectiveJobDesc, env, 'pdf', tailorOpts);
       enResult = null;

@@ -11,74 +11,7 @@ import {
   FALLBACK_NOTE,
 } from '@/shared/rewriteRules.js';
 
-const DEFAULT_SAMPLE  = 'Bertanggung jawab menjalankan tugas harian';
-const MIN_LINE_LENGTH = 15;
-const MIN_WORD_COUNT  = 3;
-
-// Covers: 30%, 1.5x, 3k, 5m, time units, plain counts
-const METRIC_PATTERN = /\b\d+(\.\d+)?\s*(%|x|k|m)?\b|\b\d+\s*(bulan|tahun|minggu|hari)\b/gi;
-
-// SYNC: Must stay identical to worker/src/rewriteGuard.js INFLATED_CLAIM_PATTERNS.
-// If you change one, change the other.
-// Inflated phrases with optional implication bypass:
-// if `before` matches `impliedBy`, the phrase was already implied → don't flag it
-const INFLATED_CLAIM_PATTERNS: Array<{ pattern: RegExp; impliedBy?: RegExp }> = [
-  // Indonesian
-  {
-    pattern:   /\bmemimpin\s+tim\b/i,
-    impliedBy: /\b(mengelola|memimpin|koordinir|kepala|lead|manager|supervisi)\b/i,
-  },
-  {
-    pattern:   /\bmeningkatkan\s+revenue\b/i,
-    impliedBy: /\b(revenue|pendapatan|penjualan|omzet|sales)\b/i,
-  },
-  {
-    pattern:   /\bmengoptimalkan\s+biaya\b/i,
-    impliedBy: /\b(biaya|anggaran|budget|cost)\b/i,
-  },
-  {
-    // always reject — specific count is always a new invented claim
-    pattern: /\btim\s+\d+\s*(orang|anggota)\b/i,
-  },
-  {
-    pattern:   /\bmempercepat\s+pertumbuhan\b/i,
-    impliedBy: /\b(pertumbuhan|growth|kembang)\b/i,
-  },
-  // English equivalents
-  {
-    pattern:   /\bled\s+a\s+team\b/i,
-    impliedBy: /\b(manage|lead|supervise|head|director|coordinator)\b/i,
-  },
-  {
-    pattern:   /\bincreased\s+revenue\b/i,
-    impliedBy: /\b(revenue|sales|income|profit)\b/i,
-  },
-  {
-    pattern:   /\boptimized\s+costs?\b/i,
-    impliedBy: /\b(cost|budget|expense|saving)\b/i,
-  },
-  {
-    // always reject — fabricated team size
-    pattern: /\bteam\s+of\s+\d+\b/i,
-  },
-  {
-    pattern:   /\baccelerated\s+growth\b/i,
-    impliedBy: /\b(growth|expand|scale|grow)\b/i,
-  },
-];
-
-// ALL-CAPS acronyms (SQL, API) or CamelCase (TypeScript, VueJs) — likely tool names
-const TOOL_TERM_PATTERN = /\b([A-Z]{2,}|[A-Z][a-z]+[A-Z]\w*)\b/g;
-
-// SYNC: Must stay identical to worker/src/rewriteGuard.js WEAK_FILLER.
-const WEAK_FILLER = [
-  'lebih baik',
-  'lebih efektif',
-  'lebih optimal',
-  'lebih maksimal',
-  'dengan baik',
-  'secara efektif',
-];
+const DEFAULT_SAMPLE = 'Bertanggung jawab menjalankan tugas harian';
 
 interface RewritePair {
   before: string;
@@ -148,16 +81,6 @@ export function validateRewrite(before: string, after: string): boolean {
 }
 
 // ── Issue-aware fallback ─────────────────────────────────────────────────────
-
-// SYNC: Must stay identical to worker/src/rewriteGuard.js ISSUE_FALLBACK.
-// If you change one, change the other.
-const ISSUE_FALLBACK: Record<string, (t: string) => string> = {
-  portfolio:        t => t + ' untuk menunjukkan dampak kerja secara lebih jelas',
-  recruiter_signal: t => t + ' dengan fokus yang lebih spesifik pada peran dan hasil',
-  north_star:       t => t + ' yang relevan dengan posisi yang ditargetkan',
-  effort:           t => t + ' dengan konteks skill yang dibutuhkan untuk role ini',
-  risk:             t => t + ' menggunakan pendekatan yang masih relevan saat ini',
-};
 
 function safeRewrite(original: string, issue: string): RewritePair {
   const suffix = (ISSUE_FALLBACK_SUFFIX as Record<string, string>)[issue] ?? GENERIC_FALLBACK_SUFFIX;
