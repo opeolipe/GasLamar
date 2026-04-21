@@ -20,17 +20,19 @@ export function validateCVSections(text, lang) {
 }
 
 /**
- * @param {string}  cvText
- * @param {string}  jobDesc
- * @param {object}  env
- * @param {string}  [mode='pdf']     - 'pdf' = clean output | 'docx' = with guidance notes
- * @param {object}  [options={}]
- * @param {string}  [options.issue]          - Primary issue key for issue-aware fallback
- * @param {string}  [options.previewSample]  - Original CV line shown as "before" in Hasil
- * @param {string}  [options.previewAfter]   - Suggested rewrite shown as "after" in Hasil
+ * @param {string}        cvText
+ * @param {string}        jobDesc
+ * @param {object}        env
+ * @param {string}        [mode='pdf']           - ignored; both pdf+docx are generated internally
+ * @param {object}        [options={}]
+ * @param {string}        [options.issue]         - Primary issue key for issue-aware fallback
+ * @param {string}        [options.previewSample] - Original CV line shown as "before" in Hasil
+ * @param {string}        [options.previewAfter]  - Suggested rewrite shown as "after" in Hasil
+ * @param {string[]|null} [options.entitasKlaim]  - Whitelist of claims already in user's CV
+ * @returns {Promise<{ text: string, docxText: string, isTrusted: boolean }>}
  */
 export async function tailorCVID(cvText, jobDesc, env, mode = 'pdf', options = {}) {
-  const { issue, previewSample, previewAfter } = options;
+  const { issue, previewSample, previewAfter, entitasKlaim = null } = options;
 
   // KV cache keyed on raw content — post-processing is applied per-call (after cache read)
   const genKey   = `gen_id_${await sha256Hex(cvText + '||' + jobDesc)}`;
@@ -84,19 +86,28 @@ Output hanya teks CV, tidak ada komentar atau penjelasan tambahan.`;
     await env.GASLAMAR_SESSIONS.put(genKey, baseText, { expirationTtl: 172800 });
   }
 
-  // Apply hallucination guard + preview consistency + mode transforms (not cached)
-  return postProcessCV(baseText, cvText, issue, mode, { previewSample, previewAfter });
+  const postOpts = { previewSample, previewAfter, entitasKlaim, language: 'id' };
+
+  // Generate both variants from the same validated base text
+  const { text: pdfText, isTrusted } = postProcessCV(baseText, cvText, issue, 'pdf',  postOpts);
+  const { text: docxText }           = postProcessCV(baseText, cvText, issue, 'docx', postOpts);
+
+  return { text: pdfText, docxText, isTrusted };
 }
 
 /**
- * @param {string}  cvText
- * @param {string}  jobDesc
- * @param {object}  env
- * @param {string}  [mode='pdf']
- * @param {object}  [options={}]
+ * @param {string}        cvText
+ * @param {string}        jobDesc
+ * @param {object}        env
+ * @param {string}        [mode='pdf']           - ignored; both pdf+docx are generated internally
+ * @param {object}        [options={}]
+ * @param {string}        [options.previewSample]
+ * @param {string}        [options.previewAfter]
+ * @param {string[]|null} [options.entitasKlaim]
+ * @returns {Promise<{ text: string, docxText: string, isTrusted: boolean }>}
  */
 export async function tailorCVEN(cvText, jobDesc, env, mode = 'pdf', options = {}) {
-  const { previewSample, previewAfter } = options;
+  const { previewSample, previewAfter, entitasKlaim = null } = options;
 
   const genKey   = `gen_en_${await sha256Hex(cvText + '||' + jobDesc)}`;
   const cached   = await env.GASLAMAR_SESSIONS.get(genKey);
@@ -151,6 +162,12 @@ Output only the CV text, no additional comments.`;
     await env.GASLAMAR_SESSIONS.put(genKey, baseText, { expirationTtl: 172800 });
   }
 
-  // For the English CV, skip issue-based fallback (it's in Indonesian) but still validate
-  return postProcessCV(baseText, cvText, null, mode, { previewSample, previewAfter });
+  // For English CV: skip issue-based fallback (fallbacks are in Indonesian)
+  // but still validate rewrites and enforce preview consistency
+  const postOpts = { previewSample, previewAfter, entitasKlaim, language: 'en' };
+
+  const { text: pdfText, isTrusted } = postProcessCV(baseText, cvText, null, 'pdf',  postOpts);
+  const { text: docxText }           = postProcessCV(baseText, cvText, null, 'docx', postOpts);
+
+  return { text: pdfText, docxText, isTrusted };
 }

@@ -85,7 +85,7 @@ export function useGenerateCV(): UseGenerateCVReturn {
     };
 
     ;(window as any).Analytics?.track?.('cv_generation_started', {
-      tier:     sessionStorage.getItem('gaslamar_tier')      || undefined,
+      tier:     sessionStorage.getItem('gaslamar_tier')     || undefined,
       resultId: sessionStorage.getItem('gaslamar_result_id') || undefined,
     });
 
@@ -226,17 +226,17 @@ export function useGenerateCV(): UseGenerateCVReturn {
           cv_id_docx,
           cv_en,
           cv_en_docx,
-          is_trusted,
+          isTrusted,
           credits_remaining,
           total_credits,
           job_title,
           company,
         } = await genRes.json() as {
           cv_id:             string;
-          cv_id_docx?:       string;
+          cv_id_docx:        string;
           cv_en?:            string;
           cv_en_docx?:       string;
-          is_trusted?:       boolean;
+          isTrusted?:        boolean;
           credits_remaining: number;
           total_credits:     number;
           job_title?:        string;
@@ -248,7 +248,7 @@ export function useGenerateCV(): UseGenerateCVReturn {
           is_bilingual:      confirmedTier !== 'coba',
           has_english:       !!cv_en,
           credits_remaining: credits_remaining ?? 0,
-          is_trusted:        is_trusted ?? false,
+          is_trusted:        isTrusted ?? false,
           resultId:          sessionStorage.getItem('gaslamar_result_id') || undefined,
         });
 
@@ -275,7 +275,7 @@ export function useGenerateCV(): UseGenerateCVReturn {
             creditsRemaining: credits_remaining ?? 0,
             totalCredits:     total_credits     ?? 1,
             tier:             confirmedTier,
-            isTrusted:        is_trusted ?? false,
+            isTrusted:        isTrusted ?? false,
           });
           setStatus('done');
         }, 500);

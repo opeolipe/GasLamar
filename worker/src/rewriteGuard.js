@@ -7,17 +7,16 @@
  * match its shared counterpart.
  */
 
-// SYNC: shared/rewriteRules.js
 const MIN_LINE_LENGTH = 15;
 const MIN_WORD_COUNT  = 3;
 const MATCH_THRESHOLD = 0.6;
 
-// SYNC: shared/rewriteRules.js METRIC_PATTERN_SRC
+// Use source strings to avoid shared lastIndex on global regexes
+// SYNC: Must stay identical to shared/rewriteRules.js
 const METRIC_PATTERN_SRC    = String.raw`\b\d+(\.\d+)?\s*(%|x|k|m)?\b|\b\d+\s*(bulan|tahun|minggu|hari)\b`;
-// SYNC: shared/rewriteRules.js TOOL_TERM_PATTERN_SRC
 const TOOL_TERM_PATTERN_SRC = String.raw`\b([A-Z]{2,}|[A-Z][a-z]+[A-Z]\w*)\b`;
 
-// SYNC: shared/rewriteRules.js INFLATION_RULES
+// SYNC: Must stay identical to shared/rewriteRules.js INFLATION_RULES.
 const INFLATED_CLAIM_PATTERNS = [
   // Indonesian
   { pattern: /\bmemimpin\s+tim\b/i,           impliedBy: /\b(mengelola|memimpin|koordinir|kepala|lead|manager|supervisi)\b/i },
@@ -27,15 +26,15 @@ const INFLATED_CLAIM_PATTERNS = [
   { pattern: /\bmempercepat\s+pertumbuhan\b/i, impliedBy: /\b(pertumbuhan|growth|kembang)\b/i },
   // English equivalents
   { pattern: /\bled\s+a\s+team\b/i,            impliedBy: /\b(manage|lead|supervise|head|director|coordinator)\b/i },
-  { pattern: /\bteam\s+of\s+\d+\b/i },
   { pattern: /\bincreased\s+revenue\b/i,        impliedBy: /\b(revenue|sales|income|profit)\b/i },
   { pattern: /\boptimized\s+costs?\b/i,         impliedBy: /\b(cost|budget|expense|saving)\b/i },
+  { pattern: /\bteam\s+of\s+\d+\b/i },
   { pattern: /\baccelerated\s+growth\b/i,       impliedBy: /\b(growth|expand|scale|grow)\b/i },
   { pattern: /\bled\s+(cross[- ]functional|global|international)\b/i,
     impliedBy: /\b(cross[- ]functional|global|international|regional)\b/i },
 ];
 
-// SYNC: shared/rewriteRules.js WEAK_FILLER
+// SYNC: Must stay identical to shared/rewriteRules.js WEAK_FILLER.
 const WEAK_FILLER = [
   // Indonesian
   'lebih baik', 'lebih efektif', 'lebih optimal',
@@ -45,7 +44,18 @@ const WEAK_FILLER = [
   'in a better way', 'more optimally',
 ];
 
-// SYNC: shared/rewriteRules.js ISSUE_FALLBACK_SUFFIX
+// Section headings — never rewrite these
+const SECTION_HEADING_PATTERN =
+  /^(RINGKASAN PROFESIONAL|PENGALAMAN KERJA|PENDIDIKAN|KEAHLIAN|SERTIFIKASI|PROFESSIONAL SUMMARY|WORK EXPERIENCE|EDUCATION|SKILLS|CERTIFICATIONS)$/i;
+
+// Date/company header lines — preserve verbatim
+const META_LINE_PATTERN = /^\d{4}|^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i;
+
+const DOCX_GUIDANCE_ID  = '(catatan: tambahkan hasil konkret jika ada, misalnya: waktu ↓ atau output ↑)';
+const DOCX_GUIDANCE_EN  = '(note: add concrete results if available, e.g., time ↓ or output ↑)';
+const DOCX_MAX_HINTS    = 3;
+
+// SYNC: Must stay identical to shared/rewriteRules.js ISSUE_FALLBACK_SUFFIX.
 const ISSUE_FALLBACK = {
   portfolio:        ' untuk menunjukkan dampak kerja secara lebih jelas',
   recruiter_signal: ' dengan fokus yang lebih spesifik pada peran dan hasil',
@@ -54,18 +64,6 @@ const ISSUE_FALLBACK = {
   risk:             ' menggunakan pendekatan yang masih relevan saat ini',
 };
 const GENERIC_FALLBACK_SUFFIX = ' dengan hasil yang lebih jelas dan terstruktur';
-
-// DOCX guidance notes — bilingual, capped at DOCX_MAX_HINTS bullets per CV
-const DOCX_GUIDANCE_ID = '(catatan: tambahkan hasil konkret jika ada, misalnya: waktu ↓ atau output ↑)';
-const DOCX_GUIDANCE_EN = '(note: add concrete results if available, e.g., time ↓ or output ↑)';
-const DOCX_MAX_HINTS   = 3;
-
-// Section headings — structure lines, never rewrite
-const SECTION_HEADING_PATTERN =
-  /^(RINGKASAN PROFESIONAL|PENGALAMAN KERJA|PENDIDIKAN|KEAHLIAN|SERTIFIKASI|PROFESSIONAL SUMMARY|WORK EXPERIENCE|EDUCATION|SKILLS|CERTIFICATIONS)$/i;
-
-// Date/company header lines — preserve verbatim
-const META_LINE_PATTERN = /^\d{4}|^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i;
 
 // ── Metric helpers ────────────────────────────────────────────────────────────
 
@@ -88,12 +86,13 @@ function extractToolTerms(text) {
 }
 
 /**
- * Returns true if `after` introduces tool terms or inflated claims not in `before`.
+ * Returns true if `after` introduces tool terms or inflated claims not present in `before`.
  * @param {string}        before
  * @param {string}        after
- * @param {string[]|null} entitasKlaim - whitelist of claims already present in user's CV
+ * @param {string[]|null} entitasKlaim - normalized whitelist from user's own CV (may be null)
  */
 export function addsNewClaims(before, after, entitasKlaim = null) {
+  // Normalize whitelist once: lowercase, trim, drop single-char tokens
   const allowedTerms = entitasKlaim
     ? new Set(entitasKlaim.map(k => k.trim().toLowerCase()).filter(k => k.length > 2))
     : null;
@@ -101,13 +100,13 @@ export function addsNewClaims(before, after, entitasKlaim = null) {
   const beforeTools = extractToolTerms(before);
   for (const term of extractToolTerms(after)) {
     if (beforeTools.has(term)) continue;
-    if (allowedTerms && allowedTerms.has(term)) continue;
-    return true;
+    if (allowedTerms && allowedTerms.has(term)) continue; // explicitly in CV whitelist
+    return true; // new tool/tech term not in original
   }
 
   for (const { pattern, impliedBy } of INFLATED_CLAIM_PATTERNS) {
     if (pattern.test(after) && !pattern.test(before)) {
-      if (impliedBy && impliedBy.test(before)) continue;
+      if (impliedBy && impliedBy.test(before)) continue; // implied by existing context
       return true;
     }
   }
@@ -216,19 +215,19 @@ function safeRewriteLine(original, issue) {
 
 /**
  * Post-process LLM CV output:
- * 1. Validate each bullet — fall back to safe rewrite if hallucination detected
- * 2. Inject exact preview rewrite for consistency with Hasil page
- * 3. Append DOCX guidance notes (first DOCX_MAX_HINTS bullets) when mode='docx'
+ * 1. Validate each bullet against original CV — fall back if hallucination detected
+ * 2. Force preview line consistency (if previewSample + previewAfter provided)
+ * 3. Append DOCX guidance notes (first DOCX_MAX_HINTS bullets only) if mode === 'docx'
  *
- * @param {string}        llmText
- * @param {string}        originalCVText
- * @param {string|null}   issue          - Primary issue key for fallback suffix
+ * @param {string}        llmText        - Raw LLM output
+ * @param {string}        originalCVText - User's original CV (for reference matching)
+ * @param {string|null}   issue          - Primary issue key for issue-aware fallback
  * @param {string}        mode           - 'pdf' (clean) | 'docx' (with guidance notes)
  * @param {object}        opts
  * @param {string}        [opts.previewSample]  - Original line shown as "before" in Hasil
  * @param {string}        [opts.previewAfter]   - Rewrite shown as "after" in Hasil
  * @param {string[]|null} [opts.entitasKlaim]   - Whitelist of claims already in user's CV
- * @param {string}        [opts.language]       - 'id' (default) | 'en' — DOCX guidance language
+ * @param {string}        [opts.language]       - 'id' (default) | 'en' — controls DOCX guidance language
  * @returns {{ text: string, isTrusted: boolean }}
  */
 export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf', opts = {}) {
@@ -239,7 +238,7 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
   let fallbackCount = 0;
   let totalBullets  = 0;
 
-  // Step 1 — validate each bullet; replace hallucinated lines with safe fallback
+  // Step 1: validate each bullet line
   const outputLines = llmText.split('\n');
   const validated   = outputLines.map(line => {
     const trimmed = line.trim();
@@ -271,8 +270,8 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
     }
 
     if (!validateRewrite(original, clean, entitasKlaim)) {
-      fallbackCount++;
       const prefix = line.match(/^(\s*[-•*]\s*)/)?.[1] ?? '';
+      fallbackCount++;
       return prefix + safeRewriteLine(original, issue);
     }
 
@@ -281,9 +280,7 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
 
   let result = validated.join('\n');
 
-  // Step 2 — inject exact preview rewrite for Hasil→Download consistency.
-  // previewAfter was already validated in useAnalysisPolling before being stored,
-  // so we trust it here without re-running validateRewrite.
+  // Step 2: force preview consistency — raise threshold to 0.6 to avoid wrong mapping
   if (previewSample && previewAfter) {
     let replaced = false;
     const consistencyLines = result.split('\n').map(line => {
@@ -299,7 +296,7 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
     result = consistencyLines.join('\n');
   }
 
-  // Step 3 — DOCX mode: append guidance hint after first DOCX_MAX_HINTS bullets
+  // Step 3: DOCX mode — append guidance hint after first DOCX_MAX_HINTS bullet lines
   if (mode === 'docx') {
     const guidance = language === 'en' ? DOCX_GUIDANCE_EN : DOCX_GUIDANCE_ID;
     let hintsAdded = 0;
@@ -312,7 +309,7 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
     result = docxLines.join('\n');
   }
 
-  // isTrusted: true when fallback rate is below 20% (or no bullets to validate)
+  // isTrusted: true if fallback rate is below 20% (or no bullets to validate)
   const fallbackRate = totalBullets > 0 ? fallbackCount / totalBullets : 0;
   const isTrusted    = fallbackRate < 0.2;
 

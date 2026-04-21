@@ -49,8 +49,8 @@ export async function analyzeCV(cvText, jobDesc, env) {
   // ── Stage 1: EXTRACT ──────────────────────────────────────────────────────
   // Extraction is cached independently so the LLM call is skipped on repeated
   // analysis of identical CV+JD content (e.g. user re-runs after payment).
-  // Bump to extract_v2_ when SKILL_EXTRACT prompt changes significantly.
-  const extractKey = `extract_v1_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
+  // Bumped to extract_v2_ because SKILL_EXTRACT now outputs entitas_klaim.
+  const extractKey = `extract_v2_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
   let extractedData = await env.GASLAMAR_SESSIONS.get(extractKey, { type: 'json' });
   if (!extractedData) {
     extractedData = await callExtract(cvText, jobDesc, env);
@@ -129,6 +129,11 @@ export async function analyzeCV(cvText, jobDesc, env) {
 
   // Clean up undefined hr_7_detik so it doesn't appear as a null key
   if (!scoring.hr_7_detik) delete scoring.hr_7_detik;
+
+  // Pass entitas_klaim from extraction for use in /generate rewrite guard
+  if (Array.isArray(extractedData?.cv?.entitas_klaim)) {
+    scoring.entitas_klaim = extractedData.cv.entitas_klaim.slice(0, 20);
+  }
 
   if (allFlags.length > 0) {
     scoring.red_flags = allFlags;

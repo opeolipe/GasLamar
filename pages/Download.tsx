@@ -85,6 +85,8 @@ export default function Download() {
       ;(window as any).Analytics?.track?.('download_page_ready', {
         tier:              generate.content.tier,
         credits_remaining: generate.content.creditsRemaining,
+        is_trusted:        generate.content.isTrusted,
+        resultId:          sessionStorage.getItem('gaslamar_result_id') || undefined,
       });
     }
   }, [generate.status]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -130,7 +132,10 @@ export default function Download() {
   const handleDownload = useCallback(async (lang: 'id' | 'en', format: 'docx' | 'pdf') => {
     const content = generate.content;
     if (!content) return;
-    const cvText   = lang === 'en' ? (content.cvEn ?? '') : content.cvId;
+    // Use the DOCX-specific text (with guidance notes) for DOCX downloads
+    const cvText = format === 'docx'
+      ? (lang === 'en' ? (content.cvEnDocx ?? content.cvEn ?? '') : (content.cvIdDocx ?? content.cvId))
+      : (lang === 'en' ? (content.cvEn ?? '')                     : content.cvId);
     if (!cvText) return;
 
     const filename = buildCVFilename(cvText, content.jobTitle, content.company, lang, format);
@@ -146,7 +151,9 @@ export default function Download() {
       ;(window as any).Analytics?.track?.('cv_downloaded', {
         lang,
         format,
-        tier: content.tier,
+        tier:       content.tier,
+        is_trusted: content.isTrusted,
+        resultId:   sessionStorage.getItem('gaslamar_result_id') || undefined,
       });
     } catch (err) {
       setShowMobileFb(true);
@@ -340,7 +347,7 @@ export default function Download() {
               showMobileFallback={showMobileFb}
               dimensions={dimensions}
               primaryIssue={resultData?.primaryIssue ?? null}
-              isTrusted={content?.isTrusted}
+              isTrusted={content?.isTrusted ?? false}
             />
           </div>
         )}

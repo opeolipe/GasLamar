@@ -27,6 +27,8 @@ const STALE_KEYS = [
   'gaslamar_scoring', 'gaslamar_cv_key', 'gaslamar_cv_pending', 'gaslamar_jd_pending',
   'gaslamar_filename', 'gaslamar_tier', 'gaslamar_email', 'gaslamar_analyze_time',
   'gaslamar_cv_draft', 'gaslamar_filename_draft',
+  'gaslamar_6d_scores', 'gaslamar_sample_line', 'gaslamar_sample_context',
+  'gaslamar_sample_fallback', 'gaslamar_entitas_klaim', 'gaslamar_result_id',
 ];
 
 export default function Upload() {

@@ -80,7 +80,7 @@ export function validateRewrite(before: string, after: string): boolean {
   return true;
 }
 
-// ── Issue-aware fallback ──────────────────────────────────────────────────────
+// ── Issue-aware fallback ─────────────────────────────────────────────────────
 
 function safeRewrite(original: string, issue: string): RewritePair {
   const suffix = (ISSUE_FALLBACK_SUFFIX as Record<string, string>)[issue] ?? GENERIC_FALLBACK_SUFFIX;

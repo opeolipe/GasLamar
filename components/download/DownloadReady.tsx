@@ -212,7 +212,7 @@ export default function DownloadReady({
   showMobileFallback,
   dimensions,
   primaryIssue,
-  isTrusted,
+  isTrusted = false,
 }: Props) {
   const bilingual        = isBilingual(tier);
   const [feedbackDone,  setFeedbackDone]  = useState(false);
@@ -289,9 +289,11 @@ export default function DownloadReady({
                 🎉
               </div>
               <h2 className="text-2xl font-semibold text-slate-900 mb-1" style={{ fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>CV Kamu Sudah Siap!</h2>
-              <p className="text-sm text-slate-500">Klik tombol di bawah untuk download file CV kamu</p>
+              <p className="text-sm text-slate-500 mb-2">Klik tombol di bawah untuk download file CV kamu</p>
               {isTrusted && (
-                <p className="text-xs text-emerald-700 mt-2 font-medium">✅ CV diverifikasi — tidak ada data yang ditambahkan</p>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: 20, padding: '4px 12px', fontSize: '0.78rem', color: '#15803D', fontWeight: 600 }}>
+                  ✅ CV divalidasi — tidak ada klaim baru
+                </div>
               )}
             </div>
 
