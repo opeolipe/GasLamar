@@ -17,20 +17,32 @@ import { callClaude } from '../claude.js';
 import { validateDiagnoseOutput } from './validate.js';
 
 function parseDiagnoseJSON(rawText) {
-  const cleaned = rawText.replace(/```json\n?|\n?```/g, '').trim();
+  // 1. Strip markdown fences
+  let cleaned = rawText.replace(/```json\n?|\n?```/g, '').trim();
+
+  // 2. Try direct parse first (fast path — Claude followed instructions)
   try {
     return JSON.parse(cleaned);
-  } catch (e) {
-    // Log the exact position and a snippet so Cloudflare logs reveal what Claude produced
-    const pos = Number(e.message.match(/position (\d+)/)?.[1] ?? -1);
-    console.error(JSON.stringify({
-      event: 'diagnose_json_parse_error',
-      error: e.message,
-      raw_length: cleaned.length,
-      snippet: pos >= 0 ? cleaned.slice(Math.max(0, pos - 40), pos + 40) : cleaned.slice(-80),
-    }));
-    throw new Error('INVALID_JSON');
+  } catch (_) {}
+
+  // 3. Fallback: extract first {...} block in case Claude added preamble/postamble
+  const match = cleaned.match(/\{[\s\S]*\}/);
+  if (match) {
+    try {
+      return JSON.parse(match[0]);
+    } catch (_) {}
   }
+
+  // 4. Nothing worked — log diagnostic snippet and throw retryable error
+  const e = new SyntaxError('no valid JSON object found');
+  const pos = Number(e.message.match(/position (\d+)/)?.[1] ?? -1);
+  console.error(JSON.stringify({
+    event: 'diagnose_json_parse_error',
+    error: e.message,
+    raw_length: cleaned.length,
+    snippet: pos >= 0 ? cleaned.slice(Math.max(0, pos - 40), pos + 40) : cleaned.slice(-80),
+  }));
+  throw new Error('INVALID_JSON');
 }
 
 /**
