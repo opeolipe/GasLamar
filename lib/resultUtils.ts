@@ -174,7 +174,7 @@ export function tierRecommendation(score: number): { msg: string; tier: string }
   };
 }
 
-export function buildResultData({ skor6d, cvText, fullRewrite }: BuildResultInput): ResultData {
+export function buildResultData({ skor6d, cvText, fullRewrite, entitasKlaim }: BuildResultInput): ResultData {
   const primaryIssue = getPrimaryIssue(skor6d);
   const sampleLine   = cvText ? (extractSampleLine(cvText) ?? null) : null;
 
@@ -190,11 +190,12 @@ export function buildResultData({ skor6d, cvText, fullRewrite }: BuildResultInpu
   }
 
   return {
-    scores:         skor6d,
+    scores:        skor6d,
     primaryIssue,
     sampleLine,
     rewritePreview,
-    fullRewrite:    fullRewrite ?? null,
+    fullRewrite:   fullRewrite ?? null,
+    entitasKlaim:  entitasKlaim ?? null,
   };
 }
 

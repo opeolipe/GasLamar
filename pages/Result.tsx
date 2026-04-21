@@ -43,7 +43,11 @@ const CARD_STYLE: React.CSSProperties = {
 export default function Result() {
   const { data, cvKey, analyzeTime, loading, error, noSession } = useResultData();
   const countdown = useSessionCountdown(analyzeTime);
-  const [cvText]  = useState(() => sessionStorage.getItem('gaslamar_cv_pending') || '');
+  // cv_pending is cleared during analysis; fall back to the persisted sample line
+  const [cvText]  = useState(() =>
+    sessionStorage.getItem('gaslamar_cv_pending') ||
+    sessionStorage.getItem('gaslamar_sample_line') || '',
+  );
 
   // Pricing & payment state
   const [selectedTier,         setSelectedTier]         = useState<string | null>(null);
@@ -352,7 +356,9 @@ export default function Result() {
 
             {/* 6D Score Breakdown — preview with gated details */}
             {data.skor_6d && Object.keys(data.skor_6d).length > 0 && (() => {
-              const result       = buildResultData({ skor6d: data.skor_6d!, cvText: cvText || undefined });
+              const rawKlaim = sessionStorage.getItem('gaslamar_entitas_klaim');
+              const entitasKlaim = rawKlaim ? JSON.parse(rawKlaim) as string[] : undefined;
+              const result       = buildResultData({ skor6d: data.skor_6d!, cvText: cvText || undefined, entitasKlaim });
               const { primaryIssue, scores, rewritePreview } = result;
               return (
               <div style={CARD_STYLE}>

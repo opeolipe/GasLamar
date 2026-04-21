@@ -54,6 +54,7 @@ export async function callExtract(cvText, jobDesc, env) {
       + '\n\nPENTING: Output harus JSON valid persis sesuai schema. '
       + 'Pastikan semua field ada: cv.pengalaman_mentah, cv.skills_mentah, cv.angka_di_cv, '
       + 'cv.format_cv.satu_kolom (boolean), cv.format_cv.ada_tabel (boolean), '
+      + 'cv.entitas_klaim (array of strings), '
       + 'jd.skills_diminta (array), jd.pengalaman_minimal (number atau null), '
       + 'jd.industri, jd.judul_role. Jangan tulis apapun selain JSON.';
     return await attemptExtract(correction, env);

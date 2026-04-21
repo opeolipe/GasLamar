@@ -7,9 +7,12 @@ const MIN_WORD_COUNT  = 3;
 // Covers: 30%, 1.5x, 3k, 5m, time units, plain counts
 const METRIC_PATTERN = /\b\d+(\.\d+)?\s*(%|x|k|m)?\b|\b\d+\s*(bulan|tahun|minggu|hari)\b/gi;
 
+// SYNC: Must stay identical to worker/src/rewriteGuard.js INFLATED_CLAIM_PATTERNS.
+// If you change one, change the other.
 // Inflated phrases with optional implication bypass:
 // if `before` matches `impliedBy`, the phrase was already implied → don't flag it
 const INFLATED_CLAIM_PATTERNS: Array<{ pattern: RegExp; impliedBy?: RegExp }> = [
+  // Indonesian
   {
     pattern:   /\bmemimpin\s+tim\b/i,
     impliedBy: /\b(mengelola|memimpin|koordinir|kepala|lead|manager|supervisi)\b/i,
@@ -30,12 +33,33 @@ const INFLATED_CLAIM_PATTERNS: Array<{ pattern: RegExp; impliedBy?: RegExp }> = 
     pattern:   /\bmempercepat\s+pertumbuhan\b/i,
     impliedBy: /\b(pertumbuhan|growth|kembang)\b/i,
   },
+  // English equivalents
+  {
+    pattern:   /\bled\s+a\s+team\b/i,
+    impliedBy: /\b(manage|lead|supervise|head|director|coordinator)\b/i,
+  },
+  {
+    pattern:   /\bincreased\s+revenue\b/i,
+    impliedBy: /\b(revenue|sales|income|profit)\b/i,
+  },
+  {
+    pattern:   /\boptimized\s+costs?\b/i,
+    impliedBy: /\b(cost|budget|expense|saving)\b/i,
+  },
+  {
+    // always reject — fabricated team size
+    pattern: /\bteam\s+of\s+\d+\b/i,
+  },
+  {
+    pattern:   /\baccelerated\s+growth\b/i,
+    impliedBy: /\b(growth|expand|scale|grow)\b/i,
+  },
 ];
 
 // ALL-CAPS acronyms (SQL, API) or CamelCase (TypeScript, VueJs) — likely tool names
 const TOOL_TERM_PATTERN = /\b([A-Z]{2,}|[A-Z][a-z]+[A-Z]\w*)\b/g;
 
-// Filler improvements that add no real information
+// SYNC: Must stay identical to worker/src/rewriteGuard.js WEAK_FILLER.
 const WEAK_FILLER = [
   'lebih baik',
   'lebih efektif',
@@ -107,6 +131,8 @@ export function validateRewrite(before: string, after: string): boolean {
 
 // ── Issue-aware fallback ─────────────────────────────────────────────────────
 
+// SYNC: Must stay identical to worker/src/rewriteGuard.js ISSUE_FALLBACK.
+// If you change one, change the other.
 const ISSUE_FALLBACK: Record<string, (t: string) => string> = {
   portfolio:        t => t + ' untuk menunjukkan dampak kerja secara lebih jelas',
   recruiter_signal: t => t + ' dengan fokus yang lebih spesifik pada peran dan hasil',
