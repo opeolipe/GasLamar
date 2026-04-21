@@ -20,7 +20,15 @@ function parseDiagnoseJSON(rawText) {
   const cleaned = rawText.replace(/```json\n?|\n?```/g, '').trim();
   try {
     return JSON.parse(cleaned);
-  } catch {
+  } catch (e) {
+    // Log the exact position and a snippet so Cloudflare logs reveal what Claude produced
+    const pos = Number(e.message.match(/position (\d+)/)?.[1] ?? -1);
+    console.error(JSON.stringify({
+      event: 'diagnose_json_parse_error',
+      error: e.message,
+      raw_length: cleaned.length,
+      snippet: pos >= 0 ? cleaned.slice(Math.max(0, pos - 40), pos + 40) : cleaned.slice(-80),
+    }));
     throw new Error('INVALID_JSON');
   }
 }
@@ -72,8 +80,14 @@ konfidensitas_data: ${konfidensitas}
 INSTRUKSI: Tulis gap HANYA berdasarkan skill_kurang di atas. Jangan tambahkan gap yang tidak ada di skill_kurang.`;
 }
 
-async function attemptDiagnose(userMessage, env) {
-  const result = await callClaude(env, SKILL_DIAGNOSE, userMessage, 1500, 'claude-haiku-4-5-20251001');
+async function attemptDiagnose(userMessage, env, maxTokens) {
+  const result = await callClaude(env, SKILL_DIAGNOSE, userMessage, maxTokens, 'claude-haiku-4-5-20251001');
+  console.log(JSON.stringify({
+    event: 'diagnose_response',
+    stop_reason: result?.stop_reason,
+    raw_length: result?.content?.[0]?.text?.length ?? 0,
+    max_tokens: maxTokens,
+  }));
   if (result?.stop_reason === 'max_tokens') {
     throw new Error('TRUNCATED');
   }
@@ -88,7 +102,8 @@ async function attemptDiagnose(userMessage, env) {
 
 /**
  * Generates human-readable gap analysis and recommendations.
- * Retries once with a schema correction if the first attempt fails validation.
+ * First attempt uses 2500 tokens; on any failure retries once with 3000 tokens
+ * and an explicit schema correction prompt.
  *
  * @param {object} extractedData  — Stage 1 output
  * @param {object} analysisResult — Stage 2 output
@@ -100,14 +115,18 @@ export async function callDiagnose(extractedData, analysisResult, scoreResult, e
   const userMessage = buildUserMessage(extractedData, analysisResult, scoreResult);
 
   try {
-    return await attemptDiagnose(userMessage, env);
+    return await attemptDiagnose(userMessage, env, 2500);
   } catch (firstErr) {
+    console.error(JSON.stringify({
+      event: 'diagnose_retry',
+      reason: firstErr.message,
+    }));
     const correction = userMessage
       + '\n\nPENTING: Output harus JSON valid dengan semua field berikut: '
       + 'gap (array), rekomendasi (array), alasan_skor (string), kekuatan (array), '
       + 'konfidensitas ("Rendah"|"Sedang"|"Tinggi"), '
       + 'hr_7_detik.kuat (array), hr_7_detik.diabaikan (array). '
       + 'Jangan tulis apapun selain JSON.';
-    return await attemptDiagnose(correction, env);
+    return await attemptDiagnose(correction, env, 3000);
   }
 }
