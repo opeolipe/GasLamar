@@ -24,7 +24,10 @@ function parseExtractJSON(rawText) {
  * Throws if the response cannot be parsed or fails schema validation.
  */
 async function attemptExtract(userContent, env) {
-  const result = await callClaude(env, SKILL_EXTRACT, userContent, 1000, 'claude-haiku-4-5-20251001');
+  const result = await callClaude(env, SKILL_EXTRACT, userContent, 1500, 'claude-haiku-4-5-20251001');
+  if (result?.stop_reason === 'max_tokens') {
+    throw new Error('TRUNCATED');
+  }
   const text = result?.content?.[0]?.text || '{}';
   const parsed = parseExtractJSON(text);
   const validation = validateExtractOutput(parsed);

@@ -1,4 +1,15 @@
 import { cleanLine } from '@/lib/cvUtils';
+import {
+  MIN_LINE_LENGTH,
+  MIN_WORD_COUNT,
+  METRIC_PATTERN_SRC,
+  TOOL_TERM_PATTERN_SRC,
+  WEAK_FILLER,
+  INFLATION_RULES,
+  ISSUE_FALLBACK_SUFFIX,
+  GENERIC_FALLBACK_SUFFIX,
+  FALLBACK_NOTE,
+} from '@/shared/rewriteRules.js';
 
 const DEFAULT_SAMPLE  = 'Bertanggung jawab menjalankan tugas harian';
 const MIN_LINE_LENGTH = 15;
@@ -75,10 +86,19 @@ interface RewritePair {
   note?:  string | null;
 }
 
+// ── Compiled patterns (built once from shared sources) ───────────────────────
+
+// Re-created per call via text.match() which handles stateful lastIndex correctly
+const INFLATION_COMPILED = INFLATION_RULES.map(r => ({
+  pattern:   new RegExp(r.patternSrc, r.flags),
+  impliedBy: r.impliedBySrc ? new RegExp(r.impliedBySrc, r.impliedFlags ?? 'i') : null,
+}));
+
 // ── Metric helpers ───────────────────────────────────────────────────────────
 
 function extractMetrics(text: string): string[] {
-  return (text.match(METRIC_PATTERN) || []).map(s => s.toLowerCase().trim());
+  return (text.match(new RegExp(METRIC_PATTERN_SRC, 'gi')) || [])
+    .map(s => s.toLowerCase().trim());
 }
 
 function addsNewNumbers(before: string, after: string): boolean {
@@ -89,35 +109,33 @@ function addsNewNumbers(before: string, after: string): boolean {
 // ── Claim guard ──────────────────────────────────────────────────────────────
 
 function extractToolTerms(text: string): Set<string> {
-  return new Set((text.match(TOOL_TERM_PATTERN) || []).map(s => s.toLowerCase()));
+  return new Set(
+    (text.match(new RegExp(TOOL_TERM_PATTERN_SRC, 'g')) || []).map(s => s.toLowerCase()),
+  );
 }
 
 function addsNewClaims(before: string, after: string): boolean {
-  // New tech tool acronyms/CamelCase terms not present in original
   const beforeTools = extractToolTerms(before);
   for (const term of extractToolTerms(after)) {
     if (!beforeTools.has(term)) return true;
   }
-
-  // Scope-inflation phrases — skip if the phrase was already implied by `before`
-  for (const { pattern, impliedBy } of INFLATED_CLAIM_PATTERNS) {
+  for (const { pattern, impliedBy } of INFLATION_COMPILED) {
     if (pattern.test(after) && !pattern.test(before)) {
-      if (impliedBy && impliedBy.test(before)) continue; // implied → allow
+      if (impliedBy && impliedBy.test(before)) continue;
       return true;
     }
   }
-
   return false;
 }
 
-// ── Weak improvement detection ───────────────────────────────────────────────
+// ── Weak improvement ──────────────────────────────────────────────────────────
 
 function isWeakImprovement(before: string, after: string): boolean {
   const added = after.slice(before.length).toLowerCase();
   return WEAK_FILLER.some(phrase => added.includes(phrase));
 }
 
-// ── Validation ───────────────────────────────────────────────────────────────
+// ── Validation ────────────────────────────────────────────────────────────────
 
 export function validateRewrite(before: string, after: string): boolean {
   if (!before || !after) return false;
@@ -142,15 +160,15 @@ const ISSUE_FALLBACK: Record<string, (t: string) => string> = {
 };
 
 function safeRewrite(original: string, issue: string): RewritePair {
-  const fallbackFn = ISSUE_FALLBACK[issue] ?? ((t: string) => t + ' dengan hasil yang lebih jelas dan terstruktur');
+  const suffix = (ISSUE_FALLBACK_SUFFIX as Record<string, string>)[issue] ?? GENERIC_FALLBACK_SUFFIX;
   return {
     before: original,
-    after:  fallbackFn(original),
-    note:   '(tambahkan hasil konkret jika ada, misalnya: waktu ↓ atau output ↑)',
+    after:  original + suffix,
+    note:   FALLBACK_NOTE,
   };
 }
 
-// ── generateRewritePreview (generic templates, no CV text) ───────────────────
+// ── generateRewritePreview (generic templates, no CV text) ────────────────────
 
 export function generateRewritePreview(issue: string, sampleText?: string): RewritePair | null {
   const text = sampleText || DEFAULT_SAMPLE;
@@ -186,7 +204,7 @@ export function generateRewritePreview(issue: string, sampleText?: string): Rewr
   }
 }
 
-// ── generateRewrite (personalized, validated) ────────────────────────────────
+// ── generateRewrite (personalized, validated) ─────────────────────────────────
 
 export function generateRewrite(issue: string, originalLine: string | null): RewritePair | null {
   if (!originalLine) return null;
@@ -198,7 +216,7 @@ export function generateRewrite(issue: string, originalLine: string | null): Rew
     portfolio: {
       before: clean,
       after:  clean + ' untuk meningkatkan hasil kerja',
-      note:   '(tambahkan hasil konkret jika ada, misalnya: waktu ↓ atau output ↑)',
+      note:   FALLBACK_NOTE,
     },
     recruiter_signal: {
       before: clean,

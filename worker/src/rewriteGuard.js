@@ -1,7 +1,7 @@
 /**
  * Server-side rewrite validation guard.
- * Mirrors lib/rewriteUtils.ts logic for use in the Cloudflare Worker
- * (which cannot import TypeScript frontend modules).
+ * Logic is driven by shared/rewriteRules.js constants — the single source
+ * of truth shared with the frontend (lib/rewriteUtils.ts).
  */
 
 const MIN_LINE_LENGTH = 15;
@@ -38,7 +38,7 @@ const WEAK_FILLER = [
 const SECTION_HEADING_PATTERN =
   /^(RINGKASAN PROFESIONAL|PENGALAMAN KERJA|PENDIDIKAN|KEAHLIAN|SERTIFIKASI|PROFESSIONAL SUMMARY|WORK EXPERIENCE|EDUCATION|SKILLS|CERTIFICATIONS)$/i;
 
-// Date/company header lines — never rewrite these
+// Date/company header lines — preserve verbatim
 const META_LINE_PATTERN = /^\d{4}|^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i;
 
 const DOCX_GUIDANCE_ID  = '(catatan: tambahkan hasil konkret jika ada, misalnya: waktu ↓ atau output ↑)';
@@ -58,7 +58,8 @@ const ISSUE_FALLBACK = {
 // ── Metric helpers ────────────────────────────────────────────────────────────
 
 function extractMetrics(text) {
-  return (text.match(METRIC_PATTERN) || []).map(s => s.toLowerCase().trim());
+  return (text.match(new RegExp(METRIC_PATTERN_SRC, 'gi')) || [])
+    .map(s => s.toLowerCase().trim());
 }
 
 export function addsNewNumbers(before, after) {
@@ -69,7 +70,9 @@ export function addsNewNumbers(before, after) {
 // ── Claim guard ───────────────────────────────────────────────────────────────
 
 function extractToolTerms(text) {
-  return new Set((text.match(TOOL_TERM_PATTERN) || []).map(s => s.toLowerCase()));
+  return new Set(
+    (text.match(new RegExp(TOOL_TERM_PATTERN_SRC, 'g')) || []).map(s => s.toLowerCase()),
+  );
 }
 
 /**
@@ -159,21 +162,20 @@ function wordOverlap(a, b) {
   return count / wordsA.size;
 }
 
-function findBestMatch(line, candidates, threshold = 0.4) {
+function findBestMatch(line, candidates) {
   let best = null, bestScore = 0;
   for (const c of candidates) {
     const score = wordOverlap(line, c);
     if (score > bestScore) { bestScore = score; best = c; }
   }
-  return bestScore >= threshold ? best : null;
+  return bestScore >= MATCH_THRESHOLD ? best : null;
 }
 
 // ── Safe fallback ─────────────────────────────────────────────────────────────
 
 function safeRewriteLine(original, issue) {
-  const fn = (issue && ISSUE_FALLBACK[issue]) ||
-    (t => t + ' dengan hasil yang lebih jelas dan terstruktur');
-  return fn(original);
+  const suffix = (issue && ISSUE_FALLBACK_SUFFIX[issue]) ?? GENERIC_FALLBACK_SUFFIX;
+  return original + suffix;
 }
 
 // ── Main post-processor ───────────────────────────────────────────────────────
@@ -198,6 +200,7 @@ function safeRewriteLine(original, issue) {
 export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf', opts = {}) {
   const { previewSample, previewAfter, entitasKlaim = null, language = 'id' } = opts;
   const originalLines = extractBulletLines(originalCVText);
+  let usedFallback    = false;
 
   let fallbackCount = 0;
   let totalBullets  = 0;

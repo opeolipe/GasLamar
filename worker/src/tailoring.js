@@ -72,7 +72,7 @@ Output hanya teks CV, tidak ada komentar atau penjelasan tambahan.`;
 
     const result = await callClaude(env, systemPrompt, 'Tailoring CV sekarang.', 4096, 'claude-haiku-4-5-20251001');
     let text = result?.content?.[0]?.text?.trim() ?? '';
-    const missing = validateCVSections(text, 'id');
+    const missing = result?.stop_reason === 'max_tokens' ? 'too short' : validateCVSections(text, 'id');
     if (missing) {
       const correction = missing === 'too short'
         ? 'PENTING: Output terlalu pendek. Tulis CV lengkap dengan semua sections.'
@@ -148,7 +148,7 @@ Output only the CV text, no additional comments.`;
 
     const result = await callClaude(env, systemPrompt, 'Tailor the CV now.', 4096, 'claude-haiku-4-5-20251001');
     let text = result?.content?.[0]?.text?.trim() ?? '';
-    const missing = validateCVSections(text, 'en');
+    const missing = result?.stop_reason === 'max_tokens' ? 'too short' : validateCVSections(text, 'en');
     if (missing) {
       const correction = missing === 'too short'
         ? 'IMPORTANT: Output too short. Write the complete CV with all sections.'
