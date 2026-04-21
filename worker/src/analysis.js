@@ -30,8 +30,8 @@ import { sha256Hex }     from './utils.js';
 // ---- Orchestrator ----
 
 export async function analyzeCV(cvText, jobDesc, env) {
-  // ── Cache check (v4) ──────────────────────────────────────────────────────
-  // Bump to analysis_v5_ if the scoring formula or pipeline structure changes.
+  // ── Cache check (v5) ──────────────────────────────────────────────────────
+  // Bump to analysis_v6_ if the scoring formula or pipeline structure changes.
   // v3 entries (from the monolithic SKILL_ANALYZE pipeline) are intentionally
   // stale and will not be returned.
   const cacheKey = `analysis_v5_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
@@ -49,6 +49,7 @@ export async function analyzeCV(cvText, jobDesc, env) {
   // ── Stage 1: EXTRACT ──────────────────────────────────────────────────────
   // Extraction is cached independently so the LLM call is skipped on repeated
   // analysis of identical CV+JD content (e.g. user re-runs after payment).
+  // Bumped to extract_v2_ because SKILL_EXTRACT now outputs entitas_klaim.
   // Bump to extract_v3_ when SKILL_EXTRACT prompt changes significantly.
   const extractKey = `extract_v2_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
   let extractedData = await env.GASLAMAR_SESSIONS.get(extractKey, { type: 'json' });
@@ -129,6 +130,11 @@ export async function analyzeCV(cvText, jobDesc, env) {
 
   // Clean up undefined hr_7_detik so it doesn't appear as a null key
   if (!scoring.hr_7_detik) delete scoring.hr_7_detik;
+
+  // Pass entitas_klaim from extraction for use in /generate rewrite guard
+  if (Array.isArray(extractedData?.cv?.entitas_klaim)) {
+    scoring.entitas_klaim = extractedData.cv.entitas_klaim.slice(0, 20);
+  }
 
   if (allFlags.length > 0) {
     scoring.red_flags = allFlags;
