@@ -3,4 +3,5 @@
  * Single source of truth for environment-specific settings.
  * Update WORKER_URL when deploying to a new worker domain.
  */
-const WORKER_URL = 'https://gaslamar-worker.carolineratuolivia.workers.dev';
+// const WORKER_URL = 'https://gaslamar-worker.carolineratuolivia.workers.dev';
+const WORKER_URL = 'https://gaslamar.carolineratuolivia.workers.dev';
