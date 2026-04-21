@@ -11,6 +11,7 @@ TUGAS: Ekstrak informasi berikut PERSIS seperti yang tertulis. Jika tidak ada, t
    - sertifikat: Daftar jika ada.
    - angka_di_cv: Semua angka yang muncul di CV (contoh: "3 tahun", "Rp 2M", "tim 5 orang"). Jika tidak ada, tulis "NOL ANGKA".
    - format_cv: Apakah layout 1 kolom? (YA/TIDAK). Apakah ada tabel/kolom ganda? (YA/TIDAK).
+   - entitas_klaim: Daftar SEMUA nama tool, teknologi, sertifikasi, dan klaim spesifik yang EKSPLISIT disebut di CV (maks 20 item). Hanya yang benar-benar tertulis. Jika tidak ada, kembalikan array kosong [].
 
 2. DARI JOB DESCRIPTION:
    - skills_diminta: Daftar skill yang disebutkan dalam JD.
@@ -31,7 +32,8 @@ OUTPUT WAJIB JSON:
     "skills_mentah": "<string>",
     "sertifikat": "<string>",
     "angka_di_cv": "<string>",
-    "format_cv": { "satu_kolom": true, "ada_tabel": false }
+    "format_cv": { "satu_kolom": true, "ada_tabel": false },
+    "entitas_klaim": ["<tool_atau_klaim1>", "<tool_atau_klaim2>"]
   },
   "jd": {
     "skills_diminta": ["<skill1>", "<skill2>"],

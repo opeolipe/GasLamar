@@ -125,6 +125,48 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
       const result = await res.json();
       const { cv_text_key: cvKey, ...scoringOnly } = result;
 
+      // Extract sample context from cv_pending BEFORE clearing it (synchronous)
+      try {
+        const cvPending = sessionStorage.getItem('gaslamar_cv_pending') || '';
+        if (cvPending) {
+          const lines = cvPending.split('\n').map((text, index) => ({ text: text.trim(), index }));
+          const longLines = lines.filter(l => l.text.length > 20);
+          const bulletLine = longLines.find(({ text }) =>
+            text.startsWith('•') || text.startsWith('-') ||
+            /^(manage|develop|create|mengelola|membuat|mengembangkan)/i.test(text),
+          );
+          const target = bulletLine ?? longLines[0] ?? null;
+          if (target) {
+            const contextStart = Math.max(0, target.index - 1);
+            const contextEnd   = Math.min(lines.length - 1, target.index + 1);
+            const originalBlock = lines.slice(contextStart, contextEnd + 1).map(l => l.text).join('\n');
+            const sampleContext = { line: target.text, index: target.index, originalBlock };
+            sessionStorage.setItem('gaslamar_sample_context', JSON.stringify(sampleContext));
+            sessionStorage.setItem('gaslamar_sample_line', target.text);
+          }
+          // Fallback: store first 500 chars in case no bullet line was found
+          if (!bulletLine) {
+            sessionStorage.setItem('gaslamar_sample_fallback', cvPending.slice(0, 500));
+          }
+        }
+      } catch (_) {}
+
+      // Persist entitas_klaim for the /generate request
+      try {
+        const klaim = result.entitas_klaim;
+        if (Array.isArray(klaim)) {
+          sessionStorage.setItem('gaslamar_entitas_klaim', JSON.stringify(klaim));
+        }
+      } catch (_) {}
+
+      // Generate a deterministic-ish resultId for analytics correlation
+      try {
+        const cvPrefix = (sessionStorage.getItem('gaslamar_cv_pending') || '')
+          .replace(/\W/g, '').slice(0, 8).toLowerCase();
+        const resultId = `res_${Date.now().toString(36)}_${cvPrefix}`;
+        sessionStorage.setItem('gaslamar_result_id', resultId);
+      } catch (_) {}
+
       sessionStorage.setItem('gaslamar_scoring',      JSON.stringify(scoringOnly));
       sessionStorage.setItem('gaslamar_cv_key',       cvKey || '');
       sessionStorage.setItem('gaslamar_analyze_time', String(Date.now()));
@@ -132,6 +174,7 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
       (window as any).Analytics?.track?.('analysis_completed', {
         score:      result.skor        || null,
         confidence: result.konfidensitas || null,
+        resultId:   sessionStorage.getItem('gaslamar_result_id') || undefined,
         time_ms: (() => {
           const t = sessionStorage.getItem('gaslamar_upload_start');
           return t ? Date.now() - parseInt(t, 10) : undefined;

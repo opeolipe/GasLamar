@@ -11,10 +11,12 @@ export interface ResultData {
   sampleLine:     string | null;
   rewritePreview: RewritePreviewData | null;
   fullRewrite:    unknown;
+  entitasKlaim:   string[] | null;
 }
 
 export interface BuildResultInput {
-  skor6d:       Record<string, number>;
-  cvText?:      string;
-  fullRewrite?: unknown;
+  skor6d:        Record<string, number>;
+  cvText?:       string;
+  fullRewrite?:  unknown;
+  entitasKlaim?: string[] | null;
 }

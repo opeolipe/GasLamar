@@ -10,13 +10,15 @@ import { buildResultData } from '@/lib/resultUtils';
 
 export interface CVContent {
   cvId:             string;
+  cvIdDocx:         string;
   cvEn:             string | null;
+  cvEnDocx:         string | null;
   jobTitle:         string | null;
   company:          string | null;
   creditsRemaining: number;
   totalCredits:     number;
   tier:             string;
-  isTrusted?:       boolean;
+  isTrusted:        boolean;
 }
 
 export interface GenerateCVError {
@@ -83,7 +85,8 @@ export function useGenerateCV(): UseGenerateCVReturn {
     };
 
     ;(window as any).Analytics?.track?.('cv_generation_started', {
-      tier: sessionStorage.getItem('gaslamar_tier') || undefined,
+      tier:     sessionStorage.getItem('gaslamar_tier')     || undefined,
+      resultId: sessionStorage.getItem('gaslamar_result_id') || undefined,
     });
 
     // ── Step 1: /get-session ─────────────────────────────────────────────────
@@ -156,15 +159,31 @@ export function useGenerateCV(): UseGenerateCVReturn {
 
         // Pass preview data for Hasil→Download consistency
         try {
-          const raw6d  = sessionStorage.getItem('gaslamar_6d_scores');
-          const cvText = sessionStorage.getItem('gaslamar_cv_pending') || '';
-          if (raw6d && cvText) {
-            const rd = buildResultData({ skor6d: JSON.parse(raw6d) as Record<string, number>, cvText });
+          const raw6d      = sessionStorage.getItem('gaslamar_6d_scores');
+          // cv_pending is cleared during analysis; fall back to persisted sample line
+          const cvText     = sessionStorage.getItem('gaslamar_cv_pending') ||
+                             sessionStorage.getItem('gaslamar_sample_line') || '';
+          const rawKlaim   = sessionStorage.getItem('gaslamar_entitas_klaim');
+          const entitasKlaim = rawKlaim ? JSON.parse(rawKlaim) as string[] : undefined;
+          if (raw6d) {
+            const rd = buildResultData({
+              skor6d: JSON.parse(raw6d) as Record<string, number>,
+              cvText: cvText || undefined,
+              entitasKlaim,
+            });
             if (rd.primaryIssue) reqBody.primary_issue = rd.primaryIssue;
             if (rd.sampleLine)   reqBody.preview_sample = rd.sampleLine;
-            if (rd.rewritePreview?.after) reqBody.preview_after = rd.rewritePreview.after;
+            // Only send preview_after when it's a validated personalized rewrite — never templates
+            if (rd.rewritePreview?.personalized && rd.rewritePreview.after) {
+              reqBody.preview_after = rd.rewritePreview.after;
+            }
+            if (rd.entitasKlaim?.length) reqBody.entitas_klaim = rd.entitasKlaim;
           }
         } catch (_) { /* ignore */ }
+
+        // Attach resultId for analytics correlation
+        const resultId = sessionStorage.getItem('gaslamar_result_id') || undefined;
+        if (resultId) reqBody.result_id = resultId;
 
         const genRes = await fetch(`${WORKER_URL}/generate`, {
           method:      'POST',
@@ -203,16 +222,20 @@ export function useGenerateCV(): UseGenerateCVReturn {
 
         const {
           cv_id,
+          cv_id_docx,
           cv_en,
-          is_trusted,
+          cv_en_docx,
+          isTrusted,
           credits_remaining,
           total_credits,
           job_title,
           company,
         } = await genRes.json() as {
           cv_id:             string;
+          cv_id_docx:        string;
           cv_en?:            string;
-          is_trusted?:       boolean;
+          cv_en_docx?:       string;
+          isTrusted?:        boolean;
           credits_remaining: number;
           total_credits:     number;
           job_title?:        string;
@@ -224,6 +247,8 @@ export function useGenerateCV(): UseGenerateCVReturn {
           is_bilingual:      confirmedTier !== 'coba',
           has_english:       !!cv_en,
           credits_remaining: credits_remaining ?? 0,
+          is_trusted:        isTrusted ?? false,
+          resultId:          sessionStorage.getItem('gaslamar_result_id') || undefined,
         });
 
         // Clear session storage when all credits are exhausted
@@ -241,13 +266,15 @@ export function useGenerateCV(): UseGenerateCVReturn {
           setProgress(100);
           setContent({
             cvId:             cv_id,
-            cvEn:             cv_en || null,
-            jobTitle:         job_title || null,
-            company:          company   || null,
+            cvIdDocx:         cv_id_docx || cv_id,
+            cvEn:             cv_en      || null,
+            cvEnDocx:         cv_en_docx || cv_en || null,
+            jobTitle:         job_title  || null,
+            company:          company    || null,
             creditsRemaining: credits_remaining ?? 0,
             totalCredits:     total_credits     ?? 1,
             tier:             confirmedTier,
-            isTrusted:        is_trusted ?? false,
+            isTrusted:        isTrusted ?? false,
           });
           setStatus('done');
         }, 500);

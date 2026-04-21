@@ -79,6 +79,36 @@ export const INFLATION_RULES = [
     impliedBySrc: String.raw`\b(pertumbuhan|growth|kembang)\b`,
     impliedFlags: 'i',
   },
+  // English equivalents — SYNC: also in worker/src/rewriteGuard.js INFLATED_CLAIM_PATTERNS
+  {
+    patternSrc:   String.raw`\bled\s+a\s+team\b`,
+    flags:        'i',
+    impliedBySrc: String.raw`\b(manage|lead|supervise|head|director|coordinator)\b`,
+    impliedFlags: 'i',
+  },
+  {
+    patternSrc:   String.raw`\bincreased\s+revenue\b`,
+    flags:        'i',
+    impliedBySrc: String.raw`\b(revenue|sales|income|profit)\b`,
+    impliedFlags: 'i',
+  },
+  {
+    patternSrc:   String.raw`\boptimized\s+costs?\b`,
+    flags:        'i',
+    impliedBySrc: String.raw`\b(cost|budget|expense|saving)\b`,
+    impliedFlags: 'i',
+  },
+  {
+    // always reject — fabricated team size
+    patternSrc: String.raw`\bteam\s+of\s+\d+\b`,
+    flags:      'i',
+  },
+  {
+    patternSrc:   String.raw`\baccelerated\s+growth\b`,
+    flags:        'i',
+    impliedBySrc: String.raw`\b(growth|expand|scale|grow)\b`,
+    impliedFlags: 'i',
+  },
 ];
 
 /**
