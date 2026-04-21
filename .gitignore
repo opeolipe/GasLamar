@@ -5,3 +5,5 @@ css/tailwind.css
 .wrangler/
 dist/
 .gstack/
+test-results/
+playwright-report/
