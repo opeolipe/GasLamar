@@ -65,7 +65,19 @@ export async function callClaude(env, systemPrompt, userContent, maxTokens = 200
       throw new Error(err.error?.message || `Claude API error: ${res.status}`);
     }
 
-    return await res.json();
+    try {
+      return await res.json();
+    } catch (parseErr) {
+      // HTTP 200 but response body was truncated mid-stream (network drop / connection reset).
+      // The raw SyntaxError ("Unexpected end of JSON input") is not actionable for users.
+      console.error(JSON.stringify({
+        event: 'claude_response_truncated',
+        ts: Date.now(),
+        error: parseErr.message,
+        model: selectedModel,
+      }));
+      throw new Error('Respons AI terputus. Coba lagi.');
+    }
   } catch (e) {
     clearTimeout(timeout);
     if (e.name === 'AbortError') throw new Error('Analisis timeout. Coba lagi.');

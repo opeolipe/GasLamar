@@ -1,7 +1,10 @@
 /**
  * Server-side rewrite validation guard.
- * Logic is driven by shared/rewriteRules.js constants — the single source
- * of truth shared with the frontend (lib/rewriteUtils.ts).
+ *
+ * Constants are inlined (not imported from shared/) so the Worker bundle has
+ * zero file-system dependencies at runtime.  Keep in sync with
+ * shared/rewriteRules.js — the comment "SYNC" marks every block that must
+ * match its shared counterpart.
  */
 
 const MIN_LINE_LENGTH = 15;
@@ -27,12 +30,18 @@ const INFLATED_CLAIM_PATTERNS = [
   { pattern: /\boptimized\s+costs?\b/i,         impliedBy: /\b(cost|budget|expense|saving)\b/i },
   { pattern: /\bteam\s+of\s+\d+\b/i },
   { pattern: /\baccelerated\s+growth\b/i,       impliedBy: /\b(growth|expand|scale|grow)\b/i },
+  { pattern: /\bled\s+(cross[- ]functional|global|international)\b/i,
+    impliedBy: /\b(cross[- ]functional|global|international|regional)\b/i },
 ];
 
 // SYNC: Must stay identical to shared/rewriteRules.js WEAK_FILLER.
 const WEAK_FILLER = [
+  // Indonesian
   'lebih baik', 'lebih efektif', 'lebih optimal',
   'lebih maksimal', 'dengan baik', 'secara efektif',
+  // English
+  'more effectively', 'more efficiently', 'better results',
+  'in a better way', 'more optimally',
 ];
 
 // Section headings — never rewrite these
@@ -108,8 +117,9 @@ export function addsNewClaims(before, after, entitasKlaim = null) {
 // ── Weak improvement ──────────────────────────────────────────────────────────
 
 function isWeakImprovement(before, after) {
-  const added = after.slice(before.length).toLowerCase();
-  return WEAK_FILLER.some(phrase => added.includes(phrase));
+  const lowerAfter  = after.toLowerCase();
+  const lowerBefore = before.toLowerCase();
+  return WEAK_FILLER.some(phrase => lowerAfter.includes(phrase) && !lowerBefore.includes(phrase));
 }
 
 // ── Validation ────────────────────────────────────────────────────────────────
@@ -150,6 +160,29 @@ function extractBulletLines(cvText) {
       !SECTION_HEADING_PATTERN.test(l) &&
       !META_LINE_PATTERN.test(l),
     );
+}
+
+// Short original lines (< MIN_LINE_LENGTH) are excluded from fuzzy matching
+// but still need guarding — the LLM may expand them into longer hallucinations.
+function extractShortOriginalLines(cvText) {
+  return cvText
+    .split('\n')
+    .map(l => cleanLine(l.trim()))
+    .filter(l =>
+      l.length > 0 &&
+      l.length < MIN_LINE_LENGTH &&
+      !SECTION_HEADING_PATTERN.test(l) &&
+      !META_LINE_PATTERN.test(l),
+    );
+}
+
+// Returns the short original if the LLM line starts with it (expansion detected).
+function findExpandedShortLine(llmClean, shortOriginals) {
+  const lower = llmClean.toLowerCase();
+  for (const short of shortOriginals) {
+    if (lower.startsWith(short.toLowerCase())) return short;
+  }
+  return null;
 }
 
 // ── Fuzzy matching ────────────────────────────────────────────────────────────
@@ -200,7 +233,8 @@ function safeRewriteLine(original, issue) {
  */
 export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf', opts = {}) {
   const { previewSample, previewAfter, entitasKlaim = null, language = 'id' } = opts;
-  const originalLines = extractBulletLines(originalCVText);
+  const originalLines      = extractBulletLines(originalCVText);
+  const shortOriginalLines = extractShortOriginalLines(originalCVText);
 
   let fallbackCount = 0;
   let totalBullets  = 0;
@@ -224,7 +258,17 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
     totalBullets++;
 
     const original = findBestMatch(clean, originalLines);
-    if (!original) return line; // no reference match — keep LLM output as-is
+    if (!original) {
+      // B4: if the LLM expanded a short original entry (e.g. "Admin" → longer text),
+      // revert to the verbatim short original — we cannot verify the expansion.
+      const shortOriginal = findExpandedShortLine(clean, shortOriginalLines);
+      if (shortOriginal) {
+        fallbackCount++;
+        const prefix = line.match(/^(\s*[-•*]\s*)/)?.[1] ?? '';
+        return prefix + shortOriginal;
+      }
+      return line; // no original found — trust LLM
+    }
 
     if (!validateRewrite(original, clean, entitasKlaim)) {
       const prefix = line.match(/^(\s*[-•*]\s*)/)?.[1] ?? '';
@@ -243,7 +287,7 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
     const consistencyLines = result.split('\n').map(line => {
       if (replaced) return line;
       const clean = cleanLine(line.trim());
-      if (wordOverlap(clean, previewSample) >= 0.6) {
+      if (wordOverlap(clean, previewSample) >= MATCH_THRESHOLD) {
         replaced = true;
         const prefix = line.match(/^(\s*[-•*]\s*)/)?.[1] ?? '';
         return prefix + previewAfter;

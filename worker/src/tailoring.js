@@ -78,6 +78,7 @@ Output hanya teks CV, tidak ada komentar atau penjelasan tambahan.`;
         ? 'PENTING: Output terlalu pendek. Tulis CV lengkap dengan semua sections.'
         : `PENTING: Section "${missing}" tidak ditemukan di output. Wajib disertakan persis seperti heading yang diminta.`;
       const retry = await callClaude(env, systemPrompt + '\n\n' + correction, 'Tailoring CV sekarang.', 4096, 'claude-haiku-4-5-20251001');
+      if (retry?.stop_reason === 'max_tokens') throw new Error('CV terlalu besar untuk diproses. Coba ringkas CV kamu.');
       text = retry?.content?.[0]?.text?.trim() ?? text;
     }
     if (!text) throw new Error('CV Bahasa Indonesia kosong dari AI. Coba lagi.');
@@ -154,6 +155,7 @@ Output only the CV text, no additional comments.`;
         ? 'IMPORTANT: Output too short. Write the complete CV with all sections.'
         : `IMPORTANT: Section "${missing}" is missing from the output. It must be included exactly as shown in the heading list.`;
       const retry = await callClaude(env, systemPrompt + '\n\n' + correction, 'Tailor the CV now.', 4096, 'claude-haiku-4-5-20251001');
+      if (retry?.stop_reason === 'max_tokens') throw new Error('CV is too large to process. Please shorten your CV.');
       text = retry?.content?.[0]?.text?.trim() ?? text;
     }
     if (!text) throw new Error('English CV returned empty from AI. Please retry.');

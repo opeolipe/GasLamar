@@ -30,11 +30,11 @@ import { sha256Hex }     from './utils.js';
 // ---- Orchestrator ----
 
 export async function analyzeCV(cvText, jobDesc, env) {
-  // ── Cache check (v4) ──────────────────────────────────────────────────────
-  // Bump to analysis_v5_ if the scoring formula or pipeline structure changes.
+  // ── Cache check (v5) ──────────────────────────────────────────────────────
+  // Bump to analysis_v6_ if the scoring formula or pipeline structure changes.
   // v3 entries (from the monolithic SKILL_ANALYZE pipeline) are intentionally
   // stale and will not be returned.
-  const cacheKey = `analysis_v4_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
+  const cacheKey = `analysis_v5_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
   const cached = await env.GASLAMAR_SESSIONS.get(cacheKey, { type: 'json' });
   if (cached) {
     // Re-apply red-flag penalty for entries cached before this logic was added.

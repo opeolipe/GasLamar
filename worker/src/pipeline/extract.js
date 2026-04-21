@@ -15,8 +15,23 @@ import { callClaude } from '../claude.js';
 import { validateExtractOutput } from './validate.js';
 
 function parseExtractJSON(rawText) {
-  const cleaned = rawText.replace(/```json\n?|\n?```/g, '').trim();
-  return JSON.parse(cleaned);
+  // 1. Strip markdown fences
+  let cleaned = rawText.replace(/```json\n?|\n?```/g, '').trim();
+
+  // 2. Try direct parse first (fast path)
+  try {
+    return JSON.parse(cleaned);
+  } catch (_) {}
+
+  // 3. Fallback: extract first {...} block in case Claude added preamble/postamble
+  const match = cleaned.match(/\{[\s\S]*\}/);
+  if (match) {
+    try {
+      return JSON.parse(match[0]);
+    } catch (_) {}
+  }
+
+  throw new Error('INVALID_JSON');
 }
 
 /**

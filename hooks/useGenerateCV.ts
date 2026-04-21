@@ -4,7 +4,7 @@ import {
   clearClientSessionData,
   buildSecretHeaders,
 } from '@/lib/downloadUtils';
-import { buildResultData } from '@/lib/resultUtils';
+import { getPrimaryIssue } from '@/lib/resultUtils';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -150,38 +150,39 @@ export function useGenerateCV(): UseGenerateCVReturn {
         const reqBody: Record<string, unknown> = {};
         if (params.jobDesc) reqBody.job_desc = params.jobDesc;
 
-        // Pass score + gaps for the worker's post-generate email
+        // Pass score + gaps for the worker's post-generate email.
+        // Scoring object uses `skor` and `gap` (not `score`/`gaps`).
         try {
           const scoring = JSON.parse(sessionStorage.getItem('gaslamar_scoring') || '{}') as Record<string, unknown>;
-          if (typeof scoring.score === 'number')                          reqBody.score = scoring.score;
-          if (Array.isArray(scoring.gaps) && scoring.gaps.length > 0)   reqBody.gaps  = (scoring.gaps as unknown[]).slice(0, 3);
+          if (typeof scoring.skor === 'number')                         reqBody.score = scoring.skor;
+          if (Array.isArray(scoring.gap) && scoring.gap.length > 0)   reqBody.gaps  = (scoring.gap as unknown[]).slice(0, 3);
         } catch (_) { /* ignore malformed sessionStorage */ }
 
-        // Pass preview data for Hasil→Download consistency
+        // Pass preview data for Hasil→Download consistency.
+        // gaslamar_sample and gaslamar_preview_after are persisted in useAnalysisPolling
+        // before gaslamar_cv_pending is cleared, so they are always available here.
         try {
-          const raw6d      = sessionStorage.getItem('gaslamar_6d_scores');
-          // cv_pending is cleared during analysis; fall back to persisted sample line
-          const cvText     = sessionStorage.getItem('gaslamar_cv_pending') ||
-                             sessionStorage.getItem('gaslamar_sample_line') || '';
-          const rawKlaim   = sessionStorage.getItem('gaslamar_entitas_klaim');
-          const entitasKlaim = rawKlaim ? JSON.parse(rawKlaim) as string[] : undefined;
-          if (raw6d) {
-            const rd = buildResultData({
-              skor6d: JSON.parse(raw6d) as Record<string, number>,
-              cvText: cvText || undefined,
-              entitasKlaim,
-            });
-            if (rd.primaryIssue) reqBody.primary_issue = rd.primaryIssue;
-            if (rd.sampleLine)   reqBody.preview_sample = rd.sampleLine;
-            // Only send preview_after when it's a validated personalized rewrite — never templates
-            if (rd.rewritePreview?.personalized && rd.rewritePreview.after) {
-              reqBody.preview_after = rd.rewritePreview.after;
+          const rawSample    = sessionStorage.getItem('gaslamar_sample');
+          const previewAfter = sessionStorage.getItem('gaslamar_preview_after');
+          const raw6d        = sessionStorage.getItem('gaslamar_6d_scores');
+          const rawKlaim     = sessionStorage.getItem('gaslamar_entitas_klaim');
+          if (rawSample) {
+            const sample = JSON.parse(rawSample) as { text: string; index: number; section: string };
+            if (sample.text) reqBody.preview_sample = sample.text;
+            // Only send validated personalized preview_after — never generic templates
+            if (previewAfter) reqBody.preview_after = previewAfter;
+            if (raw6d) {
+              const primaryIssue = getPrimaryIssue(JSON.parse(raw6d) as Record<string, number>);
+              if (primaryIssue) reqBody.primary_issue = primaryIssue;
             }
-            if (rd.entitasKlaim?.length) reqBody.entitas_klaim = rd.entitasKlaim;
+          }
+          if (rawKlaim) {
+            const klaim = JSON.parse(rawKlaim) as string[];
+            if (Array.isArray(klaim) && klaim.length > 0) reqBody.entitas_klaim = klaim;
           }
         } catch (_) { /* ignore */ }
 
-        // Attach resultId for analytics correlation
+        // Attach resultId for analytics correlation across analyze→generate
         const resultId = sessionStorage.getItem('gaslamar_result_id') || undefined;
         if (resultId) reqBody.result_id = resultId;
 

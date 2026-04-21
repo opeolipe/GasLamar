@@ -64,8 +64,9 @@ function addsNewClaims(before: string, after: string): boolean {
 // ── Weak improvement ──────────────────────────────────────────────────────────
 
 function isWeakImprovement(before: string, after: string): boolean {
-  const added = after.slice(before.length).toLowerCase();
-  return WEAK_FILLER.some(phrase => added.includes(phrase));
+  const lowerAfter  = after.toLowerCase();
+  const lowerBefore = before.toLowerCase();
+  return WEAK_FILLER.some(phrase => lowerAfter.includes(phrase) && !lowerBefore.includes(phrase));
 }
 
 // ── Validation ────────────────────────────────────────────────────────────────
