@@ -58,6 +58,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
         <textarea
           ref={ref}
           id="job-desc"
+          data-testid="jd-textarea"
           value={value}
           onChange={handleChange}
           rows={6}

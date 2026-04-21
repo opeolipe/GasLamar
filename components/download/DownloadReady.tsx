@@ -279,6 +279,9 @@ export default function DownloadReady({
       >
         {showDownloadGrid && (
           <>
+            {/* Hidden CV text for E2E assertions */}
+            <pre data-testid="cv-content" className="sr-only" aria-hidden="true">{cvTextId}</pre>
+
             {/* Success header */}
             <div className="text-center mb-6">
               <div
@@ -291,7 +294,7 @@ export default function DownloadReady({
               <h2 className="text-2xl font-semibold text-slate-900 mb-1" style={{ fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>CV Kamu Sudah Siap!</h2>
               <p className="text-sm text-slate-500 mb-2">Klik tombol di bawah untuk download file CV kamu</p>
               {isTrusted && (
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: 20, padding: '4px 12px', fontSize: '0.78rem', color: '#15803D', fontWeight: 600 }}>
+                <div data-testid="trust-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: 20, padding: '4px 12px', fontSize: '0.78rem', color: '#15803D', fontWeight: 600 }}>
                   ✅ CV divalidasi — tidak ada klaim baru
                 </div>
               )}

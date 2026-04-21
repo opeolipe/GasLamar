@@ -194,16 +194,17 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
             const lines = cvText.split('\n');
             const idx   = lines.findIndex(l => l.includes(rd.sampleLine!));
             sessionStorage.setItem('gaslamar_sample', JSON.stringify({
-              text:    rd.sampleLine,
-              index:   idx,
-              section: 'PENGALAMAN KERJA',
+              text:  rd.sampleLine,
+              index: idx,
             }));
           }
-          if (rd.rewritePreview?.after) {
+          if (rd.rewritePreview?.after && !rd.rewritePreview.after.includes('[')) {
             sessionStorage.setItem('gaslamar_preview_after', rd.rewritePreview.after);
           }
         }
-      } catch (_) {}
+      } catch (e) {
+        console.warn('[GasLamar] Failed to persist sample line for preview consistency:', e);
+      }
 
       ['gaslamar_cv_pending', 'gaslamar_jd_pending', 'gaslamar_filename', 'gaslamar_jd_draft']
         .forEach(k => { try { sessionStorage.removeItem(k); } catch (_) {} });
