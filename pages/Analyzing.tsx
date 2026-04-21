@@ -104,10 +104,10 @@ export default function Analyzing() {
 
       <main className="max-w-2xl mx-auto px-4 py-8 sm:py-12">
         <div
-          className="rounded-[24px] p-6 sm:p-8"
+          className="rounded-[24px] px-6 py-6 sm:px-8 sm:py-9"
           style={{
-            background:     'rgba(255,255,255,0.84)',
-            border:         '1px solid rgba(148,163,184,0.18)',
+            background:     'rgba(255,255,255,0.88)',
+            border:         '1px solid rgba(148,163,184,0.14)',
             boxShadow:      SHADOW,
             backdropFilter: 'blur(14px)',
           }}

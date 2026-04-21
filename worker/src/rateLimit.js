@@ -43,7 +43,7 @@ export async function checkRateLimitKV(env, ip, limit = 3, windowSecs = 60, pref
         await env.GASLAMAR_SESSIONS.put(
           key,
           JSON.stringify({ start: data.start, count: newCount }),
-          { expirationTtl: Math.max(1, remaining) }
+          { expirationTtl: Math.max(60, remaining) }
         );
         log('rate_limit_kv_count', { prefix, ip, count: newCount, limit });
         return { allowed: true };

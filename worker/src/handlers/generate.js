@@ -29,6 +29,28 @@ export async function handleGenerate(request, env, ctx) {
   }
 
   const { job_desc: newJobDesc } = body;
+
+  // Optional preview consistency fields — lightweight strings, validated below
+  const rawPrimaryIssue   = body.primary_issue;
+  const rawPreviewSample  = body.preview_sample;
+  const rawPreviewAfter   = body.preview_after;
+
+  const VALID_ISSUES = new Set(['portfolio', 'recruiter_signal', 'north_star', 'effort', 'risk']);
+  const primaryIssue  = typeof rawPrimaryIssue  === 'string' && VALID_ISSUES.has(rawPrimaryIssue)  ? rawPrimaryIssue  : null;
+  const previewSample = typeof rawPreviewSample === 'string' && rawPreviewSample.length  <= 500     ? rawPreviewSample : null;
+  const previewAfter  = typeof rawPreviewAfter  === 'string' && rawPreviewAfter.length   <= 500     ? rawPreviewAfter  : null;
+
+  // Optional entitas_klaim whitelist — claims already present in user's own CV
+  const rawKlaim = body.entitas_klaim;
+  let entitasKlaim = null;
+  if (rawKlaim !== undefined) {
+    if (!Array.isArray(rawKlaim) || rawKlaim.length > 20 ||
+        rawKlaim.some(k => typeof k !== 'string' || k.length > 100)) {
+      return jsonResponse({ message: 'Entitas klaim tidak valid' }, 400, request, env);
+    }
+    // Normalize: deduplicate, lowercase, trim, drop very short tokens
+    entitasKlaim = [...new Set(rawKlaim.map(k => k.trim().toLowerCase()).filter(k => k.length > 2))];
+  }
   // score and gaps are optional analytics fields forwarded to the CV-ready email.
   // Validate before use: score must be a finite number 0–100; gaps must be an
   // array of short strings. Reject the entire request if types are wrong.
@@ -94,22 +116,24 @@ export async function handleGenerate(request, env, ctx) {
   if (existingLock) {
     return jsonResponse({ message: 'Sedang diproses, coba lagi sebentar.' }, 409, request, env);
   }
-  await env.GASLAMAR_SESSIONS.put(lockKey, 'locked', { expirationTtl: 60 });
+  await env.GASLAMAR_SESSIONS.put(lockKey, 'locked', { expirationTtl: 120 });
 
   try {
     // Generate from KV data only — never from request body (except allowed job_desc override).
     // Run ID and EN tailoring in parallel to stay within Cloudflare's 30s wall-clock limit.
     // Sequential calls could reach 50s (2 × 25s Claude timeout) and hard-kill the Worker.
-    let cvId, cvEn;
+    const tailorOpts = { issue: primaryIssue, previewSample, previewAfter, entitasKlaim };
+    let idResult, enResult;
     if (isBilingual) {
-      [cvId, cvEn] = await Promise.all([
-        tailorCVID(cv_text, effectiveJobDesc, env),
-        tailorCVEN(cv_text, effectiveJobDesc, env),
+      [idResult, enResult] = await Promise.all([
+        tailorCVID(cv_text, effectiveJobDesc, env, 'pdf', tailorOpts),
+        tailorCVEN(cv_text, effectiveJobDesc, env, 'pdf', tailorOpts),
       ]);
     } else {
-      cvId = await tailorCVID(cv_text, effectiveJobDesc, env);
-      cvEn = null;
+      idResult = await tailorCVID(cv_text, effectiveJobDesc, env, 'pdf', tailorOpts);
+      enResult = null;
     }
+    const isTrusted = idResult.isTrusted && (enResult ? enResult.isTrusted : true);
 
     const newCreditsRemaining = creditsRemaining - 1;
 
@@ -133,7 +157,17 @@ export async function handleGenerate(request, env, ctx) {
     }
 
     const { job_title, company } = extractJobMetadata(effectiveJobDesc);
-    return jsonResponse({ cv_id: cvId, cv_en: cvEn, credits_remaining: newCreditsRemaining, total_credits: session.total_credits ?? 1, job_title: job_title ?? null, company: company ?? null }, 200, request, env);
+    return jsonResponse({
+      cv_id:             idResult.text,
+      cv_id_docx:        idResult.docxText,
+      cv_en:             enResult?.text      ?? null,
+      cv_en_docx:        enResult?.docxText  ?? null,
+      isTrusted,
+      credits_remaining: newCreditsRemaining,
+      total_credits:     session.total_credits ?? 1,
+      job_title:         job_title ?? null,
+      company:           company   ?? null,
+    }, 200, request, env);
   } catch (e) {
     // On failure, reset to 'paid' so user can retry (don't consume the credit)
     logError('generate_failed', { session_id, error: e.message });

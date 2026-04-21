@@ -4,24 +4,23 @@ interface Props {
   fileName:     string | null;
   fileSize:     string | null;
   error:        string;
-  scanWarning:  boolean;
   onFileSelect: (file: File) => void;
   onRemove:     () => void;
 }
 
-export default function CvDropzone({ fileName, fileSize, error, scanWarning, onFileSelect, onRemove }: Props) {
+export default function CvDropzone({ fileName, fileSize, error, onFileSelect, onRemove  }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   function onDragOver(e: React.DragEvent) {
     e.preventDefault();
-    e.currentTarget.classList.add('!border-blue-400/50', '!bg-blue-50/50');
+    e.currentTarget.classList.add('!border-blue-500', '!bg-blue-50/40');
   }
   function onDragLeave(e: React.DragEvent) {
-    e.currentTarget.classList.remove('!border-blue-400/50', '!bg-blue-50/50');
+    e.currentTarget.classList.remove('!border-blue-500', '!bg-blue-50/40');
   }
   function onDrop(e: React.DragEvent) {
     e.preventDefault();
-    e.currentTarget.classList.remove('!border-blue-400/50', '!bg-blue-50/50');
+    e.currentTarget.classList.remove('!border-blue-500', '!bg-blue-50/40');
     const f = e.dataTransfer.files[0];
     if (f) onFileSelect(f);
   }
@@ -35,10 +34,11 @@ export default function CvDropzone({ fileName, fileSize, error, scanWarning, onF
   return (
     <div>
       <div
+        data-testid="dropzone"
         tabIndex={0}
         role="button"
         aria-label="Area upload CV — klik atau tekan Enter untuk memilih file"
-        className={`min-h-[160px] rounded-[16px] border-[1.5px] border-dashed border-slate-300 bg-transparent grid place-items-center p-5 text-center transition-all hover:border-slate-900 hover:bg-[rgba(15,23,42,0.02)] ${!fileName ? 'cursor-pointer' : ''}`}
+        className={`min-h-[160px] rounded-2xl border-2 border-dashed border-slate-300 bg-transparent grid place-items-center p-5 text-center transition-all hover:border-blue-400 hover:bg-blue-50/30 ${!fileName ? 'cursor-pointer' : ''}`}
         onClick={() => { if (!fileName) inputRef.current?.click(); }}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
@@ -46,7 +46,7 @@ export default function CvDropzone({ fileName, fileSize, error, scanWarning, onF
         onKeyDown={onKeyDown}
       >
         {fileName ? (
-          <div className="flex items-center justify-between gap-3 w-full text-left">
+          <div data-testid="file-preview" className="flex items-center justify-between gap-3 w-full text-left">
             <div className="flex items-center gap-3 flex-1 min-w-0">
               <span className="text-2xl flex-shrink-0">📄</span>
               <div className="min-w-0">
@@ -66,11 +66,10 @@ export default function CvDropzone({ fileName, fileSize, error, scanWarning, onF
         ) : (
           <div>
             <div className="text-3xl mb-2">📁</div>
-            <div className="font-semibold text-slate-700 mb-1">Drag &amp; drop CV di sini</div>
-            <div className="text-sm text-slate-400 mb-3">atau</div>
+            <div className="font-semibold text-slate-700 mb-3">Upload CV kamu</div>
             <button
               type="button"
-              className="min-h-[44px] px-5 py-2 rounded-full bg-slate-900 text-white text-sm font-medium inline-flex items-center"
+              className="min-h-[44px] px-5 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium inline-flex items-center transition-colors"
               onClick={(e) => { e.stopPropagation(); inputRef.current?.click(); }}
               aria-label="Pilih file CV dari komputer kamu"
             >
@@ -83,6 +82,7 @@ export default function CvDropzone({ fileName, fileSize, error, scanWarning, onF
           ref={inputRef}
           type="file"
           id="cv-file"
+          data-testid="file-input"
           className="hidden"
           accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
           aria-label="Upload file CV (PDF, DOCX, atau TXT, maks 5MB)"
@@ -90,17 +90,14 @@ export default function CvDropzone({ fileName, fileSize, error, scanWarning, onF
         />
       </div>
 
-      <p className="text-xs text-slate-400 mt-2">
-        Gunakan CV berbentuk teks (bukan scan/foto) agar analisis lebih akurat
-      </p>
+      <p className="text-xs text-slate-400 mt-2">Gunakan CV berbentuk teks agar hasil lebih akurat</p>
 
-      {scanWarning && (
-        <p className="text-xs text-slate-500 mt-1.5">
-          ⚠️ CV kamu sepertinya file gambar atau hasil scan. Coba download ulang dari Canva/Word sebagai PDF teks, lalu upload lagi.
-        </p>
-      )}
       {error && (
-        <p className="text-xs text-red-600 mt-1.5">{error}</p>
+        <p className="text-xs text-red-600 mt-2">{error}</p>
+      )}
+
+      {!error && fileName && (
+        <p className="text-xs text-emerald-600 mt-2">✓ CV siap dianalisis</p>
       )}
     </div>
   );

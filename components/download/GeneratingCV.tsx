@@ -84,8 +84,8 @@ export default function GeneratingCV({ progress, status, filename, tier, onCance
     <div
       className="rounded-[24px] p-6 sm:p-8"
       style={{
-        background:     'rgba(255,255,255,0.84)',
-        border:         '1px solid rgba(148,163,184,0.18)',
+        background:     'rgba(255,255,255,0.88)',
+        border:         '1px solid rgba(148,163,184,0.14)',
         boxShadow:      SHADOW,
         backdropFilter: 'blur(14px)',
       }}
@@ -106,12 +106,12 @@ export default function GeneratingCV({ progress, status, filename, tier, onCance
         <div className="text-5xl mb-3" style={{ animation: 'gasDownloadPulse 1.2s infinite ease-in-out', display: 'inline-block' }}>
           ✍️✨
         </div>
-        <h3 className="font-bold text-lg text-slate-900">AI sedang menulis CV tailored untuk kamu...</h3>
+        <h3 className="font-semibold text-lg text-slate-900" style={{ fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>AI sedang menulis CV tailored untuk kamu…</h3>
         <p className="text-sm text-slate-500 mt-1">Biasanya 15–25 detik · Jangan tutup halaman</p>
       </div>
 
       {/* Progress bar */}
-      <div className="rounded-full overflow-hidden my-5" style={{ background: '#E5E7EB', height: 8 }}>
+      <div className="rounded-full overflow-hidden my-5" style={{ background: 'rgba(148,163,184,0.18)', height: 6 }}>
         <div
           className="h-full rounded-full"
           style={{
@@ -140,16 +140,13 @@ export default function GeneratingCV({ progress, status, filename, tier, onCance
               className="flex items-center gap-3 py-3 text-sm text-slate-600"
               style={{ borderBottom: i < STEP_DEFS.length - 1 ? '1px solid rgba(226,232,240,0.6)' : 'none' }}
             >
-              <span
-                className="w-6 text-base text-center flex-shrink-0"
-                style={{
-                  color:     s === 'done' ? '#10B981' : s === 'active' ? '#2563EB' : '#D1D5DB',
-                  animation: s === 'active' ? 'gasDownloadSpin 1s linear infinite' : 'none',
-                  display:   'inline-block',
-                }}
-                aria-hidden="true"
-              >
-                {s === 'done' ? '✓' : s === 'active' ? '⟳' : '○'}
+              <span className="w-5 flex-shrink-0 flex items-center justify-center" aria-hidden="true">
+                {s === 'done'
+                  ? <span className="text-emerald-500 font-bold text-sm">✓</span>
+                  : s === 'active'
+                  ? <span className="block w-3.5 h-3.5 rounded-full border-2 border-blue-200 border-t-blue-600" style={{ animation: 'gasDownloadSpin 0.8s linear infinite' }} />
+                  : <span className="block w-2 h-2 rounded-full bg-slate-200" />
+                }
               </span>
               <span className={s === 'active' ? 'text-slate-800 font-medium' : ''}>{step.label}</span>
             </div>
@@ -158,22 +155,16 @@ export default function GeneratingCV({ progress, status, filename, tier, onCance
       </div>
 
       {/* Timer */}
-      <p className="text-center text-sm font-medium text-blue-600 my-2">{timerText}</p>
+      <p className="text-center text-[0.78rem] text-slate-400 tabular-nums my-2">{timerText}</p>
 
       {/* Trust rotator */}
-      <div
-        className="text-center text-sm font-medium rounded-full px-4 py-2 mx-auto my-4 max-w-sm"
-        style={{
-          background: 'rgba(37,99,235,0.07)',
-          border:     '1px solid rgba(37,99,235,0.14)',
-          color:      '#1D4ED8',
-          opacity:    trustFade ? 0 : 1,
-          transition: 'opacity 0.15s',
-        }}
+      <p
+        className="text-center text-[0.78rem] text-slate-400 my-4 transition-opacity duration-150"
+        style={{ opacity: trustFade ? 0 : 1 }}
         aria-live="polite"
       >
         {TRUST_MSGS[trustIdx]}
-      </div>
+      </p>
 
       {/* Cancel link */}
       <div className="text-center mt-3">

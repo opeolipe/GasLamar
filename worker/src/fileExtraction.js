@@ -72,8 +72,12 @@ export async function extractCVText(cvData, env) {
       env,
       'Ekstrak semua teks dari dokumen CV ini. Output hanya teks mentah tanpa formatting tambahan.',
       parsed,
-      500
+      4096
     );
+
+    if (response?.stop_reason === 'max_tokens') {
+      return { success: false, error: 'CV kamu terlalu panjang untuk diproses. Coba konversi ke format DOCX, atau ringkas CV menjadi maksimal 3 halaman.' };
+    }
 
     const text = response?.content?.[0]?.text || '';
 

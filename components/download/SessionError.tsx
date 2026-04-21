@@ -11,10 +11,11 @@ interface Props {
 export default function SessionError({ title, message, retryable = false, onRetry, onRestart }: Props) {
   return (
     <div
+      data-testid="error-message"
       className="rounded-[24px] p-8 text-center"
       style={{
-        background:     'rgba(255,255,255,0.84)',
-        border:         '1px solid rgba(148,163,184,0.18)',
+        background:     'rgba(255,255,255,0.88)',
+        border:         '1px solid rgba(148,163,184,0.14)',
         boxShadow:      SHADOW,
         backdropFilter: 'blur(14px)',
       }}
@@ -34,12 +35,13 @@ export default function SessionError({ title, message, retryable = false, onRetr
         </svg>
       </div>
 
-      <h2 className="text-lg font-bold text-slate-900 mb-2">{title}</h2>
+      <h2 className="text-lg font-semibold text-slate-900 mb-2" style={{ fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>{title}</h2>
       <p className="text-sm text-slate-500 mb-6 leading-relaxed max-w-sm mx-auto">{message}</p>
 
       <div className="flex flex-col gap-3 items-center">
         {retryable && onRetry && (
           <button
+            data-testid="generate-cv-button"
             onClick={onRetry}
             className="min-h-[48px] px-6 rounded-[16px] font-bold text-white text-sm transition-all hover:-translate-y-[1px]"
             style={{ background: 'linear-gradient(180deg,#2563eb,#1d4ed8)', boxShadow: SHADOW }}
@@ -51,8 +53,8 @@ export default function SessionError({ title, message, retryable = false, onRetr
           <a
             href="upload.html"
             onClick={onRestart}
-            className="min-h-[48px] px-6 rounded-[16px] font-bold text-white text-sm inline-flex items-center transition-all hover:-translate-y-[1px]"
-            style={{ background: 'linear-gradient(180deg,#2563eb,#1d4ed8)', boxShadow: SHADOW }}
+            className="min-h-[48px] px-6 rounded-full font-bold text-white text-sm inline-flex items-center transition-all hover:-translate-y-[1px]"
+            style={{ background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', boxShadow: '0 8px 24px rgba(37,99,235,0.30)' }}
           >
             Mulai Ulang
           </a>

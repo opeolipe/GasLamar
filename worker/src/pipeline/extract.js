@@ -15,8 +15,23 @@ import { callClaude } from '../claude.js';
 import { validateExtractOutput } from './validate.js';
 
 function parseExtractJSON(rawText) {
-  const cleaned = rawText.replace(/```json\n?|\n?```/g, '').trim();
-  return JSON.parse(cleaned);
+  // 1. Strip markdown fences
+  let cleaned = rawText.replace(/```json\n?|\n?```/g, '').trim();
+
+  // 2. Try direct parse first (fast path)
+  try {
+    return JSON.parse(cleaned);
+  } catch (_) {}
+
+  // 3. Fallback: extract first {...} block in case Claude added preamble/postamble
+  const match = cleaned.match(/\{[\s\S]*\}/);
+  if (match) {
+    try {
+      return JSON.parse(match[0]);
+    } catch (_) {}
+  }
+
+  throw new Error('INVALID_JSON');
 }
 
 /**
@@ -24,7 +39,10 @@ function parseExtractJSON(rawText) {
  * Throws if the response cannot be parsed or fails schema validation.
  */
 async function attemptExtract(userContent, env) {
-  const result = await callClaude(env, SKILL_EXTRACT, userContent, 1000, 'claude-haiku-4-5-20251001');
+  const result = await callClaude(env, SKILL_EXTRACT, userContent, 1500, 'claude-haiku-4-5-20251001');
+  if (result?.stop_reason === 'max_tokens') {
+    throw new Error('TRUNCATED');
+  }
   const text = result?.content?.[0]?.text || '{}';
   const parsed = parseExtractJSON(text);
   const validation = validateExtractOutput(parsed);
@@ -54,6 +72,7 @@ export async function callExtract(cvText, jobDesc, env) {
       + '\n\nPENTING: Output harus JSON valid persis sesuai schema. '
       + 'Pastikan semua field ada: cv.pengalaman_mentah, cv.skills_mentah, cv.angka_di_cv, '
       + 'cv.format_cv.satu_kolom (boolean), cv.format_cv.ada_tabel (boolean), '
+      + 'cv.entitas_klaim (array of strings), '
       + 'jd.skills_diminta (array), jd.pengalaman_minimal (number atau null), '
       + 'jd.industri, jd.judul_role. Jangan tulis apapun selain JSON.';
     return await attemptExtract(correction, env);

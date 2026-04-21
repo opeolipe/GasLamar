@@ -1,7 +1,8 @@
 import { SKILL_TAILOR_ID } from './prompts/tailorId.js';
 import { SKILL_TAILOR_EN } from './prompts/tailorEn.js';
-import { callClaude } from './claude.js';
-import { sha256Hex } from './utils.js';
+import { callClaude }      from './claude.js';
+import { sha256Hex }       from './utils.js';
+import { postProcessCV }   from './rewriteGuard.js';
 
 /**
  * Returns the first missing required section heading, 'too short' if the text
@@ -18,13 +19,28 @@ export function validateCVSections(text, lang) {
   return null;
 }
 
-export async function tailorCVID(cvText, jobDesc, env) {
-  // KV generation cache — same CV+JD always produces the same output
-  const genKey = `gen_id_${await sha256Hex(cvText + '||' + jobDesc)}`;
-  const cachedCV = await env.GASLAMAR_SESSIONS.get(genKey);
-  if (cachedCV) return cachedCV;
+/**
+ * @param {string}        cvText
+ * @param {string}        jobDesc
+ * @param {object}        env
+ * @param {string}        [mode='pdf']           - ignored; both pdf+docx are generated internally
+ * @param {object}        [options={}]
+ * @param {string}        [options.issue]         - Primary issue key for issue-aware fallback
+ * @param {string}        [options.previewSample] - Original CV line shown as "before" in Hasil
+ * @param {string}        [options.previewAfter]  - Suggested rewrite shown as "after" in Hasil
+ * @param {string[]|null} [options.entitasKlaim]  - Whitelist of claims already in user's CV
+ * @returns {Promise<{ text: string, docxText: string, isTrusted: boolean }>}
+ */
+export async function tailorCVID(cvText, jobDesc, env, mode = 'pdf', options = {}) {
+  const { issue, previewSample, previewAfter, entitasKlaim = null } = options;
 
-  const systemPrompt = `${SKILL_TAILOR_ID}
+  // KV cache keyed on raw content — post-processing is applied per-call (after cache read)
+  const genKey   = `gen_id_${await sha256Hex(cvText + '||' + jobDesc)}`;
+  const cached   = await env.GASLAMAR_SESSIONS.get(genKey);
+  let   baseText = cached;
+
+  if (!baseText) {
+    const systemPrompt = `${SKILL_TAILOR_ID}
 
 --- TASK ---
 Tailoring CV ini untuk job description berikut.
@@ -54,29 +70,52 @@ Output CV dalam Bahasa Indonesia dengan urutan section di atas:
 
 Output hanya teks CV, tidak ada komentar atau penjelasan tambahan.`;
 
-  const result = await callClaude(env, systemPrompt, 'Tailoring CV sekarang.', 4096, 'claude-haiku-4-5-20251001');
-  let text = result?.content?.[0]?.text?.trim() ?? '';
-  const missing = validateCVSections(text, 'id');
-  if (missing) {
-    const correction = missing === 'too short'
-      ? 'PENTING: Output terlalu pendek. Tulis CV lengkap dengan semua sections.'
-      : `PENTING: Section "${missing}" tidak ditemukan di output. Wajib disertakan persis seperti heading yang diminta.`;
-    const retry = await callClaude(env, systemPrompt + '\n\n' + correction, 'Tailoring CV sekarang.', 4096, 'claude-haiku-4-5-20251001');
-    text = retry?.content?.[0]?.text?.trim() ?? text;
-  }
-  if (!text) throw new Error('CV Bahasa Indonesia kosong dari AI. Coba lagi.');
+    const result = await callClaude(env, systemPrompt, 'Tailoring CV sekarang.', 4096, 'claude-haiku-4-5-20251001');
+    let text = result?.content?.[0]?.text?.trim() ?? '';
+    const missing = result?.stop_reason === 'max_tokens' ? 'too short' : validateCVSections(text, 'id');
+    if (missing) {
+      const correction = missing === 'too short'
+        ? 'PENTING: Output terlalu pendek. Tulis CV lengkap dengan semua sections.'
+        : `PENTING: Section "${missing}" tidak ditemukan di output. Wajib disertakan persis seperti heading yang diminta.`;
+      const retry = await callClaude(env, systemPrompt + '\n\n' + correction, 'Tailoring CV sekarang.', 4096, 'claude-haiku-4-5-20251001');
+      if (retry?.stop_reason === 'max_tokens') throw new Error('CV terlalu besar untuk diproses. Coba ringkas CV kamu.');
+      text = retry?.content?.[0]?.text?.trim() ?? text;
+    }
+    if (!text) throw new Error('CV Bahasa Indonesia kosong dari AI. Coba lagi.');
 
-  await env.GASLAMAR_SESSIONS.put(genKey, text, { expirationTtl: 172800 });
-  return text;
+    baseText = text;
+    await env.GASLAMAR_SESSIONS.put(genKey, baseText, { expirationTtl: 172800 });
+  }
+
+  const postOpts = { previewSample, previewAfter, entitasKlaim, language: 'id' };
+
+  // Generate both variants from the same validated base text
+  const { text: pdfText, isTrusted } = postProcessCV(baseText, cvText, issue, 'pdf',  postOpts);
+  const { text: docxText }           = postProcessCV(baseText, cvText, issue, 'docx', postOpts);
+
+  return { text: pdfText, docxText, isTrusted };
 }
 
-export async function tailorCVEN(cvText, jobDesc, env) {
-  // KV generation cache — same CV+JD always produces the same output
-  const genKey = `gen_en_${await sha256Hex(cvText + '||' + jobDesc)}`;
-  const cachedCV = await env.GASLAMAR_SESSIONS.get(genKey);
-  if (cachedCV) return cachedCV;
+/**
+ * @param {string}        cvText
+ * @param {string}        jobDesc
+ * @param {object}        env
+ * @param {string}        [mode='pdf']           - ignored; both pdf+docx are generated internally
+ * @param {object}        [options={}]
+ * @param {string}        [options.previewSample]
+ * @param {string}        [options.previewAfter]
+ * @param {string[]|null} [options.entitasKlaim]
+ * @returns {Promise<{ text: string, docxText: string, isTrusted: boolean }>}
+ */
+export async function tailorCVEN(cvText, jobDesc, env, mode = 'pdf', options = {}) {
+  const { previewSample, previewAfter, entitasKlaim = null } = options;
 
-  const systemPrompt = `${SKILL_TAILOR_EN}
+  const genKey   = `gen_en_${await sha256Hex(cvText + '||' + jobDesc)}`;
+  const cached   = await env.GASLAMAR_SESSIONS.get(genKey);
+  let   baseText = cached;
+
+  if (!baseText) {
+    const systemPrompt = `${SKILL_TAILOR_EN}
 
 --- TASK ---
 Translate and tailor this CV for the job description below.
@@ -108,18 +147,29 @@ Ensure the same job roles, companies, dates, and achievements appear as in the o
 
 Output only the CV text, no additional comments.`;
 
-  const result = await callClaude(env, systemPrompt, 'Tailor the CV now.', 4096, 'claude-haiku-4-5-20251001');
-  let text = result?.content?.[0]?.text?.trim() ?? '';
-  const missing = validateCVSections(text, 'en');
-  if (missing) {
-    const correction = missing === 'too short'
-      ? 'IMPORTANT: Output too short. Write the complete CV with all sections.'
-      : `IMPORTANT: Section "${missing}" is missing from the output. It must be included exactly as shown in the heading list.`;
-    const retry = await callClaude(env, systemPrompt + '\n\n' + correction, 'Tailor the CV now.', 4096, 'claude-haiku-4-5-20251001');
-    text = retry?.content?.[0]?.text?.trim() ?? text;
-  }
-  if (!text) throw new Error('English CV returned empty from AI. Please retry.');
+    const result = await callClaude(env, systemPrompt, 'Tailor the CV now.', 4096, 'claude-haiku-4-5-20251001');
+    let text = result?.content?.[0]?.text?.trim() ?? '';
+    const missing = result?.stop_reason === 'max_tokens' ? 'too short' : validateCVSections(text, 'en');
+    if (missing) {
+      const correction = missing === 'too short'
+        ? 'IMPORTANT: Output too short. Write the complete CV with all sections.'
+        : `IMPORTANT: Section "${missing}" is missing from the output. It must be included exactly as shown in the heading list.`;
+      const retry = await callClaude(env, systemPrompt + '\n\n' + correction, 'Tailor the CV now.', 4096, 'claude-haiku-4-5-20251001');
+      if (retry?.stop_reason === 'max_tokens') throw new Error('CV is too large to process. Please shorten your CV.');
+      text = retry?.content?.[0]?.text?.trim() ?? text;
+    }
+    if (!text) throw new Error('English CV returned empty from AI. Please retry.');
 
-  await env.GASLAMAR_SESSIONS.put(genKey, text, { expirationTtl: 172800 });
-  return text;
+    baseText = text;
+    await env.GASLAMAR_SESSIONS.put(genKey, baseText, { expirationTtl: 172800 });
+  }
+
+  // For English CV: skip issue-based fallback (fallbacks are in Indonesian)
+  // but still validate rewrites and enforce preview consistency
+  const postOpts = { previewSample, previewAfter, entitasKlaim, language: 'en' };
+
+  const { text: pdfText, isTrusted } = postProcessCV(baseText, cvText, null, 'pdf',  postOpts);
+  const { text: docxText }           = postProcessCV(baseText, cvText, null, 'docx', postOpts);
+
+  return { text: pdfText, docxText, isTrusted };
 }

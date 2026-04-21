@@ -1,11 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import TierIndicator       from '@/components/upload/TierIndicator';
 import CvDropzone          from '@/components/upload/CvDropzone';
 import JobDescriptionInput from '@/components/upload/JobDescriptionInput';
 import SubmitSection       from '@/components/upload/SubmitSection';
 import {
   VALID_TIERS,
-  MIN_JD_LENGTH,
   MIN_CV_TEXT_LENGTH,
   validateFile,
   formatFileSize,
@@ -13,6 +12,7 @@ import {
   escapeHtml,
   unescapeHtml,
 } from '@/lib/uploadValidation';
+import { evaluateJDQuality } from '@/utils/evaluateJDQuality';
 
 const SHADOW = '0 18px 44px rgba(15, 23, 42, 0.08)';
 
@@ -27,6 +27,8 @@ const STALE_KEYS = [
   'gaslamar_scoring', 'gaslamar_cv_key', 'gaslamar_cv_pending', 'gaslamar_jd_pending',
   'gaslamar_filename', 'gaslamar_tier', 'gaslamar_email', 'gaslamar_analyze_time',
   'gaslamar_cv_draft', 'gaslamar_filename_draft',
+  'gaslamar_6d_scores', 'gaslamar_sample_line', 'gaslamar_sample_context',
+  'gaslamar_sample_fallback', 'gaslamar_entitas_klaim', 'gaslamar_result_id',
 ];
 
 export default function Upload() {
@@ -38,29 +40,20 @@ export default function Upload() {
   const [scanWarning, setScanWarning] = useState(false);
 
   // JD state
-  const [jd,        setJd]        = useState('');
-  const [jdError,   setJdError]   = useState('');
-  const [jdTouched, setJdTouched] = useState(false);
+  const [jd, setJd] = useState('');
 
   // UI
   const [loading,  setLoading]  = useState(false);
   const [tier,     setTier]     = useState<string | null>(null);
   const [notices,  setNotices]  = useState<Notice[]>([]);
 
+  // JD textarea ref — used for auto-scroll after CV upload
+  const jdRef = useRef<HTMLTextAreaElement | null>(null);
+
   // Derived
   const hasFile: boolean = !!fileName && !!cvText;
-  const jdOk:    boolean = jd.trim().length >= MIN_JD_LENGTH;
+  const jdOk:    boolean = evaluateJDQuality(jd).isValid;
   const isValid: boolean = hasFile && jdOk;
-
-  const submitHint = !fileName
-    ? '📄 Upload CV kamu dulu sebelum analisis'
-    : scanWarning
-    ? '⚠️ CV tidak bisa dibaca — coba upload ulang file teks'
-    : fileName && !cvText
-    ? '⌛ Membaca CV kamu...'
-    : !jdOk
-    ? '✍️ Isi job description dulu (min. 100 karakter)'
-    : null;
 
   // Mount: read URL params + restore drafts
   useEffect(() => {
@@ -127,20 +120,6 @@ export default function Upload() {
     }
   }, []);
 
-  // Persist JD draft + revalidate on change
-  useEffect(() => {
-    try { sessionStorage.setItem('gaslamar_jd_draft', escapeHtml(jd)); } catch (_) {}
-    if (!jdTouched) return;
-    const trimLen = jd.trim().length;
-    if (trimLen === 0) {
-      setJdError(`Job description wajib diisi. Tulis minimal ${MIN_JD_LENGTH} karakter untuk analisis yang akurat.`);
-    } else if (trimLen < MIN_JD_LENGTH) {
-      setJdError(`Job description terlalu pendek. Tulis minimal ${MIN_JD_LENGTH} karakter untuk analisis yang akurat.`);
-    } else {
-      setJdError('');
-    }
-  }, [jd, jdTouched]);
-
   // Sync back-navigation (BFcache restore)
   useEffect(() => {
     function onPageShow(e: PageTransitionEvent) {
@@ -186,6 +165,7 @@ export default function Upload() {
             sessionStorage.setItem('gaslamar_cv_draft', blob);
             sessionStorage.setItem('gaslamar_filename_draft', file.name);
           } catch (_) {}
+          handleCVUploaded();
         }
       })
       .catch(readErr => {
@@ -194,6 +174,14 @@ export default function Upload() {
         setFileName(null);
         setFileSize(null);
       });
+  }
+
+  function handleCVUploaded() {
+    if (jd.trim()) return;
+    setTimeout(() => {
+      jdRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      jdRef.current?.focus();
+    }, 300);
   }
 
   function handleRemove() {
@@ -206,25 +194,16 @@ export default function Upload() {
 
   function handleJdChange(value: string) {
     setJd(value);
-    setJdTouched(true);
+    try { sessionStorage.setItem('gaslamar_jd_draft', escapeHtml(value)); } catch (_) {}
   }
 
   function handleSubmit() {
-    setJdTouched(true);
-
     if (!hasFile) {
       setFileError('Mohon upload CV kamu terlebih dahulu.');
       return;
     }
     const jobDesc = jd.trim();
-    if (jobDesc.length < MIN_JD_LENGTH) {
-      setJdError(
-        jobDesc.length === 0
-          ? `Job description wajib diisi. Tulis minimal ${MIN_JD_LENGTH} karakter untuk analisis yang akurat.`
-          : `Job description terlalu pendek. Tulis minimal ${MIN_JD_LENGTH} karakter.`
-      );
-      return;
-    }
+    if (!evaluateJDQuality(jobDesc).isValid) return;
 
     setLoading(true);
     try {
@@ -249,7 +228,10 @@ export default function Upload() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 font-sans">
+    <div
+      className="min-h-screen text-gray-900 font-sans"
+      style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37,99,235,0.08), transparent)' }}
+    >
       {/* Skip link */}
       <a
         href="#upload-form"
@@ -268,7 +250,7 @@ export default function Upload() {
         </a>
       </nav>
 
-      <main className="max-w-[960px] mx-auto px-6 pt-14 pb-8" id="upload-form">
+      <main className="max-w-screen-xl mx-auto px-6 pt-14 pb-8" id="upload-form">
 
         {/* Notices */}
         {notices.map((n, i) => (
@@ -282,18 +264,21 @@ export default function Upload() {
 
         {/* ZONE 1: Hero (no box) */}
         <div className="text-center mb-8">
-          <h1 className="text-[clamp(2rem,4vw,2.8rem)] font-extrabold leading-tight tracking-tight text-slate-900 mb-3 max-w-[20ch] mx-auto">
-            Cek peluang interview kamu sebelum apply
+          <h1
+            className="text-[clamp(2rem,4vw,2.8rem)] font-semibold leading-tight text-slate-900 mb-2 max-w-[20ch] mx-auto"
+            style={{ fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.03em' }}
+          >
+            Cek peluang interview kamu
           </h1>
-          <p className="text-base text-slate-500 max-w-[48ch] mx-auto mb-2">
-            Upload CV + job description — tahu peluang kamu dalam 30 detik
+          <p className="text-sm text-slate-500 max-w-[48ch] mx-auto mb-1.5">
+            Upload CV + job description → tahu peluang kamu dalam 30 detik
           </p>
-          <p className="text-sm text-slate-400">Tanpa daftar&nbsp;•&nbsp;hasil dalam ±30 detik</p>
+          <p className="text-xs text-slate-400">Tanpa daftar&nbsp;•&nbsp;hasil dalam ±30 detik</p>
         </div>
 
         {/* ZONE 2: Form panel (soft panel) */}
         <div
-          className="rounded-[24px] px-8 py-9 max-w-[880px] mx-auto"
+          className="rounded-[24px] px-4 py-6 sm:px-8 sm:py-9 max-w-4xl mx-auto"
           style={{
             background:     'rgba(255,255,255,0.88)',
             border:         '1px solid rgba(148,163,184,0.14)',
@@ -305,37 +290,29 @@ export default function Upload() {
 
           {/* GROUP 1: Upload CV */}
           <div className="mb-6">
-            <label className="block text-sm font-semibold mb-2" htmlFor="cv-file">
-              📄 1. Upload CV Kamu
-            </label>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400 mb-3">Upload CV</p>
             <CvDropzone
               fileName={fileName}
               fileSize={fileSize}
               error={fileError}
-              scanWarning={scanWarning}
               onFileSelect={handleFileSelect}
               onRemove={handleRemove}
             />
           </div>
 
           {/* GROUP 2: Job target */}
-          <div className="border-t pt-5" style={{ borderColor: 'rgba(148,163,184,0.18)' }}>
+          <div className="border-t pt-5" style={{ borderColor: 'rgba(148,163,184,0.10)' }}>
             <JobDescriptionInput
+              ref={jdRef}
               value={jd}
               onChange={handleJdChange}
-              error={jdError}
-              touched={jdTouched}
             />
           </div>
 
-          <p className="text-center text-[0.85rem] text-slate-500 mt-4 mb-0">
-            Tahu peluang kamu sebelum apply
-          </p>
-
           <SubmitSection
+            jobDescription={jd}
             isValid={isValid}
             isLoading={loading}
-            hint={submitHint}
             onSubmit={handleSubmit}
           />
         </div>

@@ -13,6 +13,8 @@ import {
   WORKER_URL,
   buildSecretHeaders,
 } from '@/lib/downloadUtils';
+import { buildResultData } from '@/lib/resultUtils';
+import type { ResultData } from '@/types/result';
 import SessionError   from '@/components/download/SessionError';
 import WaitingPayment from '@/components/download/WaitingPayment';
 import GeneratingCV   from '@/components/download/GeneratingCV';
@@ -83,6 +85,8 @@ export default function Download() {
       ;(window as any).Analytics?.track?.('download_page_ready', {
         tier:              generate.content.tier,
         credits_remaining: generate.content.creditsRemaining,
+        is_trusted:        generate.content.isTrusted,
+        resultId:          sessionStorage.getItem('gaslamar_result_id') || undefined,
       });
     }
   }, [generate.status]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -128,7 +132,10 @@ export default function Download() {
   const handleDownload = useCallback(async (lang: 'id' | 'en', format: 'docx' | 'pdf') => {
     const content = generate.content;
     if (!content) return;
-    const cvText   = lang === 'en' ? (content.cvEn ?? '') : content.cvId;
+    // Use the DOCX-specific text (with guidance notes) for DOCX downloads
+    const cvText = format === 'docx'
+      ? (lang === 'en' ? (content.cvEnDocx ?? content.cvEn ?? '') : (content.cvIdDocx ?? content.cvId))
+      : (lang === 'en' ? (content.cvEn ?? '')                     : content.cvId);
     if (!cvText) return;
 
     const filename = buildCVFilename(cvText, content.jobTitle, content.company, lang, format);
@@ -144,7 +151,9 @@ export default function Download() {
       ;(window as any).Analytics?.track?.('cv_downloaded', {
         lang,
         format,
-        tier: content.tier,
+        tier:       content.tier,
+        is_trusted: content.isTrusted,
+        resultId:   sessionStorage.getItem('gaslamar_result_id') || undefined,
       });
     } catch (err) {
       setShowMobileFb(true);
@@ -204,8 +213,20 @@ export default function Download() {
 
   // ── Derived values ────────────────────────────────────────────────────────
 
-  const content          = generate.content;
-  const tier             = content?.tier ?? session.sessionData?.tier ?? null;
+  const content    = generate.content;
+  const tier       = content?.tier ?? session.sessionData?.tier ?? null;
+
+  const [resultData] = useState<ResultData | null>(() => {
+    try {
+      const raw6d  = sessionStorage.getItem('gaslamar_6d_scores');
+      if (!raw6d) return null;
+      const skor6d = JSON.parse(raw6d) as Record<string, number>;
+      const cvText = sessionStorage.getItem('gaslamar_cv_pending') || '';
+      return buildResultData({ skor6d, cvText: cvText || undefined });
+    } catch { return null; }
+  });
+
+  const dimensions = resultData?.scores;
   const creditsRemaining = content?.creditsRemaining ?? session.sessionData?.creditsRemaining ?? 1;
   const totalCredits     = content?.totalCredits     ?? session.sessionData?.totalCredits     ?? 1;
   const bilingual        = tier ? isBilingual(tier) : false;
@@ -223,7 +244,7 @@ export default function Download() {
   return (
     <div
       className="min-h-screen text-gray-900 font-sans"
-      style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37,99,235,0.08), transparent), #f8fafc' }}
+      style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37,99,235,0.08), transparent)' }}
     >
       {/* Skip link */}
       <a
@@ -324,6 +345,9 @@ export default function Download() {
               onGenerateNext={handleGenerateForNewJob}
               onUrlFetch={handleUrlFetch}
               showMobileFallback={showMobileFb}
+              dimensions={dimensions}
+              primaryIssue={resultData?.primaryIssue ?? null}
+              isTrusted={content?.isTrusted ?? false}
             />
           </div>
         )}

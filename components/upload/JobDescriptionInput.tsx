@@ -1,34 +1,23 @@
-import { useState } from 'react';
+import { useState, forwardRef } from 'react';
 import UrlFetcher from './UrlFetcher';
-import { MAX_JD_CHARS, MIN_JD_LENGTH } from '@/lib/uploadValidation';
+import { MAX_JD_CHARS } from '@/lib/uploadValidation';
+import { evaluateJDQuality } from '@/utils/evaluateJDQuality';
 
 interface Props {
   value:    string;
   onChange: (value: string) => void;
-  error:    string;
-  touched:  boolean;
 }
 
-export default function JobDescriptionInput({ value, onChange, error, touched }: Props) {
+const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobDescriptionInput({ value, onChange }, ref) {
   const [showFetcher, setShowFetcher] = useState(false);
-
-  const count     = value.length;
-  const meetsMin  = value.trim().length >= MIN_JD_LENGTH;
-  const nearLimit = count > 4500 && count < MAX_JD_CHARS;
-  const atLimit   = count >= MAX_JD_CHARS;
-
-  const counterCls = atLimit
-    ? 'text-red-600 font-semibold'
-    : nearLimit
-    ? 'text-amber-600'
-    : 'text-slate-400';
+  const count   = value.length;
+  const trimmed = value.trim();
+  const quality = evaluateJDQuality(value);
 
   const textareaCls = [
-    'w-full min-h-[140px] rounded-[16px] border border-dashed bg-transparent p-5',
+    'w-full min-h-[140px] rounded-2xl border bg-transparent p-5',
     'text-slate-900 resize-y outline-none text-sm font-sans transition-all',
-    meetsMin
-      ? 'border-emerald-400/60 focus:border-emerald-500/60 focus:shadow-[0_0_0_4px_rgba(16,185,129,0.08)]'
-      : 'border-slate-300 focus:border-blue-500/50 focus:shadow-[0_0_0_4px_rgba(37,99,235,0.08)]',
+    'focus:ring-2 focus:ring-offset-2 border-slate-300 focus:border-blue-500/50 focus:ring-slate-200',
   ].join(' ');
 
   function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
@@ -38,17 +27,10 @@ export default function JobDescriptionInput({ value, onChange, error, touched }:
 
   return (
     <div>
-      <label className="flex items-center gap-1 text-sm font-semibold mb-2 mt-6" htmlFor="job-desc">
+      <label className="block text-sm font-semibold mb-2 mt-6" htmlFor="job-desc">
         Job yang kamu targetkan
-        <span className="relative inline-flex items-center cursor-help group" tabIndex={0}>
-          <span className="text-[0.65rem] font-bold text-slate-400 bg-slate-100 rounded-full w-[15px] h-[15px] inline-flex items-center justify-center leading-none">?</span>
-          <span className="invisible group-hover:visible group-focus:visible opacity-0 group-hover:opacity-100 group-focus:opacity-100 absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 bg-slate-800 text-white text-xs rounded-lg px-3 py-2 w-[220px] text-center z-20 transition-opacity leading-snug pointer-events-none">
-            Paste bagian "Requirements" atau "Qualifications" dari lowongan. Ini membuat analisis 3× lebih akurat dan relevan.
-          </span>
-        </span>
       </label>
 
-      {/* Helper hint */}
       <div className="mb-3">
         {showFetcher ? (
           <UrlFetcher
@@ -56,15 +38,17 @@ export default function JobDescriptionInput({ value, onChange, error, touched }:
             onClose={() => setShowFetcher(false)}
           />
         ) : (
-          <p className="text-sm font-medium text-slate-700">
-            💡 Belum punya job description? Paste manual atau{' '}
+          <p className="text-sm text-slate-500">
+            Paste job description{' '}
+            <span className="text-slate-400">(requirements / tanggung jawab)</span>
+            {' '}atau{' '}
             <button
               type="button"
               onClick={() => setShowFetcher(true)}
-              className="underline underline-offset-2 hover:text-slate-900 transition-colors"
+              className="text-blue-600 hover:underline font-medium"
               aria-label="Ambil job description dari URL loker seperti LinkedIn, Glints, atau JobStreet"
             >
-              Ambil dari URL →
+              ambil dari URL
             </button>
           </p>
         )}
@@ -72,7 +56,9 @@ export default function JobDescriptionInput({ value, onChange, error, touched }:
 
       <div>
         <textarea
+          ref={ref}
           id="job-desc"
+          data-testid="jd-textarea"
           value={value}
           onChange={handleChange}
           rows={6}
@@ -81,24 +67,20 @@ export default function JobDescriptionInput({ value, onChange, error, touched }:
           className={textareaCls}
           aria-label="Job description atau lowongan kerja yang kamu targetkan"
         />
-        <div className={`text-right text-xs mt-1 ${counterCls}`}>
-          {count.toLocaleString('id-ID')} / 5.000 karakter
+        <div className="text-right text-[10px] mt-1 text-slate-300">
+          {count.toLocaleString('id-ID')} / 5.000
         </div>
       </div>
 
-      {atLimit   && <p className="text-xs text-red-600 mt-0.5">Batas karakter tercapai</p>}
-      {!atLimit && nearLimit && <p className="text-xs text-amber-600 mt-0.5">Mendekati batas karakter</p>}
-
-      {touched && error && (
-        <div className="mt-2 rounded-[12px] px-4 py-2.5 text-sm text-red-700 bg-red-50 border border-red-200">
-          {error}
-        </div>
+      {trimmed && quality.message && (
+        <p className="text-xs text-slate-500 mt-2">{quality.message}</p>
       )}
-      {meetsMin && (
-        <p className="text-xs text-emerald-600 mt-1.5" role="status" aria-live="polite">
-          ✓ Minimal 100 karakter terpenuhi
-        </p>
+
+      {trimmed && !quality.message && (
+        <p className="text-xs text-emerald-600 mt-2">✓ Siap dianalisis</p>
       )}
     </div>
   );
-}
+});
+
+export default JobDescriptionInput;
