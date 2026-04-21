@@ -368,6 +368,45 @@ describe('POST /analyze — validation', () => {
     const res = await post('/analyze', { cv: VALID_DOCX_CV, job_desc: 'x'.repeat(100) }, {}, nextIp());
     expect(res.status).not.toBe(400);
   });
+
+  // ---- job_desc special-character robustness ----
+  // These guard against a class of bug where the client's job_desc content
+  // (quotes, newlines, emoji) is wrongly blamed for a "Unterminated string in JSON"
+  // error that actually originates from Claude's response being truncated.
+  // JSON.stringify on the client handles escaping correctly; the worker must accept
+  // any syntactically valid JSON body regardless of job_desc content.
+
+  it('accepts job_desc with embedded double quotes → not a JSON parse error', async () => {
+    const jd = 'Looking for "Senior" engineer with "3+ years" React. ' + 'x'.repeat(50);
+    const res = await post('/analyze', { cv: VALID_DOCX_CV, job_desc: jd }, {}, nextIp());
+    // Must NOT be 400 (body parse / validation error).  May be 422 (DOCX has no content).
+    expect(res.status).not.toBe(400);
+    const body = await res.json();
+    expect(body.message).not.toMatch(/body tidak valid|request.*invalid/i);
+  });
+
+  it('accepts job_desc with newlines, tabs, and unicode → not a JSON parse error', async () => {
+    const jd = 'Requirements:\n- Node.js ≥18\n- React\n\t- TypeScript\n' + 'Gaji: Rp 20jt/bln 💼\n' + 'x'.repeat(30);
+    const res = await post('/analyze', { cv: VALID_DOCX_CV, job_desc: jd }, {}, nextIp());
+    expect(res.status).not.toBe(400);
+    const body = await res.json();
+    expect(body.message).not.toMatch(/body tidak valid/i);
+  });
+
+  it('rejects raw HTTP body with unescaped quote in job_desc → 400', async () => {
+    // A client that manually builds JSON without JSON.stringify can produce
+    // a body like: {"job_desc":"Looking for "Senior" engineer"} — invalid JSON.
+    // The worker must reject it cleanly, not crash.
+    const malformed = `{"cv":${VALID_DOCX_CV},"job_desc":"Looking for "Senior" engineer with 3+ years experience"}`;
+    const res = await SELF.fetch('https://gaslamar.com/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: GASLAMAR_ORIGIN },
+      body: malformed,
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/tidak valid/i);
+  });
 });
 
 describe('POST /analyze — happy path (mocked Claude)', () => {
