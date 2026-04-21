@@ -5,7 +5,7 @@ import path from 'path';
 
 const TEST_SESSION_ID = 'sess_e2e-test-session-123';
 
-// Matches ScoringData interface; rekomendasi must be string[]
+// Matches ScoringData interface exactly (wrong types crash DetailAnalysis.tsx)
 const MOCK_ANALYZE_RESPONSE = {
   skor_6d: {
     north_star: 7,
@@ -17,21 +17,24 @@ const MOCK_ANALYZE_RESPONSE = {
   },
   skor: 72,
   gap: ['skill_gap_marketing', 'tool_gap_analytics'],
-  veredict: 'good',
+  veredict: 'DO' as const,                           // must be 'DO' | 'DO NOT' | 'TIMED'
   rekomendasi: ['Tambahkan sertifikasi Google Analytics'],
   kekuatan: ['Pengalaman social media'],
   alasan_skor: 'CV cukup baik dengan pengalaman relevan',
-  hr_7_detik: 'Kandidat memiliki dasar marketing digital',
+  hr_7_detik: {                                       // must be {kuat:string[], diabaikan:string[]}
+    kuat: ['Pengalaman social media yang relevan'],
+    diabaikan: [],
+  },
   red_flags: [],
   archetype: 'practitioner',
-  konfidensitas: 0.85,
+  konfidensitas: 'Tinggi' as const,                  // must be 'Tinggi' | 'Sedang' | 'Rendah'
   skor_sesudah: 85,
   timebox_weeks: 4,
   cv_text_key: 'cvtext_test-key-e2e',
 };
 
-const SAMPLE_CV_PATH  = path.resolve('tests/fixtures/sample-cv.pdf');
-const SHORT_CV_PATH   = path.resolve('tests/fixtures/short-cv.txt');
+const SAMPLE_CV_PATH = path.resolve('tests/fixtures/sample-cv.pdf');
+const SHORT_CV_PATH  = path.resolve('tests/fixtures/short-cv.txt');
 
 // ---------- HELPERS ----------
 
@@ -41,13 +44,14 @@ async function uploadCV(page: Page, filePath: string) {
 }
 
 async function fillValidJD(page: Page) {
+  // evaluateJDQuality requires: >80 chars, structure keyword, AND company keyword (pt/cv/inc/ltd/company/etc)
   await page.fill(
     '[data-testid="jd-textarea"]',
-    'Digital Marketing Specialist\n\nRequirements:\n- Social media management\n- Google Analytics\n\nResponsibilities:\n- Manage Instagram and TikTok content\n- Create monthly performance reports',
+    'Digital Marketing Specialist — PT Digital Solution\n\nRequirements:\n- Social media management\n- Google Analytics\n\nResponsibilities:\n- Manage Instagram and TikTok content\n- Create monthly performance reports',
   );
 }
 
-/** Seed localStorage so download.html finds a valid session. */
+/** Seed localStorage so download page finds a valid session. */
 async function setupDownloadSession(page: Page, sessionId = TEST_SESSION_ID) {
   await page.evaluate((sid) => {
     localStorage.setItem('gaslamar_session', sid);
@@ -108,7 +112,12 @@ async function mockGenerate(
   );
 }
 
-/** Navigate to download.html with session + all required route mocks. */
+/**
+ * Navigate to the download page with session + all required route mocks.
+ * Must be called while already on a page (e.g. after beforeEach's goto).
+ * page.evaluate sets localStorage in the current origin context which persists
+ * across same-origin navigations within the same tab.
+ */
 async function gotoDownload(
   page: Page,
   generateOverrides: Record<string, unknown> = {},
@@ -117,18 +126,16 @@ async function gotoDownload(
   await mockCheckSession(page);
   await mockGetSession(page);
   await mockGenerate(page, generateOverrides);
-  await page.goto('/download.html');
+  // serve v14 strips .html via 301 — use extensionless URL directly
+  await page.goto('/download');
 }
 
 // ---------- SUITE ----------
 
 test.describe('GasLamar CV Flow', () => {
   test.beforeEach(async ({ page }) => {
-    // Clear storage to isolate each test
-    await page.addInitScript(() => {
-      localStorage.clear();
-      sessionStorage.clear();
-    });
+    // Register route mocks BEFORE navigating — they persist across all
+    // same-origin navigations within this test's page context.
 
     // Mock /analyze so tests don't need a live worker
     await page.route('**/analyze**', (route) =>
@@ -148,7 +155,15 @@ test.describe('GasLamar CV Flow', () => {
       }),
     );
 
-    await page.goto('/upload.html');
+    // Navigate first, then clear storage ONCE via evaluate.
+    // IMPORTANT: never use page.addInitScript for storage clearing — it fires
+    // before every page load including internal app navigations, which wipes
+    // sessionStorage set by Upload.tsx before Analyzing.tsx can read it.
+    await page.goto('/upload');
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
   });
 
   // ── ANALYZING PAGE TRANSITION ─────────────────────────────────────────────
@@ -158,11 +173,11 @@ test.describe('GasLamar CV Flow', () => {
     await fillValidJD(page);
     await page.click('[data-testid="submit-upload"]');
 
-    // Analyzing page must appear first
-    await page.waitForURL('**/analyzing.html**', { timeout: 15000 });
+    // serve v14 redirects *.html → extensionless via 301
+    await page.waitForURL('**/analyzing**', { timeout: 15000 });
 
-    // Then redirect to hasil
-    await page.waitForURL('**/hasil.html**', { timeout: 60000 });
+    // After /analyze succeeds, Analyzing.tsx redirects to hasil
+    await page.waitForURL('**/hasil**', { timeout: 60000 });
     await expect(page.locator('[data-testid="generate-cv-button"]')).toBeVisible({
       timeout: 15000,
     });
@@ -171,7 +186,8 @@ test.describe('GasLamar CV Flow', () => {
   // ── ANALYZE FAILURE ───────────────────────────────────────────────────────
 
   test('analyze failure shows error on analyzing page', async ({ page }) => {
-    // Override the /analyze mock from beforeEach with a 500
+    // Override the /analyze mock from beforeEach with a 500.
+    // Routes are matched LIFO so this registration takes precedence.
     await page.route('**/analyze**', (route) =>
       route.fulfill({ status: 500, body: JSON.stringify({ message: 'Server error' }) }),
     );
@@ -180,7 +196,7 @@ test.describe('GasLamar CV Flow', () => {
     await fillValidJD(page);
     await page.click('[data-testid="submit-upload"]');
 
-    await page.waitForURL('**/analyzing.html**', { timeout: 15000 });
+    await page.waitForURL('**/analyzing**', { timeout: 15000 });
     await expect(page.locator('[data-testid="error-message"]')).toBeVisible({
       timeout: 15000,
     });
@@ -192,14 +208,16 @@ test.describe('GasLamar CV Flow', () => {
     await uploadCV(page, SAMPLE_CV_PATH);
     await fillValidJD(page);
     await page.click('[data-testid="submit-upload"]');
-    await page.waitForURL('**/hasil.html**', { timeout: 60000 });
+    await page.waitForURL('**/hasil**', { timeout: 60000 });
 
     const previewText = await page.locator('[data-testid="rewrite-after"]').textContent();
     expect(previewText?.trim()).toBeTruthy();
 
     const captured = previewText!.trim();
 
-    // Inject session and navigate to download — generate returns CV containing preview
+    // Inject session and navigate to download — generate returns CV containing preview.
+    // page.evaluate runs in the current /hasil context; localStorage is same-origin so
+    // persists when we navigate to /download.
     await setupDownloadSession(page);
     await mockCheckSession(page);
     await mockGetSession(page);
@@ -207,7 +225,7 @@ test.describe('GasLamar CV Flow', () => {
       cv_id: `${captured}\n\nDigital Marketing Specialist dengan pengalaman relevan.`,
     });
 
-    await page.goto('/download.html');
+    await page.goto('/download');
     await expect(page.locator('[data-testid="cv-content"]')).toBeVisible({
       timeout: 30000,
     });
@@ -246,7 +264,7 @@ test.describe('GasLamar CV Flow', () => {
       timeout: 30000,
     });
 
-    // cv-content renders cv_id (PDF version)
+    // cv-content renders cv_id (PDF version), not cv_id_docx
     const shown = await page.locator('[data-testid="cv-content"]').textContent();
     expect(shown).not.toContain('(catatan:');
     expect(shown).toContain(pdfText);
@@ -266,7 +284,7 @@ test.describe('GasLamar CV Flow', () => {
       timeout: 30000,
     });
 
-    // Trust badge must be hidden (flagged as untrusted)
+    // Trust badge must be absent from DOM (isTrusted:false → not rendered)
     await expect(page.locator('[data-testid="trust-badge"]')).toBeHidden();
   });
 
@@ -276,7 +294,7 @@ test.describe('GasLamar CV Flow', () => {
     await uploadCV(page, SHORT_CV_PATH);
     await fillValidJD(page);
     await page.click('[data-testid="submit-upload"]');
-    await page.waitForURL('**/hasil.html**', { timeout: 60000 });
+    await page.waitForURL('**/hasil**', { timeout: 60000 });
 
     const previewText = await page.locator('[data-testid="rewrite-after"]').textContent();
     expect(previewText).not.toMatch(/\[.*\]/);
@@ -299,12 +317,12 @@ test.describe('GasLamar CV Flow', () => {
       route.fulfill({ status: 500, body: JSON.stringify({ message: 'Internal server error' }) }),
     );
 
-    await page.goto('/download.html');
+    await page.goto('/download');
 
     await expect(page.locator('[data-testid="error-message"]')).toBeVisible({
       timeout: 20000,
     });
-    // Retry button (generate-cv-button) must be enabled and clickable
+    // Retry button (generate-cv-button in SessionError) must be enabled and clickable
     await expect(page.locator('[data-testid="generate-cv-button"]')).toBeVisible();
     await expect(page.locator('[data-testid="generate-cv-button"]')).toBeEnabled();
   });
@@ -312,17 +330,21 @@ test.describe('GasLamar CV Flow', () => {
   // ── NO SESSION ON HASIL PAGE ──────────────────────────────────────────────
 
   test('hasil page shows no-session message when sessionStorage is empty', async ({ page }) => {
-    // Navigate directly with no scoring data — useResultData returns noSession:'missing'
-    await page.goto('/hasil.html');
+    // beforeEach already cleared storage; navigate directly with no scoring data.
+    // useResultData checks gaslamar_scoring; if missing, sets noSession:'missing' → card renders.
+    await page.goto('/hasil');
+    // Use getByRole instead of text= to avoid Playwright 1.59 locator quirks with inline styles
     await expect(
-      page.locator('text=Sesi Analisis Tidak Ditemukan'),
+      page.getByRole('heading', { name: 'Sesi Analisis Tidak Ditemukan' }),
     ).toBeVisible({ timeout: 10000 });
   });
 
   // ── PAYMENT BUTTON TRIGGERS MAYAR REDIRECT ────────────────────────────────
 
   test('payment CTA button attempts redirect to mayar.id', async ({ page }) => {
-    // Pre-seed session data so hasil.html renders with full scoring
+    // Use addInitScript (scoped to this test's page) to inject session data BEFORE
+    // /hasil page scripts run. page.evaluate() from /upload doesn't guarantee sessionStorage
+    // persistence across the page.goto() navigation.
     await page.addInitScript((scoring) => {
       sessionStorage.setItem('gaslamar_scoring', JSON.stringify(scoring));
       sessionStorage.setItem('gaslamar_cv_key', 'cvtext_test-key-e2e');
@@ -348,7 +370,7 @@ test.describe('GasLamar CV Flow', () => {
       await route.abort();
     });
 
-    await page.goto('/hasil.html');
+    await page.goto('/hasil');
     await expect(page.locator('[data-testid="generate-cv-button"]')).toBeVisible({
       timeout: 10000,
     });
@@ -365,7 +387,6 @@ test.describe('GasLamar CV Flow', () => {
     await page.click('[data-testid="generate-cv-button"]');
 
     // Either navigation to Mayar was attempted, or error was shown (if no tier/email)
-    // Wait briefly — success means paymentUrl is set, failure means error is visible
     await page.waitForTimeout(2000);
 
     const isError = await page.locator('text=/error|gagal/i').isVisible().catch(() => false);
