@@ -1,6 +1,7 @@
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, BorderStyle } from 'docx';
 import { jsPDF } from 'jspdf';
 export { WORKER_URL } from '@/lib/uploadValidation';
+import { DOCX_GUIDANCE } from '@/shared/rewriteRules.js';
 
 // ── Tier helpers ──────────────────────────────────────────────────────────────
 
@@ -118,11 +119,14 @@ function parseLines(cvText: string): ParsedLine[] {
 
 export async function generateDOCXBlob(cvText: string): Promise<Blob> {
   const children: Paragraph[] = [];
+  // Track bullet index per section; guidance note appears after first 2 bullets only
+  let sectionBulletCount = 0;
 
   for (const { type, content } of parseLines(cvText)) {
     if (type === 'blank') {
       children.push(new Paragraph({ spacing: { after: 100 } }));
     } else if (type === 'heading') {
+      sectionBulletCount = 0; // reset on each new section
       children.push(new Paragraph({
         text:    content,
         heading: HeadingLevel.HEADING_2,
@@ -135,6 +139,15 @@ export async function generateDOCXBlob(cvText: string): Promise<Blob> {
         bullet:   { level: 0 },
         spacing:  { after: 40 },
       }));
+      // Append guidance hint after first 2 action bullets per section
+      if (sectionBulletCount < 2) {
+        children.push(new Paragraph({
+          children: [new TextRun({ text: DOCX_GUIDANCE, size: 18, font: 'Calibri', color: '888888', italics: true })],
+          spacing:  { after: 40 },
+          indent:   { left: 360 },
+        }));
+        sectionBulletCount++;
+      }
     } else {
       children.push(new Paragraph({
         children: [new TextRun({ text: content, size: 22, font: 'Calibri' })],

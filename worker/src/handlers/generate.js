@@ -116,7 +116,7 @@ export async function handleGenerate(request, env, ctx) {
   if (existingLock) {
     return jsonResponse({ message: 'Sedang diproses, coba lagi sebentar.' }, 409, request, env);
   }
-  await env.GASLAMAR_SESSIONS.put(lockKey, 'locked', { expirationTtl: 60 });
+  await env.GASLAMAR_SESSIONS.put(lockKey, 'locked', { expirationTtl: 120 });
 
   try {
     // Generate from KV data only — never from request body (except allowed job_desc override).
