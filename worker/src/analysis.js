@@ -50,7 +50,6 @@ export async function analyzeCV(cvText, jobDesc, env) {
   // Extraction is cached independently so the LLM call is skipped on repeated
   // analysis of identical CV+JD content (e.g. user re-runs after payment).
   // Bumped to extract_v2_ because SKILL_EXTRACT now outputs entitas_klaim.
-  // Bump to extract_v3_ when SKILL_EXTRACT prompt changes significantly.
   const extractKey = `extract_v2_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
   let extractedData = await env.GASLAMAR_SESSIONS.get(extractKey, { type: 'json' });
   if (!extractedData) {
