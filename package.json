@@ -7,7 +7,8 @@
     "build:js": "node scripts/build.js",
     "build:react": "node scripts/build-react.js",
     "build": "npm run build:vendor && npm run build:js && npm run build:react",
-    "dev": "node scripts/build.js --watch"
+    "dev": "node scripts/build.js --watch",
+    "start": "npx serve . -p 3000"
   },
   "dependencies": {
     "buffer": "^6.0.3",
@@ -21,9 +22,12 @@
     "tailwindcss": "^3.4.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.49.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "esbuild": "^0.28.0",
-    "typescript": "^6.0.3"
+    "serve": "^14.2.4",
+    "typescript": "^6.0.3",
+    "wait-on": "^8.0.1"
   }
 }

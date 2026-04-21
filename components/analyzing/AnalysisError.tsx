@@ -5,7 +5,7 @@ interface Props {
 
 export default function AnalysisError({ message, onRetry }: Props) {
   return (
-    <div className="text-center py-8">
+    <div data-testid="error-message" className="text-center py-8">
       <div className="text-4xl mb-3">⚠️</div>
       <h3
         className="font-semibold text-lg text-slate-900 mb-2"
