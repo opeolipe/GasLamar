@@ -86,28 +86,35 @@ export const INFLATION_RULES = [
     impliedBySrc: String.raw`\b(pertumbuhan|growth|kembang)\b`,
     impliedFlags: 'i',
   },
-  // English equivalents — same logic, specific counts always rejected
+  // English equivalents — SYNC: also in worker/src/rewriteGuard.js INFLATED_CLAIM_PATTERNS
   {
-    // always reject — "led a team of N" invents a headcount
-    patternSrc:   String.raw`\bled\s+a\s+team\s+of\s+\d+`,
+    // "led a team" allowed if user already manages/leads; without context always rejected
+    patternSrc:   String.raw`\bled\s+a\s+team\b`,
+    flags:        'i',
+    impliedBySrc: String.raw`\b(manage|lead|supervise|head|director|coordinator)\b`,
+    impliedFlags: 'i',
+  },
+  {
+    // always reject — "team of N" fabricates a specific headcount
+    patternSrc:   String.raw`\bteam\s+of\s+\d+\b`,
     flags:        'i',
   },
   {
     patternSrc:   String.raw`\bincreased\s+revenue\b`,
     flags:        'i',
-    impliedBySrc: String.raw`\b(revenue|sales|income|turnover)\b`,
+    impliedBySrc: String.raw`\b(revenue|sales|income|profit)\b`,
     impliedFlags: 'i',
   },
   {
     patternSrc:   String.raw`\boptimized\s+costs?\b`,
     flags:        'i',
-    impliedBySrc: String.raw`\b(cost|budget|spending|expense)\b`,
+    impliedBySrc: String.raw`\b(cost|budget|expense|saving)\b`,
     impliedFlags: 'i',
   },
   {
-    patternSrc:   String.raw`\bdrove\s+(business\s+)?growth\b`,
+    patternSrc:   String.raw`\baccelerated\s+growth\b`,
     flags:        'i',
-    impliedBySrc: String.raw`\b(growth|grew|expand|scaling)\b`,
+    impliedBySrc: String.raw`\b(growth|expand|scale|grow)\b`,
     impliedFlags: 'i',
   },
   {

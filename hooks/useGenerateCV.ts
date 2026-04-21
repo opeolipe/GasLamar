@@ -10,13 +10,15 @@ import { getPrimaryIssue } from '@/lib/resultUtils';
 
 export interface CVContent {
   cvId:             string;
+  cvIdDocx:         string;
   cvEn:             string | null;
+  cvEnDocx:         string | null;
   jobTitle:         string | null;
   company:          string | null;
   creditsRemaining: number;
   totalCredits:     number;
   tier:             string;
-  isTrusted?:       boolean;
+  isTrusted:        boolean;
 }
 
 export interface GenerateCVError {
@@ -83,7 +85,8 @@ export function useGenerateCV(): UseGenerateCVReturn {
     };
 
     ;(window as any).Analytics?.track?.('cv_generation_started', {
-      tier: sessionStorage.getItem('gaslamar_tier') || undefined,
+      tier:     sessionStorage.getItem('gaslamar_tier')      || undefined,
+      resultId: sessionStorage.getItem('gaslamar_result_id') || undefined,
     });
 
     // ── Step 1: /get-session ─────────────────────────────────────────────────
@@ -147,33 +150,41 @@ export function useGenerateCV(): UseGenerateCVReturn {
         const reqBody: Record<string, unknown> = {};
         if (params.jobDesc) reqBody.job_desc = params.jobDesc;
 
-        // Pass score + gaps for the worker's post-generate email
-        // Note: scoring object uses `skor` and `gap` (not `score`/`gaps`)
+        // Pass score + gaps for the worker's post-generate email.
+        // Scoring object uses `skor` and `gap` (not `score`/`gaps`).
         try {
-          const raw6d   = sessionStorage.getItem('gaslamar_6d_scores');
           const scoring = JSON.parse(sessionStorage.getItem('gaslamar_scoring') || '{}') as Record<string, unknown>;
-          const skor    = scoring.skor ?? (raw6d ? undefined : undefined); // prefer skor from scoring
-          if (typeof skor === 'number')                                  reqBody.score = skor;
-          if (Array.isArray(scoring.gap) && scoring.gap.length > 0)    reqBody.gaps  = (scoring.gap as unknown[]).slice(0, 3);
+          if (typeof scoring.skor === 'number')                         reqBody.score = scoring.skor;
+          if (Array.isArray(scoring.gap) && scoring.gap.length > 0)   reqBody.gaps  = (scoring.gap as unknown[]).slice(0, 3);
         } catch (_) { /* ignore malformed sessionStorage */ }
 
         // Pass preview data for Hasil→Download consistency.
         // gaslamar_sample and gaslamar_preview_after are persisted in useAnalysisPolling
-        // before gaslamar_cv_pending is cleared, so they are available here.
+        // before gaslamar_cv_pending is cleared, so they are always available here.
         try {
-          const rawSample      = sessionStorage.getItem('gaslamar_sample');
-          const previewAfter   = sessionStorage.getItem('gaslamar_preview_after');
-          const raw6d          = sessionStorage.getItem('gaslamar_6d_scores');
+          const rawSample    = sessionStorage.getItem('gaslamar_sample');
+          const previewAfter = sessionStorage.getItem('gaslamar_preview_after');
+          const raw6d        = sessionStorage.getItem('gaslamar_6d_scores');
+          const rawKlaim     = sessionStorage.getItem('gaslamar_entitas_klaim');
           if (rawSample) {
             const sample = JSON.parse(rawSample) as { text: string; index: number; section: string };
             if (sample.text) reqBody.preview_sample = sample.text;
+            // Only send validated personalized preview_after — never generic templates
             if (previewAfter) reqBody.preview_after = previewAfter;
             if (raw6d) {
               const primaryIssue = getPrimaryIssue(JSON.parse(raw6d) as Record<string, number>);
               if (primaryIssue) reqBody.primary_issue = primaryIssue;
             }
           }
+          if (rawKlaim) {
+            const klaim = JSON.parse(rawKlaim) as string[];
+            if (Array.isArray(klaim) && klaim.length > 0) reqBody.entitas_klaim = klaim;
+          }
         } catch (_) { /* ignore */ }
+
+        // Attach resultId for analytics correlation across analyze→generate
+        const resultId = sessionStorage.getItem('gaslamar_result_id') || undefined;
+        if (resultId) reqBody.result_id = resultId;
 
         const genRes = await fetch(`${WORKER_URL}/generate`, {
           method:      'POST',
@@ -212,7 +223,9 @@ export function useGenerateCV(): UseGenerateCVReturn {
 
         const {
           cv_id,
+          cv_id_docx,
           cv_en,
+          cv_en_docx,
           is_trusted,
           credits_remaining,
           total_credits,
@@ -220,7 +233,9 @@ export function useGenerateCV(): UseGenerateCVReturn {
           company,
         } = await genRes.json() as {
           cv_id:             string;
+          cv_id_docx?:       string;
           cv_en?:            string;
+          cv_en_docx?:       string;
           is_trusted?:       boolean;
           credits_remaining: number;
           total_credits:     number;
@@ -233,6 +248,8 @@ export function useGenerateCV(): UseGenerateCVReturn {
           is_bilingual:      confirmedTier !== 'coba',
           has_english:       !!cv_en,
           credits_remaining: credits_remaining ?? 0,
+          is_trusted:        is_trusted ?? false,
+          resultId:          sessionStorage.getItem('gaslamar_result_id') || undefined,
         });
 
         // Clear session storage when all credits are exhausted
@@ -250,9 +267,11 @@ export function useGenerateCV(): UseGenerateCVReturn {
           setProgress(100);
           setContent({
             cvId:             cv_id,
-            cvEn:             cv_en || null,
-            jobTitle:         job_title || null,
-            company:          company   || null,
+            cvIdDocx:         cv_id_docx || cv_id,
+            cvEn:             cv_en      || null,
+            cvEnDocx:         cv_en_docx || cv_en || null,
+            jobTitle:         job_title  || null,
+            company:          company    || null,
             creditsRemaining: credits_remaining ?? 0,
             totalCredits:     total_credits     ?? 1,
             tier:             confirmedTier,
