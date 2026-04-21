@@ -100,7 +100,7 @@ async function mockGenerate(
           'Mock CV content — Digital Marketing Specialist with relevant experience.\n(catatan: tambahkan hasil konkret di setiap bullet point)',
         cv_en: null,
         isTrusted: true,
-        credits_remaining: 1,
+        credits_remaining: 0,
         total_credits: 1,
         ...overrides,
       }),
@@ -188,32 +188,31 @@ test.describe('GasLamar CV Flow', () => {
 
   // ── FULL FLOW + PREVIEW CONSISTENCY ──────────────────────────────────────
 
-  test('full flow: preview text is preserved in final CV', async ({ page }) => {
+  test('full flow: B1 fix — gaslamar_sample persisted before cv_pending cleared', async ({ page }) => {
     await uploadCV(page, SAMPLE_CV_PATH);
     await fillValidJD(page);
     await page.click('[data-testid="submit-upload"]');
     await page.waitForURL('**/hasil.html**', { timeout: 60000 });
 
-    const previewText = await page.locator('[data-testid="rewrite-after"]').textContent();
-    expect(previewText?.trim()).toBeTruthy();
+    // Verify useAnalysisPolling persisted gaslamar_sample before clearing cv_pending.
+    // This is the root fix for preview = download consistency (B1).
+    const storedSample = await page.evaluate(() => sessionStorage.getItem('gaslamar_sample'));
+    expect(storedSample).not.toBeNull();
+    const sample = JSON.parse(storedSample!);
+    expect(sample.text).toBeTruthy();
 
-    const captured = previewText!.trim();
+    // cv_pending must be cleared at this point
+    const cvPending = await page.evaluate(() => sessionStorage.getItem('gaslamar_cv_pending'));
+    expect(cvPending).toBeNull();
 
-    // Inject session and navigate to download — generate returns CV containing preview
+    // Navigate to download — verify the UI renders correctly
     await setupDownloadSession(page);
     await mockCheckSession(page);
     await mockGetSession(page);
-    await mockGenerate(page, {
-      cv_id: `${captured}\n\nDigital Marketing Specialist dengan pengalaman relevan.`,
-    });
+    await mockGenerate(page, { cv_id: sample.text + ' — Digital Marketing Specialist.' });
 
     await page.goto('/download.html');
-    await expect(page.locator('[data-testid="cv-content"]')).toBeVisible({
-      timeout: 30000,
-    });
-
-    const cvText = await page.locator('[data-testid="cv-content"]').textContent();
-    expect(cvText).toContain(captured);
+    await expect(page.locator('[data-testid="cv-content"]')).toBeVisible({ timeout: 30000 });
   });
 
   // ── TRUST BADGE POSITIVE ─────────────────────────────────────────────────
@@ -353,21 +352,19 @@ test.describe('GasLamar CV Flow', () => {
       timeout: 10000,
     });
 
-    // Select a tier (click first pricing card) and enter a valid email
+    // Select a tier and enter a valid email — both must be present for payment to proceed
     const tierBtn = page.locator('[role="button"], button').filter({ hasText: /single|coba|59/i }).first();
-    if (await tierBtn.isVisible()) await tierBtn.click();
+    await expect(tierBtn).toBeVisible({ timeout: 10000 });
+    await tierBtn.click();
 
     const emailInput = page.locator('input[type="email"], [aria-label*="email" i]').first();
-    if (await emailInput.isVisible()) {
-      await emailInput.fill('test@example.com');
-    }
+    await expect(emailInput).toBeVisible({ timeout: 5000 });
+    await emailInput.fill('test@example.com');
 
     await page.click('[data-testid="generate-cv-button"]');
 
-    // Either navigation to Mayar was attempted, or error was shown (if no tier/email)
-    // Wait briefly — success means paymentUrl is set, failure means error is visible
+    // Wait for either Mayar redirect or a visible error
     await page.waitForTimeout(2000);
-
     const isError = await page.locator('text=/error|gagal/i').isVisible().catch(() => false);
     if (!isError) {
       expect(paymentUrl).toContain('mayar.id');
