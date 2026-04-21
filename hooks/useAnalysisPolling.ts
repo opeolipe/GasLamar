@@ -8,6 +8,8 @@ import {
   STEP_DEFS,
   getTimerText,
 } from '@/lib/analysisUtils';
+import { buildResultData } from '@/lib/resultUtils';
+import { extractSampleLine } from '@/lib/cvUtils';
 
 export type StepStatus = 'pending' | 'active' | 'done';
 
@@ -137,6 +139,28 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
           return t ? Date.now() - parseInt(t, 10) : undefined;
         })(),
       });
+
+      // Persist sample line + preview_after BEFORE clearing cv_pending.
+      // useGenerateCV reads these on the Download page to inject the exact
+      // preview rewrite the user saw, ensuring preview = download consistency.
+      try {
+        const cvText = sessionStorage.getItem('gaslamar_cv_pending') || '';
+        if (cvText && scoringOnly.skor_6d) {
+          const rd = buildResultData({ skor6d: scoringOnly.skor_6d as Record<string, number>, cvText });
+          if (rd.sampleLine) {
+            const lines = cvText.split('\n');
+            const idx   = lines.findIndex(l => l.includes(rd.sampleLine!));
+            sessionStorage.setItem('gaslamar_sample', JSON.stringify({
+              text:    rd.sampleLine,
+              index:   idx,
+              section: 'PENGALAMAN KERJA',
+            }));
+          }
+          if (rd.rewritePreview?.after) {
+            sessionStorage.setItem('gaslamar_preview_after', rd.rewritePreview.after);
+          }
+        }
+      } catch (_) {}
 
       ['gaslamar_cv_pending', 'gaslamar_jd_pending', 'gaslamar_filename', 'gaslamar_jd_draft']
         .forEach(k => { try { sessionStorage.removeItem(k); } catch (_) {} });

@@ -106,6 +106,29 @@ function extractBulletLines(cvText) {
     );
 }
 
+// Short original lines (< MIN_LINE_LENGTH) excluded from fuzzy matching above,
+// but still need guarding against LLM expansion.
+function extractShortOriginalLines(cvText) {
+  return cvText
+    .split('\n')
+    .map(l => cleanLine(l.trim()))
+    .filter(l =>
+      l.length > 0 &&
+      l.length < MIN_LINE_LENGTH &&
+      !SECTION_HEADING_PATTERN.test(l) &&
+      !META_LINE_PATTERN.test(l),
+    );
+}
+
+// Returns the short original if the LLM line appears to be an expansion of it.
+function findExpandedShortLine(llmClean, shortOriginals) {
+  const lower = llmClean.toLowerCase();
+  for (const short of shortOriginals) {
+    if (lower.startsWith(short.toLowerCase())) return short;
+  }
+  return null;
+}
+
 // ── Fuzzy matching ────────────────────────────────────────────────────────────
 
 function wordOverlap(a, b) {
@@ -151,8 +174,9 @@ function safeRewriteLine(original, issue) {
  */
 export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf', opts = {}) {
   const { previewSample, previewAfter } = opts;
-  const originalLines = extractBulletLines(originalCVText);
-  let usedFallback    = false;
+  const originalLines      = extractBulletLines(originalCVText);
+  const shortOriginalLines = extractShortOriginalLines(originalCVText);
+  let usedFallback         = false;
 
   // Step 1 — validate each bullet; replace hallucinated lines with safe fallback
   const outputLines = llmText.split('\n');
@@ -167,7 +191,18 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
     if (clean.length < MIN_LINE_LENGTH)         return line;
 
     const original = findBestMatch(clean, originalLines);
-    if (!original) return line; // no reference match — trust LLM
+    if (!original) {
+      // Check if this line was expanded from a short original entry
+      // (short lines are excluded from originalLines but the LLM may have expanded them)
+      const shortOriginal = findExpandedShortLine(clean, shortOriginalLines);
+      if (shortOriginal) {
+        // Preserve the original verbatim — we cannot verify the expansion
+        usedFallback = true;
+        const prefix = line.match(/^(\s*[-•*]\s*)/)?.[1] ?? '';
+        return prefix + shortOriginal;
+      }
+      return line; // no original found — trust LLM
+    }
 
     if (!validateRewrite(original, clean)) {
       usedFallback = true;

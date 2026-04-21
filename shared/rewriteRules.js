@@ -33,12 +33,19 @@ export const TOOL_TERM_PATTERN_SRC =
  * is considered weak and falls back to the issue-aware safe rewrite.
  */
 export const WEAK_FILLER = [
+  // Indonesian
   'lebih baik',
   'lebih efektif',
   'lebih optimal',
   'lebih maksimal',
   'dengan baik',
   'secara efektif',
+  // English
+  'more effectively',
+  'more efficiently',
+  'better results',
+  'in a better way',
+  'more optimally',
 ];
 
 /**
@@ -77,6 +84,36 @@ export const INFLATION_RULES = [
     patternSrc:   String.raw`\bmempercepat\s+pertumbuhan\b`,
     flags:        'i',
     impliedBySrc: String.raw`\b(pertumbuhan|growth|kembang)\b`,
+    impliedFlags: 'i',
+  },
+  // English equivalents — same logic, specific counts always rejected
+  {
+    // always reject — "led a team of N" invents a headcount
+    patternSrc:   String.raw`\bled\s+a\s+team\s+of\s+\d+`,
+    flags:        'i',
+  },
+  {
+    patternSrc:   String.raw`\bincreased\s+revenue\b`,
+    flags:        'i',
+    impliedBySrc: String.raw`\b(revenue|sales|income|turnover)\b`,
+    impliedFlags: 'i',
+  },
+  {
+    patternSrc:   String.raw`\boptimized\s+costs?\b`,
+    flags:        'i',
+    impliedBySrc: String.raw`\b(cost|budget|spending|expense)\b`,
+    impliedFlags: 'i',
+  },
+  {
+    patternSrc:   String.raw`\bdrove\s+(business\s+)?growth\b`,
+    flags:        'i',
+    impliedBySrc: String.raw`\b(growth|grew|expand|scaling)\b`,
+    impliedFlags: 'i',
+  },
+  {
+    patternSrc:   String.raw`\bled\s+(cross[- ]functional|global|international)\b`,
+    flags:        'i',
+    impliedBySrc: String.raw`\b(cross[- ]functional|global|international|regional)\b`,
     impliedFlags: 'i',
   },
 ];
