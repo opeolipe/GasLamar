@@ -22,15 +22,15 @@ export default function PricingSelector({ selectedTier, onSelect, score }: Props
 
       {/* Tier recommendation banner */}
       {rec && (
-        <div style={{ background: '#0F172A', color: 'white', borderRadius: 16, padding: '1rem 1.2rem', margin: '1rem 0', fontSize: '0.85rem' }}>
+        <div style={{ background: 'rgba(239,246,255,0.9)', border: '1px solid #BFDBFE', color: '#1E3A8A', borderRadius: 16, padding: '1rem 1.2rem', margin: '1rem 0', fontSize: '0.85rem' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
             <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>💡</span>
-            <p style={{ margin: 0, color: 'rgba(255,255,255,0.9)' }}>
+            <p style={{ margin: 0, color: '#1E3A8A' }}>
               <span dangerouslySetInnerHTML={{ __html: rec.msg }} />
               {' '}
               <button
                 onClick={() => onSelect(rec.tier)}
-                style={{ marginLeft: 4, textDecoration: 'underline', fontWeight: 600, background: 'none', border: 'none', color: '#93C5FD', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit', padding: 0 }}
+                style={{ marginLeft: 4, textDecoration: 'underline', fontWeight: 600, background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit', padding: 0 }}
               >
                 Pilih →
               </button>
@@ -69,7 +69,7 @@ export default function PricingSelector({ selectedTier, onSelect, score }: Props
               }}
             >
               {popular && (
-                <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: '#0F172A', color: 'white', fontSize: '0.65rem', padding: '0.2rem 0.8rem', borderRadius: 60, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: 'linear-gradient(180deg,#2563eb,#1d4ed8)', color: 'white', fontSize: '0.65rem', padding: '0.2rem 0.8rem', borderRadius: 60, fontWeight: 600, whiteSpace: 'nowrap' }}>
                   ⭐ PALING LARIS
                 </div>
               )}

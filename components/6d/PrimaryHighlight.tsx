@@ -1,23 +1,23 @@
 const ISSUE_COPY: Record<string, { title: string; description: string }> = {
   portfolio: {
-    title:       'Belum ada bukti hasil kerja yang jelas',
-    description: 'CV kamu masih terlihat seperti daftar tugas, bukan hasil kerja. HR lebih tertarik pada dampak nyata.',
+    title:       'CV kamu belum menunjukkan hasil kerja yang nyata',
+    description: 'HR scan CV dalam 7 detik dan langsung cari angka atau dampak konkret. Tanpa itu, CV terlihat seperti daftar tugas — dan mudah dilewati.',
   },
   recruiter_signal: {
-    title:       'CV belum menarik di 7 detik pertama',
-    description: 'HR kemungkinan langsung skip karena CV belum menunjukkan value dengan cepat.',
+    title:       'CV kamu belum cukup menonjol di 7 detik pertama',
+    description: 'HR memutuskan lanjut atau tidak hanya dalam 6–7 detik. Kalau bagian atas CV tidak langsung menunjukkan value-mu, peluang dipanggil turun drastis.',
   },
   north_star: {
-    title:       'CV belum cukup relevan dengan job ini',
-    description: 'Pengalaman kamu belum langsung terlihat cocok dengan posisi yang dilamar.',
+    title:       'CV kamu belum terlihat pas untuk posisi ini',
+    description: 'Rekruter mencocokkan CV dengan job description secara cepat. Kalau kata kunci dan pengalamanmu tidak nyambung, CV mudah dilewati.',
   },
   effort: {
-    title:       'Masih butuh waktu untuk siap interview',
-    description: 'Masih ada skill gap yang perlu ditutup sebelum peluang interview meningkat.',
+    title:       'Masih ada gap skill yang perlu ditutup lebih dulu',
+    description: 'HR menilai seberapa siap kamu dari hari pertama kerja. Semakin banyak skill yang belum ada di CV, semakin kecil kemungkinan dipanggil interview.',
   },
   risk: {
-    title:       'Skill mulai kurang relevan ke depan',
-    description: 'Beberapa skill di CV kamu mungkin sudah tidak terlalu dicari saat ini.',
+    title:       'Beberapa skill di CV kamu mulai kurang relevan',
+    description: 'Rekruter memprioritaskan kandidat dengan skill yang dibutuhkan sekarang dan ke depan. Skill yang jarang dicari bisa bikin CV kamu terlihat ketinggalan.',
   },
 };
 

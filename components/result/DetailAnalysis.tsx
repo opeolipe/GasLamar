@@ -1,5 +1,4 @@
-import { useRef }  from 'react';
-import Tooltip      from '@/components/result/Tooltip';
+import Tooltip from '@/components/result/Tooltip';
 
 interface Props {
   strengths?:  string[];
@@ -7,16 +6,6 @@ interface Props {
 }
 
 export default function DetailAnalysis({ strengths = [], hr7Data }: Props) {
-  const detailsRef = useRef<HTMLDetailsElement>(null);
-
-  function handleToggle() {
-    if (detailsRef.current?.open) {
-      setTimeout(() => {
-        detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 50);
-    }
-  }
-
   const hasStrengths = strengths.length > 0;
   const hasHr7       = hr7Data && (hr7Data.kuat.length > 0 || hr7Data.diabaikan.length > 0);
   const hasAny       = hasStrengths || hasHr7;
@@ -24,35 +13,31 @@ export default function DetailAnalysis({ strengths = [], hr7Data }: Props) {
 
   return (
     <details
-      ref={detailsRef}
-      onToggle={handleToggle}
-      style={{ background: 'white', borderRadius: 24, border: '1px solid #EEF2F6', boxShadow: '0 4px 12px rgba(0,0,0,0.04)', marginBottom: '2rem', overflow: 'hidden' }}
+      style={{ background: 'white', borderRadius: 16, border: '1px solid #EEF2F6', marginBottom: '1.5rem', overflow: 'hidden' }}
     >
-      <summary style={{ padding: '1rem 1.5rem', cursor: 'pointer', fontSize: '0.88rem', fontWeight: 600, color: '#374151', listStyle: 'none', display: 'flex', alignItems: 'center', userSelect: 'none' }}>
-        📋 Lihat detail (strength &amp; HR view)
+      <summary style={{ padding: '1rem 1.25rem', cursor: 'pointer', fontSize: '0.88rem', fontWeight: 600, color: '#374151', listStyle: 'none', display: 'flex', alignItems: 'center', userSelect: 'none' }}>
+        📋 Lihat analisis lengkap
         <span style={{ marginLeft: 'auto', fontSize: '0.65rem', color: '#9CA3AF' }}>▼</span>
       </summary>
 
-      <div style={{ padding: '0 1.5rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div style={{ padding: '0 1.25rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
-        {/* Strengths */}
         {hasStrengths && (
-          <div style={{ background: '#FAFCFE', borderRadius: 20, padding: '1.2rem', border: '1px solid #EDF2F7' }}>
-            <h4 style={{ fontSize: '1rem', marginBottom: '0.75rem', fontWeight: 700, margin: '0 0 0.75rem' }}>
+          <div>
+            <h4 style={{ fontSize: '0.9rem', fontWeight: 700, margin: '0 0 0.6rem', color: '#065F46' }}>
               ✅ Ini yang sudah kuat (jangan diubah)
             </h4>
             <ul style={{ paddingLeft: '1.2rem', fontSize: '0.85rem', color: '#2D3A5E', margin: 0 }}>
-              {strengths.map((s, i) => <li key={i} style={{ margin: '0.5rem 0' }}>{s}</li>)}
+              {strengths.map((s, i) => <li key={i} style={{ margin: '0.4rem 0' }}>{s}</li>)}
             </ul>
           </div>
         )}
 
-        {/* HR 7-second view */}
         {hasHr7 && (
-          <div style={{ background: 'white', borderRadius: 20, border: '1px solid #EEF2F6', padding: '1.2rem' }}>
-            <h4 style={{ marginBottom: '0.75rem', fontWeight: 700, margin: '0 0 0.75rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div>
+            <h4 style={{ fontWeight: 700, margin: '0 0 0.6rem', display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.9rem' }}>
               👁️ Yang HR lihat dalam 7 detik
-              <Tooltip text="Riset menunjukkan HR hanya melihat CV 6-7 detik sebelum memutuskan lanjut atau tidak. Ini bagian yang paling diperhatikan." />
+              <Tooltip text="Riset menunjukkan HR hanya melihat CV 6-7 detik sebelum memutuskan lanjut atau tidak." />
             </h4>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div>

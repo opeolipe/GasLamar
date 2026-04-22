@@ -239,6 +239,17 @@ export default function Result() {
       ? { background: '#FFFBEB', borderColor: '#FCD34D', color: '#92400E' }
       : {};
 
+  // ── 6D computed data (lifted so blocks 2 & 3 can share primaryIssue) ──────
+  const has6d = !!(data?.skor_6d && Object.keys(data.skor_6d).length > 0);
+  const result6d = has6d ? (() => {
+    const rawKlaim = sessionStorage.getItem('gaslamar_entitas_klaim');
+    const entitasKlaim = rawKlaim ? JSON.parse(rawKlaim) as string[] : undefined;
+    return buildResultData({ skor6d: data!.skor_6d!, cvText: cvText || undefined, entitasKlaim });
+  })() : null;
+  const primaryIssue     = result6d?.primaryIssue ?? null;
+  const scores6d         = result6d?.scores ?? {};
+  const rewritePreview6d = result6d?.rewritePreview ?? null;
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div
@@ -313,187 +324,178 @@ export default function Result() {
         {/* ── Main results ── */}
         {data && !loading && !error && (
           <>
-            {/* Progress steps */}
-            <header aria-label="Langkah analisis CV">
-              <div style={{ ...CARD_STYLE, paddingBottom: '1.2rem', marginBottom: '1rem' }}>
+            {/* ══ BLOCK 1: RESULT ══ */}
+            <section style={{ marginBottom: '2.5rem' }}>
+
+              {/* Progress steps — flat, no card */}
+              <header aria-label="Langkah analisis CV" style={{ marginBottom: '1.25rem' }}>
                 <UploadSteps currentStep={3} />
-              </div>
-            </header>
+              </header>
 
-            {/* Session countdown */}
-            {countdown.text && (
-              <div style={{ textAlign: 'center', marginBottom: '1rem', fontSize: '0.78rem', color: '#92400E', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 12, padding: '0.5rem 1rem', ...countdownStyle }}>
-                ⏳ {countdown.text}
-              </div>
-            )}
-
-            {/* Score card */}
-            <div style={CARD_STYLE}>
-              <ScoreDisplay
-                score={data.skor}
-                archetype={data.archetype}
-                gapCount={(data.gap || []).length}
-              />
-              {data.veredict && (
-                <VerdictCard
-                  verdict={data.veredict as 'DO' | 'DO NOT' | 'TIMED'}
-                  timeboxWeeks={data.timebox_weeks}
-                />
+              {/* Session countdown */}
+              {countdown.text && (
+                <div style={{ textAlign: 'center', marginBottom: '1rem', fontSize: '0.78rem', color: '#92400E', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 12, padding: '0.5rem 1rem', ...countdownStyle }}>
+                  ⏳ {countdown.text}
+                </div>
               )}
-            </div>
 
-            {/* Red flags */}
-            <RedFlags redFlags={data.red_flags || []} />
+              {/* Score + Verdict */}
+              <div style={CARD_STYLE}>
+                <ScoreDisplay
+                  score={data.skor}
+                  archetype={data.archetype}
+                  gapCount={(data.gap || []).length}
+                />
+                {data.veredict && (
+                  <VerdictCard
+                    verdict={data.veredict as 'DO' | 'DO NOT' | 'TIMED'}
+                    timeboxWeeks={data.timebox_weeks}
+                  />
+                )}
+              </div>
 
-            {/* Gap list */}
-            <GapList gaps={data.gap || []} />
+              {/* Red flags */}
+              <RedFlags redFlags={data.red_flags || []} />
 
-            {/* Recommendations */}
-            <RecommendationList recommendations={data.rekomendasi || []} />
+            </section>
 
-            {/* Micro-conversion line */}
-            {(data.rekomendasi || []).length > 0 && (
-              <p style={{ textAlign: 'center', fontSize: '0.85rem', color: '#065F46', margin: '0.25rem 0 0.75rem', fontWeight: 500 }}>
-                ✨ Kamu sudah dekat — tinggal perbaiki ini sedikit lagi
-              </p>
+            {/* ══ BLOCK 2: PROBLEM + FIX ══ */}
+            <section style={{ marginBottom: '2.5rem' }}>
+              {primaryIssue && <PrimaryHighlight issueKey={primaryIssue} />}
+              <GapList gaps={data.gap || []} />
+              <RecommendationList recommendations={data.rekomendasi || []} />
+            </section>
+
+            {/* ══ BLOCK 3: PROOF (6D) ══ */}
+            {has6d && (
+              <section style={{ marginBottom: '2.5rem' }}>
+                <div style={CARD_STYLE}>
+                  <DimRewritePreview preview={rewritePreview6d} />
+
+                  <p style={{ fontSize: '0.72rem', fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.75rem' }}>
+                    Ini yang paling dilihat HR dalam 7–10 detik
+                  </p>
+
+                  {/* Bars — always visible */}
+                  <ScoreBars dimensions={scores6d} mode="preview" primaryKey={primaryIssue ?? undefined} />
+
+                  {/* Blurred teaser of full explanations */}
+                  <div style={{ position: 'relative', marginTop: '1.25rem', borderRadius: 12, overflow: 'hidden', maxHeight: 88 }}>
+                    <div className="blur-sm pointer-events-none select-none" aria-hidden="true">
+                      {Object.entries(DIM_LABELS).slice(0, 2).map(([key, { icon, label, hint }]) => (
+                        <div key={key} style={{ marginBottom: '0.75rem' }}>
+                          <p style={{ fontSize: '0.82rem', color: '#4B5563', margin: '0 0 0.2rem' }}>
+                            {icon} <strong>{label}</strong> — Penjelasan lengkap dan saran perbaikan untuk dimensi ini.
+                          </p>
+                          <p style={{ fontSize: '0.82rem', color: '#1D4ED8', fontWeight: 500, margin: 0 }}>💡 {hint}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 0%, rgba(255,255,255,0.96) 65%, #fff 100%)', pointerEvents: 'none' }} />
+                  </div>
+
+                  {/* Dynamic CTA — personalized to primary issue */}
+                  <DynamicCTA issueKey={primaryIssue} score={primaryIssue ? scores6d[primaryIssue] : undefined} />
+                </div>
+              </section>
             )}
 
-            {/* 6D Score Breakdown — preview with gated details */}
-            {data.skor_6d && Object.keys(data.skor_6d).length > 0 && (() => {
-              const rawKlaim = sessionStorage.getItem('gaslamar_entitas_klaim');
-              const entitasKlaim = rawKlaim ? JSON.parse(rawKlaim) as string[] : undefined;
-              const result       = buildResultData({ skor6d: data.skor_6d!, cvText: cvText || undefined, entitasKlaim });
-              const { primaryIssue, scores, rewritePreview } = result;
-              return (
-              <div style={CARD_STYLE}>
-                {primaryIssue && <PrimaryHighlight issueKey={primaryIssue} />}
-                <DimRewritePreview preview={rewritePreview} />
+            {/* ══ BLOCK 4: CONVERSION ══ */}
+            <section>
 
-                {primaryIssue && (
-                  <p style={{ fontSize: '0.8rem', color: '#64748B', margin: '0 0 0.75rem', lineHeight: 1.6 }}>
-                    Masalah ini yang paling mempengaruhi peluang kamu:
+              {/* Before → After projection */}
+              {data.skor_sesudah !== undefined && (
+                <BeforeAfterProjection beforeScore={data.skor} afterScore={data.skor_sesudah} />
+              )}
+
+              {/* CV Rewrite preview */}
+              <RewritePreview
+                recommendations={data.rekomendasi || []}
+                gaps={data.gap || []}
+              />
+
+              {/* Expandable detail analysis — above pricing (no footer leak) */}
+              <DetailAnalysis
+                strengths={data.kekuatan || []}
+                hr7Data={data.hr_7_detik}
+              />
+
+              {/* Pricing CTA heading */}
+              <div id="pricing-section" style={{ textAlign: 'center', margin: '2rem 0 0.5rem' }}>
+                <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
+                  👉 Perbaiki CV saya sekarang
+                </h3>
+              </div>
+              <p style={{ textAlign: 'center', fontSize: '0.78rem', color: '#92400E', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10, padding: '0.4rem 1rem', margin: '0 auto 0.75rem', maxWidth: 420 }}>
+                ⏰ Preview analisis berlaku <strong>2 jam</strong> &nbsp;·&nbsp; 💳 Setelah bayar: download berlaku <strong>7 hari</strong> (Single/Coba) atau <strong>30 hari</strong> (3-Pack/Job Hunt)
+              </p>
+
+              {/* Pricing selector */}
+              <PricingSelector
+                selectedTier={selectedTier}
+                onSelect={handleTierSelect}
+                score={data.skor}
+              />
+
+              {/* Email capture */}
+              <EmailCapture
+                selectedTier={selectedTier}
+                email={email}
+                onChange={handleEmailChange}
+                error={emailError}
+              />
+
+              {/* Session expired by payment error */}
+              {sessionExpiredByPay && (
+                <div style={{ marginBottom: '1rem', padding: '1rem', background: '#FFFBEB', border: '1px solid rgba(252,211,77,0.5)', borderRadius: 16, textAlign: 'center' }}>
+                  <p style={{ color: '#92400E', fontWeight: 600, fontSize: '0.88rem', margin: '0 0 0.5rem' }}>
+                    Sesi analisis sudah kedaluwarsa (30 menit)
+                  </p>
+                  <p style={{ color: '#78350F', fontSize: '0.8rem', margin: '0 0 0.75rem' }}>
+                    Upload ulang CV kamu untuk melanjutkan.
+                  </p>
+                  <a href="upload.html" style={{ display: 'inline-block', background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', fontWeight: 700, padding: '0.65rem 1.5rem', borderRadius: 60, textDecoration: 'none', fontSize: '0.88rem', boxShadow: '0 8px 24px rgba(37,99,235,0.25)' }}>
+                    Upload CV Lagi →
+                  </a>
+                </div>
+              )}
+
+              {/* Pay button */}
+              <div style={{ marginTop: '1rem' }}>
+                <button
+                  data-testid="generate-cv-button"
+                  onClick={proceedToPayment}
+                  disabled={payBtnDisabled}
+                  aria-label="Lihat CV hasil rewrite lengkap"
+                  style={{ background: payBtnDisabled ? '#CBD5E1' : 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', border: 'none', borderRadius: 60, padding: '0.9rem 1.5rem', fontWeight: 700, cursor: payBtnDisabled ? 'not-allowed' : 'pointer', width: '100%', transition: '0.2s', fontFamily: 'inherit', fontSize: '1rem', opacity: payBtnDisabled ? 0.6 : 1, boxShadow: payBtnDisabled ? 'none' : '0 8px 24px rgba(37,99,235,0.30)' }}
+                >
+                  {payBtnLabel}
+                </button>
+                {payHint && !sessionExpiredByPay && (
+                  <p style={{ fontSize: '0.8rem', color: '#6B7280', textAlign: 'center', marginTop: '0.5rem' }}>
+                    {payHint}
                   </p>
                 )}
-
-                <p style={{ fontSize: '0.72rem', fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.75rem' }}>
-                  Ini yang paling dilihat HR dalam 7–10 detik
-                </p>
-
-                {/* Bars — always visible */}
-                <ScoreBars dimensions={scores} mode="preview" primaryKey={primaryIssue ?? undefined} />
-
-                {/* Blurred teaser of full explanations */}
-                <div style={{ position: 'relative', marginTop: '1.25rem', borderRadius: 12, overflow: 'hidden', maxHeight: 88 }}>
-                  <div className="blur-sm pointer-events-none select-none" aria-hidden="true">
-                    {Object.entries(DIM_LABELS).slice(0, 2).map(([key, { icon, label, hint }]) => (
-                      <div key={key} style={{ marginBottom: '0.75rem' }}>
-                        <p style={{ fontSize: '0.82rem', color: '#4B5563', margin: '0 0 0.2rem' }}>
-                          {icon} <strong>{label}</strong> — Penjelasan lengkap dan saran perbaikan untuk dimensi ini.
-                        </p>
-                        <p style={{ fontSize: '0.82rem', color: '#1D4ED8', fontWeight: 500, margin: 0 }}>💡 {hint}</p>
-                      </div>
-                    ))}
+                {paymentError && (
+                  <div role="alert" style={{ marginTop: '0.75rem', padding: '0.75rem', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, color: '#B91C1C', fontSize: '0.875rem', textAlign: 'center' }}>
+                    {paymentError}
                   </div>
-                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 0%, rgba(255,255,255,0.96) 65%, #fff 100%)', pointerEvents: 'none' }} />
-                </div>
-
-                {/* Dynamic CTA — personalized to primary issue */}
-                <DynamicCTA issueKey={primaryIssue} score={primaryIssue ? scores[primaryIssue] : undefined} />
+                )}
               </div>
-              );
-            })()}
 
-            {/* Before → After projection */}
-            {data.skor_sesudah !== undefined && (
-              <BeforeAfterProjection beforeScore={data.skor} afterScore={data.skor_sesudah} />
-            )}
+              {/* Trust footer */}
+              <p className="text-center text-xs text-slate-400 mt-5">
+                💳 Pembayaran aman via Mayar &nbsp;·&nbsp; VA, QRIS, e-wallet &nbsp;·&nbsp; Tidak puas? Hubungi <a href="mailto:support@gaslamar.com" className="underline hover:text-slate-600">support@gaslamar.com</a>
+              </p>
 
-            {/* CV Rewrite preview */}
-            <RewritePreview
-              recommendations={data.rekomendasi || []}
-              gaps={data.gap || []}
-            />
-
-            {/* Pricing CTA heading */}
-            <div id="pricing-section" style={{ textAlign: 'center', marginBottom: '0.5rem' }}>
-              <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
-                👉 Perbaiki CV saya sekarang
-              </h3>
-            </div>
-            <p style={{ textAlign: 'center', fontSize: '0.78rem', color: '#92400E', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10, padding: '0.4rem 1rem', margin: '0 auto 0.75rem', maxWidth: 420 }}>
-              ⏰ Preview analisis berlaku <strong>2 jam</strong> &nbsp;·&nbsp; 💳 Setelah bayar: download berlaku <strong>7 hari</strong> (Single/Coba) atau <strong>30 hari</strong> (3-Pack/Job Hunt)
-            </p>
-
-            {/* Pricing selector */}
-            <PricingSelector
-              selectedTier={selectedTier}
-              onSelect={handleTierSelect}
-              score={data.skor}
-            />
-
-            {/* Email capture */}
-            <EmailCapture
-              selectedTier={selectedTier}
-              email={email}
-              onChange={handleEmailChange}
-              error={emailError}
-            />
-
-            {/* Session expired by payment error */}
-            {sessionExpiredByPay && (
-              <div style={{ marginBottom: '1rem', padding: '1rem', background: '#FFFBEB', border: '1px solid rgba(252,211,77,0.5)', borderRadius: 16, textAlign: 'center' }}>
-                <p style={{ color: '#92400E', fontWeight: 600, fontSize: '0.88rem', margin: '0 0 0.5rem' }}>
-                  Sesi analisis sudah kedaluwarsa (30 menit)
-                </p>
-                <p style={{ color: '#78350F', fontSize: '0.8rem', margin: '0 0 0.75rem' }}>
-                  Upload ulang CV kamu untuk melanjutkan.
-                </p>
-                <a href="upload.html" style={{ display: 'inline-block', background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', fontWeight: 700, padding: '0.65rem 1.5rem', borderRadius: 60, textDecoration: 'none', fontSize: '0.88rem', boxShadow: '0 8px 24px rgba(37,99,235,0.25)' }}>
-                  Upload CV Lagi →
+              {/* Back link */}
+              <div className="text-center mt-4 mb-2">
+                <a href="upload.html" className="text-sm text-slate-400 hover:text-slate-600 transition-colors no-underline">
+                  ← Upload CV lain
                 </a>
               </div>
-            )}
 
-            {/* Pay button */}
-            <div style={{ marginTop: '1rem' }}>
-              <button
-                data-testid="generate-cv-button"
-                onClick={proceedToPayment}
-                disabled={payBtnDisabled}
-                aria-label="Lihat CV hasil rewrite lengkap"
-                style={{ background: payBtnDisabled ? '#CBD5E1' : 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', border: 'none', borderRadius: 60, padding: '0.9rem 1.5rem', fontWeight: 700, cursor: payBtnDisabled ? 'not-allowed' : 'pointer', width: '100%', transition: '0.2s', fontFamily: 'inherit', fontSize: '1rem', opacity: payBtnDisabled ? 0.6 : 1, boxShadow: payBtnDisabled ? 'none' : '0 8px 24px rgba(37,99,235,0.30)' }}
-              >
-                {payBtnLabel}
-              </button>
-              {payHint && !sessionExpiredByPay && (
-                <p style={{ fontSize: '0.8rem', color: '#6B7280', textAlign: 'center', marginTop: '0.5rem' }}>
-                  {payHint}
-                </p>
-              )}
-              {paymentError && (
-                <div role="alert" style={{ marginTop: '0.75rem', padding: '0.75rem', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, color: '#B91C1C', fontSize: '0.875rem', textAlign: 'center' }}>
-                  {paymentError}
-                </div>
-              )}
-            </div>
-
-            {/* Trust footer */}
-            <p className="text-center text-xs text-slate-400 mt-5">
-              💳 Pembayaran aman via Mayar &nbsp;·&nbsp; VA, QRIS, e-wallet &nbsp;·&nbsp; Tidak puas? Hubungi <a href="mailto:support@gaslamar.com" className="underline hover:text-slate-600">support@gaslamar.com</a>
-            </p>
-
-            {/* Back link */}
-            <div className="text-center mt-4 mb-2">
-              <a href="upload.html" className="text-sm text-slate-400 hover:text-slate-600 transition-colors no-underline">
-                ← Upload CV lain
-              </a>
-            </div>
-
-            {/* Detail analysis (collapsible) */}
-            <DetailAnalysis
-              strengths={data.kekuatan || []}
-              hr7Data={data.hr_7_detik}
-            />
+            </section>
 
             {/* Legal footer */}
             <footer className="text-center py-6 text-xs text-slate-400">
