@@ -69,6 +69,21 @@
     return;
   }
 
+  // Store a non-sensitive summary so the download page can forward score/gaps/primary_issue
+  // to the post-generate email. The full scoring blob has already been deleted above.
+  try {
+    const VALID_ISSUES = ['portfolio', 'recruiter_signal', 'north_star', 'effort', 'risk'];
+    const skor6d = scoring.skor_6d || {};
+    const primary_issue = VALID_ISSUES.reduce(function(a, b) {
+      return (skor6d[a] != null ? skor6d[a] : 10) <= (skor6d[b] != null ? skor6d[b] : 10) ? a : b;
+    });
+    sessionStorage.setItem('gaslamar_score_summary', JSON.stringify({
+      skor:          scoring.skor,
+      gap:           (scoring.gap || []).slice(0, 3),
+      primary_issue: primary_issue,
+    }));
+  } catch (_) {}
+
   // Hide loading, show content
   document.getElementById('results-loading').classList.add('hidden');
   document.getElementById('results-content').classList.remove('hidden');
