@@ -15,7 +15,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
   const quality = evaluateJDQuality(value);
 
   const textareaCls = [
-    'w-full min-h-[140px] rounded-2xl border bg-transparent p-5',
+    'w-full min-h-[160px] rounded-2xl border bg-transparent p-5',
     'text-slate-900 resize-y outline-none text-sm font-sans transition-all',
     'focus:ring-2 focus:ring-offset-2 border-slate-300 focus:border-blue-500/50 focus:ring-slate-200',
   ].join(' ');
@@ -61,7 +61,6 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
           data-testid="jd-textarea"
           value={value}
           onChange={handleChange}
-          rows={6}
           maxLength={MAX_JD_CHARS}
           placeholder={`Contoh:\nPosisi: Digital Marketing Specialist\n\nKualifikasi:\n- Pengalaman 2+ tahun di social media marketing\n- Familiar dengan Google Analytics & Facebook Ads\n\nTanggung Jawab:\n- Kelola konten Instagram, TikTok, LinkedIn`}
           className={textareaCls}
