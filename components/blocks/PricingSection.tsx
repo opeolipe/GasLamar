@@ -76,7 +76,7 @@ export default function PricingSection() {
             }}
           >
             {tier.badge && (
-              <span className="absolute -top-3.5 left-6 rounded-full text-white text-xs font-bold px-3 py-1" style={{ background: "#2563eb" }}>
+              <span className="absolute -top-3 left-6 rounded-full text-white text-xs font-bold px-3 py-1" style={{ background: "#2563eb" }}>
                 {tier.badge}
               </span>
             )}
