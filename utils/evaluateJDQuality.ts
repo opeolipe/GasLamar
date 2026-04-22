@@ -13,11 +13,5 @@ export function evaluateJDQuality(text: string): { isValid: boolean; message: st
   if (!hasStructure)
     return { isValid: false, message: 'Tambahkan bagian kualifikasi atau tanggung jawab' };
 
-  const hasCompany =
-    /pt |cv |inc|ltd|llc|company|perusahaan|yayasan|firm/.test(clean);
-
-  if (!hasCompany)
-    return { isValid: false, message: 'Tambahkan nama perusahaan agar konteks lebih jelas' };
-
   return { isValid: true, message: null };
 }

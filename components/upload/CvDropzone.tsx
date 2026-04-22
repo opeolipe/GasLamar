@@ -4,11 +4,12 @@ interface Props {
   fileName:     string | null;
   fileSize:     string | null;
   error:        string;
+  cvReady:      boolean;
   onFileSelect: (file: File) => void;
   onRemove:     () => void;
 }
 
-export default function CvDropzone({ fileName, fileSize, error, onFileSelect, onRemove  }: Props) {
+export default function CvDropzone({ fileName, fileSize, error, cvReady, onFileSelect, onRemove }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   function onDragOver(e: React.DragEvent) {
@@ -96,7 +97,7 @@ export default function CvDropzone({ fileName, fileSize, error, onFileSelect, on
         <p className="text-xs text-red-600 mt-2">{error}</p>
       )}
 
-      {!error && fileName && (
+      {!error && fileName && cvReady && (
         <p className="text-xs text-emerald-600 mt-2">✓ CV siap dianalisis</p>
       )}
     </div>

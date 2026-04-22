@@ -1,17 +1,13 @@
 import { useRef } from 'react';
-import { evaluateJDQuality } from '@/utils/evaluateJDQuality';
-
 interface Props {
-  jobDescription: string;
   isValid:        boolean;
   isLoading:      boolean;
   onSubmit:       () => void;
 }
 
-export default function SubmitSection({ jobDescription, isValid, isLoading, onSubmit }: Props) {
+export default function SubmitSection({ isValid, isLoading, onSubmit }: Props) {
   const btnRef   = useRef<HTMLButtonElement>(null);
-  const jdQuality = evaluateJDQuality(jobDescription);
-  const canSubmit = isValid && jdQuality.isValid && !isLoading;
+  const canSubmit = isValid && !isLoading;
 
   return (
     <div className="mt-6">

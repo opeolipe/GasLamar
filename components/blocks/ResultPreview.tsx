@@ -48,7 +48,7 @@ export default function ResultPreview() {
 
       {/* Verdict band — always visible */}
       <div className="relative z-[1] border-b p-6" style={{ borderColor: "rgba(148,163,184,0.18)", background: "linear-gradient(135deg,rgba(255,251,235,0.92),rgba(255,255,255,0.96))" }}>
-        <div className="flex flex-wrap items-center gap-2 mb-3">
+        <div className="flex flex-wrap items-start gap-2 mb-3">
           <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Preview peluang interview</span>
           <span className="inline-flex items-center rounded-full px-[10px] py-[5px] text-xs font-bold" style={{ background: "rgba(245,158,11,0.12)", color: "#b45309" }}>6D ringkas</span>
         </div>
@@ -68,7 +68,7 @@ export default function ResultPreview() {
             key={t}
             onClick={() => setTab(t)}
             className={`min-h-[44px] px-3 py-[10px] rounded-full text-sm font-semibold cursor-pointer border-0 transition-all w-full text-center ${
-              tab === t ? "text-white" : "text-slate-500 bg-slate-100 hover:bg-slate-200"
+              tab === t ? "text-white" : "text-slate-700 bg-slate-100 hover:bg-slate-200"
             }`}
             style={tab === t ? { background: "linear-gradient(180deg,#2563eb,#1d4ed8)" } : {}}
           >

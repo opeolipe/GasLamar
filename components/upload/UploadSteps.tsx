@@ -14,8 +14,10 @@ export default function UploadSteps({ currentStep }: Props) {
         const done   = n < currentStep;
         const active = n === currentStep;
         return (
-          <div key={n} className="relative z-10 flex flex-col items-center text-center flex-1 gap-0.5">
-            <span className={`block text-[0.7rem] font-bold leading-none mb-1 ${done ? 'text-emerald-500' : active ? 'text-slate-900' : 'text-slate-300'}`}>
+          <div key={n} className="relative z-10 flex flex-col items-center text-center flex-1 gap-0.5"
+               aria-label={`Langkah ${n}: ${label} — ${done ? 'selesai' : active ? 'aktif' : 'belum dimulai'}`}
+          >
+            <span aria-hidden="true" className={`block text-[0.7rem] font-bold leading-none mb-1 ${done ? 'text-emerald-500' : active ? 'text-slate-900' : 'text-slate-300'}`}>
               {done ? '✓' : active ? '●' : '○'}
             </span>
             <span className={`text-[0.82rem] leading-tight ${done ? 'text-emerald-600 font-semibold' : active ? 'text-slate-900 font-bold' : 'text-slate-400 font-medium'}`}>

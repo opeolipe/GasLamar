@@ -190,6 +190,10 @@ export default function Upload() {
     setCvText('');
     setFileError('');
     setScanWarning(false);
+    try {
+      sessionStorage.removeItem('gaslamar_cv_draft');
+      sessionStorage.removeItem('gaslamar_filename_draft');
+    } catch (_) {}
   }
 
   function handleJdChange(value: string) {
@@ -295,6 +299,7 @@ export default function Upload() {
               fileName={fileName}
               fileSize={fileSize}
               error={fileError}
+              cvReady={hasFile}
               onFileSelect={handleFileSelect}
               onRemove={handleRemove}
             />
@@ -310,7 +315,6 @@ export default function Upload() {
           </div>
 
           <SubmitSection
-            jobDescription={jd}
             isValid={isValid}
             isLoading={loading}
             onSubmit={handleSubmit}
