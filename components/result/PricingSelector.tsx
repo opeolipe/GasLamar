@@ -40,7 +40,7 @@ export default function PricingSelector({ selectedTier, onSelect, score }: Props
       )}
 
       {/* Pricing grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: '1rem', margin: '1.5rem 0 0' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', margin: '1.5rem 0 0' }}>
         {TIERS.map(tier => {
           const info     = TIER_CONFIG[tier];
           const selected = selectedTier === tier;
@@ -49,6 +49,7 @@ export default function PricingSelector({ selectedTier, onSelect, score }: Props
           return (
             <button
               key={tier}
+              data-testid="pricing-card"
               onClick={() => onSelect(tier)}
               style={{
                 background:   selected ? '#F8FAFC' : 'white',
