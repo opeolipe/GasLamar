@@ -4,6 +4,12 @@
 // (download-file-utils.js), showMobileFallback (download-ui.js).
 // Vendor libraries (docx, jspdf) are loaded via <script> tags in download.html.
 
+// ── DOCX_GUIDANCE ─────────────────────────────────────────────────────────────
+// Mirrors shared/rewriteRules.js DOCX_GUIDANCE — appended after every bullet in
+// the DOCX output to prompt the user to add concrete results before sending.
+// Must stay in sync with the server-side constant.
+const DOCX_GUIDANCE = '(catatan: tambahkan hasil konkret jika ada, misalnya: waktu ↓ atau output ↑)';
+
 // ── CV_SECTION_HEADINGS ───────────────────────────────────────────────────────
 // Single source of truth for section-heading detection in parseLines.
 // Used by both generateDOCX and generatePDF so format changes stay in sync.
@@ -66,7 +72,12 @@ function generateDOCX(cvText, lang, tier) {
         children.push(new Paragraph({
           children: [new TextRun({ text: content, size: 22, font: 'Calibri' })],
           bullet: { level: 0 },
+          spacing: { after: 20 },
+        }));
+        children.push(new Paragraph({
+          children: [new TextRun({ text: '  ' + DOCX_GUIDANCE, size: 18, font: 'Calibri', color: '9CA3AF', italics: true })],
           spacing: { after: 40 },
+          indent: { left: 360 },
         }));
       } else {
         children.push(new Paragraph({
