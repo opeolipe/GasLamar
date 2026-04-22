@@ -185,6 +185,10 @@ export default function Result() {
 
       const { session_id, invoice_url } = await response.json();
 
+      if (!invoice_url) {
+        throw new Error('Server tidak mengembalikan URL pembayaran. Hubungi support@gaslamar.com');
+      }
+
       ;(window as any).Analytics?.track?.('payment_session_created', {
         tier:           selectedTier,
         tier_price_idr: TIER_CONFIG[selectedTier].price,

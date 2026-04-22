@@ -11,7 +11,7 @@ export default function HeroUpload() {
       <div className="relative z-[1] mx-auto flex max-w-3xl flex-col items-center">
         <div className="max-w-2xl">
           <h1
-            className="text-[clamp(2rem,6vw,4.4rem)] leading-[0.95] m-0 max-w-[20ch] mx-auto"
+            className="text-[clamp(2rem,6vw,4.4rem)] leading-[1.2] m-0 max-w-[20ch] mx-auto break-words"
             style={{ ...SERIF, textWrap: "balance" } as React.CSSProperties}
           >
             Gas atau skip? Tahu dulu peluang kamu sebelum apply.

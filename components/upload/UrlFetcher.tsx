@@ -14,6 +14,12 @@ export default function UrlFetcher({ onFetchSuccess, onClose }: Props) {
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose(); }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   async function handleFetch() {
     if (!url.trim()) { inputRef.current?.focus(); return; }
     setLoading(true);
