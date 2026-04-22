@@ -9,15 +9,15 @@ const ISSUE_COPY: Record<string, { title: string; description: string }> = {
   },
   north_star: {
     title:       'CV belum cukup relevan dengan job ini',
-    description: 'Pengalaman kamu belum langsung terlihat cocok dengan posisi yang dilamar.',
+    description: 'Rekruter tidak bisa langsung melihat kecocokan kamu dengan posisi ini — CV yang tidak relevan biasanya di-skip dalam 7 detik pertama.',
   },
   effort: {
     title:       'Masih butuh waktu untuk siap interview',
-    description: 'Masih ada skill gap yang perlu ditutup sebelum peluang interview meningkat.',
+    description: 'Ada skill gap yang belum tertutup. HR yang melihatnya akan meragukan kesiapan kamu — dan memilih kandidat lain yang lebih siap.',
   },
   risk: {
     title:       'Skill mulai kurang relevan ke depan',
-    description: 'Beberapa skill di CV kamu mungkin sudah tidak terlalu dicari saat ini.',
+    description: 'Beberapa skill di CV kamu mulai ditinggalkan industri — HR yang melihatnya akan meragukan current relevance kamu untuk posisi ini.',
   },
 };
 
