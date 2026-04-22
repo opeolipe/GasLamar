@@ -95,11 +95,15 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
     const reqBody = {};
     if (newJobDesc) reqBody.job_desc = newJobDesc;
 
-    // Pass score + gaps so the worker can send a post-generate email
+    // Pass score/gaps/primary_issue so the worker can send a post-generate email.
+    // Reads gaslamar_score_summary written by scoring.js (the full scoring blob is
+    // deleted immediately after rendering on hasil.html for security).
     try {
-      const scoring = JSON.parse(sessionStorage.getItem('gaslamar_scoring') || '{}');
-      if (typeof scoring.score === 'number') reqBody.score = scoring.score;
-      if (Array.isArray(scoring.gaps) && scoring.gaps.length) reqBody.gaps = scoring.gaps.slice(0, 3);
+      const summary = JSON.parse(sessionStorage.getItem('gaslamar_score_summary') || '{}');
+      sessionStorage.removeItem('gaslamar_score_summary');
+      if (typeof summary.skor === 'number')                       reqBody.score         = summary.skor;
+      if (Array.isArray(summary.gap) && summary.gap.length)       reqBody.gaps          = summary.gap.slice(0, 3);
+      if (summary.primary_issue)                                  reqBody.primary_issue = summary.primary_issue;
     } catch (_) { /* ignore malformed sessionStorage */ }
 
     const res = await fetch(WORKER_URL + '/generate', {
