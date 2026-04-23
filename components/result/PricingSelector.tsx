@@ -34,6 +34,11 @@ export default function PricingSelector({ selectedTier, onSelect, score }: Props
         </p>
       )}
 
+      {/* Guided decision copy */}
+      <p style={{ textAlign: 'center', fontSize: '0.82rem', color: '#475569', margin: '0.5rem 0 0', lineHeight: 1.5 }}>
+        Kalau kamu fokus 1 posisi → pilih Single. Kalau apply ke beberapa posisi → pilih 3‑Pack.
+      </p>
+
       {/* Pricing grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', margin: '1.5rem 0 0' }}>
         {TIERS.map(tier => {
@@ -73,6 +78,11 @@ export default function PricingSelector({ selectedTier, onSelect, score }: Props
               {popular && selected && (
                 <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: '#2563EB', color: 'white', fontSize: '0.65rem', padding: '0.2rem 0.8rem', borderRadius: 60, fontWeight: 600, whiteSpace: 'nowrap' }}>
                   ✦ DIPILIH
+                </div>
+              )}
+              {popular && !selected && !isRec && (
+                <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: '#DBEAFE', color: '#1E40AF', fontSize: '0.65rem', padding: '0.2rem 0.8rem', borderRadius: 60, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                  Paling dipilih
                 </div>
               )}
               <div style={{ fontWeight: 700, fontSize: '1.1rem', color: '#111827' }}>{info.label}</div>

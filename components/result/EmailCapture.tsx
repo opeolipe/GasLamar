@@ -5,22 +5,14 @@ interface Props {
   error?:       string;
 }
 
-function getHelper(tier: string | null): string {
-  if (tier === '3pack')   return '🔒 Link berlaku 30 hari — bisa dipakai untuk 3 lamaran';
-  if (tier === 'jobhunt') return '⚡ Link berlaku 30 hari — bisa dipakai untuk 10 lamaran';
-  return '🔒 Link download dikirim ke email ini setelah pembayaran';
-}
-
-export default function EmailCapture({ selectedTier, email, onChange, error }: Props) {
-  const helper = getHelper(selectedTier);
-
+export default function EmailCapture({ selectedTier: _selectedTier, email, onChange, error }: Props) {
   return (
     <div style={{ marginBottom: '1rem' }}>
       <label
         htmlFor="email-capture"
         style={{ display: 'block', fontWeight: 600, fontSize: '0.9rem', color: '#374151', marginBottom: '0.5rem' }}
       >
-        Email untuk link download CV kamu <span style={{ color: '#DC2626' }}>*</span>
+        Masukkan email untuk kirim CV hasil perbaikan <span style={{ color: '#DC2626' }}>*</span>
       </label>
       <input
         id="email-capture"
@@ -44,7 +36,7 @@ export default function EmailCapture({ selectedTier, email, onChange, error }: P
         }}
       />
       <p style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '0.4rem', margin: '0.4rem 0 0' }}>
-        {helper}
+        Link akan dikirim ke email kamu
       </p>
       {error && (
         <p role="alert" style={{ color: '#DC2626', fontSize: '0.82rem', marginTop: '0.4rem', fontWeight: 500 }}>
