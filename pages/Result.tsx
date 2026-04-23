@@ -16,6 +16,7 @@ import DimRewritePreview                       from '@/components/6d/RewritePrev
 import { useResultData }                       from '@/hooks/useResultData';
 import { useSessionCountdown }                 from '@/hooks/useSessionCountdown';
 import { WORKER_URL, TIER_CONFIG, EMAIL_REGEX, formatPrice, buildResultData } from '@/lib/resultUtils';
+import { validateEmail }                                                        from '@/utils/emailValidation';
 
 // ── DevTools notice (educational, not a security control) ──────────────────
 console.log(
@@ -65,6 +66,12 @@ export default function Result() {
   const [selectedTier,         setSelectedTier]         = useState<string | null>(null);
   const [email,                 setEmail]                 = useState('');
   const [emailError,            setEmailError]            = useState('');
+  const [emailSuggestion,       setEmailSuggestion]       = useState<string | null>(null);
+  const [emailIsDisposable,     setEmailIsDisposable]     = useState(false);
+  const [emailIsConfirmed,      setEmailIsConfirmed]      = useState(false);
+  const [confirmEmail,          setConfirmEmail]          = useState('');
+  const [confirmTouched,        setConfirmTouched]        = useState(false);
+  const [confirmError,          setConfirmError]          = useState('');
   const [paymentInProgress,     setPaymentInProgress]     = useState(false);
   const [payBtnOverride,        setPayBtnOverride]        = useState<string | null>(null);
   const [paymentError,          setPaymentError]          = useState<string | null>(null);
@@ -73,7 +80,9 @@ export default function Result() {
   const [showDetails,           setShowDetails]           = useState(false);
   const [showAllDimensions,     setShowAllDimensions]     = useState(false);
 
-  const toastShownRef = useRef(false);
+  const toastShownRef   = useRef(false);
+  const blurTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const confirmEmailRef = useRef<HTMLInputElement>(null);
 
   // Pre-select tier from sessionStorage / localStorage
   useEffect(() => {
@@ -91,12 +100,17 @@ export default function Result() {
   }, [countdown.isExpiringSoon]);
 
   // ── Derived state ────────────────────────────────────────────────────────
-  const emailValid = EMAIL_REGEX.test(email.trim());
+  const emailValid  = EMAIL_REGEX.test(email.trim());
+  const emailsMatch = email.trim().toLowerCase() === confirmEmail.trim().toLowerCase();
 
   const payHint: string | null = !selectedTier
     ? 'Pilih paket di atas untuk melanjutkan'
+    : !!emailSuggestion
+    ? 'Periksa email kamu sebelum lanjut'
     : !emailValid
     ? 'Masukkan email yang valid untuk melanjutkan'
+    : confirmTouched && !emailsMatch
+    ? 'Email konfirmasi tidak sama'
     : null;
 
   const payBtnLabel = payBtnOverride
@@ -104,7 +118,8 @@ export default function Result() {
       ? 'Dapatkan CV siap kirim →'
       : '✨ Lihat CV hasil rewrite lengkap');
 
-  const payBtnDisabled = !selectedTier || paymentInProgress || sessionExpiredByPay;
+  const payBtnDisabled = !selectedTier || paymentInProgress || sessionExpiredByPay
+    || !!emailSuggestion || !emailValid || (confirmTouched && !emailsMatch);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   function handleTierSelect(tier: string) {
@@ -123,6 +138,78 @@ export default function Result() {
   function handleEmailChange(value: string) {
     setEmail(value);
     setEmailError('');
+    setEmailSuggestion(null);
+    setEmailIsDisposable(false);
+    setEmailIsConfirmed(false);
+    setConfirmError('');
+  }
+
+  function handleEmailPaste() {
+    setTimeout(() => confirmEmailRef.current?.focus(), 0);
+  }
+
+  function handleConfirmEmailChange(value: string) {
+    setConfirmEmail(value);
+    if (confirmTouched) {
+      const matches = email.trim().toLowerCase() === value.trim().toLowerCase();
+      setConfirmError(matches ? '' : 'Email tidak sama. Periksa kembali');
+    }
+  }
+
+  function handleConfirmEmailBlur() {
+    setConfirmTouched(true);
+    const matches = email.trim().toLowerCase() === confirmEmail.trim().toLowerCase();
+    if (!matches) {
+      setConfirmError('Email tidak sama. Periksa kembali');
+      ;(window as any).Analytics?.track?.('email_mismatch_detected');
+    } else {
+      setConfirmError('');
+      if (emailIsConfirmed) {
+        ;(window as any).Analytics?.track?.('email_confirm_success');
+      }
+    }
+  }
+
+  function handleConfirmEmailPaste() {
+    setConfirmTouched(true);
+    setTimeout(() => {
+      const el = confirmEmailRef.current;
+      if (!el) return;
+      const matches = email.trim().toLowerCase() === el.value.trim().toLowerCase();
+      setConfirmEmail(el.value);
+      setConfirmError(matches ? '' : 'Email tidak sama. Periksa kembali');
+    }, 0);
+  }
+
+  function handleEmailBlur() {
+    if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+    blurTimerRef.current = setTimeout(() => {
+      const result = validateEmail(email);
+      setEmailError(result.error ?? '');
+      setEmailSuggestion(result.suggestion);
+      setEmailIsDisposable(result.isDisposable);
+      setEmailIsConfirmed(result.valid && !result.suggestion);
+      if (result.error) {
+        ;(window as any).Analytics?.track?.('email_validation_failed', {
+          reason: result.suggestion ? 'typo_domain' : 'invalid_format',
+        });
+      } else if (result.isDisposable) {
+        ;(window as any).Analytics?.track?.('email_validation_failed', { reason: 'disposable' });
+      } else if (result.valid) {
+        ;(window as any).Analytics?.track?.('email_valid_confirmed');
+      }
+    }, 200);
+  }
+
+  function handleAcceptSuggestion() {
+    if (!emailSuggestion) return;
+    const accepted = emailSuggestion;
+    setEmail(accepted);
+    setEmailError('');
+    setEmailSuggestion(null);
+    setEmailIsDisposable(false);
+    setEmailIsConfirmed(true);
+    ;(window as any).Analytics?.track?.('email_typo_corrected', { corrected_email: accepted });
   }
 
   function handleToggleDetails() {
@@ -139,11 +226,25 @@ export default function Result() {
       return;
     }
 
-    if (!EMAIL_REGEX.test(email.trim())) {
-      setEmailError('Email wajib diisi — kami kirim link CV kamu ke sini');
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.valid || emailValidation.suggestion) {
+      setEmailError(emailValidation.error ?? 'Email tidak valid.');
+      setEmailSuggestion(emailValidation.suggestion);
+      setEmailIsConfirmed(false);
+      ;(window as any).Analytics?.track?.('email_validation_failed', {
+        reason: emailValidation.suggestion ? 'typo_domain' : 'invalid_format',
+      });
       return;
     }
     setEmailError('');
+    setEmailSuggestion(null);
+
+    if (confirmEmail.trim().toLowerCase() !== email.trim().toLowerCase()) {
+      setConfirmTouched(true);
+      setConfirmError('Email tidak sama. Periksa kembali');
+      confirmEmailRef.current?.focus();
+      return;
+    }
 
     const capturedEmail = email.trim();
     try { sessionStorage.setItem('gaslamar_email', capturedEmail); } catch (_) {}
@@ -208,10 +309,16 @@ export default function Result() {
         tier_price_idr: TIER_CONFIG[selectedTier].price,
       });
 
-      localStorage.setItem('gaslamar_session',                   session_id);
-      localStorage.setItem(`gaslamar_secret_${session_id}`,     sessionSecret);
-      sessionStorage.setItem('gaslamar_session',                  session_id);
+      localStorage.setItem('gaslamar_session',                 session_id);
+      localStorage.setItem(`gaslamar_secret_${session_id}`, sessionSecret);
       sessionStorage.removeItem('gaslamar_cv_key');
+      try {
+        localStorage.setItem('gaslamar_delivery', JSON.stringify({
+          sessionId: session_id,
+          email:     capturedEmail,
+          sentAt:    Date.now(),
+        }));
+      } catch (_) {}
 
       // Validate invoice URL origin before redirecting
       let validUrl = false;
@@ -545,7 +652,21 @@ export default function Result() {
                 selectedTier={selectedTier}
                 email={email}
                 onChange={handleEmailChange}
+                onBlur={handleEmailBlur}
+                onPaste={handleEmailPaste}
                 error={emailError}
+                suggestion={emailSuggestion}
+                onAcceptSuggestion={handleAcceptSuggestion}
+                isDisposable={emailIsDisposable}
+                isConfirmed={emailIsConfirmed}
+                confirmEmail={confirmEmail}
+                onConfirmChange={handleConfirmEmailChange}
+                onConfirmBlur={handleConfirmEmailBlur}
+                onConfirmPaste={handleConfirmEmailPaste}
+                confirmError={confirmError}
+                confirmRef={confirmEmailRef}
+                emailsMatch={emailsMatch}
+                confirmTouched={confirmTouched}
               />
 
               {/* Session expired by payment error */}
@@ -579,6 +700,11 @@ export default function Result() {
                 >
                   {payBtnLabel}
                 </button>
+                {emailIsConfirmed && !payHint && !sessionExpiredByPay && (
+                  <p style={{ fontSize: '0.8rem', color: '#374151', textAlign: 'center', marginTop: '0.5rem' }}>
+                    📬 CV akan dikirim ke: <strong>{email.trim()}</strong>
+                  </p>
+                )}
                 {payHint && !sessionExpiredByPay && (
                   <p style={{ fontSize: '0.8rem', color: '#6B7280', textAlign: 'center', marginTop: '0.5rem' }}>
                     {payHint}
