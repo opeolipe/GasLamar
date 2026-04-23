@@ -10,15 +10,12 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-
-      - name: Setup Node 18
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
 
       - name: Cache npm
         uses: actions/cache@v4
@@ -28,8 +25,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
 
+      - name: Setup Node 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
@@ -47,7 +49,7 @@ jobs:
 
       - name: Start app
         run: |
-          npx serve . -p 3000 &
+          npm run start &
           echo "SERVER_PID=$!" >> $GITHUB_ENV
         env:
           NODE_ENV: test
@@ -65,7 +67,7 @@ jobs:
         run: kill $SERVER_PID || true
 
       - name: Upload Playwright report
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report

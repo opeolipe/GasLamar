@@ -38,9 +38,25 @@ export default function Download() {
   const [expiryText,     setExpiryText]     = useState('');
   const [showMobileFb,   setShowMobileFb]   = useState(false);
 
+  // Read delivery state from localStorage once on mount
+  const [delivery] = useState<{ sessionId: string; email: string; sentAt: number } | null>(() => {
+    try {
+      const raw = localStorage.getItem('gaslamar_delivery');
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  });
+
   const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const viewRef           = useRef<PageView>('waiting');
   viewRef.current         = view;
+
+  // ── Redirect guard ────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!delivery && !localStorage.getItem('gaslamar_session')) {
+      window.location.href = '/';
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Session → view transitions ────────────────────────────────────────────
 
@@ -297,7 +313,7 @@ export default function Download() {
         className="px-4 py-8"
         style={{ paddingTop: countdownText ? 'calc(2rem + 34px)' : '2rem' }}
       >
-        {view === 'error' && sessionError && (
+        {view === 'error' && sessionError && !delivery && (
           <div className="max-w-[480px] mx-auto">
             <SessionError
               title={sessionError.title}
@@ -350,7 +366,16 @@ export default function Download() {
               primaryIssue={resultData?.primaryIssue ?? null}
               isTrusted={content?.isTrusted ?? false}
             />
-            <ResendEmail sessionSecret={session.sessionSecret} />
+          </div>
+        )}
+
+        {/* Delivery section — always rendered when delivery exists in localStorage */}
+        {delivery && (
+          <div className="max-w-[480px] mx-auto" style={{ marginTop: '2rem' }}>
+            <h2 style={{ fontWeight: 700, fontSize: '1.25rem', marginBottom: '0.5rem', color: '#111827' }}>
+              CV kamu sudah siap digunakan
+            </h2>
+            <ResendEmail sessionSecret={session?.sessionSecret ?? null} />
           </div>
         )}
       </main>
