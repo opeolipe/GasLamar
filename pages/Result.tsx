@@ -208,9 +208,8 @@ export default function Result() {
         tier_price_idr: TIER_CONFIG[selectedTier].price,
       });
 
-      localStorage.setItem('gaslamar_session',                   session_id);
-      localStorage.setItem(`gaslamar_secret_${session_id}`,     sessionSecret);
-      sessionStorage.setItem('gaslamar_session',                  session_id);
+      localStorage.setItem('gaslamar_session',                 session_id);
+      localStorage.setItem(`gaslamar_secret_${session_id}`, sessionSecret);
       sessionStorage.removeItem('gaslamar_cv_key');
 
       // Validate invoice URL origin before redirecting

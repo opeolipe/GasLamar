@@ -13,7 +13,7 @@ export default function RewritePreview({ preview }: Props) {
       <div className="text-sm text-slate-400 line-through leading-relaxed">
         ❌ {preview.before}
       </div>
-      <div className="text-sm text-slate-800 mt-2 leading-relaxed font-medium">
+      <div data-testid="rewrite-after" className="text-sm text-slate-800 mt-2 leading-relaxed font-medium">
         ✅ {preview.after}
       </div>
       {preview.note && (
