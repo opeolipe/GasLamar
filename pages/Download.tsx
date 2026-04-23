@@ -26,6 +26,12 @@ import ResendEmail    from '@/components/download/ResendEmail';
 type PageView     = 'waiting' | 'generating' | 'ready' | 'credits-dashboard' | 'error';
 type FeedbackType = 'ya' | 'proses' | 'tidak';
 
+interface LocalDelivery {
+  sessionId: string;
+  email:     string;
+  sentAt:    number;
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function Download() {
@@ -41,6 +47,20 @@ export default function Download() {
   const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const viewRef           = useRef<PageView>('waiting');
   viewRef.current         = view;
+
+  const [delivery] = useState<LocalDelivery | null>(() => {
+    try {
+      const raw = localStorage.getItem('gaslamar_delivery');
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  });
+
+  // Redirect to home if no delivery data AND no session (unauthenticated direct navigation)
+  useEffect(() => {
+    if (!delivery && !localStorage.getItem('gaslamar_session')) {
+      window.location.href = '/';
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Session → view transitions ────────────────────────────────────────────
 
@@ -297,7 +317,22 @@ export default function Download() {
         className="px-4 py-8"
         style={{ paddingTop: countdownText ? 'calc(2rem + 34px)' : '2rem' }}
       >
-        {view === 'error' && sessionError && (
+        {/* Delivery confirmation — shown immediately from localStorage, regardless of session state */}
+        {delivery && (
+          <div className="max-w-[480px] mx-auto mb-8">
+            <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+              <p style={{ fontWeight: 700, fontSize: '1.15rem', color: '#0F172A', margin: '0 0 0.35rem' }}>
+                CV kamu sudah siap digunakan
+              </p>
+              <p style={{ color: '#64748B', fontSize: '0.875rem', margin: 0 }}>
+                Email telah dikirim ke {delivery.email}
+              </p>
+            </div>
+            <ResendEmail sessionSecret={session.sessionSecret} />
+          </div>
+        )}
+
+        {view === 'error' && sessionError && !delivery && (
           <div className="max-w-[480px] mx-auto">
             <SessionError
               title={sessionError.title}
@@ -350,7 +385,6 @@ export default function Download() {
               primaryIssue={resultData?.primaryIssue ?? null}
               isTrusted={content?.isTrusted ?? false}
             />
-            <ResendEmail sessionSecret={session.sessionSecret} />
           </div>
         )}
       </main>
