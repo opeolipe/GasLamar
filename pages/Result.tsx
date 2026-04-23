@@ -15,6 +15,7 @@ import DimRewritePreview                       from '@/components/6d/RewritePrev
 import { useResultData }                       from '@/hooks/useResultData';
 import { useSessionCountdown }                 from '@/hooks/useSessionCountdown';
 import { WORKER_URL, TIER_CONFIG, EMAIL_REGEX, formatPrice, buildResultData } from '@/lib/resultUtils';
+import { validateEmail }                                                        from '@/utils/emailValidation';
 
 // ── DevTools notice (educational, not a security control) ──────────────────
 console.log(
@@ -64,6 +65,9 @@ export default function Result() {
   const [selectedTier,         setSelectedTier]         = useState<string | null>(null);
   const [email,                 setEmail]                 = useState('');
   const [emailError,            setEmailError]            = useState('');
+  const [emailSuggestion,       setEmailSuggestion]       = useState<string | null>(null);
+  const [emailIsDisposable,     setEmailIsDisposable]     = useState(false);
+  const [emailIsConfirmed,      setEmailIsConfirmed]      = useState(false);
   const [paymentInProgress,     setPaymentInProgress]     = useState(false);
   const [payBtnOverride,        setPayBtnOverride]        = useState<string | null>(null);
   const [paymentError,          setPaymentError]          = useState<string | null>(null);
@@ -73,6 +77,7 @@ export default function Result() {
   const [showAllDimensions,     setShowAllDimensions]     = useState(false);
 
   const toastShownRef = useRef(false);
+  const blurTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Pre-select tier from sessionStorage / localStorage
   useEffect(() => {
@@ -94,6 +99,8 @@ export default function Result() {
 
   const payHint: string | null = !selectedTier
     ? 'Pilih paket di atas untuk melanjutkan'
+    : !!emailSuggestion
+    ? 'Periksa email kamu sebelum lanjut'
     : !emailValid
     ? 'Masukkan email yang valid untuk melanjutkan'
     : null;
@@ -103,7 +110,7 @@ export default function Result() {
       ? `Bayar Rp ${formatPrice(TIER_CONFIG[selectedTier].price)} — ${TIER_CONFIG[selectedTier].label} →`
       : '✨ Lihat CV hasil rewrite lengkap');
 
-  const payBtnDisabled = !selectedTier || paymentInProgress || sessionExpiredByPay;
+  const payBtnDisabled = !selectedTier || paymentInProgress || sessionExpiredByPay || !!emailSuggestion;
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   function handleTierSelect(tier: string) {
@@ -122,6 +129,40 @@ export default function Result() {
   function handleEmailChange(value: string) {
     setEmail(value);
     setEmailError('');
+    setEmailSuggestion(null);
+    setEmailIsDisposable(false);
+    setEmailIsConfirmed(false);
+  }
+
+  function handleEmailBlur() {
+    if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+    blurTimerRef.current = setTimeout(() => {
+      const result = validateEmail(email);
+      setEmailError(result.error ?? '');
+      setEmailSuggestion(result.suggestion);
+      setEmailIsDisposable(result.isDisposable);
+      setEmailIsConfirmed(result.valid && !result.suggestion);
+      if (result.error) {
+        ;(window as any).Analytics?.track?.('email_validation_failed', {
+          reason: result.suggestion ? 'typo_domain' : 'invalid_format',
+        });
+      } else if (result.isDisposable) {
+        ;(window as any).Analytics?.track?.('email_validation_failed', { reason: 'disposable' });
+      } else if (result.valid) {
+        ;(window as any).Analytics?.track?.('email_valid_confirmed');
+      }
+    }, 200);
+  }
+
+  function handleAcceptSuggestion() {
+    if (!emailSuggestion) return;
+    const accepted = emailSuggestion;
+    setEmail(accepted);
+    setEmailError('');
+    setEmailSuggestion(null);
+    setEmailIsDisposable(false);
+    setEmailIsConfirmed(true);
+    ;(window as any).Analytics?.track?.('email_typo_corrected', { corrected_email: accepted });
   }
 
   function handleToggleDetails() {
@@ -138,11 +179,18 @@ export default function Result() {
       return;
     }
 
-    if (!EMAIL_REGEX.test(email.trim())) {
-      setEmailError('Email wajib diisi — kami kirim link CV kamu ke sini');
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.valid || emailValidation.suggestion) {
+      setEmailError(emailValidation.error ?? 'Email tidak valid.');
+      setEmailSuggestion(emailValidation.suggestion);
+      setEmailIsConfirmed(false);
+      ;(window as any).Analytics?.track?.('email_validation_failed', {
+        reason: emailValidation.suggestion ? 'typo_domain' : 'invalid_format',
+      });
       return;
     }
     setEmailError('');
+    setEmailSuggestion(null);
 
     const capturedEmail = email.trim();
     try { sessionStorage.setItem('gaslamar_email', capturedEmail); } catch (_) {}
@@ -538,7 +586,12 @@ export default function Result() {
                 selectedTier={selectedTier}
                 email={email}
                 onChange={handleEmailChange}
+                onBlur={handleEmailBlur}
                 error={emailError}
+                suggestion={emailSuggestion}
+                onAcceptSuggestion={handleAcceptSuggestion}
+                isDisposable={emailIsDisposable}
+                isConfirmed={emailIsConfirmed}
               />
 
               {/* Session expired by payment error */}
@@ -567,6 +620,11 @@ export default function Result() {
                 >
                   {payBtnLabel}
                 </button>
+                {emailIsConfirmed && !payHint && !sessionExpiredByPay && (
+                  <p style={{ fontSize: '0.8rem', color: '#374151', textAlign: 'center', marginTop: '0.5rem' }}>
+                    📬 CV akan dikirim ke: <strong>{email.trim()}</strong>
+                  </p>
+                )}
                 {payHint && !sessionExpiredByPay && (
                   <p style={{ fontSize: '0.8rem', color: '#6B7280', textAlign: 'center', marginTop: '0.5rem' }}>
                     {payHint}
