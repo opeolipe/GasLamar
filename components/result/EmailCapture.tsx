@@ -35,7 +35,7 @@ export default function EmailCapture({
         htmlFor="email-capture"
         style={{ display: 'block', fontWeight: 600, fontSize: '0.9rem', color: '#374151', marginBottom: '0.5rem' }}
       >
-        Email untuk link download CV kamu <span style={{ color: '#DC2626' }}>*</span>
+        Masukkan email untuk kirim CV hasil perbaikan <span style={{ color: '#DC2626' }}>*</span>
         {isConfirmed && !error && !suggestion && (
           <span style={{ color: '#16A34A', marginLeft: '0.35rem', fontWeight: 700 }} aria-label="Email valid">✓</span>
         )}
