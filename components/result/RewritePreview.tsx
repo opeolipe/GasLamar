@@ -44,7 +44,7 @@ export default function RewritePreview({ recommendations, gaps }: Props) {
           </div>
         </div>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(248,250,252,0.72)', padding: '0.5rem' }}>
-          <div style={{ background: '#0F172A', color: 'white', borderRadius: 60, padding: '0.6rem 1.1rem', fontSize: '0.8rem', fontWeight: 700, textAlign: 'center', lineHeight: 1.45, maxWidth: 280, boxShadow: '0 4px 16px rgba(15,23,42,0.18)' }}>
+          <div style={{ background: '#1E40AF', color: 'white', borderRadius: 60, padding: '0.6rem 1.1rem', fontSize: '0.8rem', fontWeight: 700, textAlign: 'center', lineHeight: 1.45, maxWidth: 280, boxShadow: '0 4px 16px rgba(37,99,235,0.25)' }}>
             🔒 Lihat semua {totalCount} perbaikan + CV rewrite lengkap (ID &amp; EN) setelah pilih paket
           </div>
         </div>

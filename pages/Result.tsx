@@ -7,6 +7,7 @@ import RecommendationList                      from '@/components/result/Recomme
 import BeforeAfterProjection                   from '@/components/result/BeforeAfterProjection';
 import PricingSelector                         from '@/components/result/PricingSelector';
 import EmailCapture                            from '@/components/result/EmailCapture';
+import RewritePreview                          from '@/components/result/RewritePreview';
 import DetailAnalysis                          from '@/components/result/DetailAnalysis';
 import RedFlags                                from '@/components/result/RedFlags';
 import ScoreBars                               from '@/components/6d/ScoreBars';
@@ -525,6 +526,12 @@ export default function Result() {
                 Lihat semua perbaikan &amp; CV rewrite →
               </button>
             </div>
+
+            {/* Personalized rewrite preview — paywall teaser with first recommendation */}
+            <RewritePreview
+              recommendations={data.rekomendasi || []}
+              gaps={data.gap || []}
+            />
 
             {/* Pricing */}
             <div id="pricing-section" style={{ scrollMarginTop: 80 }}>
