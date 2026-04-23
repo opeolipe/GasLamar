@@ -19,6 +19,7 @@ import SessionError   from '@/components/download/SessionError';
 import WaitingPayment from '@/components/download/WaitingPayment';
 import GeneratingCV   from '@/components/download/GeneratingCV';
 import DownloadReady  from '@/components/download/DownloadReady';
+import ResendEmail    from '@/components/download/ResendEmail';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -349,6 +350,7 @@ export default function Download() {
               primaryIssue={resultData?.primaryIssue ?? null}
               isTrusted={content?.isTrusted ?? false}
             />
+            <ResendEmail sessionSecret={session.sessionSecret} />
           </div>
         )}
       </main>

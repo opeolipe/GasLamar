@@ -259,6 +259,13 @@ export default function Result() {
       localStorage.setItem(`gaslamar_secret_${session_id}`,     sessionSecret);
       sessionStorage.setItem('gaslamar_session',                  session_id);
       sessionStorage.removeItem('gaslamar_cv_key');
+      try {
+        localStorage.setItem('gaslamar_delivery', JSON.stringify({
+          sessionId: session_id,
+          email:     capturedEmail,
+          sentAt:    Date.now(),
+        }));
+      } catch (_) {}
 
       // Validate invoice URL origin before redirecting
       let validUrl = false;
