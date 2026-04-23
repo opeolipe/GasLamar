@@ -16,8 +16,7 @@ interface Props {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const COOLDOWN_SECS       = 30;
-const RECENT_GUARD_SECS   = 60;
+const COOLDOWN_SECS = 30;
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -83,10 +82,14 @@ export default function ResendEmail({ sessionSecret }: Props) {
         body:        JSON.stringify(body),
       });
 
+      if (res.status === 401 || res.status === 404) {
+        localStorage.removeItem('gaslamar_delivery');
+        window.location.href = '/';
+        return;
+      }
+
       if (res.status === 429) {
-        const data: any = await res.json().catch(() => ({}));
-        const retryAfter = data.retryAfter ?? 60;
-        setErrorMsg(`Terlalu banyak permintaan. Coba lagi dalam ${retryAfter} detik.`);
+        setErrorMsg('Terlalu banyak permintaan. Coba lagi dalam beberapa saat.');
         ;(window as any).Analytics?.track?.('resend_failed', { reason: 'rate_limited' });
         return;
       }
@@ -94,11 +97,7 @@ export default function ResendEmail({ sessionSecret }: Props) {
       if (!res.ok) {
         const data: any = await res.json().catch(() => ({}));
         const reason = data.reason || 'unknown';
-        setErrorMsg(
-          reason === 'expired' || reason === 'no_cookie'
-            ? 'Sesi telah berakhir. Silakan upload ulang CV.'
-            : 'Gagal mengirim ulang. Coba lagi dalam beberapa saat.',
-        );
+        setErrorMsg('Gagal mengirim ulang. Coba lagi dalam beberapa saat.');
         ;(window as any).Analytics?.track?.('resend_failed', { reason });
         return;
       }
@@ -111,14 +110,13 @@ export default function ResendEmail({ sessionSecret }: Props) {
           old_domain: delivery?.email.split('@')[1],
           new_domain: targetEmail.split('@')[1],
         });
-        setSuccessMsg(`Email diubah ke ${targetEmail}. CV telah dikirim ulang.`);
         setShowChange(false);
         setNewEmail('');
-      } else {
-        setSuccessMsg(`CV berhasil dikirim ulang ke ${targetEmail}.`);
+        startCooldown();
       }
+
+      setSuccessMsg(`CV berhasil dikirim ulang ke ${targetEmail}.`);
       ;(window as any).Analytics?.track?.('resend_success');
-      startCooldown();
 
     } catch (_) {
       setErrorMsg('Gagal mengirim ulang. Coba lagi dalam beberapa saat.');
@@ -131,13 +129,9 @@ export default function ResendEmail({ sessionSecret }: Props) {
   // ── Handlers ─────────────────────────────────────────────────────────────
 
   function handleResendSame() {
-    if (!delivery) return;
+    if (!delivery || sending || cooldown > 0) return;
     ;(window as any).Analytics?.track?.('resend_clicked', { action: 'same_email' });
-
-    if (Date.now() - delivery.sentAt < RECENT_GUARD_SECS * 1000) {
-      setErrorMsg('Email baru saja dikirim. Cek folder spam atau tunggu sebentar.');
-      return;
-    }
+    startCooldown();
     doResend(delivery.email, false);
   }
 
@@ -239,11 +233,7 @@ export default function ResendEmail({ sessionSecret }: Props) {
               whiteSpace:   'nowrap' as const,
             }}
           >
-            {sending
-              ? 'Mengirim...'
-              : cooldown > 0
-              ? `Kirim ulang dalam ${cooldown}s`
-              : `Resend ke ${delivery.email}`}
+            Resend ke {delivery.email}
           </button>
 
           <button
@@ -276,6 +266,7 @@ export default function ResendEmail({ sessionSecret }: Props) {
                 inputMode="email"
                 autoCapitalize="off"
                 value={newEmail}
+                disabled={sending}
                 onChange={e => handleNewEmailChange(e.target.value)}
                 onBlur={handleNewEmailBlur}
                 placeholder="email-baru@contoh.com"
@@ -379,6 +370,16 @@ export default function ResendEmail({ sessionSecret }: Props) {
       )}
 
       {/* Status messages */}
+      {sending && (
+        <p role="status" aria-live="polite" style={{ margin: '0.6rem 0 0', color: '#64748B', fontSize: '0.875rem' }}>
+          Mengirim ulang...
+        </p>
+      )}
+      {!sending && cooldown > 0 && !successMsg && (
+        <p style={{ margin: '0.6rem 0 0', color: '#64748B', fontSize: '0.8rem' }}>
+          Kirim ulang dalam {cooldown} detik
+        </p>
+      )}
       {successMsg && (
         <p role="status" aria-live="polite" style={{ margin: '0.6rem 0 0', color: '#15803D', fontWeight: 500 }}>
           ✓ {successMsg}
