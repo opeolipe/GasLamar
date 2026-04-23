@@ -7,6 +7,7 @@ import RecommendationList                      from '@/components/result/Recomme
 import BeforeAfterProjection                   from '@/components/result/BeforeAfterProjection';
 import PricingSelector                         from '@/components/result/PricingSelector';
 import EmailCapture                            from '@/components/result/EmailCapture';
+import RewritePreview                          from '@/components/result/RewritePreview';
 import DetailAnalysis                          from '@/components/result/DetailAnalysis';
 import RedFlags                                from '@/components/result/RedFlags';
 import ScoreBars                               from '@/components/6d/ScoreBars';
@@ -100,7 +101,7 @@ export default function Result() {
 
   const payBtnLabel = payBtnOverride
     ?? (selectedTier
-      ? `Bayar Rp ${formatPrice(TIER_CONFIG[selectedTier].price)} — ${TIER_CONFIG[selectedTier].label} →`
+      ? 'Dapatkan CV siap kirim →'
       : '✨ Lihat CV hasil rewrite lengkap');
 
   const payBtnDisabled = !selectedTier || paymentInProgress || sessionExpiredByPay;
@@ -525,6 +526,12 @@ export default function Result() {
               </button>
             </div>
 
+            {/* Personalized rewrite preview — paywall teaser with first recommendation */}
+            <RewritePreview
+              recommendations={data.rekomendasi || []}
+              gaps={data.gap || []}
+            />
+
             {/* Pricing */}
             <div id="pricing-section" style={{ scrollMarginTop: 80 }}>
               <PricingSelector
@@ -555,8 +562,13 @@ export default function Result() {
                 </div>
               )}
 
+              {/* Loss aversion microcopy */}
+              <p style={{ fontSize: '0.75rem', color: '#64748B', fontStyle: 'italic', textAlign: 'center', margin: '0.75rem 0 0.5rem' }}>
+                Tanpa perbaikan ini, CV kamu berisiko di-skip dalam 7 detik pertama.
+              </p>
+
               {/* Pay button */}
-              <div style={{ marginTop: '1rem' }}>
+              <div style={{ marginTop: '0' }}>
                 <button
                   data-testid="generate-cv-button"
                   onClick={proceedToPayment}
