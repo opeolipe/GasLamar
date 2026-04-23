@@ -20,15 +20,15 @@ const TIERS: Tier[] = [
     name: "Single",
     price: "Rp 59k",
     desc: "Analisis gratis dulu. Kalau lanjut rewrite, hasil aktif 7 hari.",
-    features: ["CV tailored bilingual", "Status + 6 dimensi", "Hasil rewrite aktif 7 hari"],
+    features: ["Perbaikan 8 bagian utama CV (Experience, Skills, Summary, dll)", "Rewrite langsung dari CV kamu (bukan template)", "Siap kirim ke HR (ATS-friendly)"],
   },
   {
     name: "3-Pack / Job Hunt",
     price: "Rp 149k – Rp 299k",
     desc: "Untuk lamaran lebih banyak, dengan hasil rewrite aktif 30 hari.",
-    badge: "Paket banyak lamaran",
+    badge: "Paling dipilih",
     featured: true,
-    features: ["3-Pack: 3 CV tailored ID + EN", "Job Hunt: 10 CV tailored ID + EN", "Hasil rewrite aktif 30 hari"],
+    features: ["3-Pack: 3 CV tailored ID + EN", "Job Hunt: 10 CV tailored ID + EN", "Siap kirim ke HR (ATS-friendly)"],
   },
 ];
 
@@ -53,8 +53,13 @@ export default function PricingSection() {
       </div>
 
       {/* Pricing subtitle */}
-      <p className="text-center text-sm text-slate-500 mb-6">
+      <p className="text-center text-sm text-slate-500 mb-4">
         Analisis gratis dulu. Bayar hanya kalau mau tingkatkan peluang interview.
+      </p>
+
+      {/* Guided decision copy */}
+      <p className="text-sm sm:text-base text-slate-600 text-center mb-6 px-2">
+        Kalau kamu fokus 1 posisi → pilih Single. Kalau apply ke beberapa posisi → pilih 3‑Pack.
       </p>
 
       {/* Pricing cards */}
@@ -62,13 +67,13 @@ export default function PricingSection() {
         {TIERS.map((tier) => (
           <div
             key={tier.name}
-            className={`relative flex flex-col rounded-[20px] p-4 sm:p-6 ${tier.featured ? "scale-[1.02] sm:scale-100" : ""}`}
+            className={`relative flex flex-col rounded-[20px] p-4 sm:p-6 ${tier.featured ? "scale-[1.02]" : ""}`}
             style={{
               background: tier.featured
                 ? "linear-gradient(180deg,rgba(37,99,235,0.06),rgba(37,99,235,0.02))"
                 : "rgba(255,255,255,0.9)",
               border: tier.featured
-                ? "1px solid rgba(37,99,235,0.18)"
+                ? "2px solid #93C5FD"
                 : "1px solid rgba(148,163,184,0.14)",
               boxShadow: tier.featured
                 ? "0 24px 56px rgba(37,99,235,0.12)"
@@ -76,7 +81,7 @@ export default function PricingSection() {
             }}
           >
             {tier.badge && (
-              <span className="absolute -top-3.5 left-6 rounded-full text-white text-xs font-bold px-3 py-1" style={{ background: "#2563eb" }}>
+              <span className="absolute -top-3 left-6 rounded-full text-xs font-bold px-3 py-1" style={{ background: "#DBEAFE", color: "#1E40AF" }}>
                 {tier.badge}
               </span>
             )}
