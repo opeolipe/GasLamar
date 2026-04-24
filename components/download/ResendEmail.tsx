@@ -162,7 +162,7 @@ export default function ResendEmail({ sessionSecret }: Props) {
     if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
     blurTimerRef.current = setTimeout(() => {
       const result = validateEmail(newEmail);
-      setEmailError(result.error ?? '');
+      setEmailError(result.suggestion ? '' : (result.error ?? ''));
       setEmailSuggestion(result.suggestion);
       setEmailIsDisposable(result.isDisposable);
       setEmailIsConfirmed(result.valid && !result.suggestion);

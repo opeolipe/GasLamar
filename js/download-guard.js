@@ -35,5 +35,5 @@
   }
 
   // No valid session found — redirect before body renders
-  window.location.replace('upload.html?reason=no_session');
+  window.location.replace('/');
 })();

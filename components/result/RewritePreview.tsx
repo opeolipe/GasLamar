@@ -31,7 +31,7 @@ export default function RewritePreview({ recommendations, gaps }: Props) {
       </p>
 
       {/* First item — fully visible */}
-      <PreviewItem data-testid="rewrite-after" label="✅ Perbaikan #1 — contoh gratis" text={first} />
+      <PreviewItem label="✅ Perbaikan #1 — contoh gratis" text={first} />
 
       {/* Remaining items — blurred with lock overlay */}
       <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden' }}>

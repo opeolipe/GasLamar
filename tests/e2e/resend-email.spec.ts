@@ -3,16 +3,27 @@ import { test, expect } from '@playwright/test';
 async function mockSession(page) {
   await page.addInitScript(() => {
     localStorage.setItem('gaslamar_delivery', JSON.stringify({
-      sessionId: 'test-session',
+      sessionId: 'sess_test-session',
       email: 'user@gmail.com',
       sentAt: Date.now()
     }));
+    // download-guard.js checks gaslamar_session before the React bundle loads
+    localStorage.setItem('gaslamar_session', 'sess_test-session');
   });
 }
 
 test.describe('Resend Email System', () => {
   test.beforeEach(async ({ page }) => {
     await mockSession(page);
+    // Prevent check-session polling from causing a network error that could
+    // set view=error and obscure the delivery success section.
+    await page.route('**/check-session**', route =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'paid', tier: 'single' }),
+      })
+    );
     await page.goto('/download.html');
     await expect(page.locator('text=CV kamu sudah siap digunakan')).toBeVisible();
   });
@@ -66,7 +77,10 @@ test.describe('Resend Email System', () => {
   });
 
   test('redirect if session missing', async ({ page }) => {
-    await page.addInitScript(() => localStorage.removeItem('gaslamar_delivery'));
+    await page.addInitScript(() => {
+      localStorage.removeItem('gaslamar_delivery');
+      localStorage.removeItem('gaslamar_session');
+    });
     await page.goto('/download.html');
     await expect(page).toHaveURL('/');
   });

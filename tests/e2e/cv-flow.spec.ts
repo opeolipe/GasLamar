@@ -385,6 +385,10 @@ test.describe('GasLamar CV Flow', () => {
     await expect(emailInput).toBeVisible({ timeout: 5000 });
     await emailInput.fill('test@example.com');
 
+    // Confirm email field added in PR #81 — must match primary email for payment to proceed
+    const confirmInput = page.locator('[data-testid="email-confirm-input"]');
+    await confirmInput.fill('test@example.com');
+
     await page.click('[data-testid="generate-cv-button"]');
 
     // Wait for either Mayar redirect or a visible error
