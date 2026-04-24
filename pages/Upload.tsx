@@ -211,10 +211,11 @@ export default function Upload() {
 
     setLoading(true);
     try {
+      const safeJd = jobDesc.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
       sessionStorage.setItem('gaslamar_cv_pending', cvText);
-      sessionStorage.setItem('gaslamar_jd_pending', escapeHtml(jobDesc));
+      sessionStorage.setItem('gaslamar_jd_pending', safeJd);
       sessionStorage.setItem('gaslamar_filename',   fileName!);
-      sessionStorage.setItem('gaslamar_had_jd',     jobDesc.length >= 50 ? '1' : '0');
+      sessionStorage.setItem('gaslamar_had_jd',     safeJd.length >= 50 ? '1' : '0');
     } catch (_) {
       setFileError('Browser kamu memblokir penyimpanan sementara (mode pribadi?). Coba gunakan mode normal.');
       setLoading(false);
