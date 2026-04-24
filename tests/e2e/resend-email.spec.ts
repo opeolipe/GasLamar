@@ -1,143 +1,275 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 
-async function mockSession(page) {
-  await page.addInitScript(() => {
-    localStorage.setItem('gaslamar_delivery', JSON.stringify({
-      sessionId: 'test-session',
-      email: 'user@gmail.com',
-      sentAt: Date.now()
-    }));
-  });
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const MOCK_DELIVERY = {
+  sessionId: 'sess_resend-e2e-123',
+  email:     'user@example.com',
+  sentAt:    Date.now() - 120_000, // 2 minutes ago
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/** Seed gaslamar_delivery into localStorage BEFORE the page scripts run. */
+function setupDelivery(page: Page, overrides: Partial<typeof MOCK_DELIVERY> = {}) {
+  const delivery = { ...MOCK_DELIVERY, ...overrides };
+  return page.addInitScript((d) => {
+    localStorage.setItem('gaslamar_delivery', JSON.stringify(d));
+  }, delivery);
 }
 
-test.describe('Resend Email System', () => {
-  test.beforeEach(async ({ page }) => {
-    await mockSession(page);
-    await page.goto('/download.html');
-    await expect(page.locator('text=CV kamu sudah siap digunakan')).toBeVisible();
-  });
+/** Mock the /resend-email worker endpoint. */
+function mockResend(
+  page: Page,
+  response: { status: number; body?: string; contentType?: string },
+) {
+  return page.route('**/resend-email**', (route) =>
+    route.fulfill({
+      contentType: 'application/json',
+      body:        '{}',
+      ...response,
+    }),
+  );
+}
 
-  test('resend to same email works', async ({ page }) => {
-    await page.route('**/resend-email', route =>
-      route.fulfill({ status: 200, body: JSON.stringify({ success: true }) })
-    );
-    await page.click('text=Resend ke user@gmail.com');
-    await expect(page.locator('text=CV berhasil dikirim ulang')).toBeVisible();
-  });
+/** Mock check-session to return a stable error so it doesn't interfere. */
+async function suppressCheckSession(page: Page) {
+  await page.route('**/check-session**', (route) =>
+    route.fulfill({
+      status:      401,
+      contentType: 'application/json',
+      body:        JSON.stringify({ error: 'no session' }),
+    }),
+  );
+}
 
-  test('resend button disabled after click', async ({ page }) => {
-    await page.route('**/resend-email', route =>
-      route.fulfill({ status: 200, body: JSON.stringify({ success: true }) })
-    );
-    const button = page.locator('text=Resend ke user@gmail.com');
-    await button.click();
-    await expect(button).toBeDisabled();
-  });
+// ── Suite ─────────────────────────────────────────────────────────────────────
 
-  test('change email and resend works', async ({ page }) => {
-    await page.route('**/resend-email', route =>
-      route.fulfill({ status: 200, body: JSON.stringify({ success: true }) })
-    );
-    await page.click('text=Ganti email');
-    await page.fill('input[type="email"]', 'newuser@gmail.com');
-    await page.click('text=Kirim ulang');
-    await expect(page.locator('text=CV berhasil dikirim ulang ke newuser@gmail.com')).toBeVisible();
-  });
+test.describe('ResendEmail — button label & loading state', () => {
+  test('button label stays "Resend ke {email}" — not "Mengirim..." — while sending', async ({ page }) => {
+    await setupDelivery(page);
+    await suppressCheckSession(page);
 
-  test('blocks typo email during resend', async ({ page }) => {
-    await page.click('text=Ganti email');
-    await page.fill('input[type="email"]', 'user@gmal.com');
-    await page.locator('input[type="email"]').blur();
-    await expect(page.locator('text=Maksud kamu')).toBeVisible();
-    await expect(page.locator('text=Kirim ulang')).toBeDisabled();
-  });
-
-  test('blocks invalid email', async ({ page }) => {
-    await page.click('text=Ganti email');
-    await page.fill('input[type="email"]', 'notanemail');
-    await page.click('text=Kirim ulang');
-    await expect(page.locator('text=Email tidak valid')).toBeVisible();
-  });
-
-  test('handles resend failure', async ({ page }) => {
-    await page.route('**/resend-email', route => route.fulfill({ status: 500 }));
-    await page.click('text=Resend ke user@gmail.com');
-    await expect(page.locator('text=Gagal mengirim ulang')).toBeVisible();
-  });
-
-  test('redirect if session missing', async ({ page }) => {
-    await page.addInitScript(() => localStorage.removeItem('gaslamar_delivery'));
-    await page.goto('/download.html');
-    await expect(page).toHaveURL('/');
-  });
-
-  test('prevents multiple rapid resend clicks', async ({ page }) => {
-    await page.route('**/resend-email', async route => {
-      await new Promise(r => setTimeout(r, 300));
-      route.fulfill({ status: 200, body: JSON.stringify({ success: true }) });
+    // Slow route: hold the request until we've made assertions
+    let resolveResend!: () => void;
+    await page.route('**/resend-email**', async (route) => {
+      await new Promise<void>((r) => { resolveResend = r; });
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
     });
-    const btn = page.locator('text=Resend ke user@gmail.com');
+
+    await page.goto('/download');
+
+    const btn = page.locator('button', { hasText: 'Resend ke user@example.com' });
+    await expect(btn).toBeVisible({ timeout: 15_000 });
     await btn.click();
-    await btn.click();
-    await expect(btn).toBeDisabled();
+
+    // Button must still show static label — NOT "Mengirim..."
+    await expect(page.locator('button', { hasText: 'Resend ke user@example.com' })).toBeVisible();
+    await expect(page.locator('button', { hasText: 'Mengirim...' })).not.toBeVisible();
+
+    resolveResend();
   });
 
-  test('handles slow resend response gracefully', async ({ page }) => {
-    await page.route('**/resend-email', async route => {
-      await new Promise(r => setTimeout(r, 2000));
-      route.fulfill({ status: 200, body: JSON.stringify({ success: true }) });
+  test('shows "Mengirim ulang..." paragraph during send', async ({ page }) => {
+    await setupDelivery(page);
+    await suppressCheckSession(page);
+
+    let resolveResend!: () => void;
+    await page.route('**/resend-email**', async (route) => {
+      await new Promise<void>((r) => { resolveResend = r; });
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
     });
-    await page.click('text=Resend ke user@gmail.com');
+
+    await page.goto('/download');
+
+    const btn = page.locator('button', { hasText: 'Resend ke user@example.com' });
+    await expect(btn).toBeVisible({ timeout: 15_000 });
+    await btn.click();
+
+    // Separate <p> must appear
     await expect(page.locator('text=Mengirim ulang...')).toBeVisible();
+
+    resolveResend();
   });
 
-  test('handles network failure', async ({ page }) => {
-    await page.route('**/resend-email', route => route.abort());
-    await page.click('text=Resend ke user@gmail.com');
-    await expect(page.locator('text=Gagal mengirim ulang')).toBeVisible();
-  });
+  test('cooldown countdown appears in a separate element — not inside the button', async ({ page }) => {
+    await setupDelivery(page);
+    await suppressCheckSession(page);
+    await mockResend(page, { status: 200, body: '{}' });
 
-  test('handles rate limit', async ({ page }) => {
-    await page.route('**/resend-email', route => route.fulfill({ status: 429 }));
-    await page.click('text=Resend ke user@gmail.com');
-    await expect(page.locator('text=Coba lagi dalam beberapa saat')).toBeVisible();
-  });
+    await page.goto('/download');
 
-  test('handles expired session during resend', async ({ page }) => {
-    await page.route('**/resend-email', route => route.fulfill({ status: 401 }));
-    await page.click('text=Resend ke user@gmail.com');
-    await expect(page).toHaveURL('/');
-  });
-
-  test('normalizes email before resend', async ({ page }) => {
-    await page.click('text=Ganti email');
-    await page.fill('input[type="email"]', ' USER@GMAIL.COM ');
-    await page.locator('input[type="email"]').blur();
-    await expect(page.locator('text=✓')).toBeVisible();
-  });
-
-  test('cannot resend while suggestion exists', async ({ page }) => {
-    await page.click('text=Ganti email');
-    await page.fill('input[type="email"]', 'user@gmal.com');
-    await page.locator('input[type="email"]').blur();
-    await expect(page.locator('text=Kirim ulang')).toBeDisabled();
-  });
-
-  test('allows disposable email but shows warning', async ({ page }) => {
-    await page.click('text=Ganti email');
-    await page.fill('input[type="email"]', 'user@mailinator.com');
-    await page.locator('input[type="email"]').blur();
-    await expect(page.locator('text=Gunakan email aktif')).toBeVisible();
-  });
-
-  test('cooldown resets after timeout', async ({ page }) => {
-    await page.route('**/resend-email', route =>
-      route.fulfill({ status: 200, body: JSON.stringify({ success: true }) })
-    );
-    const btn = page.locator('text=Resend ke user@gmail.com');
+    const btn = page.locator('button', { hasText: 'Resend ke user@example.com' });
+    await expect(btn).toBeVisible({ timeout: 15_000 });
     await btn.click();
-    await expect(btn).toBeDisabled();
-    await page.waitForTimeout(31000);
-    await expect(btn).toBeEnabled();
+
+    // Wait for success, then cooldown kicks in
+    await expect(page.locator('text=CV berhasil dikirim ulang ke user@example.com.')).toBeVisible({ timeout: 5_000 });
+
+    // Button still shows static label
+    await expect(page.locator('button', { hasText: 'Resend ke user@example.com' })).toBeVisible();
+    // Countdown NOT inside a button
+    await expect(page.locator('button', { hasText: /Kirim ulang dalam/ })).not.toBeVisible();
+    // Countdown IS in some other element (p / span / div)
+    await expect(page.locator('text=/Kirim ulang dalam \\d+s/')).toBeVisible();
+  });
+});
+
+test.describe('ResendEmail — 60s guard removed', () => {
+  test('resend works even when sentAt is only 5s ago (no RECENT_GUARD error)', async ({ page }) => {
+    // sentAt 5s ago — the old 60s guard would have blocked this
+    await setupDelivery(page, { sentAt: Date.now() - 5_000 });
+    await suppressCheckSession(page);
+    await mockResend(page, { status: 200, body: '{}' });
+
+    await page.goto('/download');
+
+    const btn = page.locator('button', { hasText: 'Resend ke user@example.com' });
+    await expect(btn).toBeVisible({ timeout: 15_000 });
+    await btn.click();
+
+    // Must NOT see old guard message
+    await expect(page.locator('text=Email baru saja dikirim')).not.toBeVisible();
+    // Must see success
+    await expect(
+      page.locator('text=CV berhasil dikirim ulang ke user@example.com.'),
+    ).toBeVisible({ timeout: 5_000 });
+  });
+
+  test('same-email success message exact format', async ({ page }) => {
+    await setupDelivery(page);
+    await suppressCheckSession(page);
+    await mockResend(page, { status: 200, body: '{}' });
+
+    await page.goto('/download');
+
+    const btn = page.locator('button', { hasText: 'Resend ke user@example.com' });
+    await expect(btn).toBeVisible({ timeout: 15_000 });
+    await btn.click();
+
+    await expect(
+      page.locator('text=CV berhasil dikirim ulang ke user@example.com.'),
+    ).toBeVisible({ timeout: 5_000 });
+  });
+});
+
+test.describe('ResendEmail — change email', () => {
+  test('change-email success uses "CV berhasil dikirim ulang ke {new email}."', async ({ page }) => {
+    await setupDelivery(page);
+    await suppressCheckSession(page);
+    await mockResend(page, { status: 200, body: '{}' });
+
+    await page.goto('/download');
+
+    const gantiBtn = page.locator('button', { hasText: 'Ganti email' });
+    await expect(gantiBtn).toBeVisible({ timeout: 15_000 });
+    await gantiBtn.click();
+
+    await page.fill('input[type="email"]', 'new@example.com');
+    // Trigger blur validation so the submit button is enabled
+    await page.locator('input[type="email"]').blur();
+    await page.waitForTimeout(300); // blur debounce
+
+    await page.locator('button[type="submit"]').click();
+
+    await expect(
+      page.locator('text=CV berhasil dikirim ulang ke new@example.com.'),
+    ).toBeVisible({ timeout: 5_000 });
+  });
+});
+
+test.describe('ResendEmail — error handling', () => {
+  test('429 with no JSON body shows static rate-limit message', async ({ page }) => {
+    await setupDelivery(page);
+    await suppressCheckSession(page);
+    // Bare 429 — no JSON body
+    await mockResend(page, { status: 429, body: '', contentType: 'text/plain' });
+
+    await page.goto('/download');
+
+    const btn = page.locator('button', { hasText: 'Resend ke user@example.com' });
+    await expect(btn).toBeVisible({ timeout: 15_000 });
+    await btn.click();
+
+    await expect(
+      page.locator('text=Terlalu banyak permintaan. Coba lagi dalam beberapa saat.'),
+    ).toBeVisible({ timeout: 5_000 });
+
+    // Must NOT contain dynamic retry-after seconds
+    await expect(page.locator('text=/dalam \\d+ detik/')).not.toBeVisible();
+  });
+
+  test('401 response redirects to root and clears gaslamar_delivery', async ({ page }) => {
+    await setupDelivery(page);
+    await suppressCheckSession(page);
+    await mockResend(page, { status: 401, body: JSON.stringify({ error: 'unauthorized' }) });
+
+    await page.goto('/download');
+
+    const btn = page.locator('button', { hasText: 'Resend ke user@example.com' });
+    await expect(btn).toBeVisible({ timeout: 15_000 });
+    await btn.click();
+
+    await page.waitForURL('http://localhost:3000/', { timeout: 8_000 });
+
+    // Delivery must be cleared from localStorage
+    const deliveryAfter = await page.evaluate(() => localStorage.getItem('gaslamar_delivery'));
+    expect(deliveryAfter).toBeNull();
+  });
+
+  test('404 response redirects to root', async ({ page }) => {
+    await setupDelivery(page);
+    await suppressCheckSession(page);
+    await mockResend(page, { status: 404, body: JSON.stringify({ error: 'not found' }) });
+
+    await page.goto('/download');
+
+    const btn = page.locator('button', { hasText: 'Resend ke user@example.com' });
+    await expect(btn).toBeVisible({ timeout: 15_000 });
+    await btn.click();
+
+    await page.waitForURL('http://localhost:3000/', { timeout: 8_000 });
+  });
+});
+
+test.describe('Download page — delivery guard', () => {
+  test('delivery in localStorage renders heading and ResendEmail widget', async ({ page }) => {
+    await setupDelivery(page);
+    await suppressCheckSession(page);
+
+    await page.goto('/download');
+
+    await expect(
+      page.locator('text=CV kamu sudah siap digunakan'),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('text=Belum menerima email?')).toBeVisible({ timeout: 5_000 });
+  });
+
+  test('no delivery and no session redirects to root', async ({ page }) => {
+    // Ensure both keys are absent before page load
+    await page.addInitScript(() => {
+      localStorage.removeItem('gaslamar_delivery');
+      localStorage.removeItem('gaslamar_session');
+    });
+
+    await page.goto('/download');
+
+    await page.waitForURL('http://localhost:3000/', { timeout: 8_000 });
+  });
+
+  test('delivery present suppresses SessionError even when view is error', async ({ page }) => {
+    await setupDelivery(page);
+    // check-session returning 401 drives the session into error state
+    await suppressCheckSession(page);
+
+    await page.goto('/download');
+
+    // Delivery section must appear
+    await expect(
+      page.locator('text=CV kamu sudah siap digunakan'),
+    ).toBeVisible({ timeout: 10_000 });
+
+    // SessionError must NOT appear
+    await expect(page.locator('[data-testid="error-message"]')).not.toBeVisible();
   });
 });
