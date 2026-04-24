@@ -410,8 +410,6 @@ export default function Result() {
       </nav>
 
       <main id="main-content" className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-        <h1 className="sr-only">Hasil Analisis CV</h1>
-
         {/* ── Loading ── */}
         {loading && (
           <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem 2rem' }}>
@@ -454,9 +452,9 @@ export default function Result() {
         {/* ── Main results ── */}
         {data && !loading && !error && (
           <>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1.25rem', fontFamily: '"Plus Jakarta Sans","Inter",sans-serif', letterSpacing: '-0.02em', color: '#0F172A' }}>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1.25rem', fontFamily: '"Plus Jakarta Sans","Inter",sans-serif', letterSpacing: '-0.02em', color: '#0F172A' }}>
               Hasil Analisis CV
-            </h2>
+            </h1>
 
             {/* Progress steps */}
             <header aria-label="Langkah analisis CV">
