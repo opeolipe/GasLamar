@@ -77,6 +77,9 @@ export default function Upload() {
     } else if (reason === 'no_session') {
       history.replaceState(null, '', location.pathname);
       newNotices.push({ type: 'info', text: 'Sesi tidak ditemukan. Silakan mulai upload CV dari sini.' });
+    } else if (reason === 'missing_data') {
+      history.replaceState(null, '', location.pathname);
+      newNotices.push({ type: 'warning', text: 'Data sesi tidak lengkap. Silakan upload CV kamu untuk memulai.' });
     }
 
     const uploadErr = sessionStorage.getItem('gaslamar_upload_error');

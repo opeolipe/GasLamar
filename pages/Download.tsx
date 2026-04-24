@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useDownloadSession }  from '@/hooks/useDownloadSession';
 import { useGenerateCV }       from '@/hooks/useGenerateCV';
+import { logError }            from '@/lib/logger';
 import {
   isBilingual,
   isMultiCredit,
@@ -61,7 +62,7 @@ export default function Download() {
 
   useEffect(() => {
     if (!delivery && !localStorage.getItem('gaslamar_session')) {
-      window.location.href = '/';
+      window.location.href = 'upload.html?reason=missing_data';
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -117,6 +118,7 @@ export default function Download() {
 
   useEffect(() => {
     if (generate.status === 'error') {
+      logError('cv_generation_failed', { message: generate.error?.message });
       setView('error');
     }
   }, [generate.status]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -180,8 +182,8 @@ export default function Download() {
         resultId:   sessionStorage.getItem('gaslamar_result_id') || undefined,
       });
     } catch (err) {
+      logError('download_failed', { lang, format, message: (err as Error)?.message });
       setShowMobileFb(true);
-      console.error('[GasLamar] Download failed:', err);
     }
   }, [generate.content]);
 

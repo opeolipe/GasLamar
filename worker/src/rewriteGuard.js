@@ -44,6 +44,9 @@ const WEAK_FILLER = [
   'in a better way', 'more optimally',
 ];
 
+// Placeholder pattern — LLM template artifacts that must never appear in final CV
+const PLACEHOLDER_PATTERN = /\[[^\]]{1,60}\]/;
+
 // Section headings — never rewrite these
 const SECTION_HEADING_PATTERN =
   /^(RINGKASAN PROFESIONAL|PENGALAMAN KERJA|PENDIDIKAN|KEAHLIAN|SERTIFIKASI|PROFESSIONAL SUMMARY|WORK EXPERIENCE|EDUCATION|SKILLS|CERTIFICATIONS)$/i;
@@ -256,6 +259,14 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
     if (wordCount < MIN_WORD_COUNT)             return line;
 
     totalBullets++;
+
+    // Reject any line that still contains template placeholders like [NAME] or [POSITION]
+    if (PLACEHOLDER_PATTERN.test(clean)) {
+      const original = findBestMatch(clean, originalLines);
+      const prefix = line.match(/^(\s*[-•*]\s*)/)?.[1] ?? '';
+      fallbackCount++;
+      return prefix + (original ? safeRewriteLine(original, issue) : clean.replace(PLACEHOLDER_PATTERN, '').trim());
+    }
 
     const original = findBestMatch(clean, originalLines);
     if (!original) {
