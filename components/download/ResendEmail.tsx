@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { validateEmail }               from '@/utils/emailValidation';
 import { WORKER_URL, buildSecretHeaders } from '@/lib/downloadUtils';
+import { logError } from '@/lib/logger';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -119,6 +120,7 @@ export default function ResendEmail({ sessionSecret }: Props) {
       ;(window as any).Analytics?.track?.('resend_success');
 
     } catch (_) {
+      logError('resend_failed', { reason: 'network_error' });
       setErrorMsg('Gagal mengirim ulang. Coba lagi dalam beberapa saat.');
       ;(window as any).Analytics?.track?.('resend_failed', { reason: 'network_error' });
     } finally {
@@ -223,6 +225,7 @@ export default function ResendEmail({ sessionSecret }: Props) {
               onClick={handleResendSame}
               style={{
                 padding:      '0.5rem 0.9rem',
+                minHeight:    44,
                 background:   cooldown > 0 || sending ? '#F1F5F9' : '#EFF6FF',
                 border:       '1px solid #BFDBFE',
                 borderRadius: 8,
@@ -242,6 +245,7 @@ export default function ResendEmail({ sessionSecret }: Props) {
               onClick={handleToggleChange}
               style={{
                 padding:      '0.5rem 0.9rem',
+                minHeight:    44,
                 background:   'transparent',
                 border:       '1px solid #CBD5E1',
                 borderRadius: 8,
@@ -306,6 +310,7 @@ export default function ResendEmail({ sessionSecret }: Props) {
                 disabled={sending || !!emailSuggestion}
                 style={{
                   padding:      '0.5rem 0.9rem',
+                  minHeight:    44,
                   background:   sending || emailSuggestion ? '#F1F5F9' : '#1D4ED8',
                   border:       'none',
                   borderRadius: 8,
@@ -315,7 +320,6 @@ export default function ResendEmail({ sessionSecret }: Props) {
                   fontSize:     '0.82rem',
                   fontFamily:   'inherit',
                   whiteSpace:   'nowrap' as const,
-                  minHeight:    36,
                 }}
               >
                 {sending ? 'Mengirim...' : 'Kirim ulang'}
@@ -325,6 +329,7 @@ export default function ResendEmail({ sessionSecret }: Props) {
                 onClick={handleToggleChange}
                 style={{
                   padding:      '0.5rem 0.75rem',
+                  minHeight:    44,
                   background:   'transparent',
                   border:       '1px solid #CBD5E1',
                   borderRadius: 8,
