@@ -10,7 +10,6 @@ interface Props {
 
 const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobDescriptionInput({ value, onChange }, ref) {
   const [showFetcher, setShowFetcher] = useState(false);
-  const count   = value.length;
   const trimmed = value.trim();
   const quality = evaluateJDQuality(value);
 
@@ -23,6 +22,8 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
   function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const raw = e.target.value;
     onChange(raw.length > MAX_JD_CHARS ? raw.slice(0, MAX_JD_CHARS) : raw);
+    e.target.style.height = 'auto';
+    e.target.style.height = `${e.target.scrollHeight}px`;
   }
 
   return (
@@ -45,7 +46,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
             <button
               type="button"
               onClick={() => setShowFetcher(true)}
-              className="text-blue-600 hover:underline font-medium"
+              className="text-blue-600 underline hover:no-underline font-medium"
               aria-label="Ambil job description dari URL loker seperti LinkedIn, Glints, atau JobStreet"
             >
               ambil dari URL
@@ -67,7 +68,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
           aria-label="Job description atau lowongan kerja yang kamu targetkan"
         />
         <div className="text-right text-[10px] mt-1 text-slate-300">
-          {count.toLocaleString('id-ID')} / 5.000
+          {value.length.toLocaleString('id-ID')} / 5.000
         </div>
       </div>
 

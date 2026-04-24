@@ -404,14 +404,12 @@ export default function Result() {
         className="border-b py-4 px-6 flex items-center sticky top-0 z-50 backdrop-blur-[14px]"
         style={{ borderColor: 'rgba(148,163,184,0.18)', background: 'rgba(255,255,255,0.88)' }}
       >
-        <a href="index.html" className="font-extrabold text-lg text-slate-900 no-underline tracking-tight">
+        <a href="index.html" className="font-extrabold text-lg text-slate-900 no-underline tracking-tight min-h-[44px] inline-flex items-center">
           GasLamar
         </a>
       </nav>
 
       <main id="main-content" className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-        <h1 className="sr-only">Hasil Analisis CV</h1>
-
         {/* ── Loading ── */}
         {loading && (
           <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem 2rem' }}>
@@ -454,6 +452,10 @@ export default function Result() {
         {/* ── Main results ── */}
         {data && !loading && !error && (
           <>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1.25rem', fontFamily: '"Plus Jakarta Sans","Inter",sans-serif', letterSpacing: '-0.02em', color: '#0F172A' }}>
+              Hasil Analisis CV
+            </h1>
+
             {/* Progress steps */}
             <header aria-label="Langkah analisis CV">
               <div style={{ ...CARD_STYLE, paddingBottom: '1.2rem', marginBottom: '1rem' }}>

@@ -32,7 +32,7 @@ export default function UrlFetcher({ onFetchSuccess, onClose }: Props) {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError('Gagal mengambil, coba manual');
+        setError(data?.message || 'Gagal mengambil, coba manual');
       } else {
         onFetchSuccess(data.job_desc);
       }

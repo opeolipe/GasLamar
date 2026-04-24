@@ -29,9 +29,9 @@ export async function handleAnalyze(request, env) {
     return jsonResponse({ message: 'Request body tidak valid' }, 400, request, env);
   }
 
-  const { cv, job_desc } = body;
+  const { cv, job_desc: rawJobDesc } = body;
 
-  if (!cv || !job_desc) {
+  if (!cv || !rawJobDesc) {
     return jsonResponse({ message: 'CV dan job description wajib diisi' }, 400, request, env);
   }
 
@@ -41,14 +41,18 @@ export async function handleAnalyze(request, env) {
     return jsonResponse({ message: 'Format data CV tidak valid' }, 400, request, env);
   }
 
-  if (typeof job_desc !== 'string' || job_desc.length > 5000) {
+  if (typeof rawJobDesc !== 'string' || rawJobDesc.length > 5000) {
     return jsonResponse({ message: 'Job description terlalu panjang (maks 5.000 karakter)' }, 400, request, env);
   }
 
+  // Strip HTML tags — treat job description as plain text only. This prevents XSS
+  // payloads from being stored in KV and echoed in any future API response or email.
+  const job_desc = rawJobDesc.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+
   // Enforce minimum length server-side — client-side validation can be bypassed via
   // direct API calls or DevTools. A too-short JD wastes Claude credits on garbage output.
-  if (job_desc.trim().length < 100) {
-    logError('analyze_invalid_input', { reason: 'jd_too_short', trimLen: job_desc.trim().length, ip });
+  if (job_desc.length < 100) {
+    logError('analyze_invalid_input', { reason: 'jd_too_short', trimLen: job_desc.length, ip });
     return jsonResponse({ message: 'Job description terlalu pendek. Tulis minimal 100 karakter.' }, 400, request, env);
   }
 

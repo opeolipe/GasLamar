@@ -69,6 +69,8 @@ export default function ResendEmail({ sessionSecret }: Props) {
   // ── API call ──────────────────────────────────────────────────────────────
 
   async function doResend(targetEmail: string, isChange: boolean) {
+    // Start cooldown immediately to block spam even if the request fails
+    startCooldown();
     setSending(true);
     setSuccessMsg('');
     setErrorMsg('');
@@ -112,9 +114,7 @@ export default function ResendEmail({ sessionSecret }: Props) {
         });
         setShowChange(false);
         setNewEmail('');
-        startCooldown();
       }
-
       setSuccessMsg(`CV berhasil dikirim ulang ke ${targetEmail}.`);
       ;(window as any).Analytics?.track?.('resend_success');
 
@@ -129,9 +129,9 @@ export default function ResendEmail({ sessionSecret }: Props) {
   // ── Handlers ─────────────────────────────────────────────────────────────
 
   function handleResendSame() {
-    if (!delivery || sending || cooldown > 0) return;
+    if (!delivery) return;
+    if (sending) return;
     ;(window as any).Analytics?.track?.('resend_clicked', { action: 'same_email' });
-    startCooldown();
     doResend(delivery.email, false);
   }
 
@@ -215,45 +215,58 @@ export default function ResendEmail({ sessionSecret }: Props) {
 
       {/* Action row */}
       {!showChange && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-          <button
-            type="button"
-            disabled={cooldown > 0 || sending}
-            onClick={handleResendSame}
-            style={{
-              padding:      '0.5rem 0.9rem',
-              background:   cooldown > 0 || sending ? '#F1F5F9' : '#EFF6FF',
-              border:       '1px solid #BFDBFE',
-              borderRadius: 8,
-              color:        cooldown > 0 || sending ? '#94A3B8' : '#1D4ED8',
-              fontWeight:   600,
-              cursor:       cooldown > 0 || sending ? 'not-allowed' : 'pointer',
-              fontSize:     '0.82rem',
-              fontFamily:   'inherit',
-              whiteSpace:   'nowrap' as const,
-            }}
-          >
-            Resend ke {delivery.email}
-          </button>
+        <>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <button
+              type="button"
+              disabled={cooldown > 0 || sending}
+              onClick={handleResendSame}
+              style={{
+                padding:      '0.5rem 0.9rem',
+                background:   cooldown > 0 || sending ? '#F1F5F9' : '#EFF6FF',
+                border:       '1px solid #BFDBFE',
+                borderRadius: 8,
+                color:        cooldown > 0 || sending ? '#94A3B8' : '#1D4ED8',
+                fontWeight:   600,
+                cursor:       cooldown > 0 || sending ? 'not-allowed' : 'pointer',
+                fontSize:     '0.82rem',
+                fontFamily:   'inherit',
+                whiteSpace:   'nowrap' as const,
+              }}
+            >
+              {`Resend ke ${delivery.email}`}
+            </button>
 
-          <button
-            type="button"
-            onClick={handleToggleChange}
-            style={{
-              padding:      '0.5rem 0.9rem',
-              background:   'transparent',
-              border:       '1px solid #CBD5E1',
-              borderRadius: 8,
-              color:        '#64748B',
-              fontWeight:   500,
-              cursor:       'pointer',
-              fontSize:     '0.82rem',
-              fontFamily:   'inherit',
-            }}
-          >
-            Ganti email
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={handleToggleChange}
+              style={{
+                padding:      '0.5rem 0.9rem',
+                background:   'transparent',
+                border:       '1px solid #CBD5E1',
+                borderRadius: 8,
+                color:        '#64748B',
+                fontWeight:   500,
+                cursor:       'pointer',
+                fontSize:     '0.82rem',
+                fontFamily:   'inherit',
+              }}
+            >
+              Ganti email
+            </button>
+          </div>
+
+          {sending && (
+            <p style={{ margin: '0.4rem 0 0', color: '#64748B', fontSize: '0.82rem' }}>
+              Mengirim ulang...
+            </p>
+          )}
+          {cooldown > 0 && !sending && (
+            <p style={{ margin: '0.4rem 0 0', color: '#64748B', fontSize: '0.82rem' }}>
+              Kirim ulang dalam {cooldown}s
+            </p>
+          )}
+        </>
       )}
 
       {/* Change email form */}
@@ -266,13 +279,13 @@ export default function ResendEmail({ sessionSecret }: Props) {
                 inputMode="email"
                 autoCapitalize="off"
                 value={newEmail}
-                disabled={sending}
                 onChange={e => handleNewEmailChange(e.target.value)}
                 onBlur={handleNewEmailBlur}
                 placeholder="email-baru@contoh.com"
                 autoComplete="email"
                 aria-label="Email baru untuk menerima CV"
                 aria-invalid={!!emailError}
+                disabled={sending}
                 style={{
                   width:        '100%',
                   padding:      '0.5rem 0.75rem',
@@ -370,16 +383,6 @@ export default function ResendEmail({ sessionSecret }: Props) {
       )}
 
       {/* Status messages */}
-      {sending && (
-        <p role="status" aria-live="polite" style={{ margin: '0.6rem 0 0', color: '#64748B', fontSize: '0.875rem' }}>
-          Mengirim ulang...
-        </p>
-      )}
-      {!sending && cooldown > 0 && !successMsg && (
-        <p style={{ margin: '0.6rem 0 0', color: '#64748B', fontSize: '0.8rem' }}>
-          Kirim ulang dalam {cooldown} detik
-        </p>
-      )}
       {successMsg && (
         <p role="status" aria-live="polite" style={{ margin: '0.6rem 0 0', color: '#15803D', fontWeight: 500 }}>
           ✓ {successMsg}

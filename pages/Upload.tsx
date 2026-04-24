@@ -211,10 +211,11 @@ export default function Upload() {
 
     setLoading(true);
     try {
+      const safeJd = jobDesc.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
       sessionStorage.setItem('gaslamar_cv_pending', cvText);
-      sessionStorage.setItem('gaslamar_jd_pending', jobDesc);
+      sessionStorage.setItem('gaslamar_jd_pending', safeJd);
       sessionStorage.setItem('gaslamar_filename',   fileName!);
-      sessionStorage.setItem('gaslamar_had_jd',     jobDesc.length >= 50 ? '1' : '0');
+      sessionStorage.setItem('gaslamar_had_jd',     safeJd.length >= 50 ? '1' : '0');
     } catch (_) {
       setFileError('Browser kamu memblokir penyimpanan sementara (mode pribadi?). Coba gunakan mode normal.');
       setLoading(false);
@@ -249,7 +250,7 @@ export default function Upload() {
         className="border-b py-4 px-6 flex items-center sticky top-0 z-50 backdrop-blur-[14px]"
         style={{ borderColor: 'rgba(148,163,184,0.18)', background: 'rgba(255,255,255,0.88)' }}
       >
-        <a href="index.html" className="font-extrabold text-lg text-slate-900 no-underline tracking-tight">
+        <a href="index.html" className="font-extrabold text-lg text-slate-900 no-underline tracking-tight min-h-[44px] inline-flex items-center">
           GasLamar
         </a>
       </nav>
@@ -330,9 +331,9 @@ export default function Upload() {
       </main>
 
       <footer className="text-center py-6 text-xs text-slate-400">
-        <a href="privacy.html" className="text-slate-400 no-underline hover:underline mx-2">Kebijakan Privasi</a>
+        <a href="privacy.html" className="text-slate-400 underline hover:text-slate-600 mx-2">Kebijakan Privasi</a>
         ·
-        <a href="terms.html" className="text-slate-400 no-underline hover:underline mx-2">Syarat Layanan</a>
+        <a href="terms.html" className="text-slate-400 underline hover:text-slate-600 mx-2">Syarat Layanan</a>
       </footer>
     </div>
   );
