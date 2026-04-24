@@ -16,13 +16,15 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
 
   const textareaCls = [
     'w-full min-h-[160px] rounded-2xl border bg-transparent p-5',
-    'text-slate-900 resize-y outline-none text-sm font-sans transition-all',
+    'text-slate-900 resize-y outline-none text-sm font-sans transition-all overflow-hidden',
     'focus:ring-2 focus:ring-offset-2 border-slate-300 focus:border-blue-500/50 focus:ring-slate-200',
   ].join(' ');
 
   function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const raw = e.target.value;
     onChange(raw.length > MAX_JD_CHARS ? raw.slice(0, MAX_JD_CHARS) : raw);
+    e.target.style.height = 'auto';
+    e.target.style.height = `${e.target.scrollHeight}px`;
   }
 
   return (
@@ -45,7 +47,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
             <button
               type="button"
               onClick={() => setShowFetcher(true)}
-              className="text-blue-600 hover:underline font-medium"
+              className="text-blue-600 underline hover:no-underline font-medium"
               aria-label="Ambil job description dari URL loker seperti LinkedIn, Glints, atau JobStreet"
             >
               ambil dari URL

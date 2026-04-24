@@ -212,7 +212,7 @@ export default function Upload() {
     setLoading(true);
     try {
       sessionStorage.setItem('gaslamar_cv_pending', cvText);
-      sessionStorage.setItem('gaslamar_jd_pending', jobDesc);
+      sessionStorage.setItem('gaslamar_jd_pending', escapeHtml(jobDesc));
       sessionStorage.setItem('gaslamar_filename',   fileName!);
       sessionStorage.setItem('gaslamar_had_jd',     jobDesc.length >= 50 ? '1' : '0');
     } catch (_) {
@@ -330,9 +330,9 @@ export default function Upload() {
       </main>
 
       <footer className="text-center py-6 text-xs text-slate-400">
-        <a href="privacy.html" className="text-slate-400 no-underline hover:underline mx-2">Kebijakan Privasi</a>
+        <a href="privacy.html" className="text-slate-400 underline hover:text-slate-600 mx-2">Kebijakan Privasi</a>
         ·
-        <a href="terms.html" className="text-slate-400 no-underline hover:underline mx-2">Syarat Layanan</a>
+        <a href="terms.html" className="text-slate-400 underline hover:text-slate-600 mx-2">Syarat Layanan</a>
       </footer>
     </div>
   );

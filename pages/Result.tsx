@@ -454,6 +454,10 @@ export default function Result() {
         {/* ── Main results ── */}
         {data && !loading && !error && (
           <>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1.25rem', fontFamily: '"Plus Jakarta Sans","Inter",sans-serif', letterSpacing: '-0.02em', color: '#0F172A' }}>
+              Hasil Analisis CV
+            </h2>
+
             {/* Progress steps */}
             <header aria-label="Langkah analisis CV">
               <div style={{ ...CARD_STYLE, paddingBottom: '1.2rem', marginBottom: '1rem' }}>
