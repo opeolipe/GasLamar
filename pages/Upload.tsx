@@ -249,7 +249,7 @@ export default function Upload() {
         className="border-b py-4 px-6 flex items-center sticky top-0 z-50 backdrop-blur-[14px]"
         style={{ borderColor: 'rgba(148,163,184,0.18)', background: 'rgba(255,255,255,0.88)' }}
       >
-        <a href="index.html" className="font-extrabold text-lg text-slate-900 no-underline tracking-tight">
+        <a href="index.html" className="font-extrabold text-lg text-slate-900 no-underline tracking-tight min-h-[44px] inline-flex items-center">
           GasLamar
         </a>
       </nav>

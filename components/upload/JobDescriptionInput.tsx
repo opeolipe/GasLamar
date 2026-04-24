@@ -10,13 +10,12 @@ interface Props {
 
 const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobDescriptionInput({ value, onChange }, ref) {
   const [showFetcher, setShowFetcher] = useState(false);
-  const count   = value.length;
   const trimmed = value.trim();
   const quality = evaluateJDQuality(value);
 
   const textareaCls = [
     'w-full min-h-[160px] rounded-2xl border bg-transparent p-5',
-    'text-slate-900 resize-y outline-none text-sm font-sans transition-all overflow-hidden',
+    'text-slate-900 resize-y outline-none text-sm font-sans transition-all',
     'focus:ring-2 focus:ring-offset-2 border-slate-300 focus:border-blue-500/50 focus:ring-slate-200',
   ].join(' ');
 
@@ -69,7 +68,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
           aria-label="Job description atau lowongan kerja yang kamu targetkan"
         />
         <div className="text-right text-[10px] mt-1 text-slate-300">
-          {count.toLocaleString('id-ID')} / 5.000
+          {value.length.toLocaleString('id-ID')} / 5.000
         </div>
       </div>
 
