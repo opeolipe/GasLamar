@@ -99,11 +99,7 @@ export default function ResendEmail({ sessionSecret }: Props) {
       if (!res.ok) {
         const data: any = await res.json().catch(() => ({}));
         const reason = data.reason || 'unknown';
-        setErrorMsg(
-          reason === 'expired' || reason === 'no_cookie'
-            ? 'Sesi telah berakhir. Silakan upload ulang CV.'
-            : 'Gagal mengirim ulang. Coba lagi dalam beberapa saat.',
-        );
+        setErrorMsg('Gagal mengirim ulang. Coba lagi dalam beberapa saat.');
         ;(window as any).Analytics?.track?.('resend_failed', { reason });
         return;
       }
@@ -116,12 +112,10 @@ export default function ResendEmail({ sessionSecret }: Props) {
           old_domain: delivery?.email.split('@')[1],
           new_domain: targetEmail.split('@')[1],
         });
-        setSuccessMsg(`CV berhasil dikirim ulang ke ${targetEmail}.`);
         setShowChange(false);
         setNewEmail('');
-      } else {
-        setSuccessMsg(`CV berhasil dikirim ulang ke ${targetEmail}.`);
       }
+      setSuccessMsg(`CV berhasil dikirim ulang ke ${targetEmail}.`);
       ;(window as any).Analytics?.track?.('resend_success');
 
     } catch (_) {
@@ -389,6 +383,16 @@ export default function ResendEmail({ sessionSecret }: Props) {
       )}
 
       {/* Status messages */}
+      {sending && (
+        <p role="status" aria-live="polite" style={{ margin: '0.6rem 0 0', color: '#64748B', fontSize: '0.875rem' }}>
+          Mengirim ulang...
+        </p>
+      )}
+      {!sending && cooldown > 0 && !successMsg && (
+        <p style={{ margin: '0.6rem 0 0', color: '#64748B', fontSize: '0.8rem' }}>
+          Kirim ulang dalam {cooldown} detik
+        </p>
+      )}
       {successMsg && (
         <p role="status" aria-live="polite" style={{ margin: '0.6rem 0 0', color: '#15803D', fontWeight: 500 }}>
           ✓ {successMsg}

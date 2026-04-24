@@ -1,10 +1,10 @@
-name: Playwright E2E Tests
+name: E2E Tests
 
 on:
   push:
-    branches: [main, develop]
+    branches: [ main, develop ]
   pull_request:
-    branches: [main, develop]
+    branches: [ main, develop ]
 
 jobs:
   test:
@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
 
     steps:
-      - name: Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Cache npm
@@ -33,18 +33,10 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-playwright-
-
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Build app
+      - name: Build
         run: npm run build
 
       - name: Start app
@@ -54,13 +46,11 @@ jobs:
         env:
           NODE_ENV: test
 
-      - name: Wait for app to be ready
-        run: npx wait-on http://localhost:3000 --timeout 30000
+      - name: Wait for server
+        run: npx wait-on http://localhost:3000
 
-      - name: Run Playwright tests
+      - name: Run tests
         run: npx playwright test
-        env:
-          NODE_ENV: test
 
       - name: Stop server
         if: always()
