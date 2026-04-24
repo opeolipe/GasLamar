@@ -20,6 +20,7 @@ import WaitingPayment from '@/components/download/WaitingPayment';
 import GeneratingCV   from '@/components/download/GeneratingCV';
 import DownloadReady  from '@/components/download/DownloadReady';
 import ResendEmail    from '@/components/download/ResendEmail';
+import InterviewKit   from '@/components/download/InterviewKit';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -384,6 +385,16 @@ export default function Download() {
               dimensions={dimensions}
               primaryIssue={resultData?.primaryIssue ?? null}
               isTrusted={content?.isTrusted ?? false}
+            />
+          </div>
+        )}
+
+        {view === 'ready' && (
+          <div className="max-w-[980px] mx-auto">
+            <InterviewKit
+              sessionSecret={session.sessionSecret}
+              isPreview={tier === 'coba'}
+              language="id"
             />
           </div>
         )}
