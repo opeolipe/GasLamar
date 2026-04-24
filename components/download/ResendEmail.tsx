@@ -164,7 +164,7 @@ export default function ResendEmail({ sessionSecret }: Props) {
     if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
     blurTimerRef.current = setTimeout(() => {
       const result = validateEmail(newEmail);
-      setEmailError(result.error ?? '');
+      setEmailError(result.suggestion ? '' : (result.error ?? ''));
       setEmailSuggestion(result.suggestion);
       setEmailIsDisposable(result.isDisposable);
       setEmailIsConfirmed(result.valid && !result.suggestion);
@@ -388,16 +388,6 @@ export default function ResendEmail({ sessionSecret }: Props) {
       )}
 
       {/* Status messages */}
-      {sending && (
-        <p role="status" aria-live="polite" style={{ margin: '0.6rem 0 0', color: '#64748B', fontSize: '0.875rem' }}>
-          Mengirim ulang...
-        </p>
-      )}
-      {!sending && cooldown > 0 && !successMsg && (
-        <p style={{ margin: '0.6rem 0 0', color: '#64748B', fontSize: '0.8rem' }}>
-          Kirim ulang dalam {cooldown} detik
-        </p>
-      )}
       {successMsg && (
         <p role="status" aria-live="polite" style={{ margin: '0.6rem 0 0', color: '#15803D', fontWeight: 500 }}>
           ✓ {successMsg}

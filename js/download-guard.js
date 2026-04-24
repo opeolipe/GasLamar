@@ -15,9 +15,10 @@
  *
  * Valid entry paths — guard allows these through:
  *   1. ?token=<hex>  — email link; download.js will call /exchange-token
- *   2. localStorage  — normal post-payment flow set by payment.js
+ *   2. gaslamar_session — normal post-payment flow set by payment.js
+ *   3. gaslamar_delivery — email delivery confirmed; React handles session state
  *
- * All other cases → immediate replace-redirect to /upload.html?reason=no_session
+ * All other cases → immediate replace-redirect to /
  * (window.location.replace so the download page is not added to browser history).
  */
 (function () {
@@ -34,6 +35,11 @@
     // localStorage blocked (e.g. Safari strict private mode) — redirect safely
   }
 
-  // No valid session found — redirect before body renders
-  window.location.replace('upload.html?reason=no_session');
+  // Path 3: delivery flow — email was sent; React renders the delivery section
+  try {
+    if (localStorage.getItem('gaslamar_delivery')) return;
+  } catch (_) {}
+
+  // No valid entry — redirect before body renders
+  window.location.replace('/');
 })();

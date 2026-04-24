@@ -13,8 +13,11 @@ const MOCK_DELIVERY = {
 /** Seed gaslamar_delivery into localStorage BEFORE the page scripts run. */
 function setupDelivery(page: Page, overrides: Partial<typeof MOCK_DELIVERY> = {}) {
   const delivery = { ...MOCK_DELIVERY, ...overrides };
+  // Only seed on the download page — prevents re-setting after a redirect to /
   return page.addInitScript((d) => {
-    localStorage.setItem('gaslamar_delivery', JSON.stringify(d));
+    if (location.pathname.startsWith('/download')) {
+      localStorage.setItem('gaslamar_delivery', JSON.stringify(d));
+    }
   }, delivery);
 }
 
