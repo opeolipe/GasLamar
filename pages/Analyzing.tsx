@@ -73,7 +73,7 @@ function AnalyzingContent({ cvData, jobDesc, filename }: ContentProps) {
 
 export default function Analyzing() {
   const [cvData]   = useState(() => sessionStorage.getItem('gaslamar_cv_pending')  || '');
-  const [jobDesc]  = useState(() => sessionStorage.getItem('gaslamar_jd_pending')  || '');
+  const [jobDesc]  = useState(() => sessionStorage.getItem('gaslamar_jd_pending') || '');
   const [filename] = useState(() => sessionStorage.getItem('gaslamar_filename')    || 'CV Kamu');
 
   const ready = !!(cvData && jobDesc);

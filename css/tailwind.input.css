@@ -1,3 +1,11 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Underline body-text links by default.
+   Logo and button-style links carry .no-underline explicitly to opt out.
+   Placed after utilities so it overrides Tailwind's a{text-decoration:inherit} reset. */
+a:not(.no-underline) {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

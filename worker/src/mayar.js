@@ -91,10 +91,21 @@ export async function createMayarInvoice(sessionId, tier, env) {
 
     const data = await res.json();
     console.log(JSON.stringify({ event: 'mayar_success', endpoint, data_keys: Object.keys(data) }));
-    return {
-      invoice_id: data.data?.id || data.id,
-      invoice_url: data.data?.link || data.link || data.data?.url || data.url,
-    };
+
+    const invoice_id  = data.data?.id  || data.id;
+    // Mayar API has used several field names across versions; check all known variants
+    const invoice_url =
+      data.data?.link         || data.data?.url          || data.data?.payment_url  ||
+      data.data?.checkout_url || data.data?.invoice_url  ||
+      data.link               || data.url                || data.payment_url        ||
+      data.checkout_url       || data.invoice_url;
+
+    if (!invoice_url) {
+      console.error(JSON.stringify({ event: 'mayar_no_url', endpoint, data_keys: Object.keys(data), data_inner_keys: data.data ? Object.keys(data.data) : [] }));
+      throw new Error('Mayar tidak mengembalikan URL pembayaran. Hubungi support@gaslamar.com');
+    }
+
+    return { invoice_id, invoice_url };
   }
 
   throw new Error('Pembayaran belum tersedia. Hubungi support@gaslamar.com');

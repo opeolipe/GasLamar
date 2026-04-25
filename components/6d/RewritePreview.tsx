@@ -5,7 +5,11 @@ interface Props {
 }
 
 export default function RewritePreview({ preview }: Props) {
-  if (!preview) return null;
+  if (!preview) return (
+    <p data-testid="rewrite-after" className="text-sm text-slate-400 leading-relaxed">
+      CV terlalu singkat untuk contoh perbaikan.
+    </p>
+  );
 
   return (
     <div className="mb-5 px-1">

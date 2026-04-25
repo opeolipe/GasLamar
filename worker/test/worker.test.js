@@ -413,19 +413,14 @@ describe('POST /analyze — happy path (mocked Claude)', () => {
   beforeAll(() => fetchMock.activate());
   afterAll(() => fetchMock.deactivate());
 
-  // SKIP: requires outbound API access (no OS-level proxy). Un-skip in CI with direct internet.
-  //
   // Pipeline for a PDF CV uses 3 sequential Claude calls:
   //   1. MOCK_PDF_EXTRACTION — fileExtraction.js (PDF → raw text)
   //   2. MOCK_EXTRACT_JSON   — pipeline/extract.js (SKILL_EXTRACT → structured data)
   //   3. MOCK_DIAGNOSE_JSON  — pipeline/diagnose.js (SKILL_DIAGNOSE → gap/reco text)
   //
-  // skor is now computed deterministically from the MOCK_EXTRACT_JSON data:
-  //   MOCK_EXTRACT_JSON has skills_diminta: ['Node.js','React','SQL'] and
-  //   skills_mentah: 'Node.js React SQL' → matchRatio = 1.0
-  //   → north_star = 8, recruiter_signal = 10, effort = 10,
-  //     opportunity_cost = 10, risk = 8, portfolio = 5 (has angka, no certs)
-  //   → total6D = 51 → skor = round(51/60*100) = 85
+  // skor is computed deterministically from MOCK_EXTRACT_JSON:
+  //   skills_diminta: ['Node.js','React','SQL'], skills_mentah: 'Node.js React SQL'
+  //   → matchRatio = 1.0 → total6D = 51 → skor = round(51/60*100) = 85
   it('returns skor + cv_text_key when Claude succeeds', async () => {
     fetchMock
       .get('https://api.anthropic.com')
@@ -546,7 +541,6 @@ describe('POST /create-payment — one-time key consumption', () => {
   beforeAll(() => fetchMock.activate());
   afterAll(() => fetchMock.deactivate());
 
-  // SKIP: requires outbound API access (no OS-level proxy). Un-skip in CI with direct internet.
   it('consumes cv_text_key — second call returns 400', async () => {
     // Seed with same IP as the request so IP-binding check passes
     const key = await seedCVTextKey(undefined, '10.0.0.2');
@@ -921,7 +915,6 @@ describe('POST /generate — happy path (mocked Claude)', () => {
     expect(body.company).toBeNull();
   });
 
-  // SKIP: requires outbound API access (no OS-level proxy). Un-skip in CI with direct internet.
   it('resets session to paid on Claude failure (so user can retry)', async () => {
     const sessionId = await seedSession('generating', 'single');
 
@@ -1581,5 +1574,166 @@ describe('POST /fetch-job-url — allowed domains (mocked fetch)', () => {
     expect(res.status).toBe(422);
     const body = await res.json();
     expect(body.message).toMatch(/bukan halaman web/i);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /interview-kit
+// ─────────────────────────────────────────────────────────────────────────────
+
+const MOCK_INTERVIEW_KIT = {
+  job_insights: [
+    { phrase: 'REST API', meaning: 'Antarmuka HTTP standar untuk komunikasi antar sistem.' },
+    { phrase: 'Node.js', meaning: 'Runtime JavaScript sisi server berbasis V8 untuk backend scalable.' },
+    { phrase: 'Kerja tim', meaning: 'Kemampuan berkolaborasi dalam lingkungan agile lintas fungsi.' },
+  ],
+  email_template: {
+    subject: 'Lamaran Posisi Software Engineer – Budi Santoso',
+    body: 'Yth. Tim Rekrutmen,\n\nSaya Budi Santoso ingin melamar posisi Software Engineer.\n\nSaya memiliki pengalaman 4 tahun mengembangkan REST API dengan Node.js.\n\nHormat saya,\nBudi Santoso',
+  },
+  whatsapp_message: 'Halo, saya Budi Santoso. Saya ingin melamar posisi Software Engineer. Apakah ada info lebih lanjut yang perlu saya siapkan?',
+  tell_me_about_yourself: 'Saya Budi Santoso, Software Engineer dengan pengalaman 4 tahun berfokus pada pengembangan REST API menggunakan Node.js dan React. Saya telah membangun microservices untuk berbagai klien dan terbiasa bekerja dalam lingkungan agile. Saya tertarik bergabung karena visi perusahaan ini selaras dengan passion saya di bidang teknologi scalable.',
+  interview_questions: [
+    {
+      question_id: 'Ceritakan pengalaman Anda membangun REST API dengan Node.js?',
+      question_en: 'Tell me about your experience building REST APIs with Node.js?',
+      sample_answer: 'Dalam peran saya di PT XYZ, saya bertanggung jawab membangun REST API untuk layanan internal. Saya merancang endpoint yang efisien dan mendokumentasikannya dengan baik agar mudah digunakan tim lain. Hasilnya, integrasi antar tim menjadi lebih lancar.',
+    },
+    {
+      question_id: 'Bagaimana Anda menangani bug kritis di lingkungan produksi?',
+      question_en: 'How do you handle critical bugs in a production environment?',
+      sample_answer: 'Langkah pertama saya adalah mengidentifikasi dampak dan memprioritaskan perbaikan. Saya segera komunikasikan status ke stakeholder, lalu isolasi masalah melalui log dan monitoring. Setelah perbaikan diterapkan, saya melakukan review untuk mencegah kejadian serupa.',
+    },
+    {
+      question_id: 'Ceritakan bagaimana Anda bekerja dalam tim lintas fungsi?',
+      question_en: 'Describe how you work in a cross-functional team?',
+      sample_answer: 'Di PT XYZ saya berkolaborasi dengan tim desain dan product manager. Kami menggunakan metodologi agile dengan sprint dua minggu. Saya aktif dalam daily standup dan code review untuk memastikan kualitas dan keselarasan tujuan tim.',
+    },
+    {
+      question_id: 'Apa pencapaian teknis terbesar Anda?',
+      question_en: 'What is your biggest technical achievement?',
+      sample_answer: 'Saya berhasil merancang ulang arsitektur modul yang sebelumnya sering mengalami bottleneck. Dengan pendekatan yang lebih modular, sistem menjadi lebih mudah di-maintain dan tim lain dapat mengintegrasikan fitur baru dengan lebih cepat.',
+    },
+    {
+      question_id: 'Ke mana Anda ingin berkembang dalam 3 tahun ke depan?',
+      question_en: 'Where do you see yourself growing in the next 3 years?',
+      sample_answer: 'Saya ingin memperdalam keahlian di arsitektur sistem dan menjadi referensi teknis bagi tim. Saya juga ingin berkontribusi dalam mentoring engineer junior sehingga kapasitas tim secara keseluruhan meningkat.',
+    },
+  ],
+};
+
+const MOCK_CLAUDE_KIT_RESPONSE = {
+  content: [{ text: JSON.stringify(MOCK_INTERVIEW_KIT) }],
+  stop_reason: 'end_turn',
+};
+
+describe('POST /interview-kit', () => {
+  const KIT_IP = '10.101.0.';
+  let _kitIpSeq = 0;
+  const nextKitIp = () => `${KIT_IP}${++_kitIpSeq}`;
+
+  beforeAll(() => fetchMock.activate());
+  afterAll(() => fetchMock.deactivate());
+
+  it('returns 401 when no session cookie is present', async () => {
+    const res = await post('/interview-kit', {}, {}, nextKitIp());
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.message).toMatch(/sesi|cookies/i);
+  });
+
+  it('returns 404 for unknown session', async () => {
+    const res = await post('/interview-kit', {}, { Cookie: 'session_id=sess_nonexistent' }, nextKitIp());
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.message).toMatch(/sesi/i);
+  });
+
+  it('returns 403 when secret is missing and session has a hash', async () => {
+    const { sessionId } = await seedSessionWithSecret('paid');
+    const res = await post('/interview-kit', {}, sessionCookie(sessionId), nextKitIp());
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.message).toMatch(/akses ditolak|token sesi/i);
+  });
+
+  it('returns 200 with full kit structure (Claude mocked)', async () => {
+    const sessionId = await seedSession('paid', 'single');
+
+    fetchMock
+      .get('https://api.anthropic.com')
+      .intercept({ path: '/v1/messages', method: 'POST' })
+      .reply(200, JSON.stringify(MOCK_CLAUDE_KIT_RESPONSE))
+      .times(1);
+
+    const res = await post('/interview-kit', { language: 'id' }, sessionCookie(sessionId), nextKitIp());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.kit).toBeTruthy();
+    expect(body.kit.job_insights).toBeTruthy();
+    expect(body.kit.email_template).toBeTruthy();
+    expect(body.kit.whatsapp_message).toBeTruthy();
+    expect(body.kit.tell_me_about_yourself).toBeTruthy();
+    expect(body.kit.interview_questions).toBeTruthy();
+    expect(Array.isArray(body.kit.interview_questions)).toBe(true);
+    expect(body.kit.interview_questions.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('returns cached response on second call without invoking Claude', async () => {
+    const sessionId = await seedSession('paid', 'single');
+
+    fetchMock
+      .get('https://api.anthropic.com')
+      .intercept({ path: '/v1/messages', method: 'POST' })
+      .reply(200, JSON.stringify(MOCK_CLAUDE_KIT_RESPONSE))
+      .times(1);
+
+    const ip = nextKitIp();
+    const res1 = await post('/interview-kit', { language: 'id' }, sessionCookie(sessionId), ip);
+    expect(res1.status).toBe(200);
+    const body1 = await res1.json();
+
+    // Second call — Claude mock is exhausted (.times(1)); if intercepted it would 500/throw
+    const res2 = await post('/interview-kit', { language: 'id' }, sessionCookie(sessionId), ip);
+    expect(res2.status).toBe(200);
+    const body2 = await res2.json();
+
+    expect(body2.kit.tell_me_about_yourself).toBe(body1.kit.tell_me_about_yourself);
+  });
+
+  it('returns 500 when Claude truncates (stop_reason: max_tokens)', async () => {
+    const sessionId = await seedSession('paid', 'single');
+
+    fetchMock
+      .get('https://api.anthropic.com')
+      .intercept({ path: '/v1/messages', method: 'POST' })
+      .reply(200, JSON.stringify({ content: [{ text: '{"partial":true}' }], stop_reason: 'max_tokens' }))
+      .times(1);
+
+    const res = await post('/interview-kit', { language: 'id' }, sessionCookie(sessionId), nextKitIp());
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.message).toMatch(/terpotong|coba lagi/i);
+  });
+
+  it('stores separate KV cache keys for id vs en language', async () => {
+    const sessionId = await seedSession('paid', 'single');
+    const ip = nextKitIp();
+
+    fetchMock
+      .get('https://api.anthropic.com')
+      .intercept({ path: '/v1/messages', method: 'POST' })
+      .reply(200, JSON.stringify(MOCK_CLAUDE_KIT_RESPONSE))
+      .times(2);
+
+    await post('/interview-kit', { language: 'id' }, sessionCookie(sessionId), ip);
+    await post('/interview-kit', { language: 'en' }, sessionCookie(sessionId), ip);
+
+    const cachedId = await env.GASLAMAR_SESSIONS.get(`kit_${sessionId}_id`, { type: 'json' });
+    const cachedEn = await env.GASLAMAR_SESSIONS.get(`kit_${sessionId}_en`, { type: 'json' });
+
+    expect(cachedId).not.toBeNull();
+    expect(cachedEn).not.toBeNull();
   });
 });

@@ -148,6 +148,8 @@ export async function handleFetchJobUrl(request, env) {
     );
   }
 
+  const isLinkedIn = hostname === 'linkedin.com' || hostname.endsWith('.linkedin.com');
+
   // ── Step 5: Fetch the page ───────────────────────────────────────────────────
   // All SSRF checks have passed; make the outbound request.
   let pageRes;
@@ -163,6 +165,15 @@ export async function handleFetchJobUrl(request, env) {
     });
   } catch (err) {
     return jsonResponse({ message: 'Tidak bisa mengakses URL tersebut. Coba copy-paste manual.' }, 422, request, env);
+  }
+
+  // LinkedIn redirects unauthenticated requests to /authwall — detect the redirect
+  // before wasting CPU on HTMLRewriter extraction.
+  if (isLinkedIn && (pageRes.url.includes('/authwall') || pageRes.url.includes('/login'))) {
+    return jsonResponse({
+      message: 'LinkedIn membutuhkan login untuk melihat lowongan ini. Silakan copy-paste deskripsi pekerjaan secara manual.',
+      linkedin_auth_required: true,
+    }, 422, request, env);
   }
 
   if (!pageRes.ok) {
@@ -200,6 +211,15 @@ export async function handleFetchJobUrl(request, env) {
 
   if (!raw || raw.length < 50) {
     return jsonResponse({ message: 'Tidak bisa mengekstrak teks dari halaman ini. Coba copy-paste manual.' }, 422, request, env);
+  }
+
+  // LinkedIn auth interstitial fallback — sometimes served with 200 instead of a redirect.
+  // The privacy consent page contains this phrase regardless of UI language.
+  if (isLinkedIn && raw.includes('authwall')) {
+    return jsonResponse({
+      message: 'LinkedIn membutuhkan login untuk melihat lowongan ini. Silakan copy-paste deskripsi pekerjaan secara manual.',
+      linkedin_auth_required: true,
+    }, 422, request, env);
   }
 
   // LinkedIn-specific: JD content appears after significant nav text.

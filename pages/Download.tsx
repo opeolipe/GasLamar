@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useDownloadSession }  from '@/hooks/useDownloadSession';
 import { useGenerateCV }       from '@/hooks/useGenerateCV';
+import { logError }            from '@/lib/logger';
 import {
   isBilingual,
   isMultiCredit,
@@ -20,6 +21,7 @@ import WaitingPayment from '@/components/download/WaitingPayment';
 import GeneratingCV   from '@/components/download/GeneratingCV';
 import DownloadReady  from '@/components/download/DownloadReady';
 import ResendEmail    from '@/components/download/ResendEmail';
+import InterviewKit   from '@/components/download/InterviewKit';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -44,21 +46,23 @@ export default function Download() {
   const [expiryText,     setExpiryText]     = useState('');
   const [showMobileFb,   setShowMobileFb]   = useState(false);
 
-  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const viewRef           = useRef<PageView>('waiting');
-  viewRef.current         = view;
-
-  const [delivery] = useState<LocalDelivery | null>(() => {
+  // Read delivery state from localStorage once on mount
+  const [delivery] = useState<{ sessionId: string; email: string; sentAt: number } | null>(() => {
     try {
       const raw = localStorage.getItem('gaslamar_delivery');
       return raw ? JSON.parse(raw) : null;
     } catch { return null; }
   });
 
-  // Redirect to home if no delivery data AND no session (unauthenticated direct navigation)
+  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const viewRef           = useRef<PageView>('waiting');
+  viewRef.current         = view;
+
+  // ── Redirect guard ────────────────────────────────────────────────────────
+
   useEffect(() => {
     if (!delivery && !localStorage.getItem('gaslamar_session')) {
-      window.location.href = '/';
+      window.location.href = 'upload.html?reason=missing_data';
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -114,6 +118,7 @@ export default function Download() {
 
   useEffect(() => {
     if (generate.status === 'error') {
+      logError('cv_generation_failed', { message: generate.error?.message });
       setView('error');
     }
   }, [generate.status]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -177,8 +182,8 @@ export default function Download() {
         resultId:   sessionStorage.getItem('gaslamar_result_id') || undefined,
       });
     } catch (err) {
+      logError('download_failed', { lang, format, message: (err as Error)?.message });
       setShowMobileFb(true);
-      console.error('[GasLamar] Download failed:', err);
     }
   }, [generate.content]);
 
@@ -317,18 +322,18 @@ export default function Download() {
         className="px-4 py-8"
         style={{ paddingTop: countdownText ? 'calc(2rem + 34px)' : '2rem' }}
       >
-        {/* Delivery confirmation — shown immediately from localStorage, regardless of session state */}
+        {/* Delivery section — always rendered first when delivery exists in localStorage */}
         {delivery && (
           <div className="max-w-[480px] mx-auto mb-8">
             <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
-              <p style={{ fontWeight: 700, fontSize: '1.15rem', color: '#0F172A', margin: '0 0 0.35rem' }}>
+              <h2 style={{ fontWeight: 700, fontSize: '1.15rem', color: '#0F172A', margin: '0 0 0.35rem' }}>
                 CV kamu sudah siap digunakan
-              </p>
+              </h2>
               <p style={{ color: '#64748B', fontSize: '0.875rem', margin: 0 }}>
                 Email telah dikirim ke {delivery.email}
               </p>
             </div>
-            <ResendEmail sessionSecret={session.sessionSecret} />
+            <ResendEmail sessionSecret={session?.sessionSecret ?? null} />
           </div>
         )}
 
@@ -384,6 +389,16 @@ export default function Download() {
               dimensions={dimensions}
               primaryIssue={resultData?.primaryIssue ?? null}
               isTrusted={content?.isTrusted ?? false}
+            />
+          </div>
+        )}
+
+        {view === 'ready' && (
+          <div className="max-w-[980px] mx-auto">
+            <InterviewKit
+              sessionSecret={session.sessionSecret}
+              isPreview={tier === 'coba'}
+              language="id"
             />
           </div>
         )}
