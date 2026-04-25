@@ -1,5 +1,96 @@
 # GasLamar — Claude Code Instructions
 
+## Project Overview
+
+GasLamar is an AI-powered CV tailoring web app for Indonesian job seekers. Users upload a CV (PDF/DOCX/TXT) and paste a job description; the app scores the CV fit, explains the gaps, and generates a tailored CV in Bahasa Indonesia and English.
+
+**Stack:** Cloudflare Workers (API) + Cloudflare Pages (frontend, vanilla JS + React for results page) + Anthropic Claude (claude-haiku-3-5) + Mayar (Indonesian payment gateway) + Cloudflare KV (sessions/cache)
+
+**Key pages:** `index.html` → `upload.html` → `analyzing.html` → `hasil.html` → `download.html`
+
+## Architecture — 6-Stage Pipeline
+
+`POST /analyze` runs a deterministic pipeline. LLM is used only for extraction and text explanation; all scoring is pure JS.
+
+1. **EXTRACT** (LLM — claude-haiku) — verbatim copy of CV + JD data
+2. **ANALYZE** (pure JS) — skill matching, format detection, archetype detection
+3. **SCORE** (formula) — 6-dimension scoring, verdict (DO/TIMED/DO NOT), timebox
+4. **DIAGNOSE** (LLM — claude-haiku) — human-readable explanation of gaps (cannot change scores)
+5. **REWRITE** (LLM — called from `/generate`) — tailored CV in ID + EN
+6. **VALIDATE** (code) — schema validation + retry after each LLM call
+
+**Caching:** `extract_v1_<hash>` (24h TTL), `analysis_v4_<hash>` (48h TTL), `gen_id_<hash>` / `gen_en_<hash>` (48h TTL). Bump cache key version when changing prompts or scoring formulas.
+
+## Key Files
+
+| File | Purpose |
+|---|---|
+| `worker/src/router.js` | All API routes — add new endpoints here |
+| `worker/src/handlers/` | One file per endpoint |
+| `worker/src/pipeline/` | `extract.js`, `analyze.js`, `score.js`, `diagnose.js`, `validate.js` |
+| `worker/src/prompts/` | LLM prompts — `extract.js`, `diagnose.js`, `tailorId.js`, `tailorEn.js` |
+| `worker/src/constants.js` | `ALLOWED_ORIGINS`, `TIER_PRICES`, `SESSION_TTL`, tier config |
+| `worker/src/sessions.js` | KV session CRUD |
+| `worker/src/claude.js` | `callClaude()` wrapper — timeout 40s |
+| `js/config.js` | `WORKER_URL` — **single place** to update the worker URL |
+| `js/dist/` | Generated bundles — **gitignored**, must run `npm run build` |
+| `js/vendor/` | Vendored docx.js + jsPDF — **gitignored**, must run `npm run build:vendor` |
+| `css/main.css` | Merged Tailwind + custom styles (generated) |
+
+## Dev Commands
+
+```bash
+# Worker
+cd worker && npm test           # Run vitest (130 tests, all passing)
+cd worker && npm run dev        # Local dev with wrangler
+cd worker && npm run tail       # Stream production logs
+
+# Frontend (run from repo root)
+npm run build                   # Build vendor libs + JS bundles + Tailwind CSS
+npm run build:vendor            # Vendor only (docx.js, jsPDF, Tailwind)
+npm run build:js                # JS bundles only (esbuild, per-page)
+npm run dev                     # Watch mode — rebuild on change
+```
+
+**Important:** `js/hasil-guard.js` is NOT bundled — it runs as a synchronous inline `<script>` to prevent flash of unauthenticated content. All other page scripts use `defer`.
+
+## Coding Conventions
+
+- Worker is pure ES modules (no TypeScript). Frontend is vanilla JS + React (hasil page only).
+- All LLM responses are schema-validated by `pipeline/validate.js` and retried once on failure.
+- Session IDs are `sess_<crypto.randomUUID()>`. CV text keys are bound to requesting IP.
+- Never add new LLM calls that produce scoring or verdict decisions — keep those in pure JS.
+- Rate limiting uses Cloudflare native bindings (atomic) + KV fallback. Both must allow.
+- Do not run `wrangler deploy` without `--env production` for production deploys.
+
+## API Routes
+
+| Method | Path | Handler |
+|---|---|---|
+| `GET` | `/health` | inline — no auth |
+| `POST` | `/analyze` | `handlers/analyze.js` |
+| `POST` | `/create-payment` | `handlers/createPayment.js` |
+| `POST` | `/webhook/mayar` | `handlers/mayarWebhook.js` |
+| `POST` | `/session/ping` | `handlers/sessionPing.js` |
+| `GET` | `/check-session` | `handlers/checkSession.js` |
+| `GET` | `/validate-session` | `handlers/validateSession.js` |
+| `POST` | `/get-session` | `handlers/getSession.js` |
+| `POST` | `/generate` | `handlers/generate.js` |
+| `POST` | `/submit-email` | `handlers/submitEmail.js` |
+| `POST` | `/fetch-job-url` | `handlers/fetchJobUrl.js` |
+| `POST` | `/exchange-token` | `handlers/exchangeToken.js` |
+| `POST` | `/resend-email` | `handlers/resendEmail.js` |
+| `POST` | `/interview-kit` | `handlers/interviewKit.js` |
+
+## Pricing Tiers
+
+| Tier | Price | Credits | Languages |
+|---|---|---|---|
+| Coba Dulu | Rp 29.000 | 1 CV | Bahasa Indonesia only |
+| Single | Rp 59.000 | 1 CV | ID + EN |
+| 3-Pack | Rp 149.000 | 3 CV | ID + EN |
+| Job Hunt Pack | Rp 299.000 | 10 CV | ID + EN |
+
 ## gstack
 
 Use the `/browse` skill from gstack for all web browsing. **Never use `mcp__claude-in-chrome__*` tools.**
@@ -80,3 +171,71 @@ npx wrangler secret put MAYAR_WEBHOOK_SECRET
 # 4. Add GitHub secrets CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID
 # Then push to main — CI handles the rest
 ```
+
+---
+
+# CLAUDE.md
+
+Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
+
+**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
+
+## 1. Think Before Coding
+
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
+
+Before implementing:
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+## 2. Simplicity First
+
+**Minimum code that solves the problem. Nothing speculative.**
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+## 3. Surgical Changes
+
+**Touch only what you must. Clean up only your own mess.**
+
+When editing existing code:
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it - don't delete it.
+
+When your changes create orphans:
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
+
+The test: Every changed line should trace directly to the user's request.
+
+## 4. Goal-Driven Execution
+
+**Define success criteria. Loop until verified.**
+
+Transform tasks into verifiable goals:
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
+
+For multi-step tasks, state a brief plan:
+```
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
+```
+
+Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+---
+
+**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
