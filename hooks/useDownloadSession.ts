@@ -228,7 +228,7 @@ export function useDownloadSession(): UseDownloadSessionReturn {
   // ── Manual check-now ──────────────────────────────────────────────────────
 
   const onCheckNow = useCallback(() => {
-    const sId = sessionIdRef.current || localStorage.getItem('gaslamar_session');
+    const sId = sessionIdRef.current || sessionStorage.getItem('gaslamar_session');
     if (!sId) {
       showError('Sesi tidak ditemukan', 'Link download tidak valid.');
       return;
@@ -260,7 +260,7 @@ export function useDownloadSession(): UseDownloadSessionReturn {
           if (res.ok) {
             const data = await res.json() as { session_id?: string };
             if (data.session_id) {
-              localStorage.setItem('gaslamar_session', data.session_id);
+              sessionStorage.setItem('gaslamar_session', data.session_id);
               sessionIdRef.current     = data.session_id;
               sessionSecretRef.current = getSessionSecret(data.session_id);
               setSessionId(data.session_id);
@@ -283,8 +283,8 @@ export function useDownloadSession(): UseDownloadSessionReturn {
       return;
     }
 
-    // ── Path 2: localStorage (normal post-payment flow) ───────────────────────
-    const sId = localStorage.getItem('gaslamar_session');
+    // ── Path 2: sessionStorage (normal post-payment flow) ────────────────────
+    const sId = sessionStorage.getItem('gaslamar_session');
     if (!sId || !sId.startsWith('sess_')) {
       showError('Sesi tidak ditemukan', 'Link download tidak valid. Coba lagi dari awal.');
       return;
