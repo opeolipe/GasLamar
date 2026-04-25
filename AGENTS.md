@@ -99,7 +99,7 @@ POST /analyze
 
 ```bash
 # Worker tests
-cd worker && npm test            # vitest run (83 tests: 74 pass, 9 skipped)
+cd worker && npm test            # vitest run (130 tests, all passing)
 cd worker && npm run test:watch  # watch mode
 cd worker && npm run dev         # local dev via wrangler
 cd worker && npm run tail        # stream live production logs

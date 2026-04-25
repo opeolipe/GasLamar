@@ -413,19 +413,14 @@ describe('POST /analyze — happy path (mocked Claude)', () => {
   beforeAll(() => fetchMock.activate());
   afterAll(() => fetchMock.deactivate());
 
-  // SKIP: requires outbound API access (no OS-level proxy). Un-skip in CI with direct internet.
-  //
   // Pipeline for a PDF CV uses 3 sequential Claude calls:
   //   1. MOCK_PDF_EXTRACTION — fileExtraction.js (PDF → raw text)
   //   2. MOCK_EXTRACT_JSON   — pipeline/extract.js (SKILL_EXTRACT → structured data)
   //   3. MOCK_DIAGNOSE_JSON  — pipeline/diagnose.js (SKILL_DIAGNOSE → gap/reco text)
   //
-  // skor is now computed deterministically from the MOCK_EXTRACT_JSON data:
-  //   MOCK_EXTRACT_JSON has skills_diminta: ['Node.js','React','SQL'] and
-  //   skills_mentah: 'Node.js React SQL' → matchRatio = 1.0
-  //   → north_star = 8, recruiter_signal = 10, effort = 10,
-  //     opportunity_cost = 10, risk = 8, portfolio = 5 (has angka, no certs)
-  //   → total6D = 51 → skor = round(51/60*100) = 85
+  // skor is computed deterministically from MOCK_EXTRACT_JSON:
+  //   skills_diminta: ['Node.js','React','SQL'], skills_mentah: 'Node.js React SQL'
+  //   → matchRatio = 1.0 → total6D = 51 → skor = round(51/60*100) = 85
   it('returns skor + cv_text_key when Claude succeeds', async () => {
     fetchMock
       .get('https://api.anthropic.com')
@@ -546,7 +541,6 @@ describe('POST /create-payment — one-time key consumption', () => {
   beforeAll(() => fetchMock.activate());
   afterAll(() => fetchMock.deactivate());
 
-  // SKIP: requires outbound API access (no OS-level proxy). Un-skip in CI with direct internet.
   it('consumes cv_text_key — second call returns 400', async () => {
     // Seed with same IP as the request so IP-binding check passes
     const key = await seedCVTextKey(undefined, '10.0.0.2');
@@ -921,7 +915,6 @@ describe('POST /generate — happy path (mocked Claude)', () => {
     expect(body.company).toBeNull();
   });
 
-  // SKIP: requires outbound API access (no OS-level proxy). Un-skip in CI with direct internet.
   it('resets session to paid on Claude failure (so user can retry)', async () => {
     const sessionId = await seedSession('generating', 'single');
 

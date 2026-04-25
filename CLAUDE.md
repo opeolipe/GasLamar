@@ -41,7 +41,7 @@ GasLamar is an AI-powered CV tailoring web app for Indonesian job seekers. Users
 
 ```bash
 # Worker
-cd worker && npm test           # Run vitest (83 tests, 74 passing, 9 skipped)
+cd worker && npm test           # Run vitest (130 tests, all passing)
 cd worker && npm run dev        # Local dev with wrangler
 cd worker && npm run tail       # Stream production logs
 
