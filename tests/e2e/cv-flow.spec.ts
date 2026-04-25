@@ -331,10 +331,12 @@ test.describe('GasLamar CV Flow', () => {
   // ── NO SESSION ON HASIL PAGE ──────────────────────────────────────────────
 
   test('hasil page shows no-session message when sessionStorage is empty', async ({ page }) => {
-    // beforeEach already cleared storage; navigate directly with no scoring data.
-    // useResultData checks gaslamar_scoring; if missing, sets noSession:'missing' → card renders.
+    // hasil-guard.js (synchronous <head> script) redirects before React loads when scoring is
+    // absent. Disable it here so useResultData can set noSession:'missing' and render the card.
+    await page.route('**/hasil-guard.js', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/javascript', body: '' }),
+    );
     await page.goto('/hasil');
-    // Use getByRole instead of text= to avoid Playwright 1.59 locator quirks with inline styles
     await expect(
       page.getByRole('heading', { name: 'Sesi Analisis Tidak Ditemukan' }),
     ).toBeVisible({ timeout: 10000 });
