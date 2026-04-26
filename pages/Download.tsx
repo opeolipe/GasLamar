@@ -6,6 +6,7 @@ import {
   isBilingual,
   isMultiCredit,
   buildCVFilename,
+  clearClientSessionData,
   generateDOCXBlob,
   generatePDFBlob,
   triggerDownload,
@@ -344,6 +345,7 @@ export default function Download() {
               message={sessionError.message}
               retryable={sessionError.retryable}
               onRetry={generate.error?.retryable ? generate.retryGeneration : undefined}
+              onRestart={() => clearClientSessionData(session.sessionId)}
             />
           </div>
         )}

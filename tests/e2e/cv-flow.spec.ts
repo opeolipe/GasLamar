@@ -51,12 +51,18 @@ async function fillValidJD(page: Page) {
   );
 }
 
-/** Seed localStorage so download page finds a valid session. */
+/**
+ * Seed localStorage so download page finds a valid session.
+ * Uses addInitScript so values are set BEFORE download-guard.js (a synchronous
+ * blocking <head> script) runs — eliminates any race with page.evaluate timing.
+ */
 async function setupDownloadSession(page: Page, sessionId = TEST_SESSION_ID) {
-  await page.evaluate((sid) => {
-    localStorage.setItem('gaslamar_session', sid);
-    localStorage.setItem(`gaslamar_secret_${sid}`, 'e2e-test-secret');
-    sessionStorage.setItem('gaslamar_tier', 'single');
+  await page.addInitScript((sid) => {
+    if (location.pathname.startsWith('/download')) {
+      localStorage.setItem('gaslamar_session', sid);
+      localStorage.setItem(`gaslamar_secret_${sid}`, 'e2e-test-secret');
+      sessionStorage.setItem('gaslamar_tier', 'single');
+    }
   }, sessionId);
 }
 
@@ -112,12 +118,7 @@ async function mockGenerate(
   );
 }
 
-/**
- * Navigate to the download page with session + all required route mocks.
- * Must be called while already on a page (e.g. after beforeEach's goto).
- * page.evaluate sets localStorage in the current origin context which persists
- * across same-origin navigations within the same tab.
- */
+/** Navigate to the download page with session + all required route mocks. */
 async function gotoDownload(
   page: Page,
   generateOverrides: Record<string, unknown> = {},
@@ -331,15 +332,10 @@ test.describe('GasLamar CV Flow', () => {
   // ── NO SESSION ON HASIL PAGE ──────────────────────────────────────────────
 
   test('hasil page shows no-session message when sessionStorage is empty', async ({ page }) => {
-    // hasil-guard.js (synchronous <head> script) redirects before React loads when scoring is
-    // absent. Disable it here so useResultData can set noSession:'missing' and render the card.
-    await page.route('**/hasil-guard.js', (route) =>
-      route.fulfill({ status: 200, contentType: 'application/javascript', body: '' }),
-    );
+    // Result.tsx redirects to upload.html?reason=no_session when session is missing
     await page.goto('/hasil');
-    await expect(
-      page.getByRole('heading', { name: 'Sesi Analisis Tidak Ditemukan' }),
-    ).toBeVisible({ timeout: 10000 });
+    await page.waitForURL(/upload/, { timeout: 15000 });
+    expect(page.url()).toContain('reason=no_session');
   });
 
   // ── PAYMENT BUTTON TRIGGERS MAYAR REDIRECT ────────────────────────────────
