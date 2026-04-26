@@ -59,8 +59,11 @@ async function fillValidJD(page: Page) {
 async function setupDownloadSession(page: Page, sessionId = TEST_SESSION_ID) {
   await page.addInitScript((sid) => {
     if (location.pathname.startsWith('/download')) {
+      // download-guard.js reads localStorage; useDownloadSession reads sessionStorage
       localStorage.setItem('gaslamar_session', sid);
+      sessionStorage.setItem('gaslamar_session', sid);
       localStorage.setItem(`gaslamar_secret_${sid}`, 'e2e-test-secret');
+      sessionStorage.setItem(`gaslamar_secret_${sid}`, 'e2e-test-secret');
       sessionStorage.setItem('gaslamar_tier', 'single');
     }
   }, sessionId);
@@ -332,10 +335,16 @@ test.describe('GasLamar CV Flow', () => {
   // ── NO SESSION ON HASIL PAGE ──────────────────────────────────────────────
 
   test('hasil page shows no-session message when sessionStorage is empty', async ({ page }) => {
-    // Result.tsx redirects to upload.html?reason=no_session when session is missing
+    // Result.tsx calls window.location.replace('upload.html?reason=no_session') when
+    // no session is found. waitForRequest fires when the browser initiates the request,
+    // before it resolves — avoiding ERR_ABORTED from the location.replace() abort.
+    const redirectRequest = page.waitForRequest(
+      (req) => req.url().includes('upload') && req.url().includes('reason='),
+      { timeout: 15000 },
+    );
     await page.goto('/hasil');
-    await page.waitForURL(/upload/, { timeout: 15000 });
-    expect(page.url()).toContain('reason=no_session');
+    const req = await redirectRequest;
+    expect(req.url()).toContain('no_session');
   });
 
   // ── PAYMENT BUTTON TRIGGERS MAYAR REDIRECT ────────────────────────────────

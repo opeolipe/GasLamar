@@ -16,6 +16,12 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: [['html', { open: 'never' }], ['list']],
+  webServer: {
+    command: 'npm run start',
+    url: 'http://localhost:3000',
+    reuseExistingServer: true,
+    timeout: 30_000,
+  },
   use: {
     baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
