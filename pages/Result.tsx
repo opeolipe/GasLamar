@@ -423,7 +423,7 @@ export default function Result() {
         {noSession && !loading && (
           <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '2.5rem 1.5rem' }}>
             <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>🔍</div>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, margin: '0 0 0.5rem', fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>
+            <h2 data-testid="no-session-heading" style={{ fontSize: '1.1rem', fontWeight: 600, margin: '0 0 0.5rem', fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>
               Sesi Analisis Tidak Ditemukan
             </h2>
             <p style={{ color: '#64748B', fontSize: '0.85rem', margin: '0 0 1.5rem', lineHeight: 1.7 }}>
