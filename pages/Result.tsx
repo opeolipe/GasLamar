@@ -15,7 +15,7 @@ import PrimaryHighlight                        from '@/components/6d/PrimaryHigh
 import DimRewritePreview                       from '@/components/6d/RewritePreview';
 import { useResultData }                       from '@/hooks/useResultData';
 import { useSessionCountdown }                 from '@/hooks/useSessionCountdown';
-import { WORKER_URL, TIER_CONFIG, EMAIL_REGEX, formatPrice, buildResultData } from '@/lib/resultUtils';
+import { WORKER_URL, SANDBOX_WORKER_URL, TIER_CONFIG, EMAIL_REGEX, formatPrice, buildResultData } from '@/lib/resultUtils';
 import { validateEmail }                                                        from '@/utils/emailValidation';
 
 // ── DevTools notice (educational, not a security control) ──────────────────
@@ -381,8 +381,11 @@ export default function Result() {
     }
     setBypassInProgress(true);
     setBypassError(null);
+    const bypassUrl = typeof window !== 'undefined' && window.location.hostname !== 'gaslamar.com'
+      ? SANDBOX_WORKER_URL
+      : WORKER_URL;
     try {
-      const res = await fetch(`${WORKER_URL}/bypass-payment`, {
+      const res = await fetch(`${bypassUrl}/bypass-payment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
