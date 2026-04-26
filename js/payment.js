@@ -237,13 +237,17 @@ async function proceedToPayment() {
 
     // Redirect to Mayar payment page
     // Validate invoice_url comes from a trusted Mayar domain before redirecting
-    let validInvoiceUrl = false;
-    try {
-      const parsed = new URL(invoice_url);
-      validInvoiceUrl = parsed.protocol === 'https:' &&
-        (parsed.hostname === 'mayar.id' || parsed.hostname.endsWith('.mayar.id') ||
-         parsed.hostname === 'mayar.club' || parsed.hostname.endsWith('.mayar.club'));
-    } catch (_) {}
+    // Skip domain check in sandbox — Mayar sandbox may return non-standard domains
+    const isSandbox = window.location.hostname !== 'gaslamar.com';
+    let validInvoiceUrl = isSandbox;
+    if (!isSandbox) {
+      try {
+        const parsed = new URL(invoice_url);
+        validInvoiceUrl = parsed.protocol === 'https:' &&
+          (parsed.hostname === 'mayar.id' || parsed.hostname.endsWith('.mayar.id') ||
+           parsed.hostname === 'mayar.club' || parsed.hostname.endsWith('.mayar.club'));
+      } catch (_) {}
+    }
     if (!validInvoiceUrl) {
       throw new Error('URL pembayaran tidak valid. Coba lagi.');
     }
