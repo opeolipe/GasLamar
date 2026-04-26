@@ -84,11 +84,26 @@ export default function Result() {
   const blurTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const confirmEmailRef = useRef<HTMLInputElement>(null);
 
+  // Redirect to upload when session is missing or expired — never render a broken UI
+  useEffect(() => {
+    if (noSession) {
+      const reason = noSession === 'expired' ? 'session_expired' : 'no_session';
+      window.location.href = `upload.html?reason=${reason}`;
+    }
+  }, [noSession]);
+
   // Pre-select tier from sessionStorage / localStorage
   useEffect(() => {
     const saved = sessionStorage.getItem('gaslamar_tier') || localStorage.getItem('gaslamar_tier');
     if (saved && TIER_CONFIG[saved]) setSelectedTier(saved);
   }, []);
+
+  // Immediately redirect to upload when session is missing or expired
+  useEffect(() => {
+    if (!noSession) return;
+    const reason = noSession === 'expired' ? 'session_expired' : 'no_session';
+    window.location.replace(`upload.html?reason=${reason}`);
+  }, [noSession]);
 
   // Show 5-minute expiry toast once
   useEffect(() => {
@@ -309,8 +324,8 @@ export default function Result() {
         tier_price_idr: TIER_CONFIG[selectedTier].price,
       });
 
-      localStorage.setItem('gaslamar_session',                 session_id);
-      localStorage.setItem(`gaslamar_secret_${session_id}`, sessionSecret);
+      sessionStorage.setItem('gaslamar_session',                 session_id);
+      sessionStorage.setItem(`gaslamar_secret_${session_id}`, sessionSecret);
       sessionStorage.removeItem('gaslamar_cv_key');
       try {
         localStorage.setItem('gaslamar_delivery', JSON.stringify({
@@ -416,24 +431,6 @@ export default function Result() {
             <div style={{ width: 28, height: 28, border: '3px solid #BFDBFE', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'gasResultSpin 0.8s linear infinite', display: 'inline-block', marginBottom: '1rem' }} />
             <p style={{ fontWeight: 600, fontSize: '1.1rem', margin: '0 0 0.5rem', fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>Memuat hasil analisis…</p>
             <p style={{ color: '#94A3B8', fontSize: '0.82rem', margin: 0 }}>Sebentar lagi</p>
-          </div>
-        )}
-
-        {/* ── No session ── */}
-        {noSession && !loading && (
-          <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '2.5rem 1.5rem' }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>🔍</div>
-            <h2 data-testid="no-session-heading" style={{ fontSize: '1.1rem', fontWeight: 600, margin: '0 0 0.5rem', fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>
-              Sesi Analisis Tidak Ditemukan
-            </h2>
-            <p style={{ color: '#64748B', fontSize: '0.85rem', margin: '0 0 1.5rem', lineHeight: 1.7 }}>
-              {noSession === 'expired'
-                ? <>⏰ Sesi analisis sudah berakhir (berlaku 2 jam).<br />Silakan upload ulang CV kamu untuk memulai analisis baru.</>
-                : <>Sesi analisis tidak ditemukan atau sudah kadaluarsa.<br />Silakan upload CV kamu kembali untuk memulai analisis baru.</>}
-            </p>
-            <a href="upload.html" style={{ display: 'inline-block', background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: '#fff', fontWeight: 600, padding: '0.65rem 1.5rem', borderRadius: 60, textDecoration: 'none', fontSize: '0.88rem', boxShadow: '0 8px 24px rgba(37,99,235,0.25)' }}>
-              Upload CV Lagi →
-            </a>
           </div>
         )}
 

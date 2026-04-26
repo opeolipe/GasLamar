@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { copyToClipboard, buildSecretHeaders, WORKER_URL } from '@/lib/downloadUtils';
+import { logError } from '@/lib/logger';
+import LoadingPlaceholder from '@/components/ui/LoadingPlaceholder';
 
 interface InterviewKitData {
   job_insights:           { phrase: string; meaning: string }[];
@@ -74,7 +76,8 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
         const data = await res.json();
         if (!cancelled) { setKit(data.kit); setLoading(false); }
       } catch (e: any) {
-        if (!cancelled) { setError(e.message || 'Gagal menghasilkan Interview Kit. Coba lagi.'); setLoading(false); }
+        logError('interview_kit_failed', { message: e?.message });
+        if (!cancelled) { setError('Interview Kit belum tersedia. Coba lagi.'); setLoading(false); }
       }
     }
 
@@ -124,24 +127,15 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
       </div>
 
       {/* Loading */}
-      {loading && (
-        <div className="flex flex-col items-center justify-center py-12 text-slate-500">
-          <div
-            className="w-8 h-8 rounded-full border-2 border-blue-200 border-t-blue-600 mb-3"
-            style={{ animation: 'spin 0.8s linear infinite' }}
-          />
-          <p className="text-sm">Menyiapkan Interview Kit kamu…</p>
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        </div>
-      )}
+      {loading && <LoadingPlaceholder text="Menyiapkan Interview Kit kamu…" />}
 
       {/* Error */}
       {!loading && error && (
         <div className="flex flex-col items-center py-8 text-center">
-          <p className="text-sm text-red-600 mb-3">{error}</p>
+          <p className="text-sm text-red-600 mb-3">Interview Kit belum tersedia. Coba lagi.</p>
           <button
             onClick={() => setRetryCount(c => c + 1)}
-            className="min-h-[40px] px-4 rounded-full text-sm font-semibold bg-red-50 border border-red-200 text-red-700 hover:bg-red-100 transition-colors"
+            className="min-h-[44px] min-w-[44px] px-4 rounded-full text-sm font-semibold bg-red-50 border border-red-200 text-red-700 hover:bg-red-100 transition-colors"
           >
             Coba Lagi
           </button>

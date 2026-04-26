@@ -332,9 +332,10 @@ test.describe('GasLamar CV Flow', () => {
   // ── NO SESSION ON HASIL PAGE ──────────────────────────────────────────────
 
   test('hasil page shows no-session message when sessionStorage is empty', async ({ page }) => {
+    // Result.tsx redirects to upload.html?reason=no_session when session is missing
     await page.goto('/hasil');
-    // data-testid="no-session-heading" is on the <h2> inside useResultData's noSession:'missing' branch
-    await expect(page.locator('[data-testid="no-session-heading"]')).toBeVisible({ timeout: 15000 });
+    await page.waitForURL(/upload/, { timeout: 15000 });
+    expect(page.url()).toContain('reason=no_session');
   });
 
   // ── PAYMENT BUTTON TRIGGERS MAYAR REDIRECT ────────────────────────────────

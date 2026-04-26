@@ -24,13 +24,18 @@ export function isMultiCredit(tier: string): boolean {
 
 export function clearClientSessionData(sessionId: string | null): void {
   sessionStorage.removeItem('gaslamar_tier');
+  sessionStorage.removeItem('gaslamar_session');
   localStorage.removeItem('gaslamar_session');
   localStorage.removeItem('gaslamar_tier');
-  if (sessionId) localStorage.removeItem(`gaslamar_secret_${sessionId}`);
+  if (sessionId) {
+    sessionStorage.removeItem(`gaslamar_secret_${sessionId}`);
+    localStorage.removeItem(`gaslamar_secret_${sessionId}`);
+  }
 }
 
 export function getSessionSecret(sessionId: string): string | null {
-  return localStorage.getItem(`gaslamar_secret_${sessionId}`);
+  return sessionStorage.getItem(`gaslamar_secret_${sessionId}`)
+    ?? localStorage.getItem(`gaslamar_secret_${sessionId}`);
 }
 
 export function buildSecretHeaders(secret: string | null): Record<string, string> {
