@@ -53,27 +53,44 @@ export async function extractCVText(cvData, env) {
     if (parsed.type === 'txt') {
       const text = parsed.data || '';
       if (text.trim().length < 100) {
-        return { success: false, error: 'CV kamu tidak bisa dibaca. Pastikan file berisi teks CV yang lengkap.' };
+        return { success: false, error: 'CV kamu tidak bisa dibaca. Pastikan file berisi teks CV yang lengkap (minimal 100 karakter).' };
       }
       return { success: true, text };
     }
 
     // DOCX: extract text locally via ZIP+XML parsing (no API call needed)
     if (parsed.type === 'docx') {
-      const text = await extractTextFromDOCX(parsed.data);
+      let text;
+      try {
+        text = await extractTextFromDOCX(parsed.data);
+      } catch (docxErr) {
+        console.error('[extractCVText:docx]', docxErr.message);
+        return { success: false, error: 'File DOCX tidak bisa dibaca. Pastikan file tidak terproteksi password, lalu coba upload lagi. Jika masalah berlanjut, coba simpan ulang sebagai PDF.' };
+      }
       if (text.length < 100) {
-        return { success: false, error: 'CV kamu tidak bisa dibaca. Pastikan CV berisi teks, bukan tabel gambar atau file hasil scan.' };
+        return { success: false, error: 'CV kamu tidak bisa dibaca. Pastikan CV berisi teks yang lengkap — bukan tabel gambar, file kosong, atau hasil scan.' };
       }
       return { success: true, text };
     }
 
     // PDF: use Claude document API
-    const response = await callClaude(
-      env,
-      'Ekstrak semua teks dari dokumen CV ini. Output hanya teks mentah tanpa formatting tambahan.',
-      parsed,
-      4096
-    );
+    let response;
+    try {
+      response = await callClaude(
+        env,
+        'Ekstrak semua teks dari dokumen CV ini. Output hanya teks mentah tanpa formatting tambahan.',
+        parsed,
+        4096
+      );
+    } catch (pdfErr) {
+      console.error('[extractCVText:pdf]', pdfErr.message);
+      // Provide actionable guidance based on error type
+      const isTimeout = pdfErr.message?.includes('timeout') || pdfErr.message?.includes('Timeout');
+      if (isTimeout) {
+        return { success: false, error: 'File PDF kamu membutuhkan waktu terlalu lama untuk diproses. Coba kompres PDF atau konversi ke format DOCX, lalu upload lagi.' };
+      }
+      return { success: false, error: 'File PDF tidak bisa dibaca. Pastikan PDF tidak terproteksi password dan berisi teks (bukan hasil scan). Jika masalah berlanjut, coba konversi ke DOCX.' };
+    }
 
     if (response?.stop_reason === 'max_tokens') {
       return { success: false, error: 'CV kamu terlalu panjang untuk diproses. Coba konversi ke format DOCX, atau ringkas CV menjadi maksimal 3 halaman.' };
@@ -82,13 +99,13 @@ export async function extractCVText(cvData, env) {
     const text = response?.content?.[0]?.text || '';
 
     if (text.length < 100) {
-      return { success: false, error: 'CV kamu tidak bisa dibaca. Pastikan CV dalam format teks, bukan hasil scan atau foto.' };
+      return { success: false, error: 'CV kamu tidak bisa dibaca. Pastikan CV dalam format teks — bukan hasil scan, foto, atau PDF dengan gambar saja. Coba konversi ke DOCX.' };
     }
 
     return { success: true, text };
   } catch (e) {
     console.error('[extractCVText]', e.message);
-    return { success: false, error: 'Gagal memproses file CV: ' + e.message };
+    return { success: false, error: 'Gagal memproses file CV. Pastikan file tidak rusak atau terproteksi, lalu coba lagi.' };
   }
 }
 

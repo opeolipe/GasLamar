@@ -30,12 +30,12 @@ export default function Home() {
         className="border-b py-4 px-6 flex items-center justify-between sticky top-0 z-50 backdrop-blur-[14px]"
         style={{ borderColor: "rgba(148,163,184,0.18)", background: "rgba(255,255,255,0.88)" }}
       >
-        <a href="index.html" className="font-extrabold text-lg text-slate-900 no-underline tracking-tight">
+        <a href="index.html" className="font-extrabold text-lg text-slate-900 no-underline tracking-tight min-h-[44px] inline-flex items-center">
           GasLamar
         </a>
         <a
           href="upload.html"
-          className="inline-flex items-center text-white font-bold text-sm px-5 py-2 rounded-full no-underline transition-all hover:-translate-y-[1px]"
+          className="inline-flex items-center min-h-[44px] text-white font-bold text-sm px-5 py-[10px] rounded-full no-underline transition-all hover:-translate-y-[1px]"
           style={{ background: "linear-gradient(180deg,#2563eb,#1d4ed8)", boxShadow: SHADOW }}
         >
           Cek Peluang Saya
@@ -53,7 +53,7 @@ export default function Home() {
 
         {/* How it works */}
         <section className="py-8 md:py-12">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400 mb-3">Cara kerja</p>
+          <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-500 mb-3">Cara kerja</p>
           <h2 className="text-[clamp(1.8rem,3.5vw,2.8rem)] font-semibold leading-tight mb-8" style={SERIF}>
             Cepat, jelas, langsung ke status peluang
           </h2>
@@ -70,7 +70,7 @@ export default function Home() {
 
           {/* Benefits */}
           <div className="mt-8 md:mt-16">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400 mb-3">Keuntungan</p>
+            <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-500 mb-3">Keuntungan</p>
             <h2 className="text-[clamp(1.8rem,3.5vw,2.8rem)] font-semibold leading-tight mb-8" style={SERIF}>
               Bukan sekadar cocok kata kunci
             </h2>

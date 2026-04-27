@@ -61,6 +61,9 @@ export function useDownloadSession(): UseDownloadSessionReturn {
   const sessionIdRef      = useRef<string | null>(null);
   const sessionSecretRef  = useRef<string | null>(null);
   const mountedRef        = useRef(true);
+  // Set to true on staging hostname or when ?dev=1 is in the URL. Captured at
+  // init time before history.replaceState strips the token query param.
+  const devModeRef        = useRef(false);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -131,7 +134,10 @@ export function useDownloadSession(): UseDownloadSessionReturn {
     }
 
     try {
-      const res = await fetch(`${WORKER_URL}/check-session`, { credentials: 'include' });
+      const checkUrl = devModeRef.current
+        ? `${WORKER_URL}/check-session?dev=1`
+        : `${WORKER_URL}/check-session`;
+      const res = await fetch(checkUrl, { credentials: 'include' });
 
       if (!mountedRef.current) return;
 
@@ -158,7 +164,12 @@ export function useDownloadSession(): UseDownloadSessionReturn {
       notFoundCountRef.current = 0;
 
       if (!res.ok) {
-        scheduleNextPoll(sId);
+        if (pollCountRef.current < MAX_POLLS) {
+          scheduleNextPoll(sId);
+        } else {
+          setShowCheckButton(true);
+          setStatusText('Klik tombol di bawah untuk cek ulang.');
+        }
         return;
       }
 
@@ -242,6 +253,11 @@ export function useDownloadSession(): UseDownloadSessionReturn {
   useEffect(() => {
     const params     = new URLSearchParams(location.search);
     const emailToken = params.get('token');
+
+    // Detect dev/staging mode before history.replaceState strips query params.
+    devModeRef.current =
+      window.location.hostname.includes('staging') ||
+      params.get('dev') === '1';
 
     // ── Path 1: email link with ?token= ──────────────────────────────────────
     if (emailToken) {

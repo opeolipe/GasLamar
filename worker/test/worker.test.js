@@ -307,7 +307,7 @@ describe('POST /analyze — validation', () => {
     expect(res.status).toBe(422);
     const body = await res.json();
     expect(body.message).not.toContain('word/document.xml');
-    expect(body.message).toMatch(/rusak|tidak lengkap|upload.*berbeda/i);
+    expect(body.message).toMatch(/rusak|tidak lengkap|upload.*berbeda|tidak bisa dibaca|terproteksi/i);
   });
 
   it('rejects file over 5MB → 400', async () => {
@@ -683,6 +683,26 @@ describe('GET /check-session', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.status).toBe('pending');
+  });
+
+  it('dev bypass: ?dev=1 upgrades pending → paid in non-production', async () => {
+    const sessionId = await seedSession('pending', 'single');
+    const res = await get(`/check-session?dev=1&session=${encodeURIComponent(sessionId)}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.status).toBe('paid');
+    // KV must also be updated so a second poll returns paid
+    const res2 = await get(`/check-session?session=${encodeURIComponent(sessionId)}`);
+    const body2 = await res2.json();
+    expect(body2.status).toBe('paid');
+  });
+
+  it('dev bypass: ?dev=1 does not affect already-paid session', async () => {
+    const sessionId = await seedSession('paid', 'single');
+    const res = await get(`/check-session?dev=1&session=${encodeURIComponent(sessionId)}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.status).toBe('paid');
   });
 });
 
@@ -1735,5 +1755,91 @@ describe('POST /interview-kit', () => {
 
     expect(cachedId).not.toBeNull();
     expect(cachedEn).not.toBeNull();
+  });
+});
+
+describe('POST /bypass-payment — sandbox bypass', () => {
+  const CV_TEXT = 'Budi Santoso\nSoftware Engineer\n\nPENGALAMAN\nDeveloper PT XYZ 2020-2024\n- Node.js REST API\n- React dashboard\n\nPENDIDIKAN\nS1 Teknik Informatika UI 2020';
+
+  async function seedCVKey(ip = '5.5.5.5') {
+    const key = `cvtext_${crypto.randomUUID()}`;
+    await env.GASLAMAR_SESSIONS.put(key, JSON.stringify({ text: CV_TEXT, job_desc: JOB_DESC, ip }), { expirationTtl: 3600 });
+    return key;
+  }
+
+  it('happy path — creates paid session and returns session_id with cookie', async () => {
+    const key = await seedCVKey();
+    const res = await post('/bypass-payment', { tier: 'single', cv_text_key: key }, {}, '5.5.5.5');
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.session_id).toMatch(/^sess_/);
+
+    const setCookie = res.headers.get('set-cookie');
+    expect(setCookie).toContain('session_id=sess_');
+
+    const session = await env.GASLAMAR_SESSIONS.get(body.session_id, { type: 'json' });
+    expect(session.status).toBe('paid');
+    expect(session.tier).toBe('single');
+    expect(session.mayar_invoice_id).toBe('bypass_sandbox');
+    expect(session.cv_text).toBe(CV_TEXT);
+  });
+
+  it('consumes cv_text_key — second call returns 400 (key not found)', async () => {
+    const key = await seedCVKey();
+    const res1 = await post('/bypass-payment', { tier: 'single', cv_text_key: key }, {}, '5.5.5.5');
+    expect(res1.status).toBe(200);
+
+    const res2 = await post('/bypass-payment', { tier: 'single', cv_text_key: key }, {}, '5.5.5.5');
+    expect(res2.status).toBe(400);
+    const body2 = await res2.json();
+    expect(body2.message).toMatch(/kedaluwarsa|analisis/i);
+  });
+
+  it('rejects missing tier → 400', async () => {
+    const key = await seedCVKey();
+    const res = await post('/bypass-payment', { cv_text_key: key }, {}, '5.5.5.5');
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects invalid tier → 400', async () => {
+    const key = await seedCVKey();
+    const res = await post('/bypass-payment', { tier: 'premium', cv_text_key: key }, {}, '5.5.5.5');
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/tier/i);
+  });
+
+  it('rejects cv_text_key without cvtext_ prefix → 400', async () => {
+    const res = await post('/bypass-payment', { tier: 'single', cv_text_key: 'sess_abc123' }, {}, '5.5.5.5');
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/cv_text_key/i);
+  });
+
+  it('rejects unknown cv_text_key → 400', async () => {
+    const res = await post('/bypass-payment', { tier: 'single', cv_text_key: 'cvtext_nonexistent' }, {}, '5.5.5.5');
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/kedaluwarsa|analisis/i);
+  });
+
+  it('sets correct credits for 3pack tier', async () => {
+    const key = await seedCVKey();
+    const res = await post('/bypass-payment', { tier: '3pack', cv_text_key: key }, {}, '5.5.5.5');
+    expect(res.status).toBe(200);
+    const { session_id } = await res.json();
+    const session = await env.GASLAMAR_SESSIONS.get(session_id, { type: 'json' });
+    expect(session.credits_remaining).toBe(3);
+    expect(session.total_credits).toBe(3);
+  });
+
+  it('rejects malformed JSON body → 400', async () => {
+    const res = await SELF.fetch('https://gaslamar.com/bypass-payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: GASLAMAR_ORIGIN, 'CF-Connecting-IP': '5.5.5.5' },
+      body: 'not-json',
+    });
+    expect(res.status).toBe(400);
   });
 });

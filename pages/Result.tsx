@@ -15,8 +15,10 @@ import PrimaryHighlight                        from '@/components/6d/PrimaryHigh
 import DimRewritePreview                       from '@/components/6d/RewritePreview';
 import { useResultData }                       from '@/hooks/useResultData';
 import { useSessionCountdown }                 from '@/hooks/useSessionCountdown';
-import { WORKER_URL, TIER_CONFIG, EMAIL_REGEX, formatPrice, buildResultData } from '@/lib/resultUtils';
+import { WORKER_URL, SANDBOX_WORKER_URL, TIER_CONFIG, EMAIL_REGEX, formatPrice, buildResultData } from '@/lib/resultUtils';
 import { validateEmail }                                                        from '@/utils/emailValidation';
+
+declare const IS_SANDBOX: boolean;
 
 // ── DevTools notice (educational, not a security control) ──────────────────
 console.log(
@@ -76,6 +78,8 @@ export default function Result() {
   const [payBtnOverride,        setPayBtnOverride]        = useState<string | null>(null);
   const [paymentError,          setPaymentError]          = useState<string | null>(null);
   const [sessionExpiredByPay,   setSessionExpiredByPay]   = useState(false);
+  const [bypassInProgress,      setBypassInProgress]      = useState(false);
+  const [bypassError,           setBypassError]           = useState<string | null>(null);
   const [showExpiryToast,       setShowExpiryToast]       = useState(false);
   const [showDetails,           setShowDetails]           = useState(false);
   const [showAllDimensions,     setShowAllDimensions]     = useState(false);
@@ -335,14 +339,16 @@ export default function Result() {
         }));
       } catch (_) {}
 
-      // Validate invoice URL origin before redirecting
-      let validUrl = false;
-      try {
-        const parsed = new URL(invoice_url);
-        validUrl = parsed.protocol === 'https:' &&
-          (parsed.hostname === 'mayar.id' || parsed.hostname.endsWith('.mayar.id') ||
-           parsed.hostname === 'mayar.club' || parsed.hostname.endsWith('.mayar.club'));
-      } catch (_) {}
+      // Validate invoice URL origin before redirecting (production only — sandbox may use other domains)
+      let validUrl = IS_SANDBOX;
+      if (!IS_SANDBOX) {
+        try {
+          const parsed = new URL(invoice_url);
+          validUrl = parsed.protocol === 'https:' &&
+            (parsed.hostname === 'mayar.id' || parsed.hostname.endsWith('.mayar.id') ||
+             parsed.hostname === 'mayar.club' || parsed.hostname.endsWith('.mayar.club'));
+        } catch (_) {}
+      }
       if (!validUrl) throw new Error('URL pembayaran tidak valid. Coba lagi.');
 
       setPayBtnOverride('Mengalihkan ke halaman pembayaran...');
@@ -364,6 +370,46 @@ export default function Result() {
         ? 'Koneksi timeout. Coba lagi.'
         : e.message || 'Terjadi kesalahan. Coba lagi.';
       setPaymentError(msg);
+    }
+  }
+
+  async function bypassPayment() {
+    if (!selectedTier || bypassInProgress) return;
+    const cvTextKey = sessionStorage.getItem('gaslamar_cv_key');
+    if (!cvTextKey) {
+      // cv_text_key was already consumed by /create-payment. If a pending session
+      // exists from that call, forward to download.html?dev=1 — the worker will
+      // upgrade it from pending → paid without a real Mayar webhook.
+      const existingSession = sessionStorage.getItem('gaslamar_session');
+      if (existingSession && existingSession.startsWith('sess_')) {
+        window.location.href = 'download.html?dev=1';
+        return;
+      }
+      setBypassError('cv_text_key not found — re-upload CV first.');
+      return;
+    }
+    setBypassInProgress(true);
+    setBypassError(null);
+    const bypassUrl = IS_SANDBOX ? SANDBOX_WORKER_URL : WORKER_URL;
+    try {
+      const res = await fetch(`${bypassUrl}/bypass-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ tier: selectedTier, cv_text_key: cvTextKey }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as any).message || `Error ${res.status}`);
+      }
+      const { session_id } = await res.json();
+      sessionStorage.setItem('gaslamar_session', session_id);
+      sessionStorage.removeItem('gaslamar_cv_key');
+      try { localStorage.setItem('gaslamar_session', session_id); } catch (_) {}
+      window.location.href = 'download.html';
+    } catch (err) {
+      setBypassInProgress(false);
+      setBypassError((err as Error).message || 'Bypass failed');
     }
   }
 
@@ -712,6 +758,25 @@ export default function Result() {
                 {paymentError && (
                   <div role="alert" style={{ marginTop: '0.75rem', padding: '0.75rem', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, color: '#B91C1C', fontSize: '0.875rem', textAlign: 'center' }}>
                     {paymentError}
+                  </div>
+                )}
+
+                {/* Sandbox bypass — only rendered in sandbox builds */}
+                {IS_SANDBOX && (
+                  <div style={{ marginTop: '1.25rem', padding: '0.875rem 1rem', background: '#1e1e2e', borderRadius: 12, border: '1px solid #3b3b5c' }}>
+                    <p style={{ fontSize: '0.7rem', color: '#a0a0c0', margin: '0 0 0.6rem', fontFamily: 'monospace', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                      ⚙ Sandbox — bypass payment
+                    </p>
+                    <button
+                      onClick={bypassPayment}
+                      disabled={!selectedTier || bypassInProgress}
+                      style={{ background: !selectedTier || bypassInProgress ? '#2d2d4a' : '#4f46e5', color: !selectedTier || bypassInProgress ? '#6b6b9a' : 'white', border: 'none', borderRadius: 8, padding: '0.6rem 1rem', fontWeight: 600, cursor: !selectedTier || bypassInProgress ? 'not-allowed' : 'pointer', width: '100%', fontSize: '0.875rem', fontFamily: 'monospace', transition: '0.15s' }}
+                    >
+                      {bypassInProgress ? 'creating session…' : selectedTier ? `bypass → ${selectedTier}` : 'select a tier first'}
+                    </button>
+                    {bypassError && (
+                      <p style={{ fontSize: '0.75rem', color: '#f87171', margin: '0.5rem 0 0', fontFamily: 'monospace' }}>{bypassError}</p>
+                    )}
                   </div>
                 )}
               </div>

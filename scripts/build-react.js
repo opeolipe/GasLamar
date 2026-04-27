@@ -36,6 +36,7 @@ const ALIASES = {
       ),
       define: {
         'process.env.NODE_ENV': '"production"',
+        'IS_SANDBOX': process.env.GASLAMAR_IS_SANDBOX === 'true' ? 'true' : 'false',
       },
     }).then(() => {
       const fs = require('fs');

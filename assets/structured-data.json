@@ -1,0 +1,31 @@
+[
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "GasLamar",
+    "url": "https://gaslamar.com",
+    "description": "Upload CV + job description. Tahu peluang interview kamu dalam 30 detik.",
+    "inLanguage": "id-ID",
+    "potentialAction": {
+      "@type": "Action",
+      "name": "Cek Peluang Saya",
+      "target": "https://gaslamar.com/"
+    }
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "GasLamar",
+    "url": "https://gaslamar.com",
+    "description": "AI CV analysis untuk pencari kerja Indonesia. Upload CV, tahu peluang interview dalam 30 detik.",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Web Browser",
+    "inLanguage": "id-ID",
+    "offers": {
+      "@type": "AggregateOffer",
+      "lowPrice": "29000",
+      "highPrice": "299000",
+      "priceCurrency": "IDR"
+    }
+  }
+]

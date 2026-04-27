@@ -81,7 +81,7 @@ export default function PricingSection() {
             }}
           >
             {tier.badge && (
-              <span className="absolute -top-1 left-6 rounded-full text-xs font-bold px-3 py-1" style={{ background: "#DBEAFE", color: "#1E40AF" }}>
+              <span className="absolute -top-1 left-6 rounded-full text-sm font-bold px-3 py-1 bg-amber-100 text-amber-900">
                 {tier.badge}
               </span>
             )}
@@ -106,7 +106,7 @@ export default function PricingSection() {
               className={`w-full rounded-[14px] py-2.5 font-bold text-sm no-underline flex items-center justify-center transition-all hover:-translate-y-[1px] ${
                 tier.featured
                   ? "text-white border-0"
-                  : "bg-white text-blue-600 border border-blue-200"
+                  : "bg-white text-blue-700 border border-blue-200"
               }`}
               style={tier.featured ? { background: "linear-gradient(180deg,#2563eb,#1d4ed8)" } : {}}
             >

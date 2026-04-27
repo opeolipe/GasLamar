@@ -79,11 +79,7 @@ export function useResultData(): ResultDataState {
         .then((result: { valid: boolean }) => {
           if (!result.valid) {
             sessionStorage.removeItem('gaslamar_cv_key');
-            setState(s => ({
-              ...s,
-              error: '⏰ Sesi analisis sudah berakhir (berlaku 2 jam). Mohon upload ulang CV kamu.',
-            }));
-            setTimeout(() => { window.location.href = 'upload.html'; }, 3000);
+            window.location.replace('upload.html?reason=expired');
           }
         })
         .catch(() => {}); // network unavailable — fail open

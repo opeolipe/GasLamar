@@ -14,6 +14,7 @@ import { handleFetchJobUrl } from './handlers/fetchJobUrl.js';
 import { handleExchangeToken }  from './handlers/exchangeToken.js';
 import { handleResendEmail }    from './handlers/resendEmail.js';
 import { handleInterviewKit }  from './handlers/interviewKit.js';
+import { handleBypassPayment } from './handlers/bypassPayment.js';
 
 export async function route(request, env, ctx) {
   const url = new URL(request.url);
@@ -80,6 +81,10 @@ export async function route(request, env, ctx) {
 
   if (method === 'POST' && pathname === '/interview-kit') {
     return handleInterviewKit(request, env);
+  }
+
+  if (method === 'POST' && pathname === '/bypass-payment') {
+    return handleBypassPayment(request, env);
   }
 
   if (method === 'POST' && pathname === '/feedback') {
