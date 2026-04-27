@@ -102,7 +102,7 @@ export default function ResultPreview() {
                   <div className="h-3 overflow-hidden rounded-full col-span-full sm:col-auto" style={{ background: "rgba(148,163,184,0.18)" }}>
                     <div className="h-full rounded-[inherit]" style={{ width: `${d.pct}%`, background: BAR_FILLS[d.variant] }} />
                   </div>
-                  <span className={`row-start-1 col-start-2 self-start sm:row-auto sm:col-auto inline-flex items-center rounded-full px-[10px] py-[5px] text-xs font-bold ${CHIP_CLS[d.variant]}`}>
+                  <span className={`row-start-1 col-start-2 self-start sm:row-auto sm:col-auto inline-flex items-center rounded-full px-[10px] py-[5px] text-sm font-bold ${CHIP_CLS[d.variant]}`}>
                     {d.score}
                   </span>
                 </div>
