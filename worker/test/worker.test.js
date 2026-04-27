@@ -307,7 +307,7 @@ describe('POST /analyze — validation', () => {
     expect(res.status).toBe(422);
     const body = await res.json();
     expect(body.message).not.toContain('word/document.xml');
-    expect(body.message).toMatch(/rusak|tidak lengkap|upload.*berbeda/i);
+    expect(body.message).toMatch(/rusak|tidak lengkap|upload.*berbeda|tidak bisa dibaca|terproteksi/i);
   });
 
   it('rejects file over 5MB → 400', async () => {

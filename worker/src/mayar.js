@@ -13,7 +13,7 @@ export function getMayarApiKey(env) {
     : env.MAYAR_API_KEY_SANDBOX;
 }
 
-export async function createMayarInvoice(sessionId, tier, env, customerEmail) {
+export async function createMayarInvoice(sessionId, tier, env, customerEmail = null) {
   const tierConfig = TIER_PRICES[tier];
   if (!tierConfig) throw new Error('Tier tidak valid');
 
@@ -27,7 +27,10 @@ export async function createMayarInvoice(sessionId, tier, env, customerEmail) {
   const redirectUrl = 'https://gaslamar.com/download.html';
 
   const shortId = sessionId.replace('sess_', '').substring(0, 8);
-  const email = customerEmail || 'no-reply@gaslamar.com';
+  // Use the customer's real email if provided, otherwise fall back to a session-scoped address.
+  const email = (customerEmail && typeof customerEmail === 'string' && customerEmail.includes('@'))
+    ? customerEmail
+    : `user+${shortId}@gaslamar.com`;
 
   // Try /invoice/create first (line items), fall back to /payment/create (flat amount)
   // Correct Mayar endpoint paths per Postman collection: /invoice/create and /payment/create
