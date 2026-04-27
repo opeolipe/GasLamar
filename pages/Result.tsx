@@ -377,6 +377,14 @@ export default function Result() {
     if (!selectedTier || bypassInProgress) return;
     const cvTextKey = sessionStorage.getItem('gaslamar_cv_key');
     if (!cvTextKey) {
+      // cv_text_key was already consumed by /create-payment. If a pending session
+      // exists from that call, forward to download.html?dev=1 — the worker will
+      // upgrade it from pending → paid without a real Mayar webhook.
+      const existingSession = sessionStorage.getItem('gaslamar_session');
+      if (existingSession && existingSession.startsWith('sess_')) {
+        window.location.href = 'download.html?dev=1';
+        return;
+      }
       setBypassError('cv_text_key not found — re-upload CV first.');
       return;
     }

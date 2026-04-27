@@ -24,9 +24,6 @@ export async function createMayarInvoice(sessionId, tier, env, customerEmail = n
 
   if (!apiKey) throw new Error('Mayar API key tidak tersedia');
 
-  // Session ID is no longer placed in the redirect URL — the browser carries it
-  // as an HttpOnly cookie set by /create-payment. This prevents session exposure
-  // in browser history, Referer headers, and server logs.
   const redirectUrl = 'https://gaslamar.com/download.html';
 
   const shortId = sessionId.replace('sess_', '').substring(0, 8);
