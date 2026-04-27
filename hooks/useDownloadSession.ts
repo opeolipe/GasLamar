@@ -158,7 +158,12 @@ export function useDownloadSession(): UseDownloadSessionReturn {
       notFoundCountRef.current = 0;
 
       if (!res.ok) {
-        scheduleNextPoll(sId);
+        if (pollCountRef.current < MAX_POLLS) {
+          scheduleNextPoll(sId);
+        } else {
+          setShowCheckButton(true);
+          setStatusText('Klik tombol di bawah untuk cek ulang.');
+        }
         return;
       }
 

@@ -1,6 +1,11 @@
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, BorderStyle } from 'docx';
 import { jsPDF } from 'jspdf';
-export { WORKER_URL } from '@/lib/uploadValidation';
+import { WORKER_URL as PROD_WORKER_URL, SANDBOX_WORKER_URL } from '@/lib/uploadValidation';
+// IS_SANDBOX is a build-time define injected by esbuild (true in staging, false in production).
+// The download page must poll the same worker origin that set the session_id cookie — if the
+// bypass used SANDBOX_WORKER_URL, polling PROD_WORKER_URL would get 401 (cross-origin cookie).
+declare const IS_SANDBOX: boolean;
+export const WORKER_URL: string = IS_SANDBOX ? SANDBOX_WORKER_URL : PROD_WORKER_URL;
 import { DOCX_GUIDANCE } from '@/shared/rewriteRules.js';
 
 // ── Tier helpers ──────────────────────────────────────────────────────────────
