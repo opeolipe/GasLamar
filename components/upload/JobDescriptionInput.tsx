@@ -67,8 +67,8 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
           className={textareaCls}
           aria-label="Job description atau lowongan kerja yang kamu targetkan"
         />
-        <div className="text-right text-[10px] mt-1 text-slate-300">
-          {value.length.toLocaleString('id-ID')} / 5.000
+        <div className="text-right text-sm mt-1 text-slate-400">
+          {value.length.toLocaleString('id-ID')} / 5.000 karakter
         </div>
       </div>
 

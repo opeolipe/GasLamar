@@ -13,7 +13,7 @@ export function getMayarApiKey(env) {
     : env.MAYAR_API_KEY_SANDBOX;
 }
 
-export async function createMayarInvoice(sessionId, tier, env) {
+export async function createMayarInvoice(sessionId, tier, env, customerEmail = null) {
   const tierConfig = TIER_PRICES[tier];
   if (!tierConfig) throw new Error('Tier tidak valid');
 
@@ -29,14 +29,17 @@ export async function createMayarInvoice(sessionId, tier, env) {
   // in browser history, Referer headers, and server logs.
   const redirectUrl = 'https://gaslamar.com/download.html';
 
-  // Use session-scoped email so each invoice has a unique customer identity.
   const shortId = sessionId.replace('sess_', '').substring(0, 8);
+  // Use the customer's real email if provided, otherwise fall back to a session-scoped address.
+  const email = (customerEmail && typeof customerEmail === 'string' && customerEmail.includes('@'))
+    ? customerEmail
+    : `user+${shortId}@gaslamar.com`;
 
   // Try /invoice/create first (line items), fall back to /payment/create (flat amount)
   // Correct Mayar endpoint paths per Postman collection: /invoice/create and /payment/create
   const invoiceBody = {
     name: `GasLamar User ${shortId}`,
-    email: `user+${shortId}@gaslamar.com`,
+    email,
     mobile: '08000000000',
     description: `${tierConfig.label} — GasLamar.com`,
     redirectUrl,
@@ -49,7 +52,7 @@ export async function createMayarInvoice(sessionId, tier, env) {
 
   const paymentBody = {
     name: `GasLamar User ${shortId}`,
-    email: `user+${shortId}@gaslamar.com`,
+    email,
     mobile: '08000000000',
     amount: tierConfig.amount,
     description: `${tierConfig.label} — GasLamar.com`,

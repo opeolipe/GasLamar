@@ -66,7 +66,7 @@ export async function handleCreatePayment(request, env) {
 
   try {
     // Create Mayar invoice first — if this fails, cv_text_key is still intact and user can retry
-    const { invoice_id, invoice_url } = await createMayarInvoice(sessionId, tier, env);
+    const { invoice_id, invoice_url } = await createMayarInvoice(sessionId, tier, env, sessionEmail);
     if (!invoice_url) throw new Error('URL pembayaran tidak tersedia. Coba lagi.');
 
     // Consume cv_text_key only after invoice is successfully created (atomic enough for this use case)

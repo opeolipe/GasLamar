@@ -28,7 +28,7 @@ export default function HeroUpload() {
           >
             Cek Peluang Saya
           </a>
-          <p className="mt-4 text-[#6b7280] text-xs sm:text-[13px] leading-[1.5]">
+          <p className="mt-4 text-[#6b7280] text-sm leading-[1.5]">
             CV tidak disimpan • tanpa registrasi • hasil dalam ±30 detik
           </p>
         </div>
