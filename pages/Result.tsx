@@ -18,6 +18,8 @@ import { useSessionCountdown }                 from '@/hooks/useSessionCountdown
 import { WORKER_URL, SANDBOX_WORKER_URL, TIER_CONFIG, EMAIL_REGEX, formatPrice, buildResultData } from '@/lib/resultUtils';
 import { validateEmail }                                                        from '@/utils/emailValidation';
 
+declare const IS_SANDBOX: boolean;
+
 // ── DevTools notice (educational, not a security control) ──────────────────
 console.log(
   '%c⚠️ GasLamar — Perhatian',
@@ -338,9 +340,8 @@ export default function Result() {
       } catch (_) {}
 
       // Validate invoice URL origin before redirecting (production only — sandbox may use other domains)
-      const isSandbox = typeof window !== 'undefined' && window.location.hostname !== 'gaslamar.com';
-      let validUrl = isSandbox;
-      if (!isSandbox) {
+      let validUrl = IS_SANDBOX;
+      if (!IS_SANDBOX) {
         try {
           const parsed = new URL(invoice_url);
           validUrl = parsed.protocol === 'https:' &&
@@ -381,9 +382,7 @@ export default function Result() {
     }
     setBypassInProgress(true);
     setBypassError(null);
-    const bypassUrl = typeof window !== 'undefined' && window.location.hostname !== 'gaslamar.com'
-      ? SANDBOX_WORKER_URL
-      : WORKER_URL;
+    const bypassUrl = IS_SANDBOX ? SANDBOX_WORKER_URL : WORKER_URL;
     try {
       const res = await fetch(`${bypassUrl}/bypass-payment`, {
         method: 'POST',
@@ -754,8 +753,8 @@ export default function Result() {
                   </div>
                 )}
 
-                {/* Sandbox bypass — only rendered outside gaslamar.com */}
-                {typeof window !== 'undefined' && window.location.hostname !== 'gaslamar.com' && (
+                {/* Sandbox bypass — only rendered in sandbox builds */}
+                {IS_SANDBOX && (
                   <div style={{ marginTop: '1.25rem', padding: '0.875rem 1rem', background: '#1e1e2e', borderRadius: 12, border: '1px solid #3b3b5c' }}>
                     <p style={{ fontSize: '0.7rem', color: '#a0a0c0', margin: '0 0 0.6rem', fontFamily: 'monospace', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                       ⚙ Sandbox — bypass payment
