@@ -12,9 +12,9 @@ const BAR_FILLS: Record<BarVariant, string> = {
 };
 
 const CHIP_CLS: Record<BarVariant, string> = {
-  good: "bg-emerald-50 text-emerald-700",
-  warn: "bg-amber-50 text-amber-700",
-  bad:  "bg-red-50 text-red-700",
+  good: "bg-emerald-100 text-emerald-800",
+  warn: "bg-amber-100 text-amber-800",
+  bad:  "bg-red-100 text-red-800",
 };
 
 interface Dim { label: string; sub?: string; pct: number; score: string; variant: BarVariant }
@@ -49,16 +49,16 @@ export default function ResultPreview() {
       {/* Verdict band — always visible */}
       <div className="relative z-[1] border-b p-6" style={{ borderColor: "rgba(148,163,184,0.18)", background: "linear-gradient(135deg,rgba(255,251,235,0.92),rgba(255,255,255,0.96))" }}>
         <div className="flex flex-wrap items-start gap-2 mb-3">
-          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Preview peluang interview</span>
-          <span className="inline-flex items-center rounded-full px-[10px] py-[5px] text-xs font-bold" style={{ background: "rgba(245,158,11,0.12)", color: "#b45309" }}>6D ringkas</span>
+          <span className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Preview peluang interview</span>
+          <span className="inline-flex items-center rounded-full px-[10px] py-[5px] text-sm font-bold bg-amber-100 text-amber-900">6D ringkas</span>
         </div>
         <div className="mb-3">
-          <span className="inline-flex items-center rounded-full px-[14px] py-[8px] text-sm font-extrabold" style={{ background: "rgba(245,158,11,0.12)", color: "#b45309" }}>🔮 Status: TIMED</span>
+          <span className="inline-flex items-center rounded-full px-[14px] py-[8px] text-sm font-extrabold bg-amber-100 text-amber-900">🔮 Status: TIMED</span>
         </div>
         <h2 className="m-0 text-[clamp(1.4rem,2.5vw,2.2rem)] leading-tight mb-2" style={SERIF}>
           Peluang interview masih rendah — butuh ±8 minggu untuk siap
         </h2>
-        <p className="text-xs text-slate-400">DO → Lanjutkan, peluang besar. &nbsp; DO NOT → Gap terlalu besar untuk sekarang.</p>
+        <p className="text-sm text-slate-500">DO → Lanjutkan, peluang besar. &nbsp; DO NOT → Gap terlalu besar untuk sekarang.</p>
       </div>
 
       {/* Tab bar */}
@@ -68,7 +68,7 @@ export default function ResultPreview() {
             key={t}
             onClick={() => setTab(t)}
             className={`min-h-[44px] px-3 py-[10px] rounded-full text-sm font-semibold cursor-pointer border-0 transition-all w-full text-center ${
-              tab === t ? "text-white" : "text-slate-700 bg-slate-100 hover:bg-slate-200"
+              tab === t ? "text-white" : "text-slate-800 bg-slate-100 hover:bg-slate-200"
             }`}
             style={tab === t ? { background: "linear-gradient(180deg,#2563eb,#1d4ed8)" } : {}}
           >
@@ -91,18 +91,18 @@ export default function ResultPreview() {
                 </ul>
               </div>
             )}
-            <p className="hidden sm:block mb-4 text-xs uppercase tracking-[0.12em] text-slate-400">Ini yang dilihat HR dalam 7–10 detik pertama:</p>
+            <p className="hidden sm:block mb-4 text-sm uppercase tracking-[0.12em] text-slate-500">Ini yang dilihat HR dalam 7–10 detik pertama:</p>
             <div className="grid gap-3">
               {DIMS.map((d) => (
                 <div key={d.label} className="grid items-center gap-x-3 gap-y-1 grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,180px)_minmax(0,1fr)_auto]">
                   <div>
                     <div className="font-semibold text-sm leading-snug">{d.label}</div>
-                    {d.sub && <div className="text-xs text-slate-400">{d.sub}</div>}
+                    {d.sub && <div className="text-sm text-slate-500">{d.sub}</div>}
                   </div>
                   <div className="h-3 overflow-hidden rounded-full col-span-full sm:col-auto" style={{ background: "rgba(148,163,184,0.18)" }}>
                     <div className="h-full rounded-[inherit]" style={{ width: `${d.pct}%`, background: BAR_FILLS[d.variant] }} />
                   </div>
-                  <span className={`row-start-1 col-start-2 self-start sm:row-auto sm:col-auto inline-flex items-center rounded-full px-[10px] py-[5px] text-xs font-bold ${CHIP_CLS[d.variant]}`}>
+                  <span className={`row-start-1 col-start-2 self-start sm:row-auto sm:col-auto inline-flex items-center rounded-full px-[10px] py-[5px] text-sm font-bold ${CHIP_CLS[d.variant]}`}>
                     {d.score}
                   </span>
                 </div>
@@ -113,7 +113,7 @@ export default function ResultPreview() {
 
         {tab === "Gap" && (
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 mb-4">Gap utama yang perlu diperbaiki</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500 mb-4">Gap utama yang perlu diperbaiki</p>
             <ul className="grid gap-3">
               {GAPS.map((g, i) => (
                 <li key={i} className="flex items-start gap-3 text-sm text-slate-700 font-semibold pb-4 border-b last:pb-0 last:border-0" style={{ borderColor: "rgba(148,163,184,0.14)" }}>
@@ -127,7 +127,7 @@ export default function ResultPreview() {
 
         {tab === "Perbaikan" && (
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 mb-4">Cara memperbaiki CV kamu (langsung bisa dipakai)</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500 mb-4">Cara memperbaiki CV kamu (langsung bisa dipakai)</p>
             <div className="text-sm mb-3" style={{ color: "#94a3b8", textDecoration: "line-through" }}>❌ "Bertanggung jawab mengelola tugas harian."</div>
             <div className="text-sm font-bold mb-2" style={{ color: "#0f172a" }}>✅ "Mengelola operasional harian untuk memastikan proses berjalan lancar dan efisien."</div>
             <p className="text-sm text-slate-400 mb-5">Jika ada data, tambahkan hasil konkret, misalnya: "Meningkatkan efisiensi proses sebesar X%"</p>

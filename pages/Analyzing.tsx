@@ -1,4 +1,5 @@
 import { useState, useEffect }  from 'react';
+import { unescapeHtml }         from '@/lib/uploadValidation';
 import UploadSteps              from '@/components/upload/UploadSteps';
 import AnalysisProgress         from '@/components/analyzing/AnalysisProgress';
 import StepList                 from '@/components/analyzing/StepList';
@@ -73,7 +74,7 @@ function AnalyzingContent({ cvData, jobDesc, filename }: ContentProps) {
 
 export default function Analyzing() {
   const [cvData]   = useState(() => sessionStorage.getItem('gaslamar_cv_pending')  || '');
-  const [jobDesc]  = useState(() => sessionStorage.getItem('gaslamar_jd_pending') || '');
+  const [jobDesc]  = useState(() => unescapeHtml(sessionStorage.getItem('gaslamar_jd_pending') || ''));
   const [filename] = useState(() => sessionStorage.getItem('gaslamar_filename')    || 'CV Kamu');
 
   const ready = !!(cvData && jobDesc);

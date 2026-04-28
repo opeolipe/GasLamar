@@ -63,7 +63,7 @@ export default function Download() {
 
   useEffect(() => {
     if (!delivery && !localStorage.getItem('gaslamar_session')) {
-      window.location.href = 'upload.html?reason=missing_data';
+      window.location.replace('upload.html?reason=expired');
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -80,6 +80,9 @@ export default function Upload() {
     } else if (reason === 'missing_data') {
       history.replaceState(null, '', location.pathname);
       newNotices.push({ type: 'warning', text: 'Data sesi tidak lengkap. Silakan upload CV kamu untuk memulai.' });
+    } else if (reason === 'expired') {
+      history.replaceState(null, '', location.pathname);
+      newNotices.push({ type: 'info', text: 'Sesi telah berakhir. Silakan upload CV kembali.' });
     }
 
     const uploadErr = sessionStorage.getItem('gaslamar_upload_error');
@@ -216,7 +219,7 @@ export default function Upload() {
     try {
       const safeJd = jobDesc.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
       sessionStorage.setItem('gaslamar_cv_pending', cvText);
-      sessionStorage.setItem('gaslamar_jd_pending', safeJd);
+      sessionStorage.setItem('gaslamar_jd_pending', escapeHtml(safeJd));
       sessionStorage.setItem('gaslamar_filename',   fileName!);
       sessionStorage.setItem('gaslamar_had_jd',     safeJd.length >= 50 ? '1' : '0');
     } catch (_) {
@@ -281,7 +284,7 @@ export default function Upload() {
           <p className="text-sm text-slate-500 max-w-[48ch] mx-auto mb-1.5">
             Upload CV + job description → tahu peluang kamu dalam 30 detik
           </p>
-          <p className="text-xs text-slate-400">Tanpa daftar&nbsp;•&nbsp;hasil dalam ±30 detik</p>
+          <p className="text-sm text-slate-400">Tanpa daftar&nbsp;•&nbsp;hasil dalam ±30 detik</p>
         </div>
 
         {/* ZONE 2: Form panel (soft panel) */}
@@ -298,7 +301,7 @@ export default function Upload() {
 
           {/* GROUP 1: Upload CV */}
           <div className="mb-6">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400 mb-3">Upload CV</p>
+            <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-500 mb-3">Upload CV</p>
             <CvDropzone
               fileName={fileName}
               fileSize={fileSize}
