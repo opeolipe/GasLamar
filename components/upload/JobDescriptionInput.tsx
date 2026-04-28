@@ -46,7 +46,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
             <button
               type="button"
               onClick={() => setShowFetcher(true)}
-              className="text-blue-600 underline hover:no-underline font-medium"
+              className="text-blue-600 underline hover:no-underline font-medium inline-flex items-center min-h-[44px] px-0.5"
               aria-label="Ambil job description dari URL loker seperti LinkedIn, Glints, atau JobStreet"
             >
               ambil dari URL

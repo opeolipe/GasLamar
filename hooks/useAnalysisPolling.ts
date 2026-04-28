@@ -206,7 +206,8 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
         console.warn('[GasLamar] Failed to persist sample line for preview consistency:', e);
       }
 
-      ['gaslamar_cv_pending', 'gaslamar_jd_pending', 'gaslamar_filename', 'gaslamar_jd_draft']
+      ['gaslamar_cv_pending', 'gaslamar_jd_pending', 'gaslamar_filename', 'gaslamar_jd_draft',
+       'gaslamar_cv_draft', 'gaslamar_filename_draft']
         .forEach(k => { try { sessionStorage.removeItem(k); } catch (_) {} });
 
       doneRef.current = true;

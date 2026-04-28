@@ -262,6 +262,15 @@ export function useGenerateCV(): UseGenerateCVReturn {
           sessionStorage.removeItem('gaslamar_tier');
         }
 
+        // Clear analysis-derived data — no longer needed now that generation succeeded.
+        // For multi-credit users making a second generation these degrade gracefully
+        // (email omits score, entitas_klaim guard is skipped — both are acceptable).
+        [
+          'gaslamar_scoring', 'gaslamar_6d_scores', 'gaslamar_entitas_klaim',
+          'gaslamar_sample', 'gaslamar_preview_after',
+          'gaslamar_sample_context', 'gaslamar_sample_fallback',
+        ].forEach(k => { try { sessionStorage.removeItem(k); } catch (_) {} });
+
         if (!mountedRef.current) return;
         setProgress(90);
 
