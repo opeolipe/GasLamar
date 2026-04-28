@@ -1,6 +1,11 @@
 // Read pending data from sessionStorage
+// gaslamar_jd_pending is HTML-entity-escaped on write; unescape before use.
+function _unescapeHtml(text) {
+  const map = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#039;': "'" };
+  return text.replace(/&amp;|&lt;|&gt;|&quot;|&#039;/g, m => map[m]);
+}
 const cvData    = sessionStorage.getItem('gaslamar_cv_pending');
-const jobDesc   = sessionStorage.getItem('gaslamar_jd_pending');
+const jobDesc   = _unescapeHtml(sessionStorage.getItem('gaslamar_jd_pending') || '');
 const filename  = sessionStorage.getItem('gaslamar_filename') || 'CV Kamu';
 
 // Redirect if no pending data (direct navigation or page refresh after completion)

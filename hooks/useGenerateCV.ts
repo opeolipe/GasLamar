@@ -19,6 +19,7 @@ export interface CVContent {
   totalCredits:     number;
   tier:             string;
   isTrusted:        boolean;
+  interviewKit:     unknown | null;
 }
 
 export interface GenerateCVError {
@@ -231,6 +232,7 @@ export function useGenerateCV(): UseGenerateCVReturn {
           total_credits,
           job_title,
           company,
+          interview_kit,
         } = await genRes.json() as {
           cv_id:             string;
           cv_id_docx:        string;
@@ -241,6 +243,7 @@ export function useGenerateCV(): UseGenerateCVReturn {
           total_credits:     number;
           job_title?:        string;
           company?:          string;
+          interview_kit?:    unknown;
         };
 
         ;(window as any).Analytics?.track?.('cv_generated', {
@@ -275,7 +278,8 @@ export function useGenerateCV(): UseGenerateCVReturn {
             creditsRemaining: credits_remaining ?? 0,
             totalCredits:     total_credits     ?? 1,
             tier:             confirmedTier,
-            isTrusted:        isTrusted ?? false,
+            isTrusted:        isTrusted  ?? false,
+            interviewKit:     interview_kit     ?? null,
           });
           setStatus('done');
         }, 500);

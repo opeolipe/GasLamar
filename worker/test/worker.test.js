@@ -548,7 +548,7 @@ describe('POST /create-payment — one-time key consumption', () => {
     // Mock Mayar sandbox invoice creation
     fetchMock
       .get('https://api.mayar.club')
-      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
+      .intercept({ path: '/hl/invoice/create', method: 'POST' })
       .reply(200, JSON.stringify({
         data: { id: 'inv_test_001', link: 'https://web.mayar.club/pay/inv_test_001' }
       }))

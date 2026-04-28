@@ -62,11 +62,24 @@ SERTIFIKASI
 Aturan heading: jangan ubah nama, jangan tambah heading lain.
 Jika kandidat tidak punya sertifikasi, hapus section SERTIFIKASI sepenuhnya.
 
+PRESERVASI WAJIB — TIDAK BOLEH DIUBAH SAMA SEKALI:
+- Nama lengkap kandidat (baris pertama CV)
+- Nama perusahaan / instansi tempat bekerja
+- Jabatan / posisi di setiap peran
+- Lokasi dan rentang tanggal (contoh: "Jan 2020 – Mar 2023")
+- Nama institusi pendidikan dan gelar
+- Baris header peran (format: "Nama Perusahaan — Jabatan") harus identik dengan CV asli
+
+YANG BOLEH DIUBAH:
+- Bullet point pengalaman (reframe, tambah konteks, perkuat kata kerja)
+- Ringkasan profesional (tulis ulang agar relevan dengan posisi target)
+- Urutan keahlian (prioritaskan yang sesuai JD)
+
 Output CV dalam Bahasa Indonesia dengan urutan section di atas:
 - RINGKASAN PROFESIONAL: 3-4 kalimat, highlight yang paling relevan untuk posisi ini
-- PENGALAMAN KERJA: bullet points, kata kerja aktif, kuantifikasi achievement
+- PENGALAMAN KERJA: bullet points dengan kata kerja aktif Harvard, kuantifikasi achievement
 - PENDIDIKAN
-- KEAHLIAN: prioritaskan yang disebutkan di job description
+- KEAHLIAN: Core Skills | Tools | Bahasa
 
 Output hanya teks CV, tidak ada komentar atau penjelasan tambahan.`;
 
@@ -137,13 +150,24 @@ CERTIFICATIONS
 Heading rules: do not alter heading names, do not add other headings.
 If the candidate has no certifications, omit the CERTIFICATIONS section entirely.
 
+MANDATORY VERBATIM PRESERVATION — DO NOT ALTER:
+- Candidate's full name (first line of CV)
+- All company / employer names
+- All job titles / roles at each position
+- All locations and date ranges (e.g., "Jan 2020 – Mar 2023")
+- All education institution names and degree names
+- Role header lines (format: "Company Name — Job Title") must be identical to the original
+
+WHAT YOU MAY CHANGE:
+- Experience bullet points (reframe, add context, strengthen action verbs)
+- Professional summary (rewrite to be relevant to the target role)
+- Skills ordering (prioritize those matching the JD)
+
 Output the CV in English with sections in that order:
 - PROFESSIONAL SUMMARY: 3-4 sentences, highlight most relevant for this role
-- WORK EXPERIENCE: bullet points, action verbs, quantified achievements
+- WORK EXPERIENCE: Harvard action verb bullets, quantified achievements (only original numbers)
 - EDUCATION
-- SKILLS: prioritize those mentioned in job description
-
-Ensure the same job roles, companies, dates, and achievements appear as in the original CV — only translate and reframe, do not add or remove experiences.
+- SKILLS: Core Skills | Tools | Languages
 
 Output only the CV text, no additional comments.`;
 

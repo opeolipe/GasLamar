@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { useDownloadSession }  from '@/hooks/useDownloadSession';
 import { useGenerateCV }       from '@/hooks/useGenerateCV';
 import { logError }            from '@/lib/logger';
@@ -98,6 +98,15 @@ export default function Download() {
 
   // ── Generate → view transitions ───────────────────────────────────────────
 
+  // useLayoutEffect fires synchronously after DOM mutation — eliminates the
+  // one-frame window where generate.status==='done' but view==='generating',
+  // which caused GeneratingCV and DownloadReady to appear simultaneously.
+  useLayoutEffect(() => {
+    if (generate.status === 'done' && generate.content) {
+      setView('ready');
+    }
+  }, [generate.status, generate.content]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (generate.status === 'done' && generate.content) {
       const { expiresAt, totalCredits } = session.sessionData ?? { expiresAt: null, totalCredits: 1 };
@@ -106,7 +115,6 @@ export default function Download() {
         startCountdown(expiresAt, totalCredits);
       }
       session.startHeartbeat(generate.content.totalCredits);
-      setView('ready');
 
       ;(window as any).Analytics?.track?.('download_page_ready', {
         tier:              generate.content.tier,
@@ -401,6 +409,7 @@ export default function Download() {
               sessionSecret={session.sessionSecret}
               isPreview={tier === 'coba'}
               language="id"
+              initialKit={content?.interviewKit ?? null}
             />
           </div>
         )}

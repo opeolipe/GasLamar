@@ -2,9 +2,10 @@ import { TIER_PRICES } from './constants.js';
 import { log, logError } from './utils.js';
 
 export function getMayarApiUrl(env) {
+  // Production uses versioned path; sandbox (api.mayar.club) omits /v1
   return env.ENVIRONMENT === 'production'
     ? 'https://api.mayar.id/hl/v1'
-    : 'https://api.mayar.club/hl/v1';
+    : 'https://api.mayar.club/hl';
 }
 
 export function getMayarApiKey(env) {
@@ -13,7 +14,7 @@ export function getMayarApiKey(env) {
     : env.MAYAR_API_KEY_SANDBOX;
 }
 
-export async function createMayarInvoice(sessionId, tier, env, customerEmail = null) {
+export async function createMayarInvoice(sessionId, tier, env, redirectUrl, customerEmail = null) {
   const tierConfig = TIER_PRICES[tier];
   if (!tierConfig) throw new Error('Tier tidak valid');
 
@@ -23,8 +24,6 @@ export async function createMayarInvoice(sessionId, tier, env, customerEmail = n
   console.log(JSON.stringify({ event: 'mayar_invoice_start', tier, has_key: !!apiKey, key_prefix: apiKey ? apiKey.substring(0, 4) : null, env: env.ENVIRONMENT, apiUrl }));
 
   if (!apiKey) throw new Error('Mayar API key tidak tersedia');
-
-  const redirectUrl = 'https://gaslamar.com/download.html';
 
   const shortId = sessionId.replace('sess_', '').substring(0, 8);
   // Use the customer's real email if provided, otherwise fall back to a session-scoped address.

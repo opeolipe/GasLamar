@@ -80,6 +80,9 @@ export default function Upload() {
     } else if (reason === 'missing_data') {
       history.replaceState(null, '', location.pathname);
       newNotices.push({ type: 'warning', text: 'Data sesi tidak lengkap. Silakan upload CV kamu untuk memulai.' });
+    } else if (reason === 'expired') {
+      history.replaceState(null, '', location.pathname);
+      newNotices.push({ type: 'info', text: 'Sesi telah berakhir. Silakan upload CV kembali.' });
     }
 
     const uploadErr = sessionStorage.getItem('gaslamar_upload_error');

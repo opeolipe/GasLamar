@@ -213,11 +213,23 @@ export async function handleFetchJobUrl(request, env) {
     return jsonResponse({ message: 'Tidak bisa mengekstrak teks dari halaman ini. Coba copy-paste manual.' }, 422, request, env);
   }
 
-  // LinkedIn auth interstitial fallback — sometimes served with 200 instead of a redirect.
-  // The privacy consent page contains this phrase regardless of UI language.
-  if (isLinkedIn && raw.includes('authwall')) {
+  // LinkedIn gate detection — covers two distinct interstitials served with HTTP 200:
+  //   1. Auth wall (body contains "authwall")
+  //   2. Cookie / privacy consent page (body contains consent-specific phrases)
+  // Both cases return no useful JD content; reject early with a clear user message.
+  const LINKEDIN_GATE_MARKERS = [
+    'authwall',
+    'LinkedIn menghargai privasi',
+    'Kebijakan Cookie',
+    'cookie policy',
+    'We use cookies',
+    'Kami menggunakan cookie',
+    'Accept cookies',
+    'Terima cookie',
+  ];
+  if (isLinkedIn && LINKEDIN_GATE_MARKERS.some(m => raw.toLowerCase().includes(m.toLowerCase()))) {
     return jsonResponse({
-      message: 'LinkedIn membutuhkan login untuk melihat lowongan ini. Silakan copy-paste deskripsi pekerjaan secara manual.',
+      message: 'Tidak dapat mengambil job posting dari LinkedIn. Silakan copy-paste bagian Requirements & Responsibilities secara manual.',
       linkedin_auth_required: true,
     }, 422, request, env);
   }
