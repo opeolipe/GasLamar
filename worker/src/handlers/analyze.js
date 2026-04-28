@@ -86,6 +86,9 @@ export async function handleAnalyze(request, env) {
     await env.GASLAMAR_SESSIONS.put(cvTextKey, JSON.stringify({
       text: extraction.text,
       job_desc: job_desc.slice(0, 5000),
+      // Carry inferred_role so /create-payment can copy it into the session,
+      // enabling /generate to switch between targeted and inferred tailoring mode.
+      inferred_role: scoring.inferred_role ?? null,
       ip,
     }), { expirationTtl: 7200 }); // 2 hours — gives users time to review hasil before paying
 

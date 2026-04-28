@@ -83,6 +83,8 @@ export async function handleCreatePayment(request, env) {
     const sessionData = {
       cv_text: stored.text,
       job_desc: stored.job_desc,
+      // Carry inferred_role through to /generate so it can choose tailoring mode.
+      inferred_role: stored.inferred_role ?? null,
       tier,
       status: 'pending',
       mayar_invoice_id: invoice_id,

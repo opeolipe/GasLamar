@@ -49,8 +49,9 @@ function parseDiagnoseJSON(rawText) {
  * Builds the structured user message fed to SKILL_DIAGNOSE.
  * Providing explicit analisis_sistem facts prevents the LLM from inferring
  * gaps it wasn't told exist, which is the primary hallucination vector here.
+ * roleInferenceResult is optional; when present it adds a role_context block.
  */
-function buildUserMessage(extractedData, analysisResult, scoreResult) {
+function buildUserMessage(extractedData, analysisResult, scoreResult, roleInferenceResult) {
   const { cv, jd } = extractedData;
   const { skill_match, has_numbers, format_ok, has_certs, konfidensitas } = analysisResult;
   const { skor_6d, skor, veredict, timebox_weeks } = scoreResult;
@@ -61,6 +62,18 @@ function buildUserMessage(extractedData, analysisResult, scoreResult) {
   const matchedStr = skill_match.matched.length > 0
     ? skill_match.matched.join(', ')
     : 'tidak ada skill yang cocok';
+
+  // Optional role context block — injected when role inference has run.
+  // The LLM uses this to phrase recommendations that fit the candidate's actual role
+  // rather than generic advice.  Confidence < 0.6 is still shown but flagged as low.
+  const roleBlock = roleInferenceResult
+    ? `\nrole_context:
+inferred_role: ${roleInferenceResult.role}
+confidence: ${roleInferenceResult.confidence}
+seniority: ${roleInferenceResult.seniority}
+industry: ${roleInferenceResult.industry}
+`
+    : '';
 
   return `data_cv:
 pengalaman_mentah: ${cv.pengalaman_mentah}
@@ -80,7 +93,7 @@ skor_6d: ${JSON.stringify(skor_6d)}
 skor_total: ${skor}
 veredict: ${veredict}
 timebox_weeks: ${timebox_weeks ?? 'null'}
-
+${roleBlock}
 analisis_sistem:
 skill_cocok: ${matchedStr}
 skill_kurang: ${missingStr}
@@ -117,14 +130,15 @@ async function attemptDiagnose(userMessage, env, maxTokens) {
  * First attempt uses 2500 tokens; on any failure retries once with 3000 tokens
  * and an explicit schema correction prompt.
  *
- * @param {object} extractedData  — Stage 1 output
- * @param {object} analysisResult — Stage 2 output
- * @param {object} scoreResult    — { skor_6d, skor, veredict, timebox_weeks }
- * @param {object} env            — Cloudflare Worker env bindings
- * @returns {object}              — validated diagnose result (gap, rekomendasi, etc.)
+ * @param {object}      extractedData       — Stage 1 output
+ * @param {object}      analysisResult      — Stage 2 output
+ * @param {object}      scoreResult         — { skor_6d, skor, veredict, timebox_weeks }
+ * @param {object|null} roleInferenceResult — Stage 2.5 output, or null if unavailable
+ * @param {object}      env                 — Cloudflare Worker env bindings
+ * @returns {object}                        — validated diagnose result (gap, rekomendasi, etc.)
  */
-export async function callDiagnose(extractedData, analysisResult, scoreResult, env) {
-  const userMessage = buildUserMessage(extractedData, analysisResult, scoreResult);
+export async function callDiagnose(extractedData, analysisResult, scoreResult, roleInferenceResult, env) {
+  const userMessage = buildUserMessage(extractedData, analysisResult, scoreResult, roleInferenceResult);
 
   try {
     return await attemptDiagnose(userMessage, env, 2500);

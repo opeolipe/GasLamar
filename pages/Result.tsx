@@ -32,6 +32,18 @@ console.log(
   'color:#374151;font-size:12px;line-height:1.7;',
 );
 
+const ROLE_LABELS: Record<string, string> = {
+  customer_service: 'Customer Service',
+  data:             'Data & Analytics',
+  marketing:        'Marketing',
+  operations:       'Operasional/Logistik',
+  finance:          'Finance/Akuntansi',
+  engineering:      'IT/Software Engineering',
+  sales:            'Sales/Business Development',
+  hr:               'HRD/People Operations',
+  admin:            'Administrasi/GA',
+};
+
 const CARD_STYLE: React.CSSProperties = {
   background:     'rgba(255,255,255,0.88)',
   borderRadius:   24,
@@ -510,6 +522,17 @@ export default function Result() {
             {countdown.text && (
               <div style={{ textAlign: 'center', marginBottom: '1rem', fontSize: '0.78rem', color: '#92400E', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 12, padding: '0.5rem 1rem', ...countdownStyle }}>
                 ⏳ {countdown.text}
+              </div>
+            )}
+
+            {/* Role inference context banner */}
+            {data.inferred_role && (
+              <div style={{ marginBottom: '1rem', fontSize: '0.78rem', color: '#1E40AF', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 12, padding: '0.5rem 1rem', textAlign: 'center' }}>
+                {(data.inferred_confidence ?? 0) >= 0.6
+                  ? <>Kami menilai CV kamu sebagai: <strong>{ROLE_LABELS[data.inferred_role] ?? data.inferred_role}</strong>{data.inferred_industry && data.inferred_industry !== 'General' ? ` (${data.inferred_industry})` : ''}</>
+                  : <>Kami mengoptimalkan CV kamu berdasarkan pengalaman yang terdeteksi.</>
+                }
+                {data.jd_mode === 'inferred' && <> — JD kurang detail, optimasi berdasarkan profil kamu.</>}
               </div>
             )}
 
