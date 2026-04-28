@@ -14,6 +14,19 @@ export function getMayarApiKey(env) {
     : env.MAYAR_API_KEY_SANDBOX;
 }
 
+// Call once per request to confirm which Mayar gateway is active.
+// Logs environment, API base URL, and a masked key prefix so it's safe for logs.
+export function logMayarEnvironment(env) {
+  const apiKey = getMayarApiKey(env);
+  console.log(JSON.stringify({
+    event: 'mayar_env_active',
+    environment: env.ENVIRONMENT ?? 'sandbox',
+    apiUrl: getMayarApiUrl(env),
+    key_present: !!apiKey,
+    key_prefix: apiKey ? apiKey.substring(0, 6) + '…' : null,
+  }));
+}
+
 export async function createMayarInvoice(sessionId, tier, env, redirectUrl, customerEmail = null) {
   const tierConfig = TIER_PRICES[tier];
   if (!tierConfig) throw new Error('Tier tidak valid');
@@ -21,7 +34,7 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
   const apiUrl = getMayarApiUrl(env);
   const apiKey = getMayarApiKey(env);
 
-  console.log(JSON.stringify({ event: 'mayar_invoice_start', tier, has_key: !!apiKey, key_prefix: apiKey ? apiKey.substring(0, 4) : null, env: env.ENVIRONMENT, apiUrl }));
+  logMayarEnvironment(env);
 
   if (!apiKey) throw new Error('Mayar API key tidak tersedia');
 

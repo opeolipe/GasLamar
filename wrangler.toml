@@ -41,16 +41,28 @@ namespace_id = "1004"
 simple = { limit = 5, period = 60 }
 
 # Staging environment — uses Mayar sandbox (api.mayar.club) and staging frontend.
-# Secrets required (set via wrangler secret put <NAME> --env staging):
+#
+# Worker URL  : https://gaslamar-worker-staging.carolineratuolivia.workers.dev
+# Pages URL   : https://staging.gaslamar.pages.dev
+#
+# The staging Pages site (js/config.js) detects hostname "staging.gaslamar.pages.dev"
+# and routes API calls to gaslamar-worker-staging, which picks up ENVIRONMENT="staging"
+# below and therefore uses api.mayar.club (sandbox) for all payment flows.
+#
+# Deploy command:
+#   cd worker && npx wrangler deploy --env staging
+#
+# Secrets required (set via: npx wrangler secret put <NAME> --env staging):
 #   ANTHROPIC_API_KEY        — same key as production is fine
-#   MAYAR_API_KEY_SANDBOX    — API key from web.mayar.club dashboard
+#   MAYAR_API_KEY_SANDBOX    — API key from web.mayar.club dashboard  ← REQUIRED for sandbox payments
 #   MAYAR_WEBHOOK_SECRET     — webhook secret configured in web.mayar.club
-#   RESEND_API_KEY           — optional, enables confirmation emails
+#   RESEND_API_KEY           — optional, enables post-payment confirmation emails
 [env.staging]
 name = "gaslamar-worker-staging"
 
 [env.staging.vars]
 ENVIRONMENT = "staging"
+# FRONTEND_URL = "https://staging.gaslamar.pages.dev"  # placeholder — redirectUrl is derived from ENVIRONMENT in createPayment.js
 
 [[env.staging.kv_namespaces]]
 binding = "GASLAMAR_SESSIONS"
