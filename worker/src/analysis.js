@@ -33,12 +33,16 @@ import { getRoleProfile } from './roleProfiles.js';
 import { callDiagnose }  from './pipeline/diagnose.js';
 import { sha256Hex }     from './utils.js';
 
+const EXTRACT_CACHE_VERSION  = 'v2';
+// Bump ANALYSIS_CACHE_VERSION when changing pipeline/ or prompts/
+const ANALYSIS_CACHE_VERSION = 'v6';
+
 // ---- Orchestrator ----
 
 export async function analyzeCV(cvText, jobDesc, env) {
-  // ── Cache check (v6) ──────────────────────────────────────────────────────
+  // ── Cache check ───────────────────────────────────────────────────────────
   // Bumped from v5: role-weighted 6D scores change the cached values.
-  const cacheKey = `analysis_v6_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
+  const cacheKey = `analysis_${ANALYSIS_CACHE_VERSION}_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
   const cached = await env.GASLAMAR_SESSIONS.get(cacheKey, { type: 'json' });
   if (cached) {
     // Re-apply red-flag penalty for entries cached before this logic was added.
@@ -49,7 +53,7 @@ export async function analyzeCV(cvText, jobDesc, env) {
   }
 
   // ── Stage 1: EXTRACT ──────────────────────────────────────────────────────
-  const extractKey = `extract_v2_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
+  const extractKey = `extract_${EXTRACT_CACHE_VERSION}_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
   let extractedData = await env.GASLAMAR_SESSIONS.get(extractKey, { type: 'json' });
   if (!extractedData) {
     extractedData = await callExtract(cvText, jobDesc, env);
