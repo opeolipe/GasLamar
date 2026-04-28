@@ -21,13 +21,14 @@ export interface AnalysisStep {
 }
 
 export interface UseAnalysisResult {
-  progress:   number;
-  steps:      AnalysisStep[];
-  timerText:  string;
-  error:      string | null;
-  isComplete: boolean;
-  retry:      () => void;
-  cancel:     () => void;
+  progress:    number;
+  steps:       AnalysisStep[];
+  timerText:   string;
+  error:       string | null;
+  isFileError: boolean;
+  isComplete:  boolean;
+  retry:       () => void;
+  cancel:      () => void;
 }
 
 const INIT_TIMER = `⏱️ Estimasi selesai: ~${Math.ceil(ESTIMATED_MS / 1000)} detik`;
@@ -37,6 +38,7 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
   const [progress,    setProgress]    = useState(0);
   const [timerText,   setTimerText]   = useState(INIT_TIMER);
   const [error,       setError]       = useState<string | null>(null);
+  const [isFileError, setIsFileError] = useState(false);
   const [isComplete,  setIsComplete]  = useState(false);
 
   // Refs for mutable values accessed inside timer callbacks (avoids stale closures)
@@ -121,6 +123,11 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
         const err = await res.json().catch(() => ({}));
         if (res.status === 429)
           throw new Error(`Terlalu banyak permintaan. Coba lagi dalam ${err.retryAfter || 60} detik.`);
+        if (res.status === 422) {
+          const fileErr = new Error(err.message || 'CV tidak bisa dibaca. Coba konversi ke format DOCX atau TXT terlebih dahulu.');
+          (fileErr as any).isFileError = true;
+          throw fileErr;
+        }
         throw new Error(err.message || `Server error: ${res.status}`);
       }
 
@@ -231,12 +238,14 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
       });
 
       let msg = e.message || 'Terjadi kesalahan. Coba lagi.';
+      let fileError = !!(e as any).isFileError;
       if (e.name === 'TypeError' && e.message?.includes('fetch')) {
         msg = 'Tidak bisa terhubung ke server. Periksa koneksi internet kamu, lalu coba lagi.';
       } else if (timedOutRef.current || e.name === 'AbortError') {
         msg = 'Analisis memakan waktu terlalu lama. Coba lagi — PDF kadang membutuhkan waktu ekstra.';
       }
 
+      setIsFileError(fileError);
       setError(msg);
     }
   }
@@ -245,6 +254,7 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
     doneRef.current  = false;
     startRef.current = Date.now();
     setError(null);
+    setIsFileError(false);
     setIsComplete(false);
     setProgress(0);
     setActiveStep(0);
@@ -267,5 +277,5 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
     return clearAllTimers;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { progress, steps, timerText, error, isComplete, retry, cancel };
+  return { progress, steps, timerText, error, isFileError, isComplete, retry, cancel };
 }
