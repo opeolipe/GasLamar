@@ -7,8 +7,8 @@
  * match its shared counterpart.
  */
 
-const MIN_LINE_LENGTH = 15;
-const MIN_WORD_COUNT  = 3;
+const MIN_LINE_LENGTH = 20;
+const MIN_WORD_COUNT  = 4;
 const MATCH_THRESHOLD = 0.6;
 
 // Use source strings to avoid shared lastIndex on global regexes
@@ -49,10 +49,20 @@ const PLACEHOLDER_PATTERN = /\[[^\]]{1,60}\]/;
 
 // Section headings — never rewrite these
 const SECTION_HEADING_PATTERN =
-  /^(RINGKASAN PROFESIONAL|PENGALAMAN KERJA|PENDIDIKAN|KEAHLIAN|SERTIFIKASI|PROFESSIONAL SUMMARY|WORK EXPERIENCE|EDUCATION|SKILLS|CERTIFICATIONS)$/i;
+  /^(RINGKASAN PROFESIONAL|RINGKASAN|PENGALAMAN KERJA|PENGALAMAN|PENDIDIKAN|KEAHLIAN|KEMAMPUAN|SERTIFIKASI|SERTIFIKAT|PENCAPAIAN|PROYEK|BAHASA|REFERENSI|KEPEMIMPINAN|PROFESSIONAL SUMMARY|SUMMARY|WORK EXPERIENCE|EXPERIENCE|EDUCATION|SKILLS|TECHNICAL SKILLS|CERTIFICATIONS|ACHIEVEMENTS|PROJECTS|LANGUAGES|REFERENCES|LEADERSHIP|ACTIVITIES)$/i;
 
-// Date/company header lines — preserve verbatim
+// Date/company header lines starting with year or month — preserve verbatim
 const META_LINE_PATTERN = /^\d{4}|^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i;
+
+// Lines that must never be treated as experience bullets:
+// 1. Contact info: contains @ (email) or phone-number pattern
+const CONTACT_LINE_PATTERN = /@|(?:^\+|^08|^62)\d{6,}/;
+// 2. Role/company header separators: pipes or em-dashes used as column separators
+const SEPARATOR_LINE_PATTERN = /\||—|–|—|–/;
+// 3. Lines ending with a 4-digit year or year-range (dates in role headers)
+const YEAR_ENDING_PATTERN = /\b(19|20)\d{2}\s*(-|–|—|s\/d|to)?\s*(present|sekarang|(19|20)\d{2})?\s*$/i;
+// 4. Education indicators (degree keywords, GPA/IPK)
+const EDUCATION_LINE_PATTERN = /^(S[123]|D[123]|SMA|SMK|SD|Bachelor|Master|PhD|Sarjana|Magister|Doktor|Diploma)\b|IPK|GPA|\b(Universitas|Institut|Sekolah|College|University|Institute)\b/i;
 
 const DOCX_GUIDANCE_ID  = '(catatan: tambahkan hasil konkret jika ada, misalnya: waktu ↓ atau output ↑)';
 const DOCX_GUIDANCE_EN  = '(note: add concrete results if available, e.g., time ↓ or output ↑)';
@@ -150,8 +160,22 @@ export function cleanLine(text) {
 
 function isBulletLine(line) {
   const t = line.trim();
-  return /^[-•*]\s+/.test(t) ||
-    (t.length > MIN_LINE_LENGTH && !SECTION_HEADING_PATTERN.test(t) && !META_LINE_PATTERN.test(t));
+  // Only lines with an explicit bullet marker are experience bullets.
+  // Proper-noun lines (company names, job titles, education, contact info)
+  // never start with these markers, so they are never rewritten.
+  return /^[-•*]\s+/.test(t);
+}
+
+// Returns true for lines that carry CV metadata (headers, contact, education)
+// and must never receive a fallback suffix regardless of how they are classified.
+function isNonBulletCVLine(t) {
+  if (CONTACT_LINE_PATTERN.test(t))   return true;
+  if (SEPARATOR_LINE_PATTERN.test(t)) return true;
+  if (YEAR_ENDING_PATTERN.test(t))    return true;
+  if (EDUCATION_LINE_PATTERN.test(t)) return true;
+  // Short lines (names, single-word entries) must not be rewritten
+  if (t.split(/\s+/).length <= 2)     return true;
+  return false;
 }
 
 function extractBulletLines(cvText) {
@@ -249,6 +273,7 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
     if (!trimmed)                               return line;
     if (SECTION_HEADING_PATTERN.test(trimmed))  return line;
     if (META_LINE_PATTERN.test(trimmed))        return line;
+    if (isNonBulletCVLine(trimmed))             return line; // names, companies, education, contact
     if (!isBulletLine(trimmed))                 return line;
 
     const clean = cleanLine(trimmed);
@@ -292,6 +317,10 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
 
   let result = validated.join('\n');
 
+  // Step 1b: strip any remaining LLM placeholder brackets from ALL lines
+  // (covers non-bulleted lines that are not processed by the per-bullet loop above)
+  result = result.replace(/\[[^\]]{1,60}\]/g, '').replace(/[ \t]{2,}/g, ' ');
+
   // Step 2: force preview consistency — raise threshold to 0.6 to avoid wrong mapping
   if (previewSample && previewAfter) {
     let replaced = false;
@@ -308,13 +337,25 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
     result = consistencyLines.join('\n');
   }
 
-  // Step 3: DOCX mode — append guidance hint after first DOCX_MAX_HINTS bullet lines
+  // Step 3: DOCX mode — append guidance hint after the first DOCX_MAX_HINTS
+  // experience bullet lines only. Reset counter on each new section so guidance
+  // stays within the PENGALAMAN KERJA / WORK EXPERIENCE section.
   if (mode === 'docx') {
     const guidance = language === 'en' ? DOCX_GUIDANCE_EN : DOCX_GUIDANCE_ID;
-    let hintsAdded = 0;
+    let hintsAdded   = 0;
+    let inExpSection = false;
+    const EXP_HEADING = /^(PENGALAMAN KERJA|PENGALAMAN|WORK EXPERIENCE|EXPERIENCE|EMPLOYMENT HISTORY)$/i;
+    const ANY_HEADING = SECTION_HEADING_PATTERN;
     const docxLines = result.split('\n').flatMap(line => {
-      if (hintsAdded >= DOCX_MAX_HINTS) return [line];
-      if (!line.trim() || !isBulletLine(line.trim())) return [line];
+      const t = line.trim();
+      if (ANY_HEADING.test(t)) {
+        inExpSection = EXP_HEADING.test(t);
+        hintsAdded   = 0; // reset on every section boundary
+        return [line];
+      }
+      if (!inExpSection)                         return [line];
+      if (hintsAdded >= DOCX_MAX_HINTS)          return [line];
+      if (!t || !isBulletLine(t))                return [line];
       hintsAdded++;
       return [line, `  ${guidance}`];
     });
