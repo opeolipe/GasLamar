@@ -2,9 +2,10 @@ import { TIER_PRICES } from './constants.js';
 import { log, logError } from './utils.js';
 
 export function getMayarApiUrl(env) {
+  // Production uses versioned path; sandbox (api.mayar.club) omits /v1
   return env.ENVIRONMENT === 'production'
     ? 'https://api.mayar.id/hl/v1'
-    : 'https://api.mayar.club/hl/v1';
+    : 'https://api.mayar.club/hl';
 }
 
 export function getMayarApiKey(env) {
@@ -13,7 +14,7 @@ export function getMayarApiKey(env) {
     : env.MAYAR_API_KEY_SANDBOX;
 }
 
-export async function createMayarInvoice(sessionId, tier, env) {
+export async function createMayarInvoice(sessionId, tier, env, redirectUrl) {
   const tierConfig = TIER_PRICES[tier];
   if (!tierConfig) throw new Error('Tier tidak valid');
 
@@ -23,11 +24,6 @@ export async function createMayarInvoice(sessionId, tier, env) {
   console.log(JSON.stringify({ event: 'mayar_invoice_start', tier, has_key: !!apiKey, key_prefix: apiKey ? apiKey.substring(0, 4) : null, env: env.ENVIRONMENT, apiUrl }));
 
   if (!apiKey) throw new Error('Mayar API key tidak tersedia');
-
-  // Session ID is no longer placed in the redirect URL — the browser carries it
-  // as an HttpOnly cookie set by /create-payment. This prevents session exposure
-  // in browser history, Referer headers, and server logs.
-  const redirectUrl = 'https://gaslamar.com/download.html';
 
   // Use session-scoped email so each invoice has a unique customer identity.
   const shortId = sessionId.replace('sess_', '').substring(0, 8);

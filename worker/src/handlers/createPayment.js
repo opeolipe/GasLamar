@@ -65,8 +65,15 @@ export async function handleCreatePayment(request, env) {
     : null;
 
   try {
+    // Redirect after payment completes — points to the right frontend per environment.
+    // ENVIRONMENT = "staging"    → staging.gaslamar.pages.dev
+    // ENVIRONMENT = "production" → gaslamar.com  (and everything else)
+    const redirectUrl = env.ENVIRONMENT === 'staging'
+      ? 'https://staging.gaslamar.pages.dev/download.html'
+      : 'https://gaslamar.com/download.html';
+
     // Create Mayar invoice first — if this fails, cv_text_key is still intact and user can retry
-    const { invoice_id, invoice_url } = await createMayarInvoice(sessionId, tier, env);
+    const { invoice_id, invoice_url } = await createMayarInvoice(sessionId, tier, env, redirectUrl);
     if (!invoice_url) throw new Error('URL pembayaran tidak tersedia. Coba lagi.');
 
     // Consume cv_text_key only after invoice is successfully created (atomic enough for this use case)
