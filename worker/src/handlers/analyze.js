@@ -41,6 +41,13 @@ export async function handleAnalyze(request, env) {
     return jsonResponse({ message: 'Format data CV tidak valid' }, 400, request, env);
   }
 
+  // Guard against excessively large payloads before base64 decode — a 2MB base64 string
+  // decodes to ~1.5MB which is within Worker memory limits, but wastes CPU and Claude tokens.
+  const MAX_CV_SIZE = 2 * 1024 * 1024; // 2MB
+  if (cv.length > MAX_CV_SIZE) {
+    return jsonResponse({ message: 'CV terlalu besar (maks 2MB). Coba kompres atau konversi ke format teks.' }, 413, request, env);
+  }
+
   if (typeof rawJobDesc !== 'string' || rawJobDesc.length > 5000) {
     return jsonResponse({ message: 'Job description terlalu panjang (maks 5.000 karakter)' }, 400, request, env);
   }

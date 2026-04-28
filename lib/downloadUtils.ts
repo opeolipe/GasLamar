@@ -6,7 +6,10 @@ import { WORKER_URL as PROD_WORKER_URL, SANDBOX_WORKER_URL } from '@/lib/uploadV
 // bypass used SANDBOX_WORKER_URL, polling PROD_WORKER_URL would get 401 (cross-origin cookie).
 declare const IS_SANDBOX: boolean;
 export const WORKER_URL: string = IS_SANDBOX ? SANDBOX_WORKER_URL : PROD_WORKER_URL;
-import { DOCX_GUIDANCE } from '@/shared/rewriteRules.js';
+
+// Server-side guidance lines are prefixed with two spaces and wrapped in parens.
+// Detect them so they get gray italic styling instead of normal body text.
+const GUIDANCE_LINE_PATTERN = /^\s{2}\((catatan:|note:)/i;
 
 // ── Tier helpers ──────────────────────────────────────────────────────────────
 
@@ -108,19 +111,21 @@ const CV_SECTION_HEADINGS = new Set([
   'PROJECTS', 'PUBLICATIONS', 'LANGUAGES', 'REFERENCES', 'PROFILE',
 ]);
 
-type ParsedLine = { type: 'heading' | 'bullet' | 'text' | 'blank'; content: string };
+type ParsedLine = { type: 'heading' | 'bullet' | 'guidance' | 'text' | 'blank'; content: string };
 
 function parseLines(cvText: string): ParsedLine[] {
   return cvText.split('\n').map(line => {
     const trimmed = line.trim();
     if (!trimmed) return { type: 'blank', content: '' };
+    // Server-embedded DOCX guidance hints (two-space indent + paren wrapper)
+    if (GUIDANCE_LINE_PATTERN.test(line)) return { type: 'guidance', content: trimmed };
     const clean        = trimmed.replace(/:$/, '').trim();
     const isSectionHead = CV_SECTION_HEADINGS.has(clean.toUpperCase())
                        || /^[A-Z\u00C0-\u017E\s]{4,}$/.test(clean)
                        || (trimmed.endsWith(':') && trimmed.length < 40);
     const isBullet     = /^[•\-·*]/.test(trimmed);
-    if (isSectionHead) return { type: 'heading', content: clean };
-    if (isBullet)      return { type: 'bullet',  content: trimmed.replace(/^[•\-·*]\s*/, '') };
+    if (isSectionHead) return { type: 'heading',  content: clean };
+    if (isBullet)      return { type: 'bullet',   content: trimmed.replace(/^[•\-·*]\s*/, '') };
     return { type: 'text', content: trimmed };
   });
 }
@@ -129,14 +134,11 @@ function parseLines(cvText: string): ParsedLine[] {
 
 export async function generateDOCXBlob(cvText: string): Promise<Blob> {
   const children: Paragraph[] = [];
-  // Track bullet index per section; guidance note appears after first 2 bullets only
-  let sectionBulletCount = 0;
 
   for (const { type, content } of parseLines(cvText)) {
     if (type === 'blank') {
       children.push(new Paragraph({ spacing: { after: 100 } }));
     } else if (type === 'heading') {
-      sectionBulletCount = 0; // reset on each new section
       children.push(new Paragraph({
         text:    content,
         heading: HeadingLevel.HEADING_2,
@@ -149,15 +151,13 @@ export async function generateDOCXBlob(cvText: string): Promise<Blob> {
         bullet:   { level: 0 },
         spacing:  { after: 40 },
       }));
-      // Append guidance hint after first 2 action bullets per section
-      if (sectionBulletCount < 2) {
-        children.push(new Paragraph({
-          children: [new TextRun({ text: DOCX_GUIDANCE, size: 18, font: 'Calibri', color: '888888', italics: true })],
-          spacing:  { after: 40 },
-          indent:   { left: 360 },
-        }));
-        sectionBulletCount++;
-      }
+    } else if (type === 'guidance') {
+      // Server-embedded guidance hints — render as gray italic with indent
+      children.push(new Paragraph({
+        children: [new TextRun({ text: content, size: 18, font: 'Calibri', color: '888888', italics: true })],
+        spacing:  { after: 40 },
+        indent:   { left: 360 },
+      }));
     } else {
       children.push(new Paragraph({
         children: [new TextRun({ text: content, size: 22, font: 'Calibri' })],
@@ -189,7 +189,8 @@ export function generatePDFBlob(cvText: string): Blob {
   doc.setFont('helvetica');
 
   for (const { type, content } of parseLines(cvText)) {
-    if (type === 'blank') { y += 4; continue; }
+    if (type === 'blank')    { y += 4; continue; }
+    if (type === 'guidance') { continue; } // guidance notes are DOCX-only
     if (y > pageHeight - marginY) { doc.addPage(); y = marginY; }
 
     if (type === 'heading') {

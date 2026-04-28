@@ -4,6 +4,12 @@ import { callClaude }      from './claude.js';
 import { sha256Hex }       from './utils.js';
 import { postProcessCV }   from './rewriteGuard.js';
 
+// DEPLOY CHECKLIST: Bump these prefixes when changing prompts/tailorId.js or prompts/tailorEn.js.
+// Current keys have no version suffix (legacy from initial deploy).
+// Next bump example: 'gen_id_v2_' / 'gen_en_v2_'
+const GEN_KEY_PREFIX_ID = 'gen_id_'; // bump to 'gen_id_v2_' after changing tailorId.js
+const GEN_KEY_PREFIX_EN = 'gen_en_'; // bump to 'gen_en_v2_' after changing tailorEn.js
+
 /**
  * Returns the first missing required section heading, 'too short' if the text
  * is under 200 chars, or null if the CV passes all checks.
@@ -37,7 +43,7 @@ export async function tailorCVID(cvText, jobDesc, env, mode = 'pdf', options = {
   const { issue, previewSample, previewAfter, entitasKlaim = null, roleProfile = null, jdMode = 'targeted' } = options;
 
   // KV cache keyed on raw content — post-processing is applied per-call (after cache read)
-  const genKey   = `gen_id_${await sha256Hex(cvText + '||' + jobDesc)}`;
+  const genKey   = `${GEN_KEY_PREFIX_ID}${await sha256Hex(cvText + '||' + jobDesc)}`;
   const cached   = await env.GASLAMAR_SESSIONS.get(genKey);
   let   baseText = cached;
 
@@ -77,11 +83,24 @@ SERTIFIKASI
 Aturan heading: jangan ubah nama, jangan tambah heading lain.
 Jika kandidat tidak punya sertifikasi, hapus section SERTIFIKASI sepenuhnya.
 
+PRESERVASI WAJIB — TIDAK BOLEH DIUBAH SAMA SEKALI:
+- Nama lengkap kandidat (baris pertama CV)
+- Nama perusahaan / instansi tempat bekerja
+- Jabatan / posisi di setiap peran
+- Lokasi dan rentang tanggal (contoh: "Jan 2020 – Mar 2023")
+- Nama institusi pendidikan dan gelar
+- Baris header peran (format: "Nama Perusahaan — Jabatan") harus identik dengan CV asli
+
+YANG BOLEH DIUBAH:
+- Bullet point pengalaman (reframe, tambah konteks, perkuat kata kerja)
+- Ringkasan profesional (tulis ulang agar relevan dengan posisi target)
+- Urutan keahlian (prioritaskan yang sesuai JD)
+
 Output CV dalam Bahasa Indonesia dengan urutan section di atas:
 - RINGKASAN PROFESIONAL: 3-4 kalimat, highlight yang paling relevan untuk posisi ini
-- PENGALAMAN KERJA: bullet points, kata kerja aktif, kuantifikasi achievement
+- PENGALAMAN KERJA: bullet points dengan kata kerja aktif Harvard, kuantifikasi achievement
 - PENDIDIKAN
-- KEAHLIAN: prioritaskan yang disebutkan di job description
+- KEAHLIAN: Core Skills | Tools | Bahasa
 
 Output hanya teks CV, tidak ada komentar atau penjelasan tambahan.`;
 
@@ -127,7 +146,7 @@ Output hanya teks CV, tidak ada komentar atau penjelasan tambahan.`;
 export async function tailorCVEN(cvText, jobDesc, env, mode = 'pdf', options = {}) {
   const { previewSample, previewAfter, entitasKlaim = null, roleProfile = null, jdMode = 'targeted' } = options;
 
-  const genKey   = `gen_en_${await sha256Hex(cvText + '||' + jobDesc)}`;
+  const genKey   = `${GEN_KEY_PREFIX_EN}${await sha256Hex(cvText + '||' + jobDesc)}`;
   const cached   = await env.GASLAMAR_SESSIONS.get(genKey);
   let   baseText = cached;
 
@@ -165,13 +184,24 @@ CERTIFICATIONS
 Heading rules: do not alter heading names, do not add other headings.
 If the candidate has no certifications, omit the CERTIFICATIONS section entirely.
 
+MANDATORY VERBATIM PRESERVATION — DO NOT ALTER:
+- Candidate's full name (first line of CV)
+- All company / employer names
+- All job titles / roles at each position
+- All locations and date ranges (e.g., "Jan 2020 – Mar 2023")
+- All education institution names and degree names
+- Role header lines (format: "Company Name — Job Title") must be identical to the original
+
+WHAT YOU MAY CHANGE:
+- Experience bullet points (reframe, add context, strengthen action verbs)
+- Professional summary (rewrite to be relevant to the target role)
+- Skills ordering (prioritize those matching the JD)
+
 Output the CV in English with sections in that order:
 - PROFESSIONAL SUMMARY: 3-4 sentences, highlight most relevant for this role
-- WORK EXPERIENCE: bullet points, action verbs, quantified achievements
+- WORK EXPERIENCE: Harvard action verb bullets, quantified achievements (only original numbers)
 - EDUCATION
-- SKILLS: prioritize those mentioned in job description
-
-Ensure the same job roles, companies, dates, and achievements appear as in the original CV — only translate and reframe, do not add or remove experiences.
+- SKILLS: Core Skills | Tools | Languages
 
 Output only the CV text, no additional comments.`;
 

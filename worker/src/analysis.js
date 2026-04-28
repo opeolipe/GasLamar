@@ -33,15 +33,18 @@ import { getRoleProfile } from './roleProfiles.js';
 import { callDiagnose }  from './pipeline/diagnose.js';
 import { sha256Hex }     from './utils.js';
 
-const EXTRACT_CACHE_VERSION  = 'v2';
-// Bump ANALYSIS_CACHE_VERSION when changing pipeline/ or prompts/
-const ANALYSIS_CACHE_VERSION = 'v6';
+// ---- Cache key versions --------------------------------------------------
+// DEPLOY CHECKLIST: Bump ANALYSIS_CACHE_VERSION when changing pipeline/ or prompts/.
+//                   Bump EXTRACT_CACHE_VERSION when changing pipeline/extract.js or prompts/extract.js.
+// Stale KV entries with old version prefixes are ignored automatically.
+const EXTRACT_CACHE_VERSION  = 'v2'; // current key: extract_v2_<hash>
+const ANALYSIS_CACHE_VERSION = 'v6'; // current key: analysis_v6_<hash> (bumped: role-weighted 6D scores)
 
 // ---- Orchestrator ----
 
 export async function analyzeCV(cvText, jobDesc, env) {
   // ── Cache check ───────────────────────────────────────────────────────────
-  // Bumped from v5: role-weighted 6D scores change the cached values.
+  // Bump ANALYSIS_CACHE_VERSION (top of file) when changing pipeline/ or prompts/.
   const cacheKey = `analysis_${ANALYSIS_CACHE_VERSION}_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
   const cached = await env.GASLAMAR_SESSIONS.get(cacheKey, { type: 'json' });
   if (cached) {
@@ -53,6 +56,9 @@ export async function analyzeCV(cvText, jobDesc, env) {
   }
 
   // ── Stage 1: EXTRACT ──────────────────────────────────────────────────────
+  // Extraction is cached independently so the LLM call is skipped on repeated
+  // analysis of identical CV+JD content (e.g. user re-runs after payment).
+  // Bump EXTRACT_CACHE_VERSION (top of file) when changing extract.js or prompts/extract.js.
   const extractKey = `extract_${EXTRACT_CACHE_VERSION}_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
   let extractedData = await env.GASLAMAR_SESSIONS.get(extractKey, { type: 'json' });
   if (!extractedData) {

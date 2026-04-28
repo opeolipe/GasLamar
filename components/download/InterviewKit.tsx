@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { copyToClipboard, buildSecretHeaders, WORKER_URL } from '@/lib/downloadUtils';
 import { logError } from '@/lib/logger';
@@ -16,6 +16,7 @@ interface InterviewKitProps {
   sessionSecret: string | null;
   isPreview?: boolean;
   language?: 'id' | 'en';
+  initialKit?: unknown | null;
 }
 
 function CopyButton({ text, copyKey, copiedKey, onCopy }: {
@@ -48,27 +49,40 @@ function GroupLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function InterviewKit({ sessionSecret, isPreview = false, language = 'id' }: InterviewKitProps) {
-  const [kit, setKit]             = useState<InterviewKitData | null>(null);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState<string | null>(null);
+export default function InterviewKit({ sessionSecret, isPreview = false, language = 'id', initialKit = null }: InterviewKitProps) {
+  const [kit, setKit]               = useState<InterviewKitData | null>(() => {
+    if (initialKit && typeof initialKit === 'object') return initialKit as InterviewKitData;
+    return null;
+  });
+  const [loading, setLoading]       = useState(kit === null);
+  const [error, setError]           = useState<string | null>(null);
   const [activeLang, setActiveLang] = useState<'id' | 'en'>(language);
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [copiedKey, setCopiedKey]   = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const sessionSecretRef            = useRef(sessionSecret);
+  sessionSecretRef.current          = sessionSecret;
 
   useEffect(() => {
+    // If we already have a kit from the generate response, no fetch needed
+    if (kit !== null && retryCount === 0) return;
+
     let cancelled = false;
     setLoading(true);
     setError(null);
 
+    const ctrl    = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 30000);
+
     async function fetchKit() {
       try {
         const res = await fetch(`${WORKER_URL}/interview-kit`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...buildSecretHeaders(sessionSecret) },
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', ...buildSecretHeaders(sessionSecretRef.current) },
           credentials: 'include',
-          body: JSON.stringify({ language: activeLang }),
+          body:    JSON.stringify({ language: activeLang }),
+          signal:  ctrl.signal,
         });
+        clearTimeout(timeout);
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
           throw new Error((data as any).message || 'Gagal menghasilkan Interview Kit.');
@@ -76,14 +90,28 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
         const data = await res.json();
         if (!cancelled) { setKit(data.kit); setLoading(false); }
       } catch (e: any) {
+        clearTimeout(timeout);
+        if (cancelled) return;
+        const msg = e?.name === 'AbortError'
+          ? 'Interview Kit timeout. Coba lagi.'
+          : 'Interview Kit belum tersedia. Coba lagi.';
         logError('interview_kit_failed', { message: e?.message });
-        if (!cancelled) { setError('Interview Kit belum tersedia. Coba lagi.'); setLoading(false); }
+        setError(msg);
+        setLoading(false);
       }
     }
 
     fetchKit();
-    return () => { cancelled = true; };
-  }, [activeLang, retryCount]);
+    return () => { cancelled = true; clearTimeout(timeout); ctrl.abort(); };
+  }, [activeLang, retryCount]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // When language tab switches, refetch for the new language
+  function handleLangSwitch(lang: 'id' | 'en') {
+    if (lang === activeLang) return;
+    setActiveLang(lang);
+    setKit(null);
+    setLoading(true);
+  }
 
   async function handleCopy(text: string, key: string) {
     await copyToClipboard(text).catch(() => {});
@@ -114,7 +142,7 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
         {(['id', 'en'] as const).map(lang => (
           <button
             key={lang}
-            onClick={() => setActiveLang(lang)}
+            onClick={() => handleLangSwitch(lang)}
             className={`min-h-[44px] px-5 rounded-full font-semibold text-sm transition-all ${
               activeLang === lang
                 ? 'bg-blue-600 text-white shadow-sm'
@@ -132,9 +160,9 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
       {/* Error */}
       {!loading && error && (
         <div className="flex flex-col items-center py-8 text-center">
-          <p className="text-sm text-red-600 mb-3">Interview Kit belum tersedia. Coba lagi.</p>
+          <p className="text-sm text-red-600 mb-3">{error}</p>
           <button
-            onClick={() => setRetryCount(c => c + 1)}
+            onClick={() => { setKit(null); setRetryCount(c => c + 1); }}
             className="min-h-[44px] min-w-[44px] px-4 rounded-full text-sm font-semibold bg-red-50 border border-red-200 text-red-700 hover:bg-red-100 transition-colors"
           >
             Coba Lagi
@@ -151,7 +179,7 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
 
           {/* Email Template */}
           <AccordionItem value="item-email" className="border border-slate-100 rounded-[14px] mb-2 overflow-hidden">
-            <AccordionTrigger className="px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+            <AccordionTrigger className="min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
               Email Lamaran
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">
@@ -170,7 +198,7 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
 
           {/* WhatsApp */}
           <AccordionItem value="item-whatsapp" className="border border-slate-100 rounded-[14px] mb-2 overflow-hidden">
-            <AccordionTrigger className="px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+            <AccordionTrigger className="min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
               Pesan WhatsApp
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">
@@ -186,7 +214,7 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
 
           {/* Tell Me About Yourself */}
           <AccordionItem value="item-tmay" className="border border-slate-100 rounded-[14px] mb-2 overflow-hidden">
-            <AccordionTrigger className="px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+            <AccordionTrigger className="min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
               "Tell Me About Yourself"
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">
@@ -206,7 +234,7 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
 
           {/* Interview Questions */}
           <AccordionItem value="item-questions" className="border border-slate-100 rounded-[14px] mb-2 overflow-hidden">
-            <AccordionTrigger className="px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+            <AccordionTrigger className="min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
               Pertanyaan Interview ({kit.interview_questions.length})
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">
@@ -259,7 +287,7 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
 
           {/* Job Description Analysis */}
           <AccordionItem value="item-insights" className="border border-slate-100 rounded-[14px] mb-2 overflow-hidden">
-            <AccordionTrigger className="px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+            <AccordionTrigger className="min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
               Analisis Job Description
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">
