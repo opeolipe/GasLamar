@@ -3,7 +3,7 @@ import { jsonResponse } from '../cors.js';
 import { clientIp, sha256Full, log } from '../utils.js';
 import { checkRateLimit, rateLimitResponse } from '../rateLimit.js';
 import { TIER_CREDITS } from '../constants.js';
-import { createMayarInvoice } from '../mayar.js';
+import { createMayarInvoice, logMayarEnvironment } from '../mayar.js';
 import { createSession } from '../sessions.js';
 import { makeSessionCookie } from '../cookies.js';
 
@@ -71,6 +71,9 @@ export async function handleCreatePayment(request, env) {
     const redirectUrl = env.ENVIRONMENT === 'staging'
       ? 'https://staging.gaslamar.pages.dev/download.html'
       : 'https://gaslamar.com/download.html';
+
+    logMayarEnvironment(env);
+    console.log(JSON.stringify({ event: 'payment_redirect_url', redirectUrl, environment: env.ENVIRONMENT ?? 'sandbox' }));
 
     // Create Mayar invoice first — if this fails, cv_text_key is still intact and user can retry
     const { invoice_id, invoice_url } = await createMayarInvoice(sessionId, tier, env, redirectUrl, sessionEmail);
