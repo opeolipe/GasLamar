@@ -420,10 +420,14 @@ Microsoft Office, JIRA, Confluence, Trello, Figma (basic), Google Analytics (bas
       if (typeof showFilePreview === 'function') showFilePreview(file);
     }
 
-    // Pre-fill job description
+    // Pre-fill job description — use native input event so React's onChange fires
+    // and updates controlled state (counter, submit validation, sessionStorage draft).
     const jdEl = document.getElementById('job-desc');
     if (jdEl) {
-      jdEl.value = meta.jd;
+      const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+      nativeSetter.call(jdEl, meta.jd);
+      jdEl.dispatchEvent(new Event('input', { bubbles: true }));
+      // Vanilla-JS fallback: updateCharCount may be defined if the non-React bundle is active.
       if (typeof updateCharCount === 'function') updateCharCount();
     }
 

@@ -349,10 +349,13 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
   submitBtn.disabled = true;
 
   try {
+    // Strip HTML tags and escape before storing — defense-in-depth against XSS payloads
+    // reaching KV or being echoed in API responses or emails.
+    const safeJd = jobDesc.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
     sessionStorage.setItem('gaslamar_cv_pending', cvText);
-    sessionStorage.setItem('gaslamar_jd_pending', jobDesc);
+    sessionStorage.setItem('gaslamar_jd_pending', escapeHtml(safeJd));
     sessionStorage.setItem('gaslamar_filename', selectedFile ? selectedFile.name : 'CV');
-    sessionStorage.setItem('gaslamar_had_jd', jobDesc.length >= 50 ? '1' : '0');
+    sessionStorage.setItem('gaslamar_had_jd', safeJd.length >= 50 ? '1' : '0');
   } catch (_) {
     // Safari private mode blocks sessionStorage writes — inform user
     showError('file-error', 'Browser kamu memblokir penyimpanan sementara (mode pribadi?). Coba gunakan mode normal.');
