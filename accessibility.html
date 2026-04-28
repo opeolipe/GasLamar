@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Pernyataan Aksesibilitas · GasLamar</title>
+  <meta name="description" content="Pernyataan aksesibilitas GasLamar — komitmen kami terhadap WCAG 2.1 Level AA dan cara menghubungi kami untuk masukan aksesibilitas." />
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <!-- Cloudflare Web Analytics -->
+  <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "f9c97d82f2a04b9f95e051946eb0525e"}'></script>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37,99,235,0.08), transparent);
+      min-height: 100vh;
+      color: #111827;
+      line-height: 1.6;
+    }
+
+    /* Nav */
+    .navbar {
+      background: rgba(255,255,255,0.88);
+      border-bottom: 1px solid rgba(148,163,184,0.18);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      padding: 0.9rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo {
+      font-weight: 800;
+      font-size: 1.1rem;
+      color: #0F172A;
+      text-decoration: none;
+      letter-spacing: -0.02em;
+    }
+    .back-link {
+      font-size: 0.85rem;
+      color: #6B7280;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .back-link:hover { color: #111827; }
+
+    /* Layout */
+    .page-wrap {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem 4rem;
+    }
+
+    /* Hero */
+    .page-hero {
+      margin-bottom: 2rem;
+    }
+    .page-hero h1 {
+      font-size: 1.75rem;
+      font-weight: 800;
+      color: #0F172A;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.4rem;
+      font-family: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Georgia, serif;
+    }
+    .page-hero .updated {
+      font-size: 0.8rem;
+      color: #9CA3AF;
+    }
+
+    /* Sections */
+    .section {
+      background: rgba(255,255,255,0.88);
+      border: 1px solid rgba(148,163,184,0.14);
+      border-radius: 24px;
+      box-shadow: 0 18px 44px rgba(15,23,42,0.08);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      padding: 1.5rem 1.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .section h2 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #0F172A;
+      margin-bottom: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .section p {
+      font-size: 0.9rem;
+      color: #374151;
+      margin-bottom: 0.75rem;
+    }
+    .section p:last-child { margin-bottom: 0; }
+    .section ul {
+      font-size: 0.9rem;
+      color: #374151;
+      padding-left: 1.25rem;
+      margin-top: 0.4rem;
+    }
+    .section ul li { margin-bottom: 0.35rem; }
+
+    /* Callout */
+    .callout-blue {
+      background: rgba(239,246,255,0.9);
+      border: 1.5px solid rgba(37,99,235,0.18);
+      border-radius: 24px;
+      box-shadow: 0 18px 44px rgba(15,23,42,0.06);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      padding: 1.5rem 1.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .callout-blue h2 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #1D4ED8;
+      margin-bottom: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .callout-blue p {
+      font-size: 0.9rem;
+      color: #1E40AF;
+      margin-bottom: 0.7rem;
+    }
+    .callout-blue p:last-child { margin-bottom: 0; }
+    .callout-blue a { color: #2563EB; }
+
+    /* Lang divider */
+    .lang-divider {
+      text-align: center;
+      font-size: 0.78rem;
+      color: #9CA3AF;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin: 2.5rem 0 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .lang-divider::before,
+    .lang-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(148,163,184,0.3);
+    }
+
+    /* Footer */
+    .legal-footer {
+      text-align: center;
+      padding: 2rem 0 1rem;
+      font-size: 0.78rem;
+      color: #9CA3AF;
+    }
+    .legal-footer a {
+      color: #6B7280;
+      text-decoration: none;
+      margin: 0 0.4rem;
+    }
+    .legal-footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+  <!-- Skip link -->
+  <a href="#main-content" style="position:absolute;left:-9999px;top:0;z-index:9999;background:#0F172A;color:#fff;padding:0.5rem 1rem;font-size:0.875rem;font-weight:600;border-radius:0 0 8px 0;" onfocus="this.style.left='0'" onblur="this.style.left='-9999px'">Langsung ke konten utama</a>
+
+  <nav class="navbar" aria-label="Navigasi utama">
+    <a href="index.html" class="logo" aria-label="GasLamar — Beranda">GasLamar</a>
+    <a href="index.html" class="back-link" aria-label="Kembali ke beranda">← Beranda</a>
+  </nav>
+
+  <main id="main-content" class="page-wrap">
+
+    <header class="page-hero">
+      <h1>Pernyataan Aksesibilitas</h1>
+      <p class="updated">Diperbarui: April 2026</p>
+    </header>
+
+    <!-- Commitment -->
+    <div class="callout-blue">
+      <h2>♿ Komitmen Kami</h2>
+      <p>GasLamar berkomitmen untuk memastikan aksesibilitas digital bagi semua orang, termasuk penyandang disabilitas. Kami terus berupaya meningkatkan pengalaman pengguna dan menerapkan standar aksesibilitas yang relevan.</p>
+      <p>Target kami adalah memenuhi <strong>WCAG 2.1 Level AA</strong> (Web Content Accessibility Guidelines versi 2.1, tingkat kepatuhan AA) di seluruh antarmuka GasLamar.</p>
+    </div>
+
+    <!-- Status -->
+    <div class="section">
+      <h2>📊 Status Kepatuhan</h2>
+      <p>GasLamar <strong>sebagian memenuhi</strong> WCAG 2.1 Level AA. Kami secara aktif mengidentifikasi dan memperbaiki area yang belum sepenuhnya memenuhi standar ini.</p>
+      <p>Langkah-langkah yang telah diterapkan antara lain:</p>
+      <ul>
+        <li>Skip-to-content link di setiap halaman utama untuk pengguna keyboard</li>
+        <li>Ukuran touch target minimal 44×44 px untuk semua elemen interaktif</li>
+        <li>Label <code>aria-label</code> dan <code>aria-describedby</code> pada form dan elemen dinamis</li>
+        <li>Rasio kontras warna yang memenuhi WCAG AA (minimal 4.5:1 untuk teks normal)</li>
+        <li>Struktur heading yang hierarkis dan semantik HTML yang benar</li>
+        <li>Atribut <code>alt</code> pada semua gambar bermakna</li>
+        <li>Navigasi keyboard penuh tanpa memerlukan mouse</li>
+      </ul>
+    </div>
+
+    <!-- Known limitations -->
+    <div class="section">
+      <h2>⚠️ Keterbatasan yang Diketahui</h2>
+      <p>Area berikut masih dalam proses perbaikan:</p>
+      <ul>
+        <li>Beberapa komponen animasi mungkin belum sepenuhnya mengikuti preferensi <code>prefers-reduced-motion</code></li>
+        <li>Dokumen CV yang dihasilkan (PDF/DOCX) belum dioptimalkan untuk screen reader — ini merupakan keterbatasan format file, bukan antarmuka web</li>
+      </ul>
+      <p>Jika kamu menemukan hambatan aksesibilitas lain, harap beritahu kami melalui kontak di bawah.</p>
+    </div>
+
+    <!-- Technical approach -->
+    <div class="section">
+      <h2>🛠️ Pendekatan Teknis</h2>
+      <p>Upaya aksesibilitas kami meliputi:</p>
+      <ul>
+        <li>Pengujian manual dengan keyboard-only navigation secara berkala</li>
+        <li>Penggunaan React dengan atribut ARIA yang tepat pada halaman dinamis</li>
+        <li>HTML semantik (<code>&lt;main&gt;</code>, <code>&lt;nav&gt;</code>, <code>&lt;header&gt;</code>, <code>&lt;footer&gt;</code>) di semua halaman</li>
+        <li>Form dengan label yang benar dan pesan error yang deskriptif</li>
+        <li>Focus management yang terlihat jelas pada semua elemen interaktif</li>
+      </ul>
+    </div>
+
+    <!-- Contact -->
+    <div class="section">
+      <h2>📬 Umpan Balik Aksesibilitas</h2>
+      <p>Kami menyambut masukan terkait aksesibilitas dari semua pengguna. Jika kamu menemukan hambatan atau memiliki saran untuk meningkatkan aksesibilitas GasLamar, hubungi kami:</p>
+      <p><strong>Email:</strong> <a href="mailto:support@gaslamar.com">support@gaslamar.com</a></p>
+      <p>Sebutkan halaman yang terpengaruh, teknologi assistif yang kamu gunakan (misalnya screen reader, switch control), dan deskripsi hambatan yang dialami. Kami berkomitmen untuk merespons dalam <strong>5 hari kerja</strong>.</p>
+    </div>
+
+    <!-- English version -->
+    <div class="lang-divider" aria-hidden="true">English version below</div>
+
+    <header style="margin-bottom:2rem;">
+      <h1 style="font-size:1.75rem;font-weight:800;color:#0F172A;letter-spacing:-0.03em;font-family:'Iowan Old Style','Palatino Linotype','Book Antiqua',Georgia,serif;margin-bottom:0.4rem;">Accessibility Statement</h1>
+      <p style="font-size:0.8rem;color:#9CA3AF;">Updated: April 2026</p>
+    </header>
+
+    <div class="callout-blue">
+      <h2>♿ Our Commitment</h2>
+      <p>GasLamar is committed to ensuring digital accessibility for people with disabilities. We continually improve the user experience and apply relevant accessibility standards.</p>
+      <p>Our target is conformance with <strong>WCAG 2.1 Level AA</strong> (Web Content Accessibility Guidelines version 2.1, conformance level AA) across all GasLamar interfaces.</p>
+    </div>
+
+    <div class="section">
+      <h2>📊 Conformance Status</h2>
+      <p>GasLamar <strong>partially conforms</strong> to WCAG 2.1 Level AA. We are actively identifying and addressing areas that do not yet fully meet this standard.</p>
+      <p>Measures already in place include:</p>
+      <ul>
+        <li>Skip-to-content link on every main page for keyboard users</li>
+        <li>Minimum 44×44 px touch targets for all interactive elements</li>
+        <li>Appropriate <code>aria-label</code> and <code>aria-describedby</code> attributes on forms and dynamic elements</li>
+        <li>Colour contrast ratios meeting WCAG AA (minimum 4.5:1 for normal text)</li>
+        <li>Hierarchical heading structure and correct semantic HTML</li>
+        <li><code>alt</code> attributes on all meaningful images</li>
+        <li>Full keyboard navigation without requiring a mouse</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>⚠️ Known Limitations</h2>
+      <p>The following areas are still being improved:</p>
+      <ul>
+        <li>Some animated components may not yet fully respect the <code>prefers-reduced-motion</code> media query</li>
+        <li>Generated CV documents (PDF/DOCX) are not screen-reader optimised — this is a limitation of the file format, not the web interface</li>
+      </ul>
+      <p>If you encounter any other accessibility barriers, please let us know using the contact below.</p>
+    </div>
+
+    <div class="section">
+      <h2>📬 Accessibility Feedback</h2>
+      <p>We welcome accessibility feedback from all users. If you find a barrier or have suggestions to improve GasLamar's accessibility, please contact us:</p>
+      <p><strong>Email:</strong> <a href="mailto:support@gaslamar.com">support@gaslamar.com</a></p>
+      <p>Please include the page affected, the assistive technology you are using (e.g. screen reader, switch control), and a description of the barrier. We aim to respond within <strong>5 business days</strong>.</p>
+    </div>
+
+    <footer class="legal-footer">
+      © 2026 GasLamar &nbsp;·&nbsp;
+      <a href="privacy.html">Kebijakan Privasi</a> &nbsp;·&nbsp;
+      <a href="terms.html">Syarat Layanan</a> &nbsp;·&nbsp;
+      <a href="accessibility.html">Aksesibilitas</a> &nbsp;·&nbsp;
+      <a href="index.html">Beranda</a>
+    </footer>
+
+  </main>
+</body>
+</html>

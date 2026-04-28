@@ -88,21 +88,14 @@ export default function Result() {
   const blurTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const confirmEmailRef = useRef<HTMLInputElement>(null);
 
-  // Redirect to upload when session is missing or expired — never render a broken UI
-  useEffect(() => {
-    if (noSession) {
-      const reason = noSession === 'expired' ? 'session_expired' : 'no_session';
-      window.location.href = `upload.html?reason=${reason}`;
-    }
-  }, [noSession]);
-
   // Pre-select tier from sessionStorage / localStorage
   useEffect(() => {
     const saved = sessionStorage.getItem('gaslamar_tier') || localStorage.getItem('gaslamar_tier');
     if (saved && TIER_CONFIG[saved]) setSelectedTier(saved);
   }, []);
 
-  // Immediately redirect to upload when session is missing or expired
+  // Redirect to upload when session is missing or expired — use replace() to avoid
+  // adding a broken hasil.html entry to browser history.
   useEffect(() => {
     if (!noSession) return;
     const reason = noSession === 'expired' ? 'session_expired' : 'no_session';
