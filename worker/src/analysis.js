@@ -27,14 +27,19 @@ import {
 import { callDiagnose }  from './pipeline/diagnose.js';
 import { sha256Hex }     from './utils.js';
 
+// ---- Cache key versions --------------------------------------------------
+// DEPLOY CHECKLIST: Bump ANALYSIS_CACHE_VERSION when changing pipeline/ or prompts/.
+//                   Bump EXTRACT_CACHE_VERSION when changing pipeline/extract.js or prompts/extract.js.
+// Stale KV entries with old version prefixes are ignored automatically.
+const EXTRACT_CACHE_VERSION  = 'v2'; // current key: extract_v2_<hash>
+const ANALYSIS_CACHE_VERSION = 'v5'; // current key: analysis_v5_<hash>
+
 // ---- Orchestrator ----
 
 export async function analyzeCV(cvText, jobDesc, env) {
-  // ── Cache check (v5) ──────────────────────────────────────────────────────
-  // Bump to analysis_v6_ if the scoring formula or pipeline structure changes.
-  // v3 entries (from the monolithic SKILL_ANALYZE pipeline) are intentionally
-  // stale and will not be returned.
-  const cacheKey = `analysis_v5_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
+  // ── Cache check ───────────────────────────────────────────────────────────
+  // Bump ANALYSIS_CACHE_VERSION (top of file) when changing pipeline/ or prompts/.
+  const cacheKey = `analysis_${ANALYSIS_CACHE_VERSION}_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
   const cached = await env.GASLAMAR_SESSIONS.get(cacheKey, { type: 'json' });
   if (cached) {
     // Re-apply red-flag penalty for entries cached before this logic was added.
@@ -49,8 +54,8 @@ export async function analyzeCV(cvText, jobDesc, env) {
   // ── Stage 1: EXTRACT ──────────────────────────────────────────────────────
   // Extraction is cached independently so the LLM call is skipped on repeated
   // analysis of identical CV+JD content (e.g. user re-runs after payment).
-  // Bumped to extract_v2_ because SKILL_EXTRACT now outputs entitas_klaim.
-  const extractKey = `extract_v2_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
+  // Bump EXTRACT_CACHE_VERSION (top of file) when changing extract.js or prompts/extract.js.
+  const extractKey = `extract_${EXTRACT_CACHE_VERSION}_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
   let extractedData = await env.GASLAMAR_SESSIONS.get(extractKey, { type: 'json' });
   if (!extractedData) {
     extractedData = await callExtract(cvText, jobDesc, env);

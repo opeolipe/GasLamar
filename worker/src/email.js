@@ -74,7 +74,7 @@ export async function sendPaymentConfirmationEmail(sessionId, env) {
         <span style="font-weight:800;font-size:20px;color:#1B4FE8">GasLamar</span>
       </div>
       <h1 style="font-size:22px;font-weight:700;color:#1F2937;margin-bottom:8px">Pembayaran Dikonfirmasi</h1>
-      <p style="color:#6B7280;margin-bottom:20px">Paket <strong>${tierLabel}</strong> kamu sudah aktif.</p>
+      <p style="color:#6B7280;margin-bottom:20px">Paket <strong>${escapeHtml(tierLabel)}</strong> kamu sudah aktif.</p>
       ${creditsNote}
       <a href="${downloadUrl}"
         style="display:inline-block;background:#1B4FE8;color:#fff;font-weight:700;padding:14px 28px;border-radius:12px;text-decoration:none;margin-bottom:24px">
@@ -135,7 +135,7 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
         <span style="font-weight:800;font-size:20px;color:#1B4FE8">GasLamar</span>
       </div>
       <h1 style="font-size:22px;font-weight:700;color:#1F2937;margin-bottom:8px">CV tailored-mu siap! 🎯</h1>
-      <p style="color:#6B7280;margin-bottom:20px">Paket <strong>${tierLabel}</strong> — hasil analisis AI:</p>
+      <p style="color:#6B7280;margin-bottom:20px">Paket <strong>${escapeHtml(tierLabel)}</strong> — hasil analisis AI:</p>
       <div style="background:#F0FDF4;border-radius:12px;padding:16px 20px;margin-bottom:20px;text-align:center">
         <p style="margin:0;font-size:13px;color:#6B7280">Skor match CV kamu</p>
         <p style="margin:4px 0 0;font-size:40px;font-weight:800;color:${scoreColor}">${scoreNum}<span style="font-size:18px;color:#9CA3AF">/100</span></p>

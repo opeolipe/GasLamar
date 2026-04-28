@@ -152,6 +152,9 @@ export async function handleFetchJobUrl(request, env) {
 
   // ── Step 5: Fetch the page ───────────────────────────────────────────────────
   // All SSRF checks have passed; make the outbound request.
+  // Abort after 10s — prevents the Worker from being occupied by a slow host.
+  const fetchController = new AbortController();
+  const fetchTimeoutId = setTimeout(() => fetchController.abort(), 10000);
   let pageRes;
   try {
     pageRes = await fetch(url, {
@@ -162,10 +165,16 @@ export async function handleFetchJobUrl(request, env) {
         'Cache-Control': 'no-cache',
       },
       redirect: 'follow',
+      signal: fetchController.signal,
     });
   } catch (err) {
-    return jsonResponse({ message: 'Tidak bisa mengakses URL tersebut. Coba copy-paste manual.' }, 422, request, env);
+    clearTimeout(fetchTimeoutId);
+    const msg = err.name === 'AbortError'
+      ? 'URL membutuhkan waktu terlalu lama untuk diakses. Coba copy-paste manual.'
+      : 'Tidak bisa mengakses URL tersebut. Coba copy-paste manual.';
+    return jsonResponse({ message: msg }, 422, request, env);
   }
+  clearTimeout(fetchTimeoutId);
 
   // LinkedIn redirects unauthenticated requests to /authwall — detect the redirect
   // before wasting CPU on HTMLRewriter extraction.
@@ -193,6 +202,10 @@ export async function handleFetchJobUrl(request, env) {
   }
 
   // Extract text using HTMLRewriter — drop script/style noise, collect body text.
+  // Cap total extracted bytes at 500KB; further chunks are dropped but the stream
+  // is still consumed (HTMLRewriter doesn't support early termination).
+  const MAX_EXTRACT_BYTES = 500 * 1024;
+  let extractedBytes = 0;
   const chunks = [];
   await new HTMLRewriter()
     .on('script, style, noscript', {
@@ -200,8 +213,12 @@ export async function handleFetchJobUrl(request, env) {
     })
     .on('body', {
       text(text) {
+        if (extractedBytes >= MAX_EXTRACT_BYTES) return;
         const t = text.text.replace(/\s+/g, ' ');
-        if (t.trim()) chunks.push(t);
+        if (t.trim()) {
+          extractedBytes += t.length;
+          chunks.push(t);
+        }
       },
     })
     .transform(pageRes)

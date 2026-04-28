@@ -310,14 +310,14 @@ describe('POST /analyze — validation', () => {
     expect(body.message).toMatch(/rusak|tidak lengkap|upload.*berbeda|tidak bisa dibaca|terproteksi/i);
   });
 
-  it('rejects file over 5MB → 400', async () => {
-    // ~7MB base64-encoded payload (5MB * 4/3 ≈ 6.7MB)
+  it('rejects cv payload over 2MB → 413', async () => {
+    // ~7MB base64-encoded payload — caught by the 2MB raw-string cap before validateFileData.
     const bigData = btoa('A'.repeat(1024 * 1024 * 5 + 1));
     const bigCv = JSON.stringify({ type: 'pdf', data: makePdfBase64() + bigData });
     const res = await post('/analyze', { cv: bigCv, job_desc: JOB_DESC }, {}, nextIp());
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(413);
     const body = await res.json();
-    expect(body.message).toContain('5MB');
+    expect(body.message).toContain('2MB');
   });
 
   it('rejects malformed JSON body → 400', async () => {

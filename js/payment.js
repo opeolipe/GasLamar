@@ -152,6 +152,8 @@ async function proceedToPayment() {
   }
 
   if (window.Analytics) {
+    // PII: email used intentionally for user identification (user provided it for payment).
+    // No CV text, JD text, or sensitive data in event properties.
     Analytics.identify(capturedEmail, { tier: selectedTier, tier_price_idr: TIER_CONFIG[selectedTier].price });
     Analytics.track('payment_initiated', {
       tier: selectedTier,
