@@ -7,6 +7,7 @@ import { sendCVReadyEmail } from '../email.js';
 import { getSessionIdFromCookie } from '../cookies.js';
 import { getRoleProfile } from '../roleProfiles.js';
 import { isJDQualityHigh } from '../pipeline/roleInference.js';
+import { generateInterviewKit } from './interviewKit.js';
 
 export async function handleGenerate(request, env, ctx) {
   const ip = clientIp(request);
@@ -132,6 +133,14 @@ export async function handleGenerate(request, env, ctx) {
     // Run ID and EN tailoring in parallel to stay within Cloudflare's 30s wall-clock limit.
     // Sequential calls could reach 50s (2 × 25s Claude timeout) and hard-kill the Worker.
     const tailorOpts = { issue: primaryIssue, previewSample, previewAfter, entitasKlaim, roleProfile, jdMode };
+
+    // Pre-generate interview kit in parallel with CV tailoring.
+    // Cache it under kit_${session_id}_id so /interview-kit can serve it
+    // immediately (even after the session is deleted for single-credit users).
+    const kitPromise = generateInterviewKit(cv_text, effectiveJobDesc, 'id', env)
+      .then(kit => env.GASLAMAR_SESSIONS.put(`kit_${session_id}_id`, JSON.stringify(kit), { expirationTtl: 86400 }).then(() => kit))
+      .catch(() => null);
+
     let idResult, enResult;
     if (isBilingual) {
       [idResult, enResult] = await Promise.all([
@@ -142,6 +151,10 @@ export async function handleGenerate(request, env, ctx) {
       idResult = await tailorCVID(cv_text, effectiveJobDesc, env, 'pdf', tailorOpts);
       enResult = null;
     }
+
+    // Wait for kit to finish (it ran in parallel, should already be done)
+    const interviewKitId = await kitPromise;
+
     const isTrusted = idResult.isTrusted && (enResult ? enResult.isTrusted : true);
 
     const newCreditsRemaining = creditsRemaining - 1;
@@ -174,8 +187,9 @@ export async function handleGenerate(request, env, ctx) {
       isTrusted,
       credits_remaining: newCreditsRemaining,
       total_credits:     session.total_credits ?? 1,
-      job_title:         job_title ?? null,
-      company:           company   ?? null,
+      job_title:         job_title      ?? null,
+      company:           company        ?? null,
+      interview_kit:     interviewKitId ?? null,
     }, 200, request, env);
   } catch (e) {
     // On failure, reset to 'paid' so user can retry (don't consume the credit)

@@ -24,6 +24,30 @@ Required JSON structure (follow exactly):
 }
 Questions must test the top skills/requirements from the job description. Minimum 3 questions.`;
 
+/**
+ * Generates an interview kit for the given CV and job description.
+ * Pure generation — no KV caching, no session lookup.
+ * Throws on Claude error or truncation; callers are responsible for caching.
+ *
+ * @param {string} cvText
+ * @param {string} jobDesc
+ * @param {string} language — 'id' | 'en'
+ * @param {object} env
+ * @returns {Promise<object>} parsed interview kit
+ */
+export async function generateInterviewKit(cvText, jobDesc, language, env) {
+  const langLabel  = language === 'en' ? 'English' : 'Bahasa Indonesia';
+  const userContent = `Language: ${language}\nCandidate CV:\n${cvText}\n\nJob Description:\n${jobDesc}\n\nGenerate the interview kit. All generated text (email, WhatsApp, tell_me_about_yourself, sample_answer) must be in ${langLabel}.`;
+
+  const claudeResponse = await callClaude(env, SYSTEM_PROMPT, userContent, 3000);
+
+  if (claudeResponse.stop_reason === 'max_tokens') {
+    throw new Error('Respons AI terpotong. Coba lagi.');
+  }
+
+  return JSON.parse(claudeResponse.content[0].text);
+}
+
 export async function handleInterviewKit(request, env) {
   const session_id = getSessionIdFromCookie(request);
   if (!session_id) {
@@ -67,16 +91,7 @@ export async function handleInterviewKit(request, env) {
   }
 
   try {
-    const langLabel = language === 'en' ? 'English' : 'Bahasa Indonesia';
-    const userContent = `Language: ${language}\nCandidate CV:\n${cv_text}\n\nJob Description:\n${job_desc}\n\nGenerate the interview kit. All generated text (email, WhatsApp, tell_me_about_yourself, sample_answer) must be in ${langLabel}.`;
-
-    const claudeResponse = await callClaude(env, SYSTEM_PROMPT, userContent, 3000);
-
-    if (claudeResponse.stop_reason === 'max_tokens') {
-      throw new Error('Respons AI terpotong. Coba lagi.');
-    }
-
-    const parsedKit = JSON.parse(claudeResponse.content[0].text);
+    const parsedKit = await generateInterviewKit(cv_text, job_desc, language, env);
 
     await env.GASLAMAR_SESSIONS.put(cacheKey, JSON.stringify(parsedKit), { expirationTtl: 86400 });
 
@@ -87,3 +102,4 @@ export async function handleInterviewKit(request, env) {
     return jsonResponse({ message: e.message || 'Gagal menghasilkan Interview Kit. Coba lagi.' }, 500, request, env);
   }
 }
+
