@@ -151,7 +151,7 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
 
           {/* Email Template */}
           <AccordionItem value="item-email" className="border border-slate-100 rounded-[14px] mb-2 overflow-hidden">
-            <AccordionTrigger className="px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+            <AccordionTrigger className="min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
               Email Lamaran
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">
@@ -170,7 +170,7 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
 
           {/* WhatsApp */}
           <AccordionItem value="item-whatsapp" className="border border-slate-100 rounded-[14px] mb-2 overflow-hidden">
-            <AccordionTrigger className="px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+            <AccordionTrigger className="min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
               Pesan WhatsApp
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">
@@ -186,7 +186,7 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
 
           {/* Tell Me About Yourself */}
           <AccordionItem value="item-tmay" className="border border-slate-100 rounded-[14px] mb-2 overflow-hidden">
-            <AccordionTrigger className="px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+            <AccordionTrigger className="min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
               "Tell Me About Yourself"
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">
@@ -206,7 +206,7 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
 
           {/* Interview Questions */}
           <AccordionItem value="item-questions" className="border border-slate-100 rounded-[14px] mb-2 overflow-hidden">
-            <AccordionTrigger className="px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+            <AccordionTrigger className="min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
               Pertanyaan Interview ({kit.interview_questions.length})
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">
@@ -259,7 +259,7 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
 
           {/* Job Description Analysis */}
           <AccordionItem value="item-insights" className="border border-slate-100 rounded-[14px] mb-2 overflow-hidden">
-            <AccordionTrigger className="px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+            <AccordionTrigger className="min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
               Analisis Job Description
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">

@@ -4,6 +4,12 @@ import { callClaude }      from './claude.js';
 import { sha256Hex }       from './utils.js';
 import { postProcessCV }   from './rewriteGuard.js';
 
+// DEPLOY CHECKLIST: Bump these prefixes when changing prompts/tailorId.js or prompts/tailorEn.js.
+// Current keys have no version suffix (legacy from initial deploy).
+// Next bump example: 'gen_id_v2_' / 'gen_en_v2_'
+const GEN_KEY_PREFIX_ID = 'gen_id_'; // bump to 'gen_id_v2_' after changing tailorId.js
+const GEN_KEY_PREFIX_EN = 'gen_en_'; // bump to 'gen_en_v2_' after changing tailorEn.js
+
 /**
  * Returns the first missing required section heading, 'too short' if the text
  * is under 200 chars, or null if the CV passes all checks.
@@ -35,7 +41,7 @@ export async function tailorCVID(cvText, jobDesc, env, mode = 'pdf', options = {
   const { issue, previewSample, previewAfter, entitasKlaim = null } = options;
 
   // KV cache keyed on raw content — post-processing is applied per-call (after cache read)
-  const genKey   = `gen_id_${await sha256Hex(cvText + '||' + jobDesc)}`;
+  const genKey   = `${GEN_KEY_PREFIX_ID}${await sha256Hex(cvText + '||' + jobDesc)}`;
   const cached   = await env.GASLAMAR_SESSIONS.get(genKey);
   let   baseText = cached;
 
@@ -110,7 +116,7 @@ Output hanya teks CV, tidak ada komentar atau penjelasan tambahan.`;
 export async function tailorCVEN(cvText, jobDesc, env, mode = 'pdf', options = {}) {
   const { previewSample, previewAfter, entitasKlaim = null } = options;
 
-  const genKey   = `gen_en_${await sha256Hex(cvText + '||' + jobDesc)}`;
+  const genKey   = `${GEN_KEY_PREFIX_EN}${await sha256Hex(cvText + '||' + jobDesc)}`;
   const cached   = await env.GASLAMAR_SESSIONS.get(genKey);
   let   baseText = cached;
 
