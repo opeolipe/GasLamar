@@ -368,11 +368,11 @@ export default function Download() {
           </div>
         )}
 
-        {view === 'generating' && (
+        {view === 'generating' && generate.status !== 'done' && (
           <div className="max-w-[720px] mx-auto">
             <GeneratingCV
               progress={generate.progress}
-              status={generate.status === 'done' ? 'done' : 'running'}
+              status="running"
               filename={filename}
               tier={tier}
               onCancel={handleCancelGeneration}

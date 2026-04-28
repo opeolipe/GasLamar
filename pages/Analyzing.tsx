@@ -27,7 +27,7 @@ interface ContentProps {
 }
 
 function AnalyzingContent({ cvData, jobDesc, filename }: ContentProps) {
-  const { progress, steps, timerText, error, isComplete, retry, cancel } = useAnalysis(cvData, jobDesc);
+  const { progress, steps, timerText, error, isFileError, isComplete, retry, cancel } = useAnalysis(cvData, jobDesc);
 
   useEffect(() => {
     if (!isComplete) return;
@@ -51,7 +51,7 @@ function AnalyzingContent({ cvData, jobDesc, filename }: ContentProps) {
       <UploadSteps currentStep={3} />
 
       {error
-        ? <AnalysisError message={error} onRetry={retry} />
+        ? <AnalysisError message={error} onRetry={retry} isFileError={isFileError} />
         : (
           <>
             <AnalysisProgress progress={progress} timerText={timerText} filename={filename} />
