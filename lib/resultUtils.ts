@@ -6,19 +6,26 @@ import type { ResultData, BuildResultInput }         from '@/types/result';
 // ── Data shape from /analyze response ──────────────────────────────────────
 
 export interface ScoringData {
-  skor:            number;
-  alasan_skor?:    string;
-  archetype?:      string;
-  veredict?:       'DO' | 'DO NOT' | 'TIMED';
-  timebox_weeks?:  number;
-  kekuatan?:       string[];
-  red_flags?:      string[];
-  gap?:            string[];
-  hr_7_detik?:     { kuat: string[]; diabaikan: string[] };
-  rekomendasi?:    string[];
-  skor_6d?:        Record<string, number>;
-  skor_sesudah?:   number;
-  konfidensitas?:  'Tinggi' | 'Sedang' | 'Rendah';
+  skor:                 number;
+  alasan_skor?:         string;
+  archetype?:           string;
+  veredict?:            'DO' | 'DO NOT' | 'TIMED';
+  timebox_weeks?:       number;
+  kekuatan?:            string[];
+  red_flags?:           string[];
+  gap?:                 string[];
+  hr_7_detik?:          { kuat: string[]; diabaikan: string[] };
+  rekomendasi?:         string[];
+  skor_6d?:             Record<string, number>;
+  skor_sesudah?:        number;
+  konfidensitas?:       'Tinggi' | 'Sedang' | 'Rendah';
+  // Role inference fields (Stage 2.5)
+  inferred_role?:        string;
+  inferred_confidence?:  number;
+  inferred_seniority?:   'junior' | 'mid' | 'senior';
+  inferred_industry?:    string;
+  primary_issue_dim?:    string;
+  jd_mode?:             'targeted' | 'inferred';
 }
 
 // ── Pricing ─────────────────────────────────────────────────────────────────

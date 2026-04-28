@@ -5,6 +5,8 @@ import { getSession, updateSession, deleteSession, verifySessionSecret } from '.
 import { tailorCVID, tailorCVEN } from '../tailoring.js';
 import { sendCVReadyEmail } from '../email.js';
 import { getSessionIdFromCookie } from '../cookies.js';
+import { getRoleProfile } from '../roleProfiles.js';
+import { isJDQualityHigh } from '../pipeline/roleInference.js';
 
 export async function handleGenerate(request, env, ctx) {
   const ip = clientIp(request);
@@ -99,7 +101,7 @@ export async function handleGenerate(request, env, ctx) {
     return jsonResponse({ message: 'Sesi tidak valid atau pembayaran belum dikonfirmasi' }, 403, request, env);
   }
 
-  const { cv_text, job_desc: storedJobDesc, tier } = session;
+  const { cv_text, job_desc: storedJobDesc, tier, inferred_role: inferredRole } = session;
   const effectiveJobDesc = (newJobDesc && newJobDesc.trim()) ? newJobDesc.trim() : storedJobDesc;
 
   if (!cv_text || !effectiveJobDesc || !tier) {
@@ -109,6 +111,13 @@ export async function handleGenerate(request, env, ctx) {
   // Credits: legacy sessions without the field get 1 (they paid for single use)
   const creditsRemaining = typeof session.credits_remaining === 'number' ? session.credits_remaining : 1;
   const isBilingual = tier !== 'coba';
+
+  // Role-aware tailoring mode:
+  //   'targeted'  — JD is rich enough; role profile not injected into prompt.
+  //   'inferred'  — JD is weak; role profile guides bullet emphasis and action verbs.
+  // We only inject the profile when confidence is available (session carries inferred_role).
+  const jdMode      = isJDQualityHigh(effectiveJobDesc) ? 'targeted' : 'inferred';
+  const roleProfile = jdMode === 'inferred' ? getRoleProfile(inferredRole) : null;
 
   // Session lock — prevent double-generation race condition
   const lockKey = `lock_${session_id}`;
@@ -122,7 +131,7 @@ export async function handleGenerate(request, env, ctx) {
     // Generate from KV data only — never from request body (except allowed job_desc override).
     // Run ID and EN tailoring in parallel to stay within Cloudflare's 30s wall-clock limit.
     // Sequential calls could reach 50s (2 × 25s Claude timeout) and hard-kill the Worker.
-    const tailorOpts = { issue: primaryIssue, previewSample, previewAfter, entitasKlaim };
+    const tailorOpts = { issue: primaryIssue, previewSample, previewAfter, entitasKlaim, roleProfile, jdMode };
     let idResult, enResult;
     if (isBilingual) {
       [idResult, enResult] = await Promise.all([
