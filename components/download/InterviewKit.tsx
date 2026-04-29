@@ -183,7 +183,7 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
         <div className="flex flex-col items-center py-8 text-center">
           <p className="text-sm text-red-600 mb-3">{error}</p>
           <button
-            onClick={() => { setKit(null); setRetryCount(c => c + 1); }}
+            onClick={() => setRetryCount(c => c + 1)}
             className="min-h-[44px] min-w-[44px] px-4 rounded-full text-sm font-semibold bg-red-50 border border-red-200 text-red-700 hover:bg-red-100 transition-colors"
           >
             Coba Lagi
