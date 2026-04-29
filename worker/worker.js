@@ -23,8 +23,19 @@
 import { getCorsHeaders, jsonResponse } from './src/cors.js';
 import { route } from './src/router.js';
 
+let coldStart = true;
+
 export default {
   async fetch(request, env, ctx) {
+    if (coldStart) {
+      coldStart = false;
+      console.log(JSON.stringify({
+        event: 'worker_cold_start',
+        environment: env.ENVIRONMENT ?? 'unknown',
+        ts: Date.now(),
+      }));
+    }
+
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, {
