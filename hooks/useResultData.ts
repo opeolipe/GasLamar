@@ -52,12 +52,15 @@ export function useResultData(): ResultDataState {
     // URL session must match storage
     if (urlSession && urlSession !== cvKeyVal) { fail('expired'); return; }
 
-    // All checks passed — consume from sessionStorage (security: keep in memory only)
-    sessionStorage.removeItem('gaslamar_scoring');
-    // Persist 6D scores separately so Download page can access them after scoring is consumed
+    // Persist 6D scores separately so Download page can access them (scoring key kept for refresh)
     if (parsed.skor_6d) {
       try { sessionStorage.setItem('gaslamar_6d_scores', JSON.stringify(parsed.skor_6d)); } catch (_) {}
     }
+
+    // Clear CV text fragments no longer needed on this page
+    ['gaslamar_cv_draft', 'gaslamar_sample_fallback'].forEach(k => {
+      try { sessionStorage.removeItem(k); } catch (_) {}
+    });
 
     // Analytics
     try {

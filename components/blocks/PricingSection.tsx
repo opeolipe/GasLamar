@@ -103,7 +103,7 @@ export default function PricingSection() {
 
             <a
               href="upload.html"
-              className={`w-full rounded-[14px] py-2.5 font-bold text-sm no-underline flex items-center justify-center transition-all hover:-translate-y-[1px] ${
+              className={`w-full rounded-[14px] min-h-[44px] py-2.5 font-bold text-sm no-underline flex items-center justify-center transition-all hover:-translate-y-[1px] ${
                 tier.featured
                   ? "text-white border-0"
                   : "bg-white text-blue-700 border border-blue-200"
