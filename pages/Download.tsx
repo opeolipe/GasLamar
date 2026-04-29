@@ -334,15 +334,19 @@ export default function Download() {
         {/* Delivery section — always rendered first when delivery exists in localStorage */}
         {delivery && (
           <div className="max-w-[480px] mx-auto mb-8">
-            <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
-              <h2 style={{ fontWeight: 700, fontSize: '1.15rem', color: '#0F172A', margin: '0 0 0.35rem' }}>
-                CV kamu sudah siap digunakan
-              </h2>
-              <p style={{ color: '#64748B', fontSize: '0.875rem', margin: 0 }}>
-                Email telah dikirim ke {delivery.email}
-              </p>
+            <div style={{ background: '#F8FAFC', border: '1px solid rgba(148,163,184,0.18)', borderRadius: 20, padding: '1.25rem 1.5rem' }}>
+              <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+                <h2 style={{ fontWeight: 700, fontSize: '1.15rem', color: '#0F172A', margin: '0 0 0.35rem' }}>
+                  CV kamu sudah siap digunakan
+                </h2>
+                <p style={{ color: '#64748B', fontSize: '0.875rem', margin: 0 }}>
+                  Email telah dikirim ke {delivery.email}
+                </p>
+              </div>
+              <div style={{ borderTop: '1px solid rgba(148,163,184,0.18)', paddingTop: '1rem' }}>
+                <ResendEmail sessionSecret={session?.sessionSecret ?? null} />
+              </div>
             </div>
-            <ResendEmail sessionSecret={session?.sessionSecret ?? null} />
           </div>
         )}
 

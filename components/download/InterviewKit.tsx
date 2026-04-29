@@ -62,20 +62,26 @@ function GroupLabel({ children }: { children: React.ReactNode }) {
 }
 
 export default function InterviewKit({ sessionSecret, isPreview = false, language = 'id', initialKit = null }: InterviewKitProps) {
-  const [kit, setKit]               = useState<InterviewKitData | null>(() =>
-    isValidKit(initialKit) ? initialKit : null
+  const [cache, setCache]           = useState<Partial<Record<'id' | 'en', InterviewKitData>>>(() =>
+    isValidKit(initialKit) ? { [language]: initialKit as InterviewKitData } : {}
   );
-  const [loading, setLoading]       = useState(kit === null);
-  const [error, setError]           = useState<string | null>(null);
   const [activeLang, setActiveLang] = useState<'id' | 'en'>(language);
+  const [loading, setLoading]       = useState(!isValidKit(initialKit));
+  const [error, setError]           = useState<string | null>(null);
   const [copiedKey, setCopiedKey]   = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const sessionSecretRef            = useRef(sessionSecret);
   sessionSecretRef.current          = sessionSecret;
 
+  const kit = cache[activeLang] ?? null;
+
   useEffect(() => {
-    // If we already have a kit from the generate response, no fetch needed
-    if (kit !== null && retryCount === 0) return;
+    // Already cached — show immediately, no fetch needed
+    if (cache[activeLang] !== undefined && retryCount === 0) {
+      setLoading(false);
+      setError(null);
+      return;
+    }
 
     let cancelled = false;
     setLoading(true);
@@ -103,7 +109,7 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
         if (!isValidKit(data.kit)) {
           throw new Error('Interview Kit tidak lengkap. Coba lagi.');
         }
-        setKit(data.kit);
+        setCache(prev => ({ ...prev, [activeLang]: data.kit }));
         setLoading(false);
       } catch (e: any) {
         clearTimeout(timeout);
@@ -121,12 +127,11 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
     return () => { cancelled = true; clearTimeout(timeout); ctrl.abort(); };
   }, [activeLang, retryCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // When language tab switches, refetch for the new language
   function handleLangSwitch(lang: 'id' | 'en') {
     if (lang === activeLang) return;
+    setError(null);
+    if (cache[lang] === undefined) setLoading(true);
     setActiveLang(lang);
-    setKit(null);
-    setLoading(true);
   }
 
   async function handleCopy(text: string, key: string) {
