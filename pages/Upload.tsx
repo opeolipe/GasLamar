@@ -307,6 +307,7 @@ export default function Upload() {
               fileSize={fileSize}
               error={fileError}
               cvReady={hasFile}
+              scanWarning={scanWarning}
               onFileSelect={handleFileSelect}
               onRemove={handleRemove}
             />
@@ -324,6 +325,7 @@ export default function Upload() {
           <SubmitSection
             isValid={isValid}
             isLoading={loading}
+            showJdHint={hasFile && jd.trim().length === 0}
             onSubmit={handleSubmit}
           />
         </div>
