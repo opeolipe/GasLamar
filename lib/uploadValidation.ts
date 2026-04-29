@@ -1,4 +1,6 @@
-export const WORKER_URL = 'https://gaslamar-worker.carolineratuolivia.workers.dev';
+export const WORKER_URL = (typeof window !== 'undefined' && window.location.hostname === 'staging.gaslamar.pages.dev')
+  ? 'https://gaslamar-worker-staging.carolineratuolivia.workers.dev'
+  : 'https://gaslamar-worker.carolineratuolivia.workers.dev';
 export const SANDBOX_WORKER_URL = 'https://gaslamar.carolineratuolivia.workers.dev';
 
 export const MAX_FILE_SIZE = 5 * 1024 * 1024;
