@@ -35,7 +35,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
       <div className="mb-3">
         {showFetcher ? (
           <UrlFetcher
-            onFetchSuccess={(text) => { onChange(text.slice(0, MAX_JD_CHARS)); setShowFetcher(false); }}
+            onFetchSuccess={(text) => { onChange((text ?? '').slice(0, MAX_JD_CHARS)); setShowFetcher(false); }}
             onClose={() => setShowFetcher(false)}
           />
         ) : (
