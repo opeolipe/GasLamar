@@ -11,7 +11,7 @@
  * CSRF SECURITY ASSESSMENT — no CSRF tokens needed:
  *
  *   1. CORS allowlist: Access-Control-Allow-Origin is set from a strict allowlist
- *      (ALLOWED_ORIGINS in constants.js — never '*'). Browsers block credentialed
+ *      (PRODUCTION_ORIGINS / STAGING_ORIGINS in constants.js — never '*'). Browsers block credentialed
  *      pre-flight responses from any other origin, so a cross-site attacker page
  *      cannot successfully send credentialed requests to this Worker.
  *

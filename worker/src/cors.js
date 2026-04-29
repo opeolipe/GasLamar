@@ -1,13 +1,16 @@
-import { ALLOWED_ORIGINS, DEV_ORIGINS } from './constants.js';
+import { PRODUCTION_ORIGINS, STAGING_ORIGINS } from './constants.js';
+
+function getAllowedOrigins(env) {
+  if (env.ENVIRONMENT === 'production') return PRODUCTION_ORIGINS;
+  if (env.ENVIRONMENT === 'staging') return STAGING_ORIGINS;
+  return [...PRODUCTION_ORIGINS, ...STAGING_ORIGINS];
+}
 
 export function getCorsHeaders(request, env) {
   const origin = request.headers.get('Origin') || '';
-  const allowed = env.ENVIRONMENT === 'production'
-    ? ALLOWED_ORIGINS
-    : [...ALLOWED_ORIGINS, ...DEV_ORIGINS];
+  const allowed = getAllowedOrigins(env);
 
-  const isAllowed = allowed.includes(origin) || origin.endsWith('.gaslamar.pages.dev');
-  const allowedOrigin = isAllowed ? origin : 'null';
+  const allowedOrigin = allowed.includes(origin) ? origin : 'null';
 
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
