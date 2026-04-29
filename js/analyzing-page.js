@@ -194,7 +194,7 @@ async function runAnalysis() {
     });
 
     let msg = err.message || 'Terjadi kesalahan. Coba lagi.';
-    if (err.name === 'TypeError' && err.message && err.message.includes('fetch')) {
+    if (err.name === 'TypeError') {
       msg = 'Tidak bisa terhubung ke server. Periksa koneksi internet kamu, lalu coba lagi.';
     } else if (isTimedOut || err.name === 'AbortError') {
       msg = 'Analisis memakan waktu terlalu lama. Coba lagi — PDF kadang membutuhkan waktu ekstra.';
