@@ -31,7 +31,7 @@ export default function AnalysisProgress({ progress, timerText, filename }: Prop
         </p>
       </div>
 
-      <div className="w-full bg-slate-100 rounded-full h-1.5 mt-5 mb-2 overflow-hidden">
+      <div className="w-full bg-slate-100 rounded-full h-3 mt-5 mb-2 overflow-hidden">
         <div
           className="h-full rounded-full"
           style={{
@@ -43,7 +43,7 @@ export default function AnalysisProgress({ progress, timerText, filename }: Prop
       </div>
 
       <p className="text-[0.78rem] text-slate-400 text-center font-medium py-1 tabular-nums">
-        {timerText}
+        {progress}% &nbsp;·&nbsp; {timerText}
       </p>
     </>
   );
