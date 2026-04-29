@@ -343,7 +343,7 @@ export default function DownloadReady({
               </ul>
             </div>
 
-            {/* 6D full breakdown */}
+            {/* 5D full breakdown */}
             {dimensions && Object.keys(dimensions).length > 0 && (
               <div className="rounded-[20px] p-5 mb-5" style={{ background: 'rgba(248,250,252,0.8)', border: '1px solid rgba(148,163,184,0.18)' }}>
                 <h4 className="font-semibold text-slate-900 mb-4" style={{ fontSize: '0.95rem' }}>

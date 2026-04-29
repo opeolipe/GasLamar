@@ -50,7 +50,7 @@ export default function ResultPreview() {
       <div className="relative z-[1] border-b p-6" style={{ borderColor: "rgba(148,163,184,0.18)", background: "linear-gradient(135deg,rgba(255,251,235,0.92),rgba(255,255,255,0.96))" }}>
         <div className="flex flex-wrap items-start gap-2 mb-3">
           <span className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Preview peluang interview</span>
-          <span className="inline-flex items-center rounded-full px-[10px] py-[5px] text-sm font-bold bg-amber-100 text-amber-900">6D ringkas</span>
+          <span className="inline-flex items-center rounded-full px-[10px] py-[5px] text-sm font-bold bg-amber-100 text-amber-900">5D ringkas</span>
         </div>
         <div className="mb-3">
           <span className="inline-flex items-center rounded-full px-[14px] py-[8px] text-sm font-extrabold bg-amber-100 text-amber-900">🔮 Status: TIMED</span>

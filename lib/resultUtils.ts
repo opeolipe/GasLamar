@@ -72,10 +72,11 @@ export const VERDICT_CONFIG = {
   },
 } as const;
 
-// ── 6D Dimensions ────────────────────────────────────────────────────────────
+// ── 5D Dimensions ────────────────────────────────────────────────────────────
 //
 // Display order matches emotional impact first, planning layer last.
-// portfolio → recruiter_signal → north_star → effort → opportunity_cost → risk
+// portfolio → recruiter_signal → north_star → effort → risk
+// (opportunity_cost is computed internally but omitted here — it's redundant with effort)
 
 export const DIM_LABELS: Record<string, { label: string; icon: string; desc: string; hint: string }> = {
   portfolio: {
@@ -102,12 +103,6 @@ export const DIM_LABELS: Record<string, { label: string; icon: string; desc: str
     desc:  'Seberapa cepat gap antara CV kamu dan job description ini bisa ditutup — berdasarkan jumlah dan jenis skill yang kurang.',
     hint:  'Semakin banyak skill yang kurang, semakin lama waktu yang dibutuhkan. Prioritaskan skill yang paling sering disebut di JD.',
   },
-  opportunity_cost: {
-    label: 'Biaya Peningkatan',
-    icon:  '💰',
-    desc:  'Estimasi investasi waktu dan usaha yang dibutuhkan untuk menutup seluruh gap skill antara CV kamu dan posisi ini.',
-    hint:  'Skor rendah berarti gap besar — pertimbangkan apakah timeline kamu realistis, atau cari posisi yang lebih sesuai dulu.',
-  },
   risk: {
     label: 'Relevansi Jangka Panjang',
     icon:  '🛡️',
@@ -116,9 +111,9 @@ export const DIM_LABELS: Record<string, { label: string; icon: string; desc: str
   },
 };
 
-// ── 6D Primary Issue ─────────────────────────────────────────────────────────
+// ── 5D Primary Issue ─────────────────────────────────────────────────────────
 
-export const HIGHLIGHT_PRIORITY = ['portfolio', 'recruiter_signal', 'north_star', 'effort', 'opportunity_cost', 'risk'] as const;
+export const HIGHLIGHT_PRIORITY = ['portfolio', 'recruiter_signal', 'north_star', 'effort', 'risk'] as const;
 export const HIGHLIGHT_THRESHOLD = 7;
 
 export function getPrimaryIssue(scores: Record<string, number>): string | null {

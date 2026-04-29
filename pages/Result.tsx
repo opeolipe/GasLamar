@@ -418,7 +418,7 @@ export default function Result() {
     }
   }
 
-  // 6D result data — computed once, reused across Sections 2, 3, 4
+  // 5D result data — computed once, reused across Sections 2, 3, 4
   const result6d = (data && data.skor_6d && Object.keys(data.skor_6d).length > 0)
     ? buildResultData({
         skor6d:       data.skor_6d!,
