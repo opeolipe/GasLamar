@@ -40,7 +40,10 @@ async function createEmailToken(env, sessionId) {
 
 export async function sendPaymentConfirmationEmail(sessionId, env) {
   const apiKey = env.RESEND_API_KEY;
-  if (!apiKey) return; // skip if not configured
+  if (!apiKey) {
+    console.warn(JSON.stringify({ event: 'resend_api_key_missing', session_id: sessionId }));
+    return;
+  }
 
   const session = await getSession(env, sessionId);
   if (!session || !session.email) return; // no email stored for this session
@@ -84,7 +87,7 @@ export async function sendPaymentConfirmationEmail(sessionId, env) {
       <p style="font-size:12px;color:#9CA3AF">Setelah membuka link, sesi kamu akan aktif selama ${validityText} di browser tersebut.</p>
     </div>`;
 
-  await fetch('https://api.resend.com/emails', {
+  const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -97,6 +100,12 @@ export async function sendPaymentConfirmationEmail(sessionId, env) {
       html,
     }),
   });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    console.error(JSON.stringify({ event: 'resend_api_error', status: res.status, body: body.slice(0, 300), session_id: sessionId }));
+    throw new Error(`Email gagal terkirim (Resend ${res.status})`);
+  }
+  console.log(JSON.stringify({ event: 'resend_email_sent', session_id: sessionId, to: session.email }));
 }
 
 // Sends a "CV siap" email after generation completes, with score badge + gaps + upsell.
@@ -104,7 +113,10 @@ export async function sendPaymentConfirmationEmail(sessionId, env) {
 // gaps: string[] top 3 gaps from analysis result
 export async function sendCVReadyEmail(sessionId, score, gaps, env) {
   const apiKey = env.RESEND_API_KEY;
-  if (!apiKey) return;
+  if (!apiKey) {
+    console.warn(JSON.stringify({ event: 'resend_api_key_missing', context: 'cv_ready', session_id: sessionId }));
+    return;
+  }
 
   const session = await getSession(env, sessionId);
   if (!session || !session.email) return;
@@ -151,7 +163,7 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
       <p style="font-size:12px;color:#9CA3AF">Link download berlaku 1 jam. Pertanyaan? Email ke <a href="mailto:support@gaslamar.com" style="color:#1B4FE8">support@gaslamar.com</a></p>
     </div>`;
 
-  await fetch('https://api.resend.com/emails', {
+  const cvRes = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -164,4 +176,10 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
       html,
     }),
   });
+  if (!cvRes.ok) {
+    const body = await cvRes.text().catch(() => '');
+    console.error(JSON.stringify({ event: 'resend_cv_ready_error', status: cvRes.status, body: body.slice(0, 300), session_id: sessionId }));
+    throw new Error(`CV ready email gagal terkirim (Resend ${cvRes.status})`);
+  }
+  console.log(JSON.stringify({ event: 'resend_cv_ready_sent', session_id: sessionId, to: session.email }));
 }

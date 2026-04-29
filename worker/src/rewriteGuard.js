@@ -70,13 +70,21 @@ const DOCX_MAX_HINTS    = 3;
 
 // SYNC: Must stay identical to shared/rewriteRules.js ISSUE_FALLBACK_SUFFIX.
 const ISSUE_FALLBACK = {
-  portfolio:        ' untuk menunjukkan dampak kerja secara lebih jelas',
-  recruiter_signal: ' dengan fokus yang lebih spesifik pada peran dan hasil',
-  north_star:       ' yang relevan dengan posisi yang ditargetkan',
+  portfolio:        ' untuk menunjukkan dampak kerja yang konkret dan terukur',
+  recruiter_signal: ' dengan fokus pada peran dan hasil yang spesifik',
+  north_star:       ' yang sesuai dengan kebutuhan posisi ini',
   effort:           ' dengan konteks skill yang dibutuhkan untuk role ini',
   risk:             ' menggunakan pendekatan yang masih relevan saat ini',
 };
-const GENERIC_FALLBACK_SUFFIX = ' dengan hasil yang lebih jelas dan terstruktur';
+const GENERIC_FALLBACK_SUFFIX = ' dengan hasil yang lebih konkret dan terukur';
+
+// Phrases that must never appear in final CV output — stripped as a last defence.
+const BANNED_OUTPUT_PHRASES = [
+  'dengan hasil yang lebih jelas dan terstruktur',
+  'yang relevan dengan posisi yang ditargetkan',
+  '[sebutkan angka nyata]',
+  '[angka nyata]',
+];
 
 // ── Metric helpers ────────────────────────────────────────────────────────────
 
@@ -320,6 +328,13 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
   // Step 1b: strip any remaining LLM placeholder brackets from ALL lines
   // (covers non-bulleted lines that are not processed by the per-bullet loop above)
   result = result.replace(/\[[^\]]{1,60}\]/g, '').replace(/[ \t]{2,}/g, ' ');
+
+  // Step 1c: strip banned output phrases (AI artifacts) that may have leaked from the LLM
+  for (const phrase of BANNED_OUTPUT_PHRASES) {
+    const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    result = result.replace(new RegExp(escaped, 'gi'), '');
+  }
+  result = result.replace(/[ \t]{2,}/g, ' ');
 
   // Step 2: force preview consistency — raise threshold to 0.6 to avoid wrong mapping
   if (previewSample && previewAfter) {

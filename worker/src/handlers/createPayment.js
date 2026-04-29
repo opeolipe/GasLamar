@@ -64,6 +64,14 @@ export async function handleCreatePayment(request, env) {
     ? await sha256Full(rawSecret)
     : null;
 
+  // Validate Mayar API key before creating a session (gives a clear 503 instead of a
+  // cryptic Mayar error when the secret is absent in staging/sandbox).
+  const mayarKey = env.ENVIRONMENT === 'production' ? env.MAYAR_API_KEY : env.MAYAR_API_KEY_SANDBOX;
+  if (!mayarKey) {
+    console.error(JSON.stringify({ event: 'create_payment_no_apikey', environment: env.ENVIRONMENT ?? 'sandbox' }));
+    return jsonResponse({ message: 'Layanan pembayaran sedang tidak tersedia. Hubungi support@gaslamar.com.' }, 503, request, env);
+  }
+
   try {
     // Redirect after payment completes — points to the right frontend per environment.
     // ENVIRONMENT = "staging"    → staging.gaslamar.pages.dev

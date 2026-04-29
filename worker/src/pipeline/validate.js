@@ -27,6 +27,9 @@ export function validateExtractOutput(parsed) {
   if (!cv.format_cv || typeof cv.format_cv !== 'object') {
     errors.push('cv.format_cv missing or not object');
   } else {
+    // LLM sometimes returns "true"/"false" strings — coerce them before type check
+    if (typeof cv.format_cv.satu_kolom === 'string') cv.format_cv.satu_kolom = cv.format_cv.satu_kolom === 'true';
+    if (typeof cv.format_cv.ada_tabel  === 'string') cv.format_cv.ada_tabel  = cv.format_cv.ada_tabel  === 'true';
     if (typeof cv.format_cv.satu_kolom !== 'boolean') errors.push('cv.format_cv.satu_kolom must be boolean');
     if (typeof cv.format_cv.ada_tabel  !== 'boolean') errors.push('cv.format_cv.ada_tabel must be boolean');
   }

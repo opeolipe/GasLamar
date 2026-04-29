@@ -102,7 +102,7 @@ function PostDownloadCard({ creditsRemaining, onDismiss, onScrollToMulti, onShow
         </button>
         <div className="font-bold text-slate-900 mb-1 pr-6">🎯 Lamaran pertama sudah siap!</div>
         <p className="text-sm text-slate-600 mb-4">
-          Kamu masih punya <strong>{creditsRemaining} kredit</strong> tersisa. Tailor CV untuk loker lain — scroll ke atas dan masukkan job description baru.
+          Kamu masih punya <strong>{creditsRemaining} kredit</strong> tersisa. Tailor CV untuk loker lain — masukkan job description baru di bawah.
         </p>
         <button
           onClick={onScrollToMulti}
