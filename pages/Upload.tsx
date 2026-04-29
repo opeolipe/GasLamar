@@ -307,6 +307,7 @@ export default function Upload() {
               fileSize={fileSize}
               error={fileError}
               cvReady={hasFile}
+              scanWarning={scanWarning}
               onFileSelect={handleFileSelect}
               onRemove={handleRemove}
             />
@@ -324,6 +325,7 @@ export default function Upload() {
           <SubmitSection
             isValid={isValid}
             isLoading={loading}
+            showJdHint={hasFile && jd.trim().length === 0}
             onSubmit={handleSubmit}
           />
         </div>
@@ -340,6 +342,8 @@ export default function Upload() {
         <a href="privacy.html" className="text-slate-400 underline hover:text-slate-600 mx-2">Kebijakan Privasi</a>
         ·
         <a href="terms.html" className="text-slate-400 underline hover:text-slate-600 mx-2">Syarat Layanan</a>
+        ·
+        <a href="accessibility.html" className="text-slate-400 underline hover:text-slate-600 mx-2">Aksesibilitas</a>
       </footer>
     </div>
   );

@@ -19,6 +19,18 @@ interface InterviewKitProps {
   initialKit?: unknown | null;
 }
 
+function isValidKit(v: unknown): v is InterviewKitData {
+  if (!v || typeof v !== 'object') return false;
+  const k = v as Record<string, unknown>;
+  return (
+    Array.isArray(k.job_insights) &&
+    k.email_template !== null && k.email_template !== undefined && typeof k.email_template === 'object' &&
+    typeof k.whatsapp_message === 'string' &&
+    typeof k.tell_me_about_yourself === 'string' &&
+    Array.isArray(k.interview_questions)
+  );
+}
+
 function CopyButton({ text, copyKey, copiedKey, onCopy }: {
   text: string;
   copyKey: string;
@@ -50,21 +62,26 @@ function GroupLabel({ children }: { children: React.ReactNode }) {
 }
 
 export default function InterviewKit({ sessionSecret, isPreview = false, language = 'id', initialKit = null }: InterviewKitProps) {
-  const [kit, setKit]               = useState<InterviewKitData | null>(() => {
-    if (initialKit && typeof initialKit === 'object') return initialKit as InterviewKitData;
-    return null;
-  });
-  const [loading, setLoading]       = useState(kit === null);
-  const [error, setError]           = useState<string | null>(null);
+  const [cache, setCache]           = useState<Partial<Record<'id' | 'en', InterviewKitData>>>(() =>
+    isValidKit(initialKit) ? { [language]: initialKit as InterviewKitData } : {}
+  );
   const [activeLang, setActiveLang] = useState<'id' | 'en'>(language);
+  const [loading, setLoading]       = useState(!isValidKit(initialKit));
+  const [error, setError]           = useState<string | null>(null);
   const [copiedKey, setCopiedKey]   = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const sessionSecretRef            = useRef(sessionSecret);
   sessionSecretRef.current          = sessionSecret;
 
+  const kit = cache[activeLang] ?? null;
+
   useEffect(() => {
-    // If we already have a kit from the generate response, no fetch needed
-    if (kit !== null && retryCount === 0) return;
+    // Already cached — show immediately, no fetch needed
+    if (cache[activeLang] !== undefined && retryCount === 0) {
+      setLoading(false);
+      setError(null);
+      return;
+    }
 
     let cancelled = false;
     setLoading(true);
@@ -88,13 +105,18 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
           throw new Error((data as any).message || 'Gagal menghasilkan Interview Kit.');
         }
         const data = await res.json();
-        if (!cancelled) { setKit(data.kit); setLoading(false); }
+        if (cancelled) return;
+        if (!isValidKit(data.kit)) {
+          throw new Error('Interview Kit tidak lengkap. Coba lagi.');
+        }
+        setCache(prev => ({ ...prev, [activeLang]: data.kit }));
+        setLoading(false);
       } catch (e: any) {
         clearTimeout(timeout);
         if (cancelled) return;
         const msg = e?.name === 'AbortError'
           ? 'Interview Kit timeout. Coba lagi.'
-          : 'Interview Kit belum tersedia. Coba lagi.';
+          : (e?.message || 'Interview Kit belum tersedia. Coba lagi.');
         logError('interview_kit_failed', { message: e?.message });
         setError(msg);
         setLoading(false);
@@ -105,12 +127,11 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
     return () => { cancelled = true; clearTimeout(timeout); ctrl.abort(); };
   }, [activeLang, retryCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // When language tab switches, refetch for the new language
   function handleLangSwitch(lang: 'id' | 'en') {
     if (lang === activeLang) return;
+    setError(null);
+    if (cache[lang] === undefined) setLoading(true);
     setActiveLang(lang);
-    setKit(null);
-    setLoading(true);
   }
 
   async function handleCopy(text: string, key: string) {
@@ -179,7 +200,7 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
 
           {/* Email Template */}
           <AccordionItem value="item-email" className="border border-slate-100 rounded-[14px] mb-2 overflow-hidden">
-            <AccordionTrigger className="px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+            <AccordionTrigger className="min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
               Email Lamaran
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">
@@ -198,7 +219,7 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
 
           {/* WhatsApp */}
           <AccordionItem value="item-whatsapp" className="border border-slate-100 rounded-[14px] mb-2 overflow-hidden">
-            <AccordionTrigger className="px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+            <AccordionTrigger className="min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
               Pesan WhatsApp
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">
@@ -214,7 +235,7 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
 
           {/* Tell Me About Yourself */}
           <AccordionItem value="item-tmay" className="border border-slate-100 rounded-[14px] mb-2 overflow-hidden">
-            <AccordionTrigger className="px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+            <AccordionTrigger className="min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
               "Tell Me About Yourself"
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">
@@ -234,7 +255,7 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
 
           {/* Interview Questions */}
           <AccordionItem value="item-questions" className="border border-slate-100 rounded-[14px] mb-2 overflow-hidden">
-            <AccordionTrigger className="px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+            <AccordionTrigger className="min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
               Pertanyaan Interview ({kit.interview_questions.length})
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">
@@ -287,7 +308,7 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
 
           {/* Job Description Analysis */}
           <AccordionItem value="item-insights" className="border border-slate-100 rounded-[14px] mb-2 overflow-hidden">
-            <AccordionTrigger className="px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+            <AccordionTrigger className="min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
               Analisis Job Description
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">

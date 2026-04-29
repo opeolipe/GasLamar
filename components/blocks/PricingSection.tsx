@@ -14,21 +14,27 @@ const TIERS: Tier[] = [
     name: "Coba Dulu",
     price: "Rp 29k",
     desc: "Analisis gratis dulu. Kalau lanjut rewrite, hasil aktif 7 hari.",
-    features: ["Analisis awal gratis", "Gap analysis utama", "Hasil rewrite aktif 7 hari"],
+    features: ["Analisis awal gratis", "Gap analysis utama", "Rewrite 1 CV (Bahasa Indonesia)", "Hasil aktif 7 hari"],
   },
   {
     name: "Single",
     price: "Rp 59k",
     desc: "Analisis gratis dulu. Kalau lanjut rewrite, hasil aktif 7 hari.",
-    features: ["Perbaikan 8 bagian utama CV (Experience, Skills, Summary, dll)", "Rewrite langsung dari CV kamu (bukan template)", "Siap kirim ke HR (ATS-friendly)"],
+    features: ["Perbaikan 8 bagian utama CV", "Rewrite langsung dari CV kamu (bukan template)", "Versi ID + EN", "Siap kirim ke HR (ATS-friendly)"],
   },
   {
-    name: "3-Pack / Job Hunt",
-    price: "Rp 149k – Rp 299k",
-    desc: "Untuk lamaran lebih banyak, dengan hasil rewrite aktif 30 hari.",
+    name: "3-Pack",
+    price: "Rp 149k",
+    desc: "Untuk 3 posisi berbeda, dengan hasil rewrite aktif 30 hari.",
     badge: "Paling dipilih",
     featured: true,
-    features: ["3-Pack: 3 CV tailored ID + EN", "Job Hunt: 10 CV tailored ID + EN", "Siap kirim ke HR (ATS-friendly)"],
+    features: ["3 CV tailored ID + EN", "Rewrite langsung dari CV kamu (bukan template)", "Siap kirim ke HR (ATS-friendly)"],
+  },
+  {
+    name: "Job Hunt Pack",
+    price: "Rp 299k",
+    desc: "Untuk job hunt intensif, dengan hasil rewrite aktif 30 hari.",
+    features: ["10 CV tailored ID + EN", "Rewrite langsung dari CV kamu (bukan template)", "Siap kirim ke HR (ATS-friendly)"],
   },
 ];
 
@@ -63,7 +69,7 @@ export default function PricingSection() {
       </p>
 
       {/* Pricing cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {TIERS.map((tier) => (
           <div
             key={tier.name}
@@ -103,7 +109,7 @@ export default function PricingSection() {
 
             <a
               href="upload.html"
-              className={`w-full rounded-[14px] py-2.5 font-bold text-sm no-underline flex items-center justify-center transition-all hover:-translate-y-[1px] ${
+              className={`w-full rounded-[14px] min-h-[44px] py-2.5 font-bold text-sm no-underline flex items-center justify-center transition-all hover:-translate-y-[1px] ${
                 tier.featured
                   ? "text-white border-0"
                   : "bg-white text-blue-700 border border-blue-200"

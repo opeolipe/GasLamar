@@ -19,6 +19,13 @@ export default function FooterSection() {
         >
           Syarat Layanan
         </a>
+        <span className="text-slate-300" aria-hidden="true">•</span>
+        <a
+          href="https://gaslamar.com/accessibility.html"
+          className="text-slate-400 hover:text-slate-700 underline-offset-2 hover:underline"
+        >
+          Aksesibilitas
+        </a>
       </p>
     </footer>
   );

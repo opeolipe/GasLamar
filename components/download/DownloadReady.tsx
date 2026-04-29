@@ -65,17 +65,21 @@ interface DownloadButtonProps {
   onClick:  () => void;
 }
 
-function DownloadButton({ label, size, ariaLabel, onClick }: DownloadButtonProps) {
+function DownloadButton({ fmt, label, size, ariaLabel, onClick }: DownloadButtonProps) {
+  const primary = fmt === 'docx';
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      className="w-full min-h-[44px] rounded-full flex items-center justify-between px-4 py-2 text-sm font-medium transition-all hover:translate-x-1"
-      style={{ background: 'white', border: '1px solid rgba(37,99,235,0.2)', color: '#1E3A8A' }}
+      className="w-full min-h-[44px] rounded-full flex items-center justify-between px-4 py-2 text-sm font-semibold transition-all hover:translate-x-1"
+      style={primary
+        ? { background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', border: 'none', color: 'white', boxShadow: '0 4px 14px rgba(37,99,235,0.28)' }
+        : { background: 'white', border: '1px solid rgba(37,99,235,0.2)', color: '#1E3A8A' }
+      }
     >
       <span>{label}</span>
-      <span className="text-xs text-slate-400">{size}</span>
+      <span className={`text-xs ${primary ? 'text-blue-200' : 'text-slate-400'}`}>{size}</span>
     </button>
   );
 }
@@ -102,7 +106,7 @@ function PostDownloadCard({ creditsRemaining, onDismiss, onScrollToMulti, onShow
         </button>
         <div className="font-bold text-slate-900 mb-1 pr-6">🎯 Lamaran pertama sudah siap!</div>
         <p className="text-sm text-slate-600 mb-4">
-          Kamu masih punya <strong>{creditsRemaining} kredit</strong> tersisa. Tailor CV untuk loker lain — scroll ke atas dan masukkan job description baru.
+          Kamu masih punya <strong>{creditsRemaining} kredit</strong> tersisa. Tailor CV untuk loker lain — masukkan job description baru di bawah.
         </p>
         <button
           onClick={onScrollToMulti}
@@ -343,7 +347,7 @@ export default function DownloadReady({
               </ul>
             </div>
 
-            {/* 6D full breakdown */}
+            {/* 5D full breakdown */}
             {dimensions && Object.keys(dimensions).length > 0 && (
               <div className="rounded-[20px] p-5 mb-5" style={{ background: 'rgba(248,250,252,0.8)', border: '1px solid rgba(148,163,184,0.18)' }}>
                 <h4 className="font-semibold text-slate-900 mb-4" style={{ fontSize: '0.95rem' }}>

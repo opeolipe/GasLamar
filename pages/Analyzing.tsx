@@ -27,7 +27,8 @@ interface ContentProps {
 }
 
 function AnalyzingContent({ cvData, jobDesc, filename }: ContentProps) {
-  const { progress, steps, timerText, error, isComplete, retry, cancel } = useAnalysis(cvData, jobDesc);
+  const { progress, steps, timerText, error, isFileError, isComplete, retry, cancel } = useAnalysis(cvData, jobDesc);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
     if (!isComplete) return;
@@ -35,8 +36,7 @@ function AnalyzingContent({ cvData, jobDesc, filename }: ContentProps) {
     return () => clearTimeout(t);
   }, [isComplete]);
 
-  function handleBack() {
-    if (!window.confirm('Batalkan analisis dan kembali ke halaman upload? Data tidak akan tersimpan.')) return;
+  function confirmBack() {
     cancel();
     try {
       sessionStorage.removeItem('gaslamar_cv_pending');
@@ -51,19 +51,42 @@ function AnalyzingContent({ cvData, jobDesc, filename }: ContentProps) {
       <UploadSteps currentStep={3} />
 
       {error
-        ? <AnalysisError message={error} onRetry={retry} />
+        ? <AnalysisError message={error} onRetry={retry} isFileError={isFileError} />
         : (
           <>
             <AnalysisProgress progress={progress} timerText={timerText} filename={filename} />
             <StepList steps={steps} />
             <TrustRotator />
             <div className="text-center mt-2">
-              <button
-                onClick={handleBack}
-                className="text-slate-400 hover:text-slate-700 text-[0.8rem] inline-flex items-center gap-1.5 transition-colors min-h-[44px] px-3 cursor-pointer bg-transparent border-none font-[inherit]"
-              >
-                ← Ubah CV atau job
-              </button>
+              {showConfirm ? (
+                <div className="inline-flex flex-col items-center gap-2">
+                  <p className="text-[0.8rem] text-slate-600 font-medium">
+                    Yakin ingin keluar? Analisis akan dibatalkan.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={confirmBack}
+                      className="min-h-[36px] px-4 rounded-full text-[0.8rem] font-semibold text-white border-0 cursor-pointer transition-all hover:-translate-y-[1px]"
+                      style={{ background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)' }}
+                    >
+                      Ya, keluar
+                    </button>
+                    <button
+                      onClick={() => setShowConfirm(false)}
+                      className="min-h-[36px] px-4 rounded-full text-[0.8rem] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 border-0 cursor-pointer transition-colors"
+                    >
+                      Tidak
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowConfirm(true)}
+                  className="text-slate-400 hover:text-slate-700 text-[0.8rem] inline-flex items-center gap-1.5 transition-colors min-h-[44px] px-3 cursor-pointer bg-transparent border-none font-[inherit]"
+                >
+                  ← Ubah CV atau job
+                </button>
+              )}
             </div>
           </>
         )

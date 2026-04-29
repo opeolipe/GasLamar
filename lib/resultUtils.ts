@@ -6,19 +6,26 @@ import type { ResultData, BuildResultInput }         from '@/types/result';
 // ── Data shape from /analyze response ──────────────────────────────────────
 
 export interface ScoringData {
-  skor:            number;
-  alasan_skor?:    string;
-  archetype?:      string;
-  veredict?:       'DO' | 'DO NOT' | 'TIMED';
-  timebox_weeks?:  number;
-  kekuatan?:       string[];
-  red_flags?:      string[];
-  gap?:            string[];
-  hr_7_detik?:     { kuat: string[]; diabaikan: string[] };
-  rekomendasi?:    string[];
-  skor_6d?:        Record<string, number>;
-  skor_sesudah?:   number;
-  konfidensitas?:  'Tinggi' | 'Sedang' | 'Rendah';
+  skor:                 number;
+  alasan_skor?:         string;
+  archetype?:           string;
+  veredict?:            'DO' | 'DO NOT' | 'TIMED';
+  timebox_weeks?:       number;
+  kekuatan?:            string[];
+  red_flags?:           string[];
+  gap?:                 string[];
+  hr_7_detik?:          { kuat: string[]; diabaikan: string[] };
+  rekomendasi?:         string[];
+  skor_6d?:             Record<string, number>;
+  skor_sesudah?:        number;
+  konfidensitas?:       'Tinggi' | 'Sedang' | 'Rendah';
+  // Role inference fields (Stage 2.5)
+  inferred_role?:        string;
+  inferred_confidence?:  number;
+  inferred_seniority?:   'junior' | 'mid' | 'senior';
+  inferred_industry?:    string;
+  primary_issue_dim?:    string;
+  jd_mode?:             'targeted' | 'inferred';
 }
 
 // ── Pricing ─────────────────────────────────────────────────────────────────
@@ -65,16 +72,11 @@ export const VERDICT_CONFIG = {
   },
 } as const;
 
-// ── 6D Dimensions ────────────────────────────────────────────────────────────
+// ── 5D Dimensions ────────────────────────────────────────────────────────────
 //
-// opportunity_cost is intentionally excluded here — it is 100% derived from
-// effort (opportunity_cost = effort < 5 ? 5 : 10) and therefore carries no
-// independent user-facing signal. The backend still computes and includes it
-// in the skor total; we simply don't display it as a separate dimension.
-//
-// Display order is intentional: emotional impact first, planning layer last.
+// Display order matches emotional impact first, planning layer last.
 // portfolio → recruiter_signal → north_star → effort → risk
-// (biggest "aha" moments up front, future/context at the bottom)
+// (opportunity_cost is computed internally but omitted here — it's redundant with effort)
 
 export const DIM_LABELS: Record<string, { label: string; icon: string; desc: string; hint: string }> = {
   portfolio: {
@@ -109,7 +111,7 @@ export const DIM_LABELS: Record<string, { label: string; icon: string; desc: str
   },
 };
 
-// ── 6D Primary Issue ─────────────────────────────────────────────────────────
+// ── 5D Primary Issue ─────────────────────────────────────────────────────────
 
 export const HIGHLIGHT_PRIORITY = ['portfolio', 'recruiter_signal', 'north_star', 'effort', 'risk'] as const;
 export const HIGHLIGHT_THRESHOLD = 7;

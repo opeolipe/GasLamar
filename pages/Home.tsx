@@ -25,6 +25,14 @@ export default function Home() {
       className="min-h-screen text-gray-900 font-sans"
       style={{ background: "radial-gradient(ellipse 80% 50% at 50% -20%,rgba(37,99,235,0.08),transparent)" }}
     >
+      {/* Skip link — visible on keyboard focus only */}
+      <a
+        href="#main-content"
+        className="absolute left-[-9999px] top-0 z-[9999] bg-slate-900 text-white px-4 py-2 text-sm font-semibold rounded-br-lg focus:left-0"
+      >
+        Langsung ke konten utama
+      </a>
+
       {/* Navbar */}
       <nav
         className="border-b py-4 px-6 flex items-center justify-between sticky top-0 z-50 backdrop-blur-[14px]"
@@ -42,7 +50,7 @@ export default function Home() {
         </a>
       </nav>
 
-      <main className="max-w-screen-xl mx-auto px-6">
+      <main id="main-content" className="max-w-screen-xl mx-auto px-6">
         {/* Hero */}
         <section className="py-12 lg:py-16">
           <HeroUpload />

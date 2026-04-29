@@ -5,11 +5,12 @@ interface Props {
   fileSize:     string | null;
   error:        string;
   cvReady:      boolean;
+  scanWarning:  boolean;
   onFileSelect: (file: File) => void;
   onRemove:     () => void;
 }
 
-export default function CvDropzone({ fileName, fileSize, error, cvReady, onFileSelect, onRemove }: Props) {
+export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWarning, onFileSelect, onRemove }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   function onDragOver(e: React.DragEvent) {
@@ -91,13 +92,19 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, onFileS
         />
       </div>
 
-      <p className="text-xs text-slate-400 mt-2">Gunakan CV berbentuk teks agar hasil lebih akurat</p>
+      <p className="text-xs text-slate-400 mt-2">Pastikan CV kamu berisi teks yang bisa di-copy (bukan hasil scan/foto) untuk hasil analisis terbaik.</p>
+
+      {scanWarning && (
+        <div className="mt-2 rounded-[10px] px-3 py-2.5 text-xs font-medium bg-amber-50 border border-amber-200 text-amber-800">
+          ⚠️ PDF ini sepertinya hasil scan atau gambar — teks tidak bisa dibaca. Coba upload versi DOCX atau PDF yang bisa di-copy.
+        </div>
+      )}
 
       {error && (
         <p className="text-xs text-red-600 mt-2">{error}</p>
       )}
 
-      {!error && fileName && cvReady && (
+      {!error && !scanWarning && fileName && cvReady && (
         <p className="text-xs text-emerald-600 mt-2">✓ CV siap dianalisis</p>
       )}
     </div>

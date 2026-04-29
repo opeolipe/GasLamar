@@ -8,6 +8,7 @@ import { calculateScores, computeSkor, determineVeredict, computeSkorSesudah } f
 import { validateExtractOutput, validateDiagnoseOutput } from '../src/pipeline/validate.js';
 import { detectArchetype } from '../src/pipeline/archetypes.js';
 import { addsNewNumbers, addsNewClaims, validateRewrite, postProcessCV } from '../src/rewriteGuard.js';
+import { inferRole, applyRoleWeights, computePrimaryIssue, isJDQualityHigh } from '../src/pipeline/roleInference.js';
 
 // ── Fixture helpers ───────────────────────────────────────────────────────────
 
@@ -607,5 +608,192 @@ describe('postProcessCV', () => {
     const cv = `WORK EXPERIENCE\n${bullet}`;
     const { text } = postProcessCV(cv, cv, null, 'docx', { language: 'en' });
     expect(text).toContain('note: add concrete results');
+  });
+});
+
+// ── Role inference ────────────────────────────────────────────────────────────
+
+function makeExtracted(overrides = {}) {
+  return {
+    cv: {
+      skills_mentah:     overrides.skills_mentah     ?? '',
+      pengalaman_mentah: overrides.pengalaman_mentah ?? '',
+      angka_di_cv:       overrides.angka_di_cv       ?? 'NOL ANGKA',
+      format_cv: { satu_kolom: true, ada_tabel: false },
+      sertifikat: 'TIDAK ADA',
+    },
+    jd: {
+      judul_role:        overrides.judul_role        ?? '',
+      industri:          overrides.industri          ?? 'UMUM',
+      skills_diminta:    overrides.skills_diminta    ?? [],
+      pengalaman_minimal: null,
+    },
+  };
+}
+
+function makeAnalysis(yearsExp = null) {
+  return { experience_years: yearsExp };
+}
+
+describe('inferRole', () => {
+  it('detects customer_service from skills and experience text', () => {
+    const ext = makeExtracted({
+      skills_mentah:     'komunikasi pelayanan pelanggan',
+      pengalaman_mentah: 'Flight Attendant Sriwijaya Air passenger service customer handling',
+      judul_role:        'Customer Service',
+    });
+    const result = inferRole(ext, makeAnalysis(5));
+    expect(result.role).toBe('customer_service');
+    expect(result.confidence).toBeGreaterThan(0);
+  });
+
+  it('detects engineering from skills text', () => {
+    const ext = makeExtracted({
+      skills_mentah:     'JavaScript React Node.js SQL developer backend',
+      pengalaman_mentah: 'Software Engineer PT XYZ 2020-2024',
+      judul_role:        'Software Engineer',
+    });
+    const result = inferRole(ext, makeAnalysis(4));
+    expect(result.role).toBe('engineering');
+  });
+
+  it('detects sales from pengalaman text', () => {
+    const ext = makeExtracted({
+      skills_mentah:     'negotiation presentation',
+      pengalaman_mentah: 'Sales Consultant achieving revenue target closing deals penjualan',
+      judul_role:        'Sales Manager',
+    });
+    const result = inferRole(ext, makeAnalysis(6));
+    expect(result.role).toBe('sales');
+  });
+
+  it('returns confidence = 0 when no keywords match', () => {
+    const ext = makeExtracted({
+      skills_mentah:     '',
+      pengalaman_mentah: '',
+      judul_role:        '',
+    });
+    const result = inferRole(ext, makeAnalysis(null));
+    expect(result.confidence).toBe(0);
+  });
+
+  it('seniority: senior when years >= 9', () => {
+    const ext = makeExtracted({ pengalaman_mentah: 'Data Analyst 2010-2024' });
+    expect(inferRole(ext, makeAnalysis(13)).seniority).toBe('senior');
+  });
+
+  it('seniority: senior from title keyword', () => {
+    const ext = makeExtracted({ pengalaman_mentah: 'Senior Manager Finance 2018-2024' });
+    expect(inferRole(ext, makeAnalysis(3)).seniority).toBe('senior');
+  });
+
+  it('seniority: mid when 4 <= years < 9', () => {
+    const ext = makeExtracted({ pengalaman_mentah: 'Marketing Specialist 2019-2024' });
+    expect(inferRole(ext, makeAnalysis(5)).seniority).toBe('mid');
+  });
+
+  it('seniority: junior when years < 4 and no senior/mid title', () => {
+    const ext = makeExtracted({ pengalaman_mentah: 'Staff Admin 2022-2024' });
+    expect(inferRole(ext, makeAnalysis(2)).seniority).toBe('junior');
+  });
+
+  it('uses JD industri when specific', () => {
+    const ext = makeExtracted({ industri: 'Aviation' });
+    expect(inferRole(ext, makeAnalysis(null)).industry).toBe('Aviation');
+  });
+
+  it('falls back to General when industri is UMUM', () => {
+    const ext = makeExtracted({ industri: 'UMUM' });
+    expect(inferRole(ext, makeAnalysis(null)).industry).toBe('General');
+  });
+});
+
+describe('applyRoleWeights', () => {
+  const raw = { north_star: 6, recruiter_signal: 5, effort: 8, opportunity_cost: 8, risk: 5, portfolio: 4 };
+
+  it('returns unchanged scores when roleProfile is null', () => {
+    const weighted = applyRoleWeights(raw, null);
+    expect(weighted).toEqual(raw);
+  });
+
+  it('applies weight bias from profile', () => {
+    const profile = {
+      weightBias: { north_star: 1.2, recruiter_signal: 1.0, effort: 0.9, opportunity_cost: 0.8, risk: 1.0, portfolio: 1.3 },
+    };
+    const weighted = applyRoleWeights(raw, profile);
+    expect(weighted.north_star).toBeCloseTo(6 * 1.2, 1);
+    expect(weighted.portfolio).toBeCloseTo(4 * 1.3, 1);
+    expect(weighted.effort).toBeCloseTo(8 * 0.9, 1);
+  });
+
+  it('clamps weighted score to 10', () => {
+    const profile = { weightBias: { north_star: 2.0, recruiter_signal: 1.0, effort: 1.0, opportunity_cost: 1.0, risk: 1.0, portfolio: 1.0 } };
+    const weighted = applyRoleWeights({ ...raw, north_star: 9 }, profile);
+    expect(weighted.north_star).toBe(10);
+  });
+
+  it('clamps weighted score to 0', () => {
+    const profile = { weightBias: { north_star: 0, recruiter_signal: 1.0, effort: 1.0, opportunity_cost: 1.0, risk: 1.0, portfolio: 1.0 } };
+    const weighted = applyRoleWeights(raw, profile);
+    expect(weighted.north_star).toBe(0);
+  });
+});
+
+describe('computePrimaryIssue', () => {
+  it('returns the dimension with the lowest score', () => {
+    const scores = { north_star: 8, recruiter_signal: 3, effort: 9, opportunity_cost: 2, risk: 7, portfolio: 5 };
+    // opportunity_cost excluded; recruiter_signal (3) is the lowest eligible
+    expect(computePrimaryIssue(scores)).toBe('recruiter_signal');
+  });
+
+  it('never returns opportunity_cost', () => {
+    const scores = { north_star: 5, recruiter_signal: 5, effort: 5, opportunity_cost: 1, risk: 5, portfolio: 5 };
+    expect(computePrimaryIssue(scores)).not.toBe('opportunity_cost');
+  });
+
+  it('returns portfolio when it is lowest eligible', () => {
+    const scores = { north_star: 7, recruiter_signal: 7, effort: 7, opportunity_cost: 1, risk: 7, portfolio: 2 };
+    expect(computePrimaryIssue(scores)).toBe('portfolio');
+  });
+});
+
+describe('isJDQualityHigh', () => {
+  it('returns true for a long JD with structure keywords', () => {
+    // > 80 words + structure keywords (requirements, responsibilities, qualifications)
+    const jd =
+      'We are looking for a motivated and experienced professional to join our growing team in Jakarta. ' +
+      'Requirements: minimum three years of relevant work experience in a similar role, strong analytical skills. ' +
+      'Key responsibilities include managing day-to-day customer relationships, coordinating with cross-functional teams, ' +
+      'preparing weekly progress reports, and presenting results to senior management on a monthly basis. ' +
+      'Qualifications: Bachelor degree in any field, excellent communication skills in English and Indonesian, ' +
+      'a problem-solving mindset, ability to work under pressure and meet tight deadlines consistently.';
+    expect(isJDQualityHigh(jd)).toBe(true);
+  });
+
+  it('returns false for short text even with keywords', () => {
+    expect(isJDQualityHigh('Requirements: must have SQL skills')).toBe(false);
+  });
+
+  it('returns false for long text without structure keywords', () => {
+    const jd = 'We are a fast-growing startup in Jakarta. We value innovation and teamwork. '
+      + 'Our culture is collaborative and dynamic. We offer competitive salary and benefits. '
+      + 'Join us and make a difference in the world of technology and business growth opportunities.';
+    expect(isJDQualityHigh(jd)).toBe(false);
+  });
+
+  it('returns false for empty string', () => {
+    expect(isJDQualityHigh('')).toBe(false);
+  });
+
+  it('handles Indonesian structure keywords', () => {
+    // > 80 words + Indonesian structure keywords (syarat, tanggung jawab, kualifikasi, kemampuan)
+    const jd =
+      'Kami sedang mencari kandidat yang berpengalaman dan bersemangat untuk bergabung dengan tim kami di Jakarta. ' +
+      'Syarat: pengalaman kerja minimal 2 tahun di bidang yang relevan, pendidikan minimal S1 dari semua jurusan. ' +
+      'Tanggung jawab meliputi pengelolaan operasional tim harian, koordinasi aktif dengan departemen lain, ' +
+      'serta pelaporan hasil kerja kepada manajemen setiap minggu secara terstruktur dan tepat waktu. ' +
+      'Kualifikasi tambahan: kemampuan komunikasi lisan dan tulisan yang baik dalam Bahasa Indonesia dan Inggris, ' +
+      'mampu bekerja di bawah tekanan, memiliki inisiatif tinggi dan semangat belajar yang kuat.';
+    expect(isJDQualityHigh(jd)).toBe(true);
   });
 });

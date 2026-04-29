@@ -29,7 +29,7 @@ jobs:
         run: npm test
 
   deploy-sandbox-worker:
-    name: Deploy Sandbox Worker
+    name: Deploy Staging Worker
     runs-on: ubuntu-latest
     needs: test
     defaults:
@@ -47,19 +47,19 @@ jobs:
       - name: Install worker dependencies
         run: npm ci
 
-      # Deploy default env (ENVIRONMENT=sandbox → gaslamar.carolineratuolivia.workers.dev)
-      # No --env flag = default top-level env (ENVIRONMENT=sandbox)
-      - name: Deploy sandbox Cloudflare Worker
-        run: npx wrangler deploy
+      # Deploy staging env (ENVIRONMENT=staging → gaslamar-worker-staging.carolineratuolivia.workers.dev)
+      # Uses Mayar sandbox (api.mayar.club) and redirects back to staging.gaslamar.pages.dev after payment.
+      - name: Deploy staging Cloudflare Worker
+        run: npx wrangler deploy --env staging
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-      - name: Health check sandbox worker
+      - name: Health check staging worker
         run: |
           sleep 8
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://gaslamar.carolineratuolivia.workers.dev/health)
-          echo "Sandbox worker health: HTTP $STATUS"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://gaslamar-worker-staging.carolineratuolivia.workers.dev/health)
+          echo "Staging worker health: HTTP $STATUS"
 
   build-frontend:
     name: Build Frontend
@@ -130,5 +130,5 @@ jobs:
         run: |
           echo "========================================="
           echo "STAGING URL: ${{ steps.pages.outputs.staging_url }}"
-          echo "Sandbox worker: https://gaslamar.carolineratuolivia.workers.dev"
+          echo "Staging worker: https://gaslamar-worker-staging.carolineratuolivia.workers.dev"
           echo "========================================="

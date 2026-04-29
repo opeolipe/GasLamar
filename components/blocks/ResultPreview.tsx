@@ -23,7 +23,6 @@ const DIMS: Dim[] = [
   { label: "Cocok dengan job ini?", pct: 70, score: "7/10", variant: "good" },
   { label: "CV kamu menarik di awal?", pct: 40, score: "4/10", variant: "warn" },
   { label: "Seberapa cepat kamu bisa siap interview?", sub: "± minggu / bulan", pct: 80, score: "8/10", variant: "good" },
-  { label: "Seberapa mudah untuk mencapai ini?", sub: "belajar, biaya, waktu", pct: 90, score: "9/10", variant: "good" },
   { label: "Skill kamu masih kepake untuk job ini?", sub: "atau sudah mulai tidak relevan", pct: 60, score: "6/10", variant: "warn" },
   { label: "Ada bukti hasil kerja?", sub: "portfolio, project, hasil kerja", pct: 30, score: "3/10", variant: "bad" },
 ];
@@ -50,7 +49,7 @@ export default function ResultPreview() {
       <div className="relative z-[1] border-b p-6" style={{ borderColor: "rgba(148,163,184,0.18)", background: "linear-gradient(135deg,rgba(255,251,235,0.92),rgba(255,255,255,0.96))" }}>
         <div className="flex flex-wrap items-start gap-2 mb-3">
           <span className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Preview peluang interview</span>
-          <span className="inline-flex items-center rounded-full px-[10px] py-[5px] text-sm font-bold bg-amber-100 text-amber-900">6D ringkas</span>
+          <span className="inline-flex items-center rounded-full px-[10px] py-[5px] text-sm font-bold bg-amber-100 text-amber-900">5D ringkas</span>
         </div>
         <div className="mb-3">
           <span className="inline-flex items-center rounded-full px-[14px] py-[8px] text-sm font-extrabold bg-amber-100 text-amber-900">🔮 Status: TIMED</span>

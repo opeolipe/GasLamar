@@ -60,6 +60,7 @@ export default function MultiCreditSection({ creditsRemaining, totalCredits, onG
       await onGenerate(jd);
     } catch (err) {
       alert((err as Error).message || 'Terjadi kesalahan. Coba lagi.');
+    } finally {
       setGenerating(false);
     }
   }

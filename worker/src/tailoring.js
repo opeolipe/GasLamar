@@ -4,6 +4,12 @@ import { callClaude }      from './claude.js';
 import { sha256Hex }       from './utils.js';
 import { postProcessCV }   from './rewriteGuard.js';
 
+// DEPLOY CHECKLIST: Bump these prefixes when changing prompts/tailorId.js or prompts/tailorEn.js.
+// Current keys have no version suffix (legacy from initial deploy).
+// Next bump example: 'gen_id_v2_' / 'gen_en_v2_'
+const GEN_KEY_PREFIX_ID = 'gen_id_'; // bump to 'gen_id_v2_' after changing tailorId.js
+const GEN_KEY_PREFIX_EN = 'gen_en_'; // bump to 'gen_en_v2_' after changing tailorEn.js
+
 /**
  * Returns the first missing required section heading, 'too short' if the text
  * is under 200 chars, or null if the CV passes all checks.
@@ -29,18 +35,33 @@ export function validateCVSections(text, lang) {
  * @param {string}        [options.previewSample] - Original CV line shown as "before" in Hasil
  * @param {string}        [options.previewAfter]  - Suggested rewrite shown as "after" in Hasil
  * @param {string[]|null} [options.entitasKlaim]  - Whitelist of claims already in user's CV
+ * @param {object|null}   [options.roleProfile]   - Role profile from roleProfiles.js (inferred mode only)
+ * @param {string}        [options.jdMode]        - 'targeted' | 'inferred'
  * @returns {Promise<{ text: string, docxText: string, isTrusted: boolean }>}
  */
 export async function tailorCVID(cvText, jobDesc, env, mode = 'pdf', options = {}) {
-  const { issue, previewSample, previewAfter, entitasKlaim = null } = options;
+  const { issue, previewSample, previewAfter, entitasKlaim = null, roleProfile = null, jdMode = 'targeted' } = options;
 
   // KV cache keyed on raw content — post-processing is applied per-call (after cache read)
-  const genKey   = `gen_id_${await sha256Hex(cvText + '||' + jobDesc)}`;
+  const genKey   = `${GEN_KEY_PREFIX_ID}${await sha256Hex(cvText + '||' + jobDesc)}`;
   const cached   = await env.GASLAMAR_SESSIONS.get(genKey);
   let   baseText = cached;
 
   if (!baseText) {
-    const systemPrompt = `${SKILL_TAILOR_ID}
+    // Inject role context only in inferred mode (weak JD) to guide bullet emphasis.
+    // In targeted mode the JD is rich enough — role context would add noise.
+    const roleContextBlock = (jdMode === 'inferred' && roleProfile)
+      ? `\n--- ROLE CONTEXT (gunakan karena JD kurang detail) ---
+Peran yang terdeteksi: ${roleProfile.label}
+Kekuatan utama yang perlu ditonjolkan: ${roleProfile.keyStrengths.join(', ')}
+Kata kerja yang disarankan: ${roleProfile.actionVerbs.slice(0, 5).join(', ')}
+Tanggung jawab umum untuk peran ini: ${roleProfile.commonResponsibilities.join('; ')}
+
+PENTING: Gunakan konteks ini untuk memilih bullet mana yang perlu ditekankan.
+JANGAN tambahkan skill, angka, atau pengalaman yang tidak ada di CV asli.\n`
+      : '';
+
+    const systemPrompt = `${SKILL_TAILOR_ID}${roleContextBlock}
 
 --- TASK ---
 Tailoring CV ini untuk job description berikut.
@@ -118,17 +139,30 @@ Output hanya teks CV, tidak ada komentar atau penjelasan tambahan.`;
  * @param {string}        [options.previewSample]
  * @param {string}        [options.previewAfter]
  * @param {string[]|null} [options.entitasKlaim]
+ * @param {object|null}   [options.roleProfile]   - Role profile from roleProfiles.js (inferred mode only)
+ * @param {string}        [options.jdMode]        - 'targeted' | 'inferred'
  * @returns {Promise<{ text: string, docxText: string, isTrusted: boolean }>}
  */
 export async function tailorCVEN(cvText, jobDesc, env, mode = 'pdf', options = {}) {
-  const { previewSample, previewAfter, entitasKlaim = null } = options;
+  const { previewSample, previewAfter, entitasKlaim = null, roleProfile = null, jdMode = 'targeted' } = options;
 
-  const genKey   = `gen_en_${await sha256Hex(cvText + '||' + jobDesc)}`;
+  const genKey   = `${GEN_KEY_PREFIX_EN}${await sha256Hex(cvText + '||' + jobDesc)}`;
   const cached   = await env.GASLAMAR_SESSIONS.get(genKey);
   let   baseText = cached;
 
   if (!baseText) {
-    const systemPrompt = `${SKILL_TAILOR_EN}
+    const roleContextBlock = (jdMode === 'inferred' && roleProfile)
+      ? `\n--- ROLE CONTEXT (use because JD lacks detail) ---
+Detected role: ${roleProfile.label}
+Key strengths to highlight: ${roleProfile.keyStrengths.join(', ')}
+Suggested action verbs: ${roleProfile.actionVerbs.slice(0, 5).join(', ')}
+Common responsibilities for this role: ${roleProfile.commonResponsibilities.join('; ')}
+
+IMPORTANT: Use this context to choose which bullets to emphasise.
+Do NOT add skills, numbers, or experience not present in the original CV.\n`
+      : '';
+
+    const systemPrompt = `${SKILL_TAILOR_EN}${roleContextBlock}
 
 --- TASK ---
 Translate and tailor this CV for the job description below.

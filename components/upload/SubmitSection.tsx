@@ -2,10 +2,11 @@ import { useRef } from 'react';
 interface Props {
   isValid:        boolean;
   isLoading:      boolean;
+  showJdHint:     boolean;
   onSubmit:       () => void;
 }
 
-export default function SubmitSection({ isValid, isLoading, onSubmit }: Props) {
+export default function SubmitSection({ isValid, isLoading, showJdHint, onSubmit }: Props) {
   const btnRef   = useRef<HTMLButtonElement>(null);
   const canSubmit = isValid && !isLoading;
 
@@ -29,6 +30,12 @@ export default function SubmitSection({ isValid, isLoading, onSubmit }: Props) {
           </>
         ) : '👉 Cek peluang saya'}
       </button>
+
+      {showJdHint && (
+        <p className="text-center text-xs text-amber-700 mt-3">
+          Lengkapi job description untuk melanjutkan analisis.
+        </p>
+      )}
 
       <p className="text-center text-xs text-slate-400 mt-4">
         CV tidak disimpan • tanpa registrasi • hasil dalam ±30 detik

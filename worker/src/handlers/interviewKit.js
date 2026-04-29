@@ -3,7 +3,35 @@ import { log, logError } from '../utils.js';
 import { getSession, verifySessionSecret } from '../sessions.js';
 import { getSessionIdFromCookie } from '../cookies.js';
 import { callClaude } from '../claude.js';
-import { INTERVIEW_KIT_SYSTEM_PROMPT as SYSTEM_PROMPT } from '../prompts/interviewKit.js';
+import { INTERVIEW_KIT_SYSTEM_PROMPT } from '../prompts/interviewKit.js';
+
+/**
+ * Generates an interview kit for the given CV and job description.
+ * Pure generation — no KV caching, no session lookup.
+ * Throws on Claude error or truncation; callers are responsible for caching.
+ *
+ * @param {string} cv_text
+ * @param {string} job_desc
+ * @param {string} language — 'id' | 'en'
+ * @param {object} env
+ * @returns {Promise<object>} parsed interview kit
+ */
+export async function generateInterviewKit(cv_text, job_desc, language, env) {
+  const langLabel   = language === 'en' ? 'English' : 'Bahasa Indonesia';
+  const userContent = `Language: ${language}\nCandidate CV:\n${cv_text}\n\nJob Description:\n${job_desc}\n\nGenerate the interview kit. All generated text (email, WhatsApp, tell_me_about_yourself, sample_answer) must be in ${langLabel}.`;
+
+  const claudeResponse = await callClaude(env, INTERVIEW_KIT_SYSTEM_PROMPT, userContent, 3000);
+
+  if (claudeResponse.stop_reason === 'max_tokens') {
+    throw new Error('Respons AI terpotong. Coba lagi.');
+  }
+
+  const text     = claudeResponse.content[0].text;
+  const jsonStart = text.indexOf('{');
+  const jsonEnd   = text.lastIndexOf('}');
+  if (jsonStart === -1 || jsonEnd === -1) throw new Error('Format respons AI tidak valid.');
+  return JSON.parse(text.slice(jsonStart, jsonEnd + 1));
+}
 
 export async function handleInterviewKit(request, env) {
   const session_id = getSessionIdFromCookie(request);
@@ -18,7 +46,7 @@ export async function handleInterviewKit(request, env) {
     body = {};
   }
 
-  const rawLang = body.language;
+  const rawLang  = body.language;
   const language = rawLang === 'en' ? 'en' : 'id';
   const cacheKey = `kit_${session_id}_${language}`;
 
@@ -59,21 +87,4 @@ export async function handleInterviewKit(request, env) {
     logError('interview_kit_failed', { session_id, error: e.message });
     return jsonResponse({ message: e.message || 'Gagal menghasilkan Interview Kit. Coba lagi.' }, 500, request, env);
   }
-}
-
-export async function generateInterviewKit(cv_text, job_desc, language, env) {
-  const langLabel = language === 'en' ? 'English' : 'Bahasa Indonesia';
-  const userContent = `Language: ${language}\nCandidate CV:\n${cv_text}\n\nJob Description:\n${job_desc}\n\nGenerate the interview kit. All generated text (email, WhatsApp, tell_me_about_yourself, sample_answer) must be in ${langLabel}.`;
-
-  const claudeResponse = await callClaude(env, SYSTEM_PROMPT, userContent, 3000);
-
-  if (claudeResponse.stop_reason === 'max_tokens') {
-    throw new Error('Respons AI terpotong. Coba lagi.');
-  }
-
-  const text = claudeResponse.content[0].text;
-  const jsonStart = text.indexOf('{');
-  const jsonEnd   = text.lastIndexOf('}');
-  if (jsonStart === -1 || jsonEnd === -1) throw new Error('Format respons AI tidak valid.');
-  return JSON.parse(text.slice(jsonStart, jsonEnd + 1));
 }
