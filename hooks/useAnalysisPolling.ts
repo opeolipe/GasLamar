@@ -239,7 +239,7 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
 
       let msg = e.message || 'Terjadi kesalahan. Coba lagi.';
       let fileError = !!(e as any).isFileError;
-      if (e.name === 'TypeError' && e.message?.includes('fetch')) {
+      if (e.name === 'TypeError') {
         msg = 'Tidak bisa terhubung ke server. Periksa koneksi internet kamu, lalu coba lagi.';
       } else if (timedOutRef.current || e.name === 'AbortError') {
         msg = 'Analisis memakan waktu terlalu lama. Coba lagi — PDF kadang membutuhkan waktu ekstra.';
