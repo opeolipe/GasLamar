@@ -1,4 +1,4 @@
-import { useState, forwardRef } from 'react';
+import { useState, forwardRef, useRef, useEffect } from 'react';
 import UrlFetcher from './UrlFetcher';
 import { MAX_JD_CHARS } from '@/lib/uploadValidation';
 import { evaluateJDQuality } from '@/utils/evaluateJDQuality';
@@ -10,8 +10,30 @@ interface Props {
 
 const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobDescriptionInput({ value, onChange }, ref) {
   const [showFetcher, setShowFetcher] = useState(false);
+  const internalRef = useRef<HTMLTextAreaElement>(null);
+  // Keep a ref to onChange so the native listener never goes stale without re-mounting.
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
   const trimmed = value.trim();
   const quality = evaluateJDQuality(value);
+
+  // Native listener catches programmatic `el.value = x; el.dispatchEvent(new Event('input'))`
+  // React's controlled-input tracker intercepts el.value assignments and marks the new value
+  // as "already seen", so React's synthetic onChange won't fire. The native listener below
+  // reads the DOM value directly and calls onChange regardless of React's tracker state.
+  useEffect(() => {
+    const el = internalRef.current;
+    if (!el) return;
+    function onNativeInput() {
+      const raw = el!.value;
+      const capped = raw.length > MAX_JD_CHARS ? raw.slice(0, MAX_JD_CHARS) : raw;
+      onChangeRef.current(capped);
+      el!.style.height = 'auto';
+      el!.style.height = `${el!.scrollHeight}px`;
+    }
+    el.addEventListener('input', onNativeInput);
+    return () => el.removeEventListener('input', onNativeInput);
+  }, []);
 
   const textareaCls = [
     'w-full min-h-[160px] rounded-2xl border bg-transparent p-5',
@@ -35,7 +57,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
       <div className="mb-3">
         {showFetcher ? (
           <UrlFetcher
-            onFetchSuccess={(text) => { onChange(text.slice(0, MAX_JD_CHARS)); setShowFetcher(false); }}
+            onFetchSuccess={(text) => { onChange((text ?? '').slice(0, MAX_JD_CHARS)); setShowFetcher(false); }}
             onClose={() => setShowFetcher(false)}
           />
         ) : (
@@ -57,7 +79,11 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
 
       <div>
         <textarea
-          ref={ref}
+          ref={(el) => {
+            internalRef.current = el;
+            if (typeof ref === 'function') ref(el);
+            else if (ref) (ref as React.MutableRefObject<HTMLTextAreaElement | null>).current = el;
+          }}
           id="job-desc"
           data-testid="jd-textarea"
           value={value}
