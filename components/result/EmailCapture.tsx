@@ -137,8 +137,8 @@ export default function EmailCapture({
         </p>
       )}
 
-      {/* Confirm email field */}
-      <div style={{ marginTop: '0.85rem' }}>
+      {/* Confirm email field — revealed once primary email passes validation */}
+      <div style={{ marginTop: '0.85rem', overflow: 'hidden', maxHeight: (isConfirmed || confirmTouched) ? '200px' : 0, opacity: (isConfirmed || confirmTouched) ? 1 : 0, transition: 'max-height 0.3s ease, opacity 0.25s ease' }}>
         <label
           htmlFor="email-confirm"
           style={labelStyle}
