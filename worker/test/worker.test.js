@@ -6,6 +6,7 @@
 
 import { SELF, env, fetchMock } from 'cloudflare:test';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { getCorsHeaders } from '../src/cors.js';
 
 // ---- Test helpers ----
 
@@ -261,6 +262,66 @@ describe('CORS', () => {
     });
     expect(res.status).toBe(204);
     expect(res.headers.get('Access-Control-Allow-Methods')).toContain('POST');
+  });
+});
+
+describe('CORS — environment-specific origin allowlists', () => {
+  const makeReq = (origin) => new Request('https://gaslamar.com/health',
+    origin ? { headers: { Origin: origin } } : {});
+
+  it('production: allows gaslamar.com', () => {
+    const h = getCorsHeaders(makeReq('https://gaslamar.com'), { ENVIRONMENT: 'production' });
+    expect(h['Access-Control-Allow-Origin']).toBe('https://gaslamar.com');
+  });
+
+  it('production: allows www.gaslamar.com', () => {
+    const h = getCorsHeaders(makeReq('https://www.gaslamar.com'), { ENVIRONMENT: 'production' });
+    expect(h['Access-Control-Allow-Origin']).toBe('https://www.gaslamar.com');
+  });
+
+  it('production: blocks staging.gaslamar.pages.dev', () => {
+    const h = getCorsHeaders(makeReq('https://staging.gaslamar.pages.dev'), { ENVIRONMENT: 'production' });
+    expect(h['Access-Control-Allow-Origin']).toBe('null');
+  });
+
+  it('production: blocks arbitrary pages.dev preview', () => {
+    const h = getCorsHeaders(makeReq('https://abc123.gaslamar.pages.dev'), { ENVIRONMENT: 'production' });
+    expect(h['Access-Control-Allow-Origin']).toBe('null');
+  });
+
+  it('production: blocks evil.com', () => {
+    const h = getCorsHeaders(makeReq('https://evil.com'), { ENVIRONMENT: 'production' });
+    expect(h['Access-Control-Allow-Origin']).toBe('null');
+  });
+
+  it('staging: allows staging.gaslamar.pages.dev', () => {
+    const h = getCorsHeaders(makeReq('https://staging.gaslamar.pages.dev'), { ENVIRONMENT: 'staging' });
+    expect(h['Access-Control-Allow-Origin']).toBe('https://staging.gaslamar.pages.dev');
+  });
+
+  it('staging: allows localhost:3000', () => {
+    const h = getCorsHeaders(makeReq('http://localhost:3000'), { ENVIRONMENT: 'staging' });
+    expect(h['Access-Control-Allow-Origin']).toBe('http://localhost:3000');
+  });
+
+  it('staging: blocks gaslamar.com (use production worker for prod traffic)', () => {
+    const h = getCorsHeaders(makeReq('https://gaslamar.com'), { ENVIRONMENT: 'staging' });
+    expect(h['Access-Control-Allow-Origin']).toBe('null');
+  });
+
+  it('staging: blocks evil.com', () => {
+    const h = getCorsHeaders(makeReq('https://evil.com'), { ENVIRONMENT: 'staging' });
+    expect(h['Access-Control-Allow-Origin']).toBe('null');
+  });
+
+  it('sets Vary: Origin on all responses', () => {
+    const h = getCorsHeaders(makeReq('https://gaslamar.com'), { ENVIRONMENT: 'production' });
+    expect(h['Vary']).toBe('Origin');
+  });
+
+  it('sets Access-Control-Allow-Credentials: true on allowed origin', () => {
+    const h = getCorsHeaders(makeReq('https://gaslamar.com'), { ENVIRONMENT: 'production' });
+    expect(h['Access-Control-Allow-Credentials']).toBe('true');
   });
 });
 

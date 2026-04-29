@@ -1,13 +1,16 @@
 // ---- CORS Origins ----
 
-export const ALLOWED_ORIGINS = [
+export const PRODUCTION_ORIGINS = [
   'https://gaslamar.com',
   'https://www.gaslamar.com',
-  'https://gaslamar.pages.dev',
-  'https://staging.gaslamar.pages.dev',
 ];
 
-export const DEV_ORIGINS = ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:8080'];
+export const STAGING_ORIGINS = [
+  'https://staging.gaslamar.pages.dev',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:8080',
+];
 
 // ---- Tier Config ----
 
