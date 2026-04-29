@@ -52,7 +52,7 @@ export default function UrlFetcher({ onFetchSuccess, onClose }: Props) {
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleFetch()}
-          placeholder="https://www.linkedin.com/jobs/view/…"
+          placeholder="https://glints.com/id/opportunities/jobs/…"
           className="flex-1 min-h-[44px] px-3 py-2 border border-blue-200 rounded-[10px] text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors font-sans bg-white"
           aria-label="URL halaman lowongan kerja (LinkedIn, Glints, JobStreet, dll)"
         />
@@ -73,8 +73,14 @@ export default function UrlFetcher({ onFetchSuccess, onClose }: Props) {
           ✕
         </button>
       </div>
+      <p className="text-xs mt-1.5 text-slate-400">
+        Platform yang didukung: Glints, JobStreet, Kalibrr, Indeed.{' '}
+        <span title="LinkedIn membatasi akses otomatis sehingga pengambilan sering gagal." className="cursor-help underline decoration-dotted">
+          LinkedIn sering gagal.
+        </span>
+      </p>
       {error && (
-        <p className="text-xs mt-1.5 text-red-600">{error}</p>
+        <p className="text-xs mt-1 text-red-600">{error}</p>
       )}
     </div>
   );

@@ -475,7 +475,7 @@ export default function Result() {
         </a>
       </nav>
 
-      <main id="main-content" className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+      <main id="main-content" className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12 pb-24">
         {/* ── Loading ── */}
         {loading && (
           <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem 2rem' }}>
@@ -547,6 +547,11 @@ export default function Result() {
                   <p style={{ fontSize: '0.88rem', color: '#64748B', maxWidth: 360, margin: '0 auto', lineHeight: 1.6 }}>
                     {scoreInterpretation(data.skor)}
                   </p>
+                  {data.veredict && (
+                    <div style={{ marginTop: '1rem' }}>
+                      <VerdictCard verdict={data.veredict as 'DO' | 'DO NOT' | 'TIMED'} timeboxWeeks={data.timebox_weeks} />
+                    </div>
+                  )}
                   <button
                     onClick={handleToggleDetails}
                     style={{ background: 'none', border: '1px solid #E2E8F0', borderRadius: 60, padding: '0.4rem 1.1rem', fontSize: '0.82rem', color: '#4B5563', cursor: 'pointer', marginTop: '0.85rem', fontFamily: 'inherit', transition: 'border-color 0.2s' }}
@@ -562,9 +567,6 @@ export default function Result() {
                   <div style={{ marginBottom: '1rem', fontSize: '0.72rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'center' }}>
                     Analisis lengkap
                   </div>
-                  {data.veredict && (
-                    <VerdictCard verdict={data.veredict as 'DO' | 'DO NOT' | 'TIMED'} timeboxWeeks={data.timebox_weeks} />
-                  )}
                   <RedFlags redFlags={data.red_flags || []} />
                   <GapList gaps={data.gap || []} />
                   <RecommendationList recommendations={data.rekomendasi || []} />
@@ -651,7 +653,7 @@ export default function Result() {
                     Ini yang paling dilihat HR dalam 7–10 detik
                   </p>
                   <p style={{ fontSize: '0.72rem', color: '#CBD5E1', margin: 0, flexShrink: 0, marginLeft: 8 }}>
-                    AI vs JD kamu
+                    Skor dimensi vs. lowongan
                   </p>
                 </div>
                 <ScoreBars
@@ -747,7 +749,7 @@ export default function Result() {
 
               {/* Loss aversion microcopy */}
               <p style={{ fontSize: '0.75rem', color: '#64748B', fontStyle: 'italic', textAlign: 'center', margin: '0.75rem 0 0.5rem' }}>
-                Tanpa perbaikan ini, CV kamu berisiko di-skip dalam 7 detik pertama.
+                Perbaikan ini bikin CV kamu standout di 7 detik pertama.
               </p>
 
               {/* Pay button */}
@@ -820,6 +822,18 @@ export default function Result() {
           </>
         )}
       </main>
+
+      {/* Sticky floating CTA */}
+      {data && !loading && !error && (
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100, background: 'rgba(255,255,255,0.96)', borderTop: '1px solid rgba(148,163,184,0.18)', backdropFilter: 'blur(14px)', padding: '0.75rem 1rem', display: 'flex', justifyContent: 'center' }}>
+          <a
+            href="#pricing-section"
+            style={{ background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', fontWeight: 700, padding: '0.75rem 2rem', borderRadius: 60, textDecoration: 'none', fontSize: '0.95rem', boxShadow: '0 8px 24px rgba(37,99,235,0.30)', display: 'inline-block' }}
+          >
+            Dapatkan CV Siap Kirim →
+          </a>
+        </div>
+      )}
 
       {/* Keyframe for loading spinner */}
       <style>{`@keyframes gasResultSpin { to { transform: rotate(360deg); } }`}</style>

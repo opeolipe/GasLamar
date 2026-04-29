@@ -23,7 +23,6 @@ const DIMS: Dim[] = [
   { label: "Cocok dengan job ini?", pct: 70, score: "7/10", variant: "good" },
   { label: "CV kamu menarik di awal?", pct: 40, score: "4/10", variant: "warn" },
   { label: "Seberapa cepat kamu bisa siap interview?", sub: "± minggu / bulan", pct: 80, score: "8/10", variant: "good" },
-  { label: "Seberapa mudah untuk mencapai ini?", sub: "belajar, biaya, waktu", pct: 90, score: "9/10", variant: "good" },
   { label: "Skill kamu masih kepake untuk job ini?", sub: "atau sudah mulai tidak relevan", pct: 60, score: "6/10", variant: "warn" },
   { label: "Ada bukti hasil kerja?", sub: "portfolio, project, hasil kerja", pct: 30, score: "3/10", variant: "bad" },
 ];
