@@ -4,11 +4,8 @@ import { callClaude }      from './claude.js';
 import { sha256Hex }       from './utils.js';
 import { postProcessCV }   from './rewriteGuard.js';
 
-// DEPLOY CHECKLIST: Bump these prefixes when changing prompts/tailorId.js or prompts/tailorEn.js.
-// Current keys have no version suffix (legacy from initial deploy).
-// Next bump example: 'gen_id_v2_' / 'gen_en_v2_'
-const GEN_KEY_PREFIX_ID = 'gen_id_'; // bump to 'gen_id_v2_' after changing tailorId.js
-const GEN_KEY_PREFIX_EN = 'gen_en_'; // bump to 'gen_en_v2_' after changing tailorEn.js
+const GEN_KEY_PREFIX_ID = 'gen_id_v2_';
+const GEN_KEY_PREFIX_EN = 'gen_en_v2_';
 
 /**
  * Returns the first missing required section heading, 'too short' if the text
@@ -26,6 +23,96 @@ export function validateCVSections(text, lang) {
 }
 
 /**
+ * Builds a ground-truth anchor block from Stage 1 extraction data.
+ * Injected into the tailor prompt so the model has an explicit list of what
+ * numbers and tool terms it is allowed to use — the primary hallucination guard.
+ */
+function buildGroundTruthBlock(cv, lang = 'id') {
+  if (!cv) return '';
+  const entitasStr = cv.entitas_klaim && cv.entitas_klaim.length > 0
+    ? cv.entitas_klaim.join(', ').slice(0, 500)
+    : null;
+
+  if (lang === 'id') {
+    return `\n--- GROUND TRUTH (dari ekstraksi otomatis CV asli) ---
+Angka di CV: ${cv.angka_di_cv || 'NOL ANGKA'}
+Skills eksplisit: ${(cv.skills_mentah || '').slice(0, 300) || '(tidak tersedia)'}
+Tools/entitas: ${entitasStr || 'tidak tersedia'}
+LARANGAN:
+· Jangan menambahkan angka baru yang tidak ada di daftar di atas
+· Jangan mengklaim pengalaman atau tool yang tidak ada di CV asli
+BOLEH:
+· Menggunakan istilah dari job description TANPA mengklaim pengalaman baru
+--- AKHIR GROUND TRUTH ---\n`;
+  }
+
+  return `\n--- GROUND TRUTH (auto-extracted from original CV) ---
+Numbers in CV: ${cv.angka_di_cv || 'NONE'}
+Explicit skills: ${(cv.skills_mentah || '').slice(0, 300) || '(not available)'}
+Tools/entities: ${entitasStr || 'not available'}
+PROHIBITED:
+· Do not add numbers not listed above
+· Do not claim experience or tools not in the original CV
+ALLOWED:
+· Use terms from the job description WITHOUT claiming new experience
+--- END GROUND TRUTH ---\n`;
+}
+
+/**
+ * Truncates very long CVs before sending to the LLM.
+ * Only applies when cvText.length > 4000.
+ * Strategy: section-aware — keep header + 2 most recent experience entries + skills.
+ * Falls back to a hard cut at 10 000 chars if section parsing yields no reduction.
+ */
+function truncateCV(cvText) {
+  const THRESHOLD  = 4000;
+  const HARD_LIMIT = 10000;
+  if (cvText.length <= THRESHOLD) return cvText;
+
+  const lines     = cvText.split('\n');
+  const EXP_RE    = /^(PENGALAMAN KERJA|WORK EXPERIENCE|EXPERIENCE)\s*$/i;
+  const SKILLS_RE = /^(KEAHLIAN|SKILLS|TECHNICAL SKILLS)\s*$/i;
+  const ROLE_SEP  = /(?:—|–|--)/;
+
+  let expIdx    = -1;
+  let skillsIdx = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].trim();
+    if (EXP_RE.test(t) && expIdx === -1) expIdx = i;
+    if (SKILLS_RE.test(t)) skillsIdx = i;
+  }
+
+  if (expIdx >= 0) {
+    const expEnd = skillsIdx > expIdx ? skillsIdx : lines.length;
+    const roleHeaderIdxs = [];
+    for (let i = expIdx + 1; i < expEnd; i++) {
+      if (ROLE_SEP.test(lines[i])) roleHeaderIdxs.push(i);
+    }
+    if (roleHeaderIdxs.length >= 3) {
+      const cutLine = roleHeaderIdxs[2];
+      const kept    = [
+        ...lines.slice(0, cutLine),
+        ...(skillsIdx > 0 ? lines.slice(skillsIdx) : []),
+      ];
+      const result = kept.join('\n');
+      if (result.length < cvText.length) {
+        console.warn(JSON.stringify({ event: 'cv_truncated', original_len: cvText.length, result_len: result.length }));
+        return result + '\n\n[... sebagian entri pengalaman dihapus untuk efisiensi pemrosesan ...]';
+      }
+    }
+  }
+
+  if (cvText.length > HARD_LIMIT) {
+    const slice = cvText.slice(0, HARD_LIMIT);
+    const cutAt = Math.max(slice.lastIndexOf('\n'), HARD_LIMIT - 200);
+    console.warn(JSON.stringify({ event: 'cv_truncated_hard', original_len: cvText.length }));
+    return cvText.slice(0, cutAt) + '\n\n[... CV diperpendek karena terlalu panjang ...]';
+  }
+
+  return cvText;
+}
+
+/**
  * @param {string}        cvText
  * @param {string}        jobDesc
  * @param {object}        env
@@ -40,10 +127,11 @@ export function validateCVSections(text, lang) {
  * @returns {Promise<{ text: string, docxText: string, isTrusted: boolean }>}
  */
 export async function tailorCVID(cvText, jobDesc, env, mode = 'pdf', options = {}) {
-  const { issue, previewSample, previewAfter, entitasKlaim = null, roleProfile = null, jdMode = 'targeted' } = options;
+  const { issue, previewSample, previewAfter, entitasKlaim = null, roleProfile = null, jdMode = 'targeted', extractedCV = null } = options;
+  const effectiveCVText = truncateCV(cvText);
 
   // KV cache keyed on raw content — post-processing is applied per-call (after cache read)
-  const genKey   = `${GEN_KEY_PREFIX_ID}${await sha256Hex(cvText + '||' + jobDesc)}`;
+  const genKey   = `${GEN_KEY_PREFIX_ID}${await sha256Hex(effectiveCVText + '||' + jobDesc)}`;
   const cached   = await env.GASLAMAR_SESSIONS.get(genKey);
   let   baseText = cached;
 
@@ -61,14 +149,15 @@ PENTING: Gunakan konteks ini untuk memilih bullet mana yang perlu ditekankan.
 JANGAN tambahkan skill, angka, atau pengalaman yang tidak ada di CV asli.\n`
       : '';
 
-    const systemPrompt = `${SKILL_TAILOR_ID}${roleContextBlock}
+    const groundTruthBlock = buildGroundTruthBlock(extractedCV, 'id');
 
+    const systemPrompt = `${SKILL_TAILOR_ID}${roleContextBlock}${groundTruthBlock}
 --- TASK ---
 Tailoring CV ini untuk job description berikut.
 PENTING: Jangan ubah fakta, hanya reframe dan highlight yang relevan.
 
 CV ASLI:
-${cvText}
+${effectiveCVText}
 
 JOB DESCRIPTION:
 ${jobDesc}
@@ -124,8 +213,8 @@ Output hanya teks CV, tidak ada komentar atau penjelasan tambahan.`;
   const postOpts = { previewSample, previewAfter, entitasKlaim, language: 'id' };
 
   // Generate both variants from the same validated base text
-  const { text: pdfText, isTrusted } = postProcessCV(baseText, cvText, issue, 'pdf',  postOpts);
-  const { text: docxText }           = postProcessCV(baseText, cvText, issue, 'docx', postOpts);
+  const { text: pdfText, isTrusted } = postProcessCV(baseText, effectiveCVText, issue, 'pdf',  postOpts);
+  const { text: docxText }           = postProcessCV(baseText, effectiveCVText, issue, 'docx', postOpts);
 
   return { text: pdfText, docxText, isTrusted };
 }
@@ -144,9 +233,10 @@ Output hanya teks CV, tidak ada komentar atau penjelasan tambahan.`;
  * @returns {Promise<{ text: string, docxText: string, isTrusted: boolean }>}
  */
 export async function tailorCVEN(cvText, jobDesc, env, mode = 'pdf', options = {}) {
-  const { previewSample, previewAfter, entitasKlaim = null, roleProfile = null, jdMode = 'targeted' } = options;
+  const { previewSample, previewAfter, entitasKlaim = null, roleProfile = null, jdMode = 'targeted', extractedCV = null } = options;
+  const effectiveCVText = truncateCV(cvText);
 
-  const genKey   = `${GEN_KEY_PREFIX_EN}${await sha256Hex(cvText + '||' + jobDesc)}`;
+  const genKey   = `${GEN_KEY_PREFIX_EN}${await sha256Hex(effectiveCVText + '||' + jobDesc)}`;
   const cached   = await env.GASLAMAR_SESSIONS.get(genKey);
   let   baseText = cached;
 
@@ -162,14 +252,15 @@ IMPORTANT: Use this context to choose which bullets to emphasise.
 Do NOT add skills, numbers, or experience not present in the original CV.\n`
       : '';
 
-    const systemPrompt = `${SKILL_TAILOR_EN}${roleContextBlock}
+    const groundTruthBlock = buildGroundTruthBlock(extractedCV, 'en');
 
+    const systemPrompt = `${SKILL_TAILOR_EN}${roleContextBlock}${groundTruthBlock}
 --- TASK ---
 Translate and tailor this CV for the job description below.
 IMPORTANT: Do not change facts - only reframe and highlight what's relevant.
 
 ORIGINAL CV (in Indonesian):
-${cvText}
+${effectiveCVText}
 
 JOB DESCRIPTION:
 ${jobDesc}
@@ -226,8 +317,8 @@ Output only the CV text, no additional comments.`;
   // but still validate rewrites and enforce preview consistency
   const postOpts = { previewSample, previewAfter, entitasKlaim, language: 'en' };
 
-  const { text: pdfText, isTrusted } = postProcessCV(baseText, cvText, null, 'pdf',  postOpts);
-  const { text: docxText }           = postProcessCV(baseText, cvText, null, 'docx', postOpts);
+  const { text: pdfText, isTrusted } = postProcessCV(baseText, effectiveCVText, null, 'pdf',  postOpts);
+  const { text: docxText }           = postProcessCV(baseText, effectiveCVText, null, 'docx', postOpts);
 
   return { text: pdfText, docxText, isTrusted };
 }

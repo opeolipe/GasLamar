@@ -45,6 +45,37 @@ function parseDiagnoseJSON(rawText) {
   throw new Error('INVALID_JSON');
 }
 
+// ── Rekomendasi guard ─────────────────────────────────────────────────────────
+
+// Matches acronyms (SQL, AWS) and CamelCase terms (JavaScript, MongoDB) — tool names.
+const DIAGNOSE_TOOL_RE = /\b([A-Z]{2,}|[A-Z][a-z]+[A-Z]\w*)\b/g;
+
+/**
+ * Replaces tool/tech terms in rekomendasi items that do not exist in the
+ * reference text (CV + JD data). Prevents the LLM from inventing skill
+ * requirements not present in the original CV or job description.
+ */
+function filterHallucinatedTools(rekomendasi, extractedData) {
+  if (!Array.isArray(rekomendasi) || rekomendasi.length === 0) return rekomendasi;
+
+  const { cv, jd } = extractedData;
+  const referenceText = [
+    cv.pengalaman_mentah ?? '',
+    cv.skills_mentah ?? '',
+    (cv.entitas_klaim ?? []).join(' '),
+    (jd.skills_diminta ?? []).join(' '),
+    jd.judul_role ?? '',
+  ].join(' ').toLowerCase();
+
+  return rekomendasi.map(rec => {
+    if (typeof rec !== 'string') return rec;
+    return rec.replace(DIAGNOSE_TOOL_RE, term => {
+      if (referenceText.includes(term.toLowerCase())) return term;
+      return 'skill relevan';
+    });
+  });
+}
+
 /**
  * Builds the structured user message fed to SKILL_DIAGNOSE.
  * Providing explicit analisis_sistem facts prevents the LLM from inferring
@@ -102,7 +133,7 @@ format_ats_ok: ${format_ok}
 ada_sertifikat: ${has_certs}
 konfidensitas_data: ${konfidensitas}
 
-INSTRUKSI: Tulis gap HANYA berdasarkan skill_kurang di atas. Jangan tambahkan gap yang tidak ada di skill_kurang.`;
+INSTRUKSI: Tulis gap HANYA berdasarkan skill_kurang di atas. Jangan tambahkan gap yang tidak ada di skill_kurang. Rekomendasi harus HANYA mengatasi gap yang tercantum di atas — jangan sebut skill atau topik lain di luar daftar itu.`;
 }
 
 async function attemptDiagnose(userMessage, env, maxTokens) {
@@ -140,8 +171,9 @@ async function attemptDiagnose(userMessage, env, maxTokens) {
 export async function callDiagnose(extractedData, analysisResult, scoreResult, roleInferenceResult, env) {
   const userMessage = buildUserMessage(extractedData, analysisResult, scoreResult, roleInferenceResult);
 
+  let result;
   try {
-    return await attemptDiagnose(userMessage, env, 2500);
+    result = await attemptDiagnose(userMessage, env, 2500);
   } catch (firstErr) {
     console.error(JSON.stringify({
       event: 'diagnose_retry',
@@ -153,6 +185,11 @@ export async function callDiagnose(extractedData, analysisResult, scoreResult, r
       + 'konfidensitas ("Rendah"|"Sedang"|"Tinggi"), '
       + 'hr_7_detik.kuat (array), hr_7_detik.diabaikan (array). '
       + 'Jangan tulis apapun selain JSON.';
-    return await attemptDiagnose(correction, env, 3000);
+    result = await attemptDiagnose(correction, env, 3000);
   }
+
+  if (result && Array.isArray(result.rekomendasi)) {
+    result.rekomendasi = filterHallucinatedTools(result.rekomendasi, extractedData);
+  }
+  return result;
 }
