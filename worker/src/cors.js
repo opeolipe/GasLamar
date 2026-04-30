@@ -3,7 +3,9 @@ import { PRODUCTION_ORIGINS, STAGING_ORIGINS } from './constants.js';
 export function getAllowedOrigins(env) {
   if (env.ENVIRONMENT === 'production') return PRODUCTION_ORIGINS;
   if (env.ENVIRONMENT === 'staging') return STAGING_ORIGINS;
-  return [];
+  // sandbox and local dev: use production origins so integration tests
+  // verify the same allowlist that runs in production.
+  return PRODUCTION_ORIGINS;
 }
 
 export function isOriginAllowed(request, env) {
