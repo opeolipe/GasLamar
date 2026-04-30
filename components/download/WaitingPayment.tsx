@@ -41,7 +41,7 @@ export default function WaitingPayment({ statusText, showCheckButton, onCheckNow
 
       <h2 className="text-lg font-semibold text-slate-900 mb-1" style={{ fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>Menunggu Konfirmasi Pembayaran</h2>
       <p className="text-sm text-slate-500 mb-1">Biasanya 1–2 menit setelah pembayaran berhasil</p>
-      <p className="text-xs text-slate-400 mb-5" role="status" aria-live="polite">
+      <p className="text-sm text-slate-400 mb-5" role="status" aria-live="polite">
         {statusText}
       </p>
 

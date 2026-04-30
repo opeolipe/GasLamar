@@ -29,7 +29,7 @@ console.log(
   '%cMengubah nilai di DevTools tidak akan mempengaruhi harga sebenarnya.\n' +
   'Pembayaran diproses oleh Mayar.id sesuai paket yang dipilih saat tombol bayar diklik.\n' +
   'Tier dan harga divalidasi ulang di server — tidak bisa dimanipulasi dari browser.',
-  'color:#374151;font-size:12px;line-height:1.7;',
+  'color:#374151;font-size:14px;line-height:1.7;',
 );
 
 const ROLE_LABELS: Record<string, string> = {
@@ -448,7 +448,7 @@ export default function Result() {
           <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem 2rem' }}>
             <div style={{ width: 28, height: 28, border: '3px solid #BFDBFE', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'gasResultSpin 0.8s linear infinite', display: 'inline-block', marginBottom: '1rem' }} />
             <p style={{ fontWeight: 600, fontSize: '1.1rem', margin: '0 0 0.5rem', fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>Memuat hasil analisis…</p>
-            <p style={{ color: '#94A3B8', fontSize: '0.82rem', margin: 0 }}>Sebentar lagi</p>
+            <p style={{ color: '#94A3B8', fontSize: '0.875rem', margin: 0 }}>Sebentar lagi</p>
           </div>
         )}
 
@@ -457,7 +457,7 @@ export default function Result() {
           <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem 2rem' }}>
             <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>⚠️</div>
             <h2 style={{ fontWeight: 600, fontSize: '1.2rem', margin: '0 0 0.5rem', fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>Analisis Gagal</h2>
-            <p style={{ color: '#64748B', fontSize: '0.85rem', margin: '0 0 1.5rem' }}>{error}</p>
+            <p style={{ color: '#64748B', fontSize: '0.875rem', margin: '0 0 1.5rem' }}>{error}</p>
             <a href="upload.html" style={{ display: 'inline-block', background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', fontWeight: 700, padding: '0.75rem 1.5rem', borderRadius: 60, textDecoration: 'none', boxShadow: '0 8px 24px rgba(37,99,235,0.25)' }}>
               Coba Lagi
             </a>
@@ -480,14 +480,14 @@ export default function Result() {
 
             {/* Session countdown */}
             {countdown.text && (
-              <div style={{ textAlign: 'center', marginBottom: '1rem', fontSize: '0.78rem', color: '#92400E', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 12, padding: '0.5rem 1rem', ...countdownStyle }}>
+              <div style={{ textAlign: 'center', marginBottom: '1rem', fontSize: '0.875rem', color: '#92400E', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 12, padding: '0.5rem 1rem', ...countdownStyle }}>
                 ⏳ {countdown.text}
               </div>
             )}
 
             {/* Role inference context banner */}
             {data.inferred_role && (
-              <div style={{ marginBottom: '1rem', fontSize: '0.78rem', color: '#1E40AF', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 12, padding: '0.5rem 1rem', textAlign: 'center' }}>
+              <div style={{ marginBottom: '1rem', fontSize: '0.875rem', color: '#1E40AF', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 12, padding: '0.5rem 1rem', textAlign: 'center' }}>
                 {(data.inferred_confidence ?? 0) >= 0.6
                   ? <>Kami menilai CV kamu sebagai: <strong>{ROLE_LABELS[data.inferred_role] ?? data.inferred_role}</strong>{data.inferred_industry && data.inferred_industry !== 'General' ? ` (${data.inferred_industry})` : ''}</>
                   : <>Kami mengoptimalkan CV kamu berdasarkan pengalaman yang terdeteksi.</>
@@ -521,7 +521,7 @@ export default function Result() {
                   )}
                   <button
                     onClick={handleToggleDetails}
-                    style={{ background: 'none', border: '1px solid #E2E8F0', borderRadius: 60, padding: '0.4rem 1.1rem', fontSize: '0.82rem', color: '#4B5563', cursor: 'pointer', marginTop: '0.85rem', fontFamily: 'inherit', transition: 'border-color 0.2s' }}
+                    style={{ background: 'none', border: '1px solid #E2E8F0', borderRadius: 60, padding: '0.4rem 1.1rem', fontSize: '0.875rem', color: '#4B5563', cursor: 'pointer', marginTop: '0.85rem', fontFamily: 'inherit', transition: 'border-color 0.2s' }}
                   >
                     {showDetails ? 'Sembunyikan analisis ↑' : 'Lihat analisis lengkap ↓'}
                   </button>
@@ -531,14 +531,14 @@ export default function Result() {
               {/* Inline collapsible detail — expands below score card */}
               {showDetails && (
                 <div style={{ background: '#F8FAFC', borderRadius: '0 0 24px 24px', border: '1px solid rgba(148,163,184,0.14)', borderTop: 'none', padding: '1.5rem' }}>
-                  <div style={{ marginBottom: '1rem', fontSize: '0.72rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'center' }}>
+                  <div style={{ marginBottom: '1rem', fontSize: '0.875rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'center' }}>
                     Analisis lengkap
                   </div>
                   <RedFlags redFlags={data.red_flags || []} />
                   <GapList gaps={data.gap || []} />
                   <RecommendationList recommendations={data.rekomendasi || []} />
                   {(data.rekomendasi || []).length > 0 && (
-                    <p style={{ textAlign: 'center', fontSize: '0.85rem', color: '#065F46', margin: '0.25rem 0 0.75rem', fontWeight: 500 }}>
+                    <p style={{ textAlign: 'center', fontSize: '0.875rem', color: '#065F46', margin: '0.25rem 0 0.75rem', fontWeight: 500 }}>
                       ✨ Kamu sudah dekat — tinggal perbaiki ini sedikit lagi
                     </p>
                   )}
@@ -563,13 +563,13 @@ export default function Result() {
                   </div>
                 ) : (data.gap || []).length > 0 ? (
                   <div data-testid="primary-problem">
-                    <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.4rem' }}>
+                    <p style={{ fontSize: '0.875rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.4rem' }}>
                       Masalah utama kamu
                     </p>
                     <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#111827', margin: '0 0 0.5rem', lineHeight: 1.4 }}>
                       {data.gap![0]}
                     </h3>
-                    <p style={{ fontSize: '0.85rem', color: '#64748B', margin: 0, lineHeight: 1.6 }}>
+                    <p style={{ fontSize: '0.875rem', color: '#64748B', margin: 0, lineHeight: 1.6 }}>
                       Gap ini yang paling berpengaruh terhadap peluang kamu dipanggil interview — HR bisa langsung skip CV jika ini tidak terlihat.
                     </p>
                   </div>
@@ -583,17 +583,17 @@ export default function Result() {
                 {/* Fix */}
                 {isValidRewrite ? (
                   <div data-testid="fix-before-after">
-                    <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.75rem' }}>
+                    <p style={{ fontSize: '0.875rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.75rem' }}>
                       Contoh perbaikan CV kamu
                     </p>
                     <DimRewritePreview preview={result6d!.rewritePreview} />
-                    <p style={{ fontSize: '0.8rem', color: '#64748B', marginTop: '0.5rem', lineHeight: 1.55 }}>
+                    <p style={{ fontSize: '0.875rem', color: '#64748B', marginTop: '0.5rem', lineHeight: 1.55 }}>
                       💡 Contoh ini menggunakan baris dari CV kamu — rewrite lengkap mencakup semua bagian
                     </p>
                   </div>
                 ) : (data.rekomendasi || []).length > 0 ? (
                   <div data-testid="fix-before-after">
-                    <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.75rem' }}>
+                    <p style={{ fontSize: '0.875rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.75rem' }}>
                       Yang perlu diperbaiki:
                     </p>
                     <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
@@ -604,7 +604,7 @@ export default function Result() {
                         </li>
                       ))}
                     </ul>
-                    <p style={{ fontSize: '0.8rem', color: '#64748B', marginTop: '0.75rem', lineHeight: 1.55 }}>
+                    <p style={{ fontSize: '0.875rem', color: '#64748B', marginTop: '0.75rem', lineHeight: 1.55 }}>
                       💡 Rewrite lengkap mencakup semua bagian CV kamu (Experience, Skills, Summary)
                     </p>
                   </div>
@@ -616,10 +616,10 @@ export default function Result() {
             {result6d && (
               <div style={{ ...CARD_STYLE, marginBottom: '2.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                  <p style={{ fontSize: '0.72rem', fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
+                  <p style={{ fontSize: '0.875rem', fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
                     Ini yang paling dilihat HR dalam 7–10 detik
                   </p>
-                  <p style={{ fontSize: '0.72rem', color: '#CBD5E1', margin: 0, flexShrink: 0, marginLeft: 8 }}>
+                  <p style={{ fontSize: '0.875rem', color: '#CBD5E1', margin: 0, flexShrink: 0, marginLeft: 8 }}>
                     Skor dimensi vs. lowongan
                   </p>
                 </div>
@@ -630,7 +630,7 @@ export default function Result() {
                 />
                 <button
                   onClick={() => setShowAllDimensions(d => !d)}
-                  style={{ background: 'none', border: 'none', color: '#2563EB', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 500, padding: '0.75rem 0 0', display: 'block', fontFamily: 'inherit' }}
+                  style={{ background: 'none', border: 'none', color: '#2563EB', fontSize: '0.875rem', cursor: 'pointer', fontWeight: 500, padding: '0.75rem 0 0', display: 'block', fontFamily: 'inherit' }}
                 >
                   {showAllDimensions ? 'Sembunyikan ↑' : 'Lihat semua dimensi →'}
                 </button>
@@ -705,7 +705,7 @@ export default function Result() {
                   <p style={{ color: '#92400E', fontWeight: 600, fontSize: '0.88rem', margin: '0 0 0.5rem' }}>
                     Sesi analisis sudah kedaluwarsa (30 menit)
                   </p>
-                  <p style={{ color: '#78350F', fontSize: '0.8rem', margin: '0 0 0.75rem' }}>
+                  <p style={{ color: '#78350F', fontSize: '0.875rem', margin: '0 0 0.75rem' }}>
                     Upload ulang CV kamu untuk melanjutkan.
                   </p>
                   <a href="upload.html" style={{ display: 'inline-block', background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', fontWeight: 700, padding: '0.65rem 1.5rem', borderRadius: 60, textDecoration: 'none', fontSize: '0.88rem', boxShadow: '0 8px 24px rgba(37,99,235,0.25)' }}>
@@ -715,7 +715,7 @@ export default function Result() {
               )}
 
               {/* Loss aversion microcopy */}
-              <p style={{ fontSize: '0.75rem', color: '#64748B', fontStyle: 'italic', textAlign: 'center', margin: '0.75rem 0 0.5rem' }}>
+              <p style={{ fontSize: '0.875rem', color: '#64748B', fontStyle: 'italic', textAlign: 'center', margin: '0.75rem 0 0.5rem' }}>
                 Perbaikan ini bikin CV kamu standout di 7 detik pertama.
               </p>
 
@@ -731,12 +731,12 @@ export default function Result() {
                   {payBtnLabel}
                 </button>
                 {emailIsConfirmed && !payHint && !sessionExpiredByPay && (
-                  <p style={{ fontSize: '0.8rem', color: '#374151', textAlign: 'center', marginTop: '0.5rem' }}>
+                  <p style={{ fontSize: '0.875rem', color: '#374151', textAlign: 'center', marginTop: '0.5rem' }}>
                     📬 CV akan dikirim ke: <strong>{email.trim()}</strong>
                   </p>
                 )}
                 {payHint && !sessionExpiredByPay && (
-                  <p style={{ fontSize: '0.8rem', color: '#6B7280', textAlign: 'center', marginTop: '0.5rem' }}>
+                  <p style={{ fontSize: '0.875rem', color: '#6B7280', textAlign: 'center', marginTop: '0.5rem' }}>
                     {payHint}
                   </p>
                 )}
@@ -751,7 +751,7 @@ export default function Result() {
             </div>{/* end BLOCK 4 */}
 
             {/* ── TRUST ── */}
-            <div style={{ textAlign: 'center', padding: '1rem 0 0.5rem', fontSize: '0.8rem', color: '#94A3B8', lineHeight: 1.7 }}>
+            <div style={{ textAlign: 'center', padding: '1rem 0 0.5rem', fontSize: '0.875rem', color: '#94A3B8', lineHeight: 1.7 }}>
               🔒 7-hari refund jika tidak puas &nbsp;·&nbsp; Data kamu aman &nbsp;·&nbsp; Bayar via QRIS, VA, e-wallet
             </div>
 
@@ -763,7 +763,7 @@ export default function Result() {
             </div>
 
             {/* Legal footer */}
-            <footer className="text-center py-6 text-xs text-slate-400">
+            <footer className="text-center py-6 text-sm text-slate-400">
               <a href="privacy.html" className="text-slate-400 no-underline hover:underline mx-2">Kebijakan Privasi</a>
               ·
               <a href="terms.html" className="text-slate-400 no-underline hover:underline mx-2">Syarat Layanan</a>

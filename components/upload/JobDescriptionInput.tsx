@@ -36,7 +36,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
   }, []);
 
   const textareaCls = [
-    'w-full min-h-[160px] rounded-2xl border bg-transparent p-5',
+    'w-full max-w-full min-h-[160px] rounded-2xl border bg-transparent p-5',
     'text-slate-900 resize-y outline-none text-sm font-sans transition-all',
     'focus:ring-2 focus:ring-offset-2 border-slate-300 focus:border-blue-500/50 focus:ring-slate-200',
   ].join(' ');
@@ -99,11 +99,11 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
       </div>
 
       {trimmed && quality.message && (
-        <p className="text-xs text-slate-500 mt-2">{quality.message}</p>
+        <p className="text-sm text-slate-500 mt-2">{quality.message}</p>
       )}
 
       {trimmed && !quality.message && (
-        <p className="text-xs text-emerald-600 mt-2">✓ Siap dianalisis</p>
+        <p className="text-sm text-emerald-600 mt-2">✓ Siap dianalisis</p>
       )}
     </div>
   );

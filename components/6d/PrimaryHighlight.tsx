@@ -31,7 +31,7 @@ export default function PrimaryHighlight({ issueKey }: Props) {
 
   return (
     <div className="mb-5">
-      <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">
+      <p className="text-sm font-semibold text-slate-400 uppercase tracking-widest mb-1">
         Masalah utama kamu
       </p>
       <h3 className="text-[1.05rem] font-semibold text-slate-900 leading-snug">

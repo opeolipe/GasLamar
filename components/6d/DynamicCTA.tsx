@@ -33,11 +33,11 @@ export default function DynamicCTA({ issueKey, score }: Props) {
         🔓 {label}
       </button>
       {urgency && (
-        <p className="text-xs text-slate-500 text-center mt-2">
+        <p className="text-sm text-slate-500 text-center mt-2">
           {urgency}
         </p>
       )}
-      <p className="text-xs text-slate-500 text-center mt-2">
+      <p className="text-sm text-slate-500 text-center mt-2">
         Dapatkan versi CV yang sudah diperbaiki &amp; siap kirim
       </p>
     </div>

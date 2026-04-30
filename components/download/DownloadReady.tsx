@@ -79,7 +79,7 @@ function DownloadButton({ fmt, label, size, ariaLabel, onClick }: DownloadButton
       }
     >
       <span>{label}</span>
-      <span className={`text-xs ${primary ? 'text-blue-200' : 'text-slate-400'}`}>{size}</span>
+      <span className={`text-sm ${primary ? 'text-blue-200' : 'text-slate-400'}`}>{size}</span>
     </button>
   );
 }
@@ -298,7 +298,7 @@ export default function DownloadReady({
               <h2 className="text-2xl font-semibold text-slate-900 mb-1" style={{ fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>CV Kamu Sudah Siap!</h2>
               <p className="text-sm text-slate-500 mb-2">Klik tombol di bawah untuk download file CV kamu</p>
               {isTrusted && (
-                <div data-testid="trust-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: 20, padding: '4px 12px', fontSize: '0.78rem', color: '#15803D', fontWeight: 600 }}>
+                <div data-testid="trust-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: 20, padding: '4px 12px', fontSize: '0.875rem', color: '#15803D', fontWeight: 600 }}>
                   ✅ CV divalidasi — tidak ada klaim baru
                 </div>
               )}
@@ -333,7 +333,7 @@ export default function DownloadReady({
 
             {/* Expiry date */}
             {expiryText && (
-              <p className="text-center text-xs text-slate-500 mb-4">{expiryText}</p>
+              <p className="text-center text-sm text-slate-500 mb-4">{expiryText}</p>
             )}
 
             {/* Tips box */}
@@ -360,7 +360,7 @@ export default function DownloadReady({
             {/* Interview feedback */}
             <div className="rounded-[24px] p-5 text-center" style={{ background: 'rgba(255,255,255,0.84)', border: '1px solid rgba(148,163,184,0.18)' }}>
               <p className="font-bold text-slate-800 mb-1">📬 Dapat interview setelah pakai GasLamar?</p>
-              <p className="text-xs text-slate-400 mb-3">Bantu kami tingkatkan kualitas layanan dengan 1 klik.</p>
+              <p className="text-sm text-slate-400 mb-3">Bantu kami tingkatkan kualitas layanan dengan 1 klik.</p>
               {feedbackDone ? (
                 <p className="text-sm font-semibold text-emerald-600">Terima kasih! Feedback kamu sangat berarti. 🙏</p>
               ) : (
