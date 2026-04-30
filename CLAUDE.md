@@ -1,241 +1,128 @@
 # GasLamar — Claude Code Instructions
 
-## Project Overview
+**Stack:** Cloudflare Workers (API) + Cloudflare Pages (frontend) + Claude claude-haiku-3-5 + Mayar (payment) + Cloudflare KV  
+**Pages flow:** `index.html` → `upload.html` → `analyzing.html` → `hasil.html` → `download.html`  
+**URLs:** prod `gaslamar.com` / worker `gaslamar-worker.carolineratuolivia.workers.dev` / staging `gaslamar-worker-staging.carolineratuolivia.workers.dev`
 
-GasLamar is an AI-powered CV tailoring web app for Indonesian job seekers. Users upload a CV (PDF/DOCX/TXT) and paste a job description; the app scores the CV fit, explains the gaps, and generates a tailored CV in Bahasa Indonesia and English.
+---
 
-**Stack:** Cloudflare Workers (API) + Cloudflare Pages (frontend, vanilla JS + React for results page) + Anthropic Claude (claude-haiku-3-5) + Mayar (Indonesian payment gateway) + Cloudflare KV (sessions/cache)
+## Pipeline (`POST /analyze`)
 
-**Key pages:** `index.html` → `upload.html` → `analyzing.html` → `hasil.html` → `download.html`
+LLM = extraction + text only. All scoring is pure JS.
 
-## Architecture — 6-Stage Pipeline
+| Stage | What |
+|---|---|
+| 1. EXTRACT | LLM → structured CV+JD data. Cache: `extract_v2_<hash>` 24h |
+| 2. ANALYZE | pure JS — skill match, format, archetype, red flags |
+| 3. SCORE | formula → 6D scores, verdict (DO/TIMED/DO NOT), timebox. Cache: `analysis_v6_<hash>` 48h |
+| 4. DIAGNOSE | LLM → human-readable gap explanation only (cannot change scores) |
+| 5. REWRITE | LLM via `/generate` → tailored CV in ID + EN. Cache: `gen_id_<hash>` / `gen_en_<hash>` 48h |
+| 6. VALIDATE | schema check + 1 retry after every LLM call |
 
-`POST /analyze` runs a deterministic pipeline. LLM is used only for extraction and text explanation; all scoring is pure JS.
+**Cache bump rule:** when changing a prompt or scoring formula, bump the version suffix in `analysis.js` / `tailoring.js`.
 
-1. **EXTRACT** (LLM — claude-haiku) — verbatim copy of CV + JD data
-2. **ANALYZE** (pure JS) — skill matching, format detection, archetype detection
-3. **SCORE** (formula) — 6-dimension scoring, verdict (DO/TIMED/DO NOT), timebox
-4. **DIAGNOSE** (LLM — claude-haiku) — human-readable explanation of gaps (cannot change scores)
-5. **REWRITE** (LLM — called from `/generate`) — tailored CV in ID + EN
-6. **VALIDATE** (code) — schema validation + retry after each LLM call
-
-**Caching:** `extract_v1_<hash>` (24h TTL), `analysis_v4_<hash>` (48h TTL), `gen_id_<hash>` / `gen_en_<hash>` (48h TTL). Bump cache key version when changing prompts or scoring formulas.
+---
 
 ## Key Files
 
 | File | Purpose |
 |---|---|
-| `worker/src/router.js` | All API routes — add new endpoints here |
+| `worker/src/router.js` | Route dispatch — add endpoints here |
 | `worker/src/handlers/` | One file per endpoint |
-| `worker/src/pipeline/` | `extract.js`, `analyze.js`, `score.js`, `diagnose.js`, `validate.js` |
-| `worker/src/prompts/` | LLM prompts — `extract.js`, `diagnose.js`, `tailorId.js`, `tailorEn.js` |
-| `worker/src/constants.js` | `ALLOWED_ORIGINS`, `TIER_PRICES`, `SESSION_TTL`, tier config |
+| `worker/src/pipeline/` | `extract.js`, `analyze.js`, `archetypes.js`, `roleInference.js`, `score.js`, `diagnose.js`, `validate.js` |
+| `worker/src/prompts/` | `extract.js`, `diagnose.js`, `tailorId.js`, `tailorEn.js`, `interviewKit.js` |
+| `worker/src/analysis.js` | Cache orchestration for analyze pipeline — cache key versions live here |
+| `worker/src/tailoring.js` | Cache orchestration for generate pipeline — gen key prefixes live here |
+| `worker/src/constants.js` | `TIER_PRICES`, `TIER_CREDITS`, `SESSION_TTL`, `ALLOWED_ORIGINS` |
+| `worker/src/claude.js` | `callClaude()` — 40s timeout |
 | `worker/src/sessions.js` | KV session CRUD |
-| `worker/src/claude.js` | `callClaude()` wrapper — timeout 40s |
-| `js/config.js` | `WORKER_URL` — **single place** to update the worker URL |
-| `js/dist/` | Generated bundles — **gitignored**, must run `npm run build` |
-| `js/vendor/` | Vendored docx.js + jsPDF — **gitignored**, must run `npm run build:vendor` |
-| `css/main.css` | Merged Tailwind + custom styles (generated) |
+| `worker/src/roleProfiles.js` | Role-weighted scoring profiles |
+| `js/config.js` | `WORKER_URL` — auto-selects staging vs prod by hostname |
+| `js/dist/` | Generated bundles — gitignored, run `npm run build:js` |
+| `js/vendor/` | Vendored libs — gitignored, run `npm run build:vendor` |
+| `css/main.css` | Tailwind + custom styles (generated) |
 
-## Dev Commands
-
-```bash
-# Worker
-cd worker && npm test           # Run vitest (130 tests, all passing)
-cd worker && npm run dev        # Local dev with wrangler
-cd worker && npm run tail       # Stream production logs
-
-# Frontend (run from repo root)
-npm run build                   # Build vendor libs + JS bundles + Tailwind CSS
-npm run build:vendor            # Vendor only (docx.js, jsPDF, Tailwind)
-npm run build:js                # JS bundles only (esbuild, per-page)
-npm run dev                     # Watch mode — rebuild on change
-```
-
-**Important:** `js/hasil-guard.js` is NOT bundled — it runs as a synchronous inline `<script>` to prevent flash of unauthenticated content. All other page scripts use `defer`.
-
-## Coding Conventions
-
-- Worker is pure ES modules (no TypeScript). Frontend is vanilla JS + React (hasil page only).
-- All LLM responses are schema-validated by `pipeline/validate.js` and retried once on failure.
-- Session IDs are `sess_<crypto.randomUUID()>`. CV text keys are bound to requesting IP.
-- Never add new LLM calls that produce scoring or verdict decisions — keep those in pure JS.
-- Rate limiting uses Cloudflare native bindings (atomic) + KV fallback. Both must allow.
-- Do not run `wrangler deploy` without `--env production` for production deploys.
+---
 
 ## API Routes
 
 | Method | Path | Handler |
 |---|---|---|
-| `GET` | `/health` | inline — no auth |
-| `POST` | `/analyze` | `handlers/analyze.js` |
-| `POST` | `/create-payment` | `handlers/createPayment.js` |
-| `POST` | `/webhook/mayar` | `handlers/mayarWebhook.js` |
-| `POST` | `/session/ping` | `handlers/sessionPing.js` |
-| `GET` | `/check-session` | `handlers/checkSession.js` |
-| `GET` | `/validate-session` | `handlers/validateSession.js` |
-| `POST` | `/get-session` | `handlers/getSession.js` |
-| `POST` | `/generate` | `handlers/generate.js` |
-| `POST` | `/submit-email` | `handlers/submitEmail.js` |
-| `POST` | `/fetch-job-url` | `handlers/fetchJobUrl.js` |
-| `POST` | `/exchange-token` | `handlers/exchangeToken.js` |
-| `POST` | `/resend-email` | `handlers/resendEmail.js` |
-| `POST` | `/interview-kit` | `handlers/interviewKit.js` |
+| GET | `/health` | inline — no auth |
+| POST | `/analyze` | `analyze.js` — rate 3/min |
+| POST | `/generate` | `generate.js` — rate 5/min |
+| POST | `/create-payment` | `createPayment.js` — rate 5/min |
+| POST | `/webhook/mayar` | `mayarWebhook.js` — HMAC-SHA256 verified |
+| POST | `/session/ping` | `sessionPing.js` |
+| GET | `/check-session` | `checkSession.js` |
+| GET | `/validate-session` | `validateSession.js` |
+| POST | `/get-session` | `getSession.js` — requires `paid` status |
+| POST | `/submit-email` | `submitEmail.js` |
+| POST | `/fetch-job-url` | `fetchJobUrl.js` — rate 5/min |
+| POST | `/exchange-token` | `exchangeToken.js` |
+| POST | `/resend-email` | `resendEmail.js` |
+| POST | `/interview-kit` | `interviewKit.js` |
+| POST | `/bypass-payment` | `bypassPayment.js` — dev/admin only |
 
-## Pricing Tiers
+---
+
+## Pricing Tiers (`constants.js`)
 
 | Tier | Price | Credits | Languages |
 |---|---|---|---|
-| Coba Dulu | Rp 29.000 | 1 CV | Bahasa Indonesia only |
-| Single | Rp 59.000 | 1 CV | ID + EN |
-| 3-Pack | Rp 149.000 | 3 CV | ID + EN |
-| Job Hunt Pack | Rp 299.000 | 10 CV | ID + EN |
+| coba | Rp 29.000 | 1 | ID only |
+| single | Rp 59.000 | 1 | ID + EN |
+| 3pack | Rp 149.000 | 3 | ID + EN |
+| jobhunt | Rp 299.000 | 10 | ID + EN |
 
-## gstack
+Session TTL: 7 days (coba/single), 30 days (3pack/jobhunt).
 
-Use the `/browse` skill from gstack for all web browsing. **Never use `mcp__claude-in-chrome__*` tools.**
+---
 
-Available gstack skills:
-- `/office-hours` — Review plan aplikasi, product thinking, prioritization
-- `/plan-ceo-review` — CEO-level plan review
-- `/plan-eng-review` — Engineering plan review
-- `/plan-design-review` — Design plan review
-- `/design-consultation` — Design consultation
-- `/design-shotgun` — Design feedback shotgun
-- `/review` — Code review
-- `/ship` — Ship a feature end-to-end
-- `/land-and-deploy` — Land and deploy changes
-- `/canary` — Canary deploy
-- `/benchmark` — Performance benchmarking
-- `/browse` — Headless browser for web browsing, QA, and testing
-- `/connect-chrome` — Connect to Chrome browser
-- `/qa` — Full QA testing suite
-- `/qa-only` — QA testing only (no code changes)
-- `/design-review` — Design review
-- `/setup-browser-cookies` — Setup browser cookies/auth
-- `/setup-deploy` — Setup deployment pipeline
-- `/retro` — Retrospective
-- `/investigate` — Investigate a bug or issue
-- `/document-release` — Document a release
-- `/codex` — Codex agent
-- `/cso` — CSO review
-- `/autoplan` — Auto-generate implementation plan
-- `/careful` — Extra-careful mode for risky changes
-- `/freeze` — Freeze a feature/branch
-- `/guard` — Guard mode
-- `/unfreeze` — Unfreeze a feature/branch
-- `/gstack-upgrade` — Upgrade gstack
+## Dev Commands
 
-## Deploy Configuration (configured by /setup-deploy)
-- Platform: Cloudflare Workers (API) + Cloudflare Pages (frontend)
-- Production URL: https://gaslamar.com
-- Worker URL: https://gaslamar-worker.carolineratuolivia.workers.dev
-- Deploy workflow: .github/workflows/deploy.yml (auto-deploy on push to main)
-- Deploy status command: curl -s https://gaslamar-worker.carolineratuolivia.workers.dev/health
-- Merge method: squash
-- Project type: web app
-
-### Jobs (in order)
-1. `test` — `cd worker && npm test` (vitest, runs on all PRs + pushes to main)
-2. `deploy-worker` — `wrangler deploy --env production` (main only, after test)
-3. `build-frontend` — `npm run vendor` builds js/vendor/ (main only, after test)
-4. `deploy-pages` — Cloudflare Pages action (main only, after build-frontend)
-
-### GitHub Secrets required
-- `CLOUDFLARE_API_TOKEN` — API token with Workers + Pages deploy permissions
-- `CLOUDFLARE_ACCOUNT_ID` — Cloudflare account ID
-
-### Custom deploy hooks
-- Pre-merge: `npm test` (in /worker) — enforced by CI
-- Deploy trigger: automatic on push to main
-- Post-deploy health check: GET https://gaslamar-worker.carolineratuolivia.workers.dev/health → 200
-
-### One-time setup (first deploy)
 ```bash
-# 1. Create KV namespaces
-cd worker && npx wrangler kv:namespace create GASLAMAR_SESSIONS
-npx wrangler kv:namespace create GASLAMAR_SESSIONS --preview
-# → Paste IDs into wrangler.toml
+# Worker
+cd worker && npm test           # vitest (all tests must pass)
+cd worker && npm run dev        # local dev
+cd worker && npm run tail       # prod log stream
 
-# 2. Set secrets
-npx wrangler secret put ANTHROPIC_API_KEY
-npx wrangler secret put MAYAR_API_KEY
-npx wrangler secret put MAYAR_API_KEY_SANDBOX
-npx wrangler secret put MAYAR_WEBHOOK_SECRET
-
-# 3. Create Cloudflare Pages project (once, via dashboard)
-# Project name: gaslamar
-# Build command: npm install && npm run vendor
-# Output directory: /
-
-# 4. Add GitHub secrets CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID
-# Then push to main — CI handles the rest
+# Frontend (repo root)
+npm run build                   # vendor + JS bundles + React + Tailwind
+npm run build:js                # esbuild bundles only
+npm run build:react             # React build only
+npm run build:vendor            # vendor libs + Tailwind only
+npm run dev                     # watch mode
 ```
 
 ---
 
-# CLAUDE.md
+## Conventions & Invariants
 
-Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
-
-**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
-
-## 1. Think Before Coding
-
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
-
-Before implementing:
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
-
-## 2. Simplicity First
-
-**Minimum code that solves the problem. Nothing speculative.**
-
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
-
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
-
-## 3. Surgical Changes
-
-**Touch only what you must. Clean up only your own mess.**
-
-When editing existing code:
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
-
-When your changes create orphans:
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
-
-The test: Every changed line should trace directly to the user's request.
-
-## 4. Goal-Driven Execution
-
-**Define success criteria. Loop until verified.**
-
-Transform tasks into verifiable goals:
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
-
-For multi-step tasks, state a brief plan:
-```
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
-```
-
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+- Worker: pure ES modules, no TypeScript.
+- Never put scoring/verdict logic in LLM prompts — keep in `pipeline/analyze.js` + `pipeline/score.js`.
+- Rate limiting: Cloudflare native binding (atomic) + KV fallback — **both** must allow.
+- `js/hasil-guard.js` is NOT bundled — runs as synchronous inline `<script>` (prevents auth flash). All other scripts use `defer`.
+- Session IDs: `sess_<crypto.randomUUID()>`. `cv_text_key` is IP-bound — reject if IP mismatches.
+- Session lock (`lock_<session_id>`, TTL 30s) prevents double-generation races.
+- `/get-session` rejects unless session has `paid` status.
+- Webhook HMAC-SHA256 (Mayar) must never be bypassed.
+- CORS: only `gaslamar.com` and `www.gaslamar.com`.
+- File validation: magic bytes (PDF `%PDF`, DOCX `PK`) + 5MB limit — server-side.
+- Never run `wrangler deploy` without `--env production` for prod.
 
 ---
 
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+## Deploy
+
+- CI: push to `main` → test → deploy worker → build frontend → deploy pages
+- Staging: `staging.gaslamar.pages.dev` → staging worker (Mayar sandbox)
+- Health check: `GET https://gaslamar-worker.carolineratuolivia.workers.dev/health`
+
+---
+
+## gstack Skills
+
+`/browse` for all web browsing. Never use `mcp__claude-in-chrome__*`.
+
+`/office-hours` `/plan-ceo-review` `/plan-eng-review` `/plan-design-review` `/design-consultation` `/design-shotgun` `/review` `/ship` `/land-and-deploy` `/canary` `/benchmark` `/browse` `/connect-chrome` `/qa` `/qa-only` `/design-review` `/setup-browser-cookies` `/setup-deploy` `/retro` `/investigate` `/document-release` `/codex` `/cso` `/autoplan` `/careful` `/freeze` `/guard` `/unfreeze` `/gstack-upgrade`
