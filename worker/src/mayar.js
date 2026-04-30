@@ -150,13 +150,15 @@ export async function verifyMayarWebhook(request, env) {
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
 
-  // Constant-time comparison to prevent timing attacks
+  // Constant-time comparison to prevent timing attacks.
+  // Never short-circuit on length: XOR each expected byte against the
+  // corresponding sig byte (0 when sig is shorter) and OR in the length
+  // difference so mismatched lengths always yield diff !== 0.
   const sigLower = signature.toLowerCase();
-  if (sigLower.length !== expected.length) return { valid: false, body };
   const sigBytes = new TextEncoder().encode(sigLower);
   const expBytes = new TextEncoder().encode(expected);
-  let diff = 0;
-  for (let i = 0; i < expBytes.length; i++) diff |= sigBytes[i] ^ expBytes[i];
+  let diff = sigBytes.length ^ expBytes.length;
+  for (let i = 0; i < expBytes.length; i++) diff |= (sigBytes[i] ?? 0) ^ expBytes[i];
   const valid = diff === 0;
   return { valid, body };
 }

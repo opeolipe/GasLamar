@@ -1,5 +1,5 @@
 import { SESSION_TTL, SESSION_TTL_MULTI } from './constants.js';
-import { sha256Full } from './utils.js';
+import { sha256Full, logError } from './utils.js';
 
 // Returns the appropriate TTL based on how many total credits the session has.
 // Multi-credit sessions (total_credits > 1) get 7 days so users can come back
@@ -44,7 +44,12 @@ export async function deleteSession(env, sessionId) {
  * - Uses constant-time comparison to prevent timing attacks.
  */
 export async function verifySessionSecret(session, providedSecret) {
-  if (!session.session_secret_hash) return true; // legacy session — no hash stored
+  if (!session.session_secret_hash) {
+    // Legacy session created before session_secret was introduced.
+    // Log so we can monitor how many are still in the wild.
+    logError('legacy_session_no_secret', {});
+    return true;
+  }
   if (!providedSecret) return false;
   const hash = await sha256Full(providedSecret);
   if (hash.length !== session.session_secret_hash.length) return false;
