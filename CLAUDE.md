@@ -23,46 +23,19 @@ LLM = extraction + text only. All scoring is pure JS.
 
 ---
 
-## Key Files
+## Non-Obvious Files
 
-| File | Purpose |
+Routes → `router.js`. Handlers → `worker/src/handlers/<endpoint>.js`. Pipeline stages → `worker/src/pipeline/`. LLM prompts → `worker/src/prompts/`.
+
+| File | Why non-obvious |
 |---|---|
-| `worker/src/router.js` | Route dispatch — add endpoints here |
-| `worker/src/handlers/` | One file per endpoint |
-| `worker/src/pipeline/` | `extract.js`, `analyze.js`, `archetypes.js`, `roleInference.js`, `score.js`, `diagnose.js`, `validate.js` |
-| `worker/src/prompts/` | `extract.js`, `diagnose.js`, `tailorId.js`, `tailorEn.js`, `interviewKit.js` |
-| `worker/src/analysis.js` | Cache orchestration for analyze pipeline — cache key versions live here |
-| `worker/src/tailoring.js` | Cache orchestration for generate pipeline — gen key prefixes live here |
-| `worker/src/constants.js` | `TIER_PRICES`, `TIER_CREDITS`, `SESSION_TTL`, `ALLOWED_ORIGINS` |
-| `worker/src/claude.js` | `callClaude()` — 40s timeout |
-| `worker/src/sessions.js` | KV session CRUD |
-| `worker/src/roleProfiles.js` | Role-weighted scoring profiles |
-| `js/config.js` | `WORKER_URL` — auto-selects staging vs prod by hostname |
-| `js/dist/` | Generated bundles — gitignored, run `npm run build:js` |
-| `js/vendor/` | Vendored libs — gitignored, run `npm run build:vendor` |
-| `css/main.css` | Tailwind + custom styles (generated) |
-
----
-
-## API Routes
-
-| Method | Path | Handler |
-|---|---|---|
-| GET | `/health` | inline — no auth |
-| POST | `/analyze` | `analyze.js` — rate 3/min |
-| POST | `/generate` | `generate.js` — rate 5/min |
-| POST | `/create-payment` | `createPayment.js` — rate 5/min |
-| POST | `/webhook/mayar` | `mayarWebhook.js` — HMAC-SHA256 verified |
-| POST | `/session/ping` | `sessionPing.js` |
-| GET | `/check-session` | `checkSession.js` |
-| GET | `/validate-session` | `validateSession.js` |
-| POST | `/get-session` | `getSession.js` — requires `paid` status |
-| POST | `/submit-email` | `submitEmail.js` |
-| POST | `/fetch-job-url` | `fetchJobUrl.js` — rate 5/min |
-| POST | `/exchange-token` | `exchangeToken.js` |
-| POST | `/resend-email` | `resendEmail.js` |
-| POST | `/interview-kit` | `interviewKit.js` |
-| POST | `/bypass-payment` | `bypassPayment.js` — dev/admin only |
+| `worker/src/analysis.js` | Cache key versions live here (`extract_v2`, `analysis_v6`) — bump here, not in pipeline files |
+| `worker/src/tailoring.js` | Gen key prefixes live here (`gen_id_`, `gen_en_`) — bump here when changing tailor prompts |
+| `worker/src/roleProfiles.js` | Role-weighted scoring inputs — not in `score.js` |
+| `worker/src/pipeline/archetypes.js` | Archetype detection called from `analyze.js` |
+| `worker/src/pipeline/roleInference.js` | Role inference called from `analyze.js` |
+| `js/config.js` | Staging vs prod worker URL selected by hostname at runtime |
+| `js/hasil-guard.js` | NOT bundled — must stay as synchronous inline `<script>` or auth flash occurs |
 
 ---
 
@@ -97,19 +70,22 @@ npm run dev                     # watch mode
 
 ---
 
-## Conventions & Invariants
+## Invariants (never break)
 
-- Worker: pure ES modules, no TypeScript.
-- Never put scoring/verdict logic in LLM prompts — keep in `pipeline/analyze.js` + `pipeline/score.js`.
-- Rate limiting: Cloudflare native binding (atomic) + KV fallback — **both** must allow.
-- `js/hasil-guard.js` is NOT bundled — runs as synchronous inline `<script>` (prevents auth flash). All other scripts use `defer`.
-- Session IDs: `sess_<crypto.randomUUID()>`. `cv_text_key` is IP-bound — reject if IP mismatches.
-- Session lock (`lock_<session_id>`, TTL 30s) prevents double-generation races.
-- `/get-session` rejects unless session has `paid` status.
-- Webhook HMAC-SHA256 (Mayar) must never be bypassed.
-- CORS: only `gaslamar.com` and `www.gaslamar.com`.
-- File validation: magic bytes (PDF `%PDF`, DOCX `PK`) + 5MB limit — server-side.
-- Never run `wrangler deploy` without `--env production` for prod.
+- Scoring/verdict logic stays in pure JS (`pipeline/analyze.js` + `pipeline/score.js`) — never in LLM prompts.
+- Webhook HMAC-SHA256 (Mayar) must always be verified.
+- CORS: only `gaslamar.com` + `www.gaslamar.com`.
+- File validation: magic bytes (PDF `%PDF`, DOCX `PK`) + 5MB — server-side.
+- Rate limiting: Cloudflare native binding + KV fallback — **both** must allow.
+
+## Gotchas (common bug sources)
+
+- **Stale cache** — change prompt or scoring formula? Bump version in `analysis.js` (extract/analyze) or `tailoring.js` (gen). Old key = old result.
+- **IP mismatch** — `cv_text_key` is bound to the uploading IP. Testing across IPs or proxies will reject with mismatch.
+- **Frontend not updating** — `js/dist/` and `js/vendor/` are gitignored. Run `npm run build` before testing; CI builds them fresh.
+- **Double-gen race** — session lock `lock_<id>` TTL 30s. Retrying within that window will silently block.
+- **Wrong env deployed** — `wrangler deploy` without `--env production` goes to sandbox, not prod.
+- **Auth flash** — `js/hasil-guard.js` must stay as synchronous inline `<script>`. If it gets deferred/bundled, unauthenticated content flashes.
 
 ---
 
