@@ -2,10 +2,9 @@ import { TIER_PRICES } from './constants.js';
 import { log, logError } from './utils.js';
 
 export function getMayarApiUrl(env) {
-  // Production uses versioned path; sandbox (api.mayar.club) omits /v1
   return env.ENVIRONMENT === 'production'
     ? 'https://api.mayar.id/hl/v1'
-    : 'https://api.mayar.club/hl';
+    : 'https://api.mayar.club/hl/v1';
 }
 
 export function getMayarApiKey(env) {
