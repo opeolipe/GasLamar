@@ -90,7 +90,7 @@ export async function handleAnalyze(request, env) {
       // enabling /generate to switch between targeted and inferred tailoring mode.
       inferred_role: scoring.inferred_role ?? null,
       ip,
-    }), { expirationTtl: 7200 }); // 2 hours — gives users time to review hasil before paying
+    }), { expirationTtl: 86400 }); // 24 hours — gives users time to review hasil before paying
 
     return jsonResponse({ ...scoring, cv_text_key: cvTextKey }, 200, request, env);
   } catch (e) {

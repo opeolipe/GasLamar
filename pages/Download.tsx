@@ -219,7 +219,7 @@ export default function Download() {
 
   const handleUrlFetch = useCallback(async (url: string): Promise<string> => {
     const { sessionId, sessionSecret } = session;
-    const res = await fetch(`${WORKER_URL}/fetch-jd`, {
+    const res = await fetch(`${WORKER_URL}/fetch-job-url`, {
       method:      'POST',
       headers:     { 'Content-Type': 'application/json', ...buildSecretHeaders(sessionSecret) },
       credentials: 'include',
@@ -233,8 +233,8 @@ export default function Download() {
           : 'Gagal mengambil job description. Coba copy-paste manual.',
       );
     }
-    const data = await res.json() as { job_description?: string; text?: string };
-    return data.job_description || data.text || '';
+    const data = await res.json() as { job_desc?: string; job_description?: string; text?: string };
+    return data.job_desc || data.job_description || data.text || '';
   }, [session.sessionId, session.sessionSecret]);
 
   const handleCancelGeneration = useCallback(() => {
@@ -331,8 +331,11 @@ export default function Download() {
         className="px-4 py-8"
         style={{ paddingTop: countdownText ? 'calc(2rem + 34px)' : '2rem' }}
       >
-        {/* Delivery section — always rendered first when delivery exists in localStorage */}
-        {delivery && (
+        {/* Delivery section — only shown after the waiting phase to prevent conflict
+            with WaitingPayment. gaslamar_delivery is written at invoice-creation time
+            (before payment), so it would otherwise appear simultaneously with the
+            "Menunggu Konfirmasi" spinner. */}
+        {delivery && view !== 'waiting' && (
           <div className="max-w-[480px] mx-auto mb-8">
             <div style={{ background: '#F8FAFC', border: '1px solid rgba(148,163,184,0.18)', borderRadius: 20, padding: '1.25rem 1.5rem' }}>
               <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
