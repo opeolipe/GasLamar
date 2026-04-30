@@ -18,7 +18,7 @@ export default function TierIndicator({ tier }: Props) {
       <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium border ${TIER_CLS[t]}`}>
         {td.icon}&nbsp;Paket kamu: {td.name} — {td.desc}
       </div>
-      <p className="text-xs text-slate-400 mt-1">
+      <p className="text-sm text-slate-400 mt-1">
         Analisis gratis dulu — konfirmasi dan bayar setelah lihat hasilnya.
       </p>
     </div>

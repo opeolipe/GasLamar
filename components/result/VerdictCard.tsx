@@ -17,12 +17,12 @@ export default function VerdictCard({ verdict, timeboxWeeks }: Props) {
 
   return (
     <div
-      style={{ borderRadius: 10, padding: '0.6rem 1rem', margin: '0.5rem 0', fontSize: '0.85rem', fontWeight: 600, textAlign: 'center', background: cfg.bg, color: cfg.color, border: `1.5px solid ${cfg.border}` }}
+      style={{ borderRadius: 10, padding: '0.6rem 1rem', margin: '0.5rem 0', fontSize: '0.875rem', fontWeight: 600, textAlign: 'center', background: cfg.bg, color: cfg.color, border: `1.5px solid ${cfg.border}` }}
     >
       <span style={{ fontSize: '1rem' }}>{cfg.icon}</span>{' '}
       <strong>{cfg.label}</strong>
       <br />
-      <span style={{ fontWeight: 400, fontSize: '0.8rem' }}>{desc}</span>
+      <span style={{ fontWeight: 400, fontSize: '0.875rem' }}>{desc}</span>
     </div>
   );
 }

@@ -26,7 +26,7 @@ export default function RewritePreview({ recommendations, gaps }: Props) {
       <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0F172A', marginBottom: '0.2rem', margin: '0 0 0.2rem' }}>
         ✨ Pratinjau perbaikan CV kamu
       </h3>
-      <p style={{ fontSize: '0.8rem', color: '#6B7280', marginBottom: '1rem', margin: '0 0 1rem' }}>
+      <p style={{ fontSize: '0.875rem', color: '#6B7280', marginBottom: '1rem', margin: '0 0 1rem' }}>
         AI akan terapkan semua perbaikan ini ke CV kamu secara langsung
       </p>
 
@@ -39,12 +39,12 @@ export default function RewritePreview({ recommendations, gaps }: Props) {
           {rest.map((item, i) => (
             <PreviewItem key={i} label={itemLabel(i + 1)} text={item} />
           ))}
-          <div style={{ fontSize: '0.8rem', color: '#6B7280', textAlign: 'center', padding: '0.5rem 0 0.25rem' }}>
+          <div style={{ fontSize: '0.875rem', color: '#6B7280', textAlign: 'center', padding: '0.5rem 0 0.25rem' }}>
             + rewrite lengkap CV dalam Bahasa Indonesia &amp; Inggris
           </div>
         </div>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(248,250,252,0.72)', padding: '0.5rem' }}>
-          <div style={{ background: '#1E40AF', color: 'white', borderRadius: 60, padding: '0.6rem 1.1rem', fontSize: '0.8rem', fontWeight: 700, textAlign: 'center', lineHeight: 1.45, maxWidth: 280, boxShadow: '0 4px 16px rgba(37,99,235,0.25)' }}>
+          <div style={{ background: '#1E40AF', color: 'white', borderRadius: 60, padding: '0.6rem 1.1rem', fontSize: '0.875rem', fontWeight: 700, textAlign: 'center', lineHeight: 1.45, maxWidth: 280, boxShadow: '0 4px 16px rgba(37,99,235,0.25)' }}>
             🔒 Lihat semua {totalCount} perbaikan + CV rewrite lengkap (ID &amp; EN) setelah pilih paket
           </div>
         </div>

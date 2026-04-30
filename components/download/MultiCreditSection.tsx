@@ -84,9 +84,9 @@ export default function MultiCreditSection({ creditsRemaining, totalCredits, onG
       >
         <div className="text-sm text-amber-700">✨ Kamu masih punya</div>
         <div className="text-4xl font-extrabold text-amber-700 my-1">{creditsRemaining} kredit tersisa</div>
-        <div className="text-xs text-amber-600">dari {totalCredits} total kredit paket kamu</div>
+        <div className="text-sm text-amber-600">dari {totalCredits} total kredit paket kamu</div>
         <p className="text-sm text-slate-600 mt-2">CV dasarmu sudah tersimpan – tinggal masukkan job description loker berikutnya.</p>
-        <p className="text-xs text-slate-400 mt-1">
+        <p className="text-sm text-slate-400 mt-1">
           Mau pakai CV yang berbeda?{' '}
           <a href="upload.html" className="text-blue-600 hover:underline" title="Upload CV baru (memerlukan paket baru)">
             Mulai upload baru
@@ -160,7 +160,7 @@ export default function MultiCreditSection({ creditsRemaining, totalCredits, onG
               </button>
             </div>
             {urlStatus && (
-              <p className="text-xs mt-1" style={{ color: urlStatus.ok ? '#059669' : '#DC2626' }}>
+              <p className="text-sm mt-1" style={{ color: urlStatus.ok ? '#059669' : '#DC2626' }}>
                 {urlStatus.text}
               </p>
             )}
@@ -185,11 +185,11 @@ export default function MultiCreditSection({ creditsRemaining, totalCredits, onG
               unicodeBidi:      'plaintext',
             }}
           />
-          <div className={`text-right text-xs mt-1 ${nearLimit ? 'text-amber-600' : 'text-slate-400'}`}>
+          <div className={`text-right text-sm mt-1 ${nearLimit ? 'text-amber-600' : 'text-slate-400'}`}>
             {charCount.toLocaleString('id-ID')} / 5.000 karakter
           </div>
           {nearLimit && (
-            <p className="text-xs text-amber-600 mt-0.5">Mendekati batas karakter</p>
+            <p className="text-sm text-amber-600 mt-0.5">Mendekati batas karakter</p>
           )}
         </div>
 
@@ -208,7 +208,7 @@ export default function MultiCreditSection({ creditsRemaining, totalCredits, onG
 
       {/* Trust footer */}
       <div
-        className="rounded-[20px] text-center text-xs text-slate-500 py-3 px-4 mt-5"
+        className="rounded-[20px] text-center text-sm text-slate-500 py-3 px-4 mt-5"
         style={{ background: 'rgba(248,250,252,0.8)', border: '1px solid rgba(148,163,184,0.18)' }}
       >
         🔒 CV aslimu tersimpan aman · Link berlaku 30 hari · Generate kapan saja tanpa login

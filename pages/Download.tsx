@@ -422,7 +422,7 @@ export default function Download() {
         )}
       </main>
 
-      <footer className="text-center py-8 text-xs text-slate-400">
+      <footer className="text-center py-8 text-sm text-slate-400">
         <a href="privacy.html" className="text-slate-500 no-underline hover:underline mx-2">Kebijakan Privasi</a>
         ·
         <a href="terms.html"   className="text-slate-500 no-underline hover:underline mx-2">Syarat Layanan</a>

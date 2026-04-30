@@ -43,7 +43,7 @@ HUMAN TONE (CRITICAL):
 
 NUMBERS:
 - Only keep numbers that exist in the original CV. Never fabricate new ones.
-- Do not add placeholders like "[X%]" or "[amount]".
+- Do not add any bracketed placeholders. If the original CV has no metric, write the bullet without a metric.
 
 ATS-READY (MANDATORY):
 - Single-column layout — no tables, multi-column, text boxes
@@ -55,7 +55,8 @@ ATS-READY (MANDATORY):
 NEVER:
 - Em-dash anywhere except role headers (Company — Title)
 - Fabricated numbers
-- Generic AI phrases: "with clearer results", "relevant to the targeted position"
+- Generic AI phrases that claim target-role relevance without concrete evidence
+- Any bracketed placeholders
 - Personal pronouns: I, we, my, our
 - Multi-column layout or tables
 - Remove important context just to shorten the CV`;

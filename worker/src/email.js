@@ -92,8 +92,8 @@ export async function sendPaymentConfirmationEmail(sessionId, env) {
         style="display:inline-block;background:#1B4FE8;color:#fff;font-weight:700;padding:14px 28px;border-radius:12px;text-decoration:none;margin-bottom:24px">
         ${isMulti ? 'Mulai Generate CV →' : 'Download CV Sekarang →'}
       </a>
-      <p style="font-size:12px;color:#9CA3AF">Link ini berlaku 1 jam. Kalau sudah kedaluwarsa, mulai ulang dari <a href="https://gaslamar.com/upload.html" style="color:#1B4FE8">sini</a>.</p>
-      <p style="font-size:12px;color:#9CA3AF">Setelah membuka link, sesi kamu akan aktif selama ${validityText} di browser tersebut.</p>
+      <p style="font-size:14px;color:#9CA3AF">Link ini berlaku 1 jam. Kalau sudah kedaluwarsa, mulai ulang dari <a href="https://gaslamar.com/upload.html" style="color:#1B4FE8">sini</a>.</p>
+      <p style="font-size:14px;color:#9CA3AF">Setelah membuka link, sesi kamu akan aktif selama ${validityText} di browser tersebut.</p>
     </div>`;
 
   const res = await fetch('https://api.resend.com/emails', {
@@ -169,7 +169,7 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
       ${isMulti ? '' : `<div style="background:#EFF6FF;border-radius:10px;padding:14px 18px;margin-bottom:20px">
         <p style="margin:0;font-size:13px;color:#1E40AF">Punya loker lain? <a href="https://gaslamar.com/?tier=3pack" style="color:#1B4FE8;font-weight:600">Upgrade ke 3-Pack</a> dan hemat 40%.</p>
       </div>`}
-      <p style="font-size:12px;color:#9CA3AF">Link download berlaku 1 jam. Pertanyaan? Email ke <a href="mailto:support@gaslamar.com" style="color:#1B4FE8">support@gaslamar.com</a></p>
+      <p style="font-size:14px;color:#9CA3AF">Link download berlaku 1 jam. Pertanyaan? Email ke <a href="mailto:support@gaslamar.com" style="color:#1B4FE8">support@gaslamar.com</a></p>
     </div>`;
 
   const cvRes = await fetch('https://api.resend.com/emails', {

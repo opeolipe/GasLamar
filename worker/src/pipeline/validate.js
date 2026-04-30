@@ -7,6 +7,20 @@
 /**
  * Validates the JSON object returned by SKILL_EXTRACT (Stage 1).
  */
+function coerceBoolean(value) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['true', 'ya', 'yes', 'y', '1'].includes(normalized)) return true;
+    if (['false', 'tidak', 'no', 'n', '0'].includes(normalized)) return false;
+  }
+  if (typeof value === 'number') {
+    if (value === 1) return true;
+    if (value === 0) return false;
+  }
+  return value;
+}
+
 export function validateExtractOutput(parsed) {
   if (!parsed || typeof parsed !== 'object') {
     return { valid: false, errors: ['Output bukan object JSON'] };
@@ -27,9 +41,9 @@ export function validateExtractOutput(parsed) {
   if (!cv.format_cv || typeof cv.format_cv !== 'object') {
     errors.push('cv.format_cv missing or not object');
   } else {
-    // LLM sometimes returns "true"/"false" strings — coerce them before type check
-    if (typeof cv.format_cv.satu_kolom === 'string') cv.format_cv.satu_kolom = cv.format_cv.satu_kolom === 'true';
-    if (typeof cv.format_cv.ada_tabel  === 'string') cv.format_cv.ada_tabel  = cv.format_cv.ada_tabel  === 'true';
+    // LLM sometimes returns localized strings or 0/1 values — coerce before type check.
+    cv.format_cv.satu_kolom = coerceBoolean(cv.format_cv.satu_kolom);
+    cv.format_cv.ada_tabel  = coerceBoolean(cv.format_cv.ada_tabel);
     if (typeof cv.format_cv.satu_kolom !== 'boolean') errors.push('cv.format_cv.satu_kolom must be boolean');
     if (typeof cv.format_cv.ada_tabel  !== 'boolean') errors.push('cv.format_cv.ada_tabel must be boolean');
   }

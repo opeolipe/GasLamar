@@ -274,7 +274,7 @@ function renderRewritePreview(rekomendasi, gap) {
         <div class="preview-item-label">${i + 2 <= rekomendasi.length ? `✅ Perbaikan #${i + 2}` : '❌ Gap yang diperbaiki'}</div>
         <div class="preview-item-text">${escapeHtml(item)}</div>
       </div>`).join('') + `
-    <div style="font-size:0.8rem;color:#6B7280;text-align:center;padding:0.5rem 0 0.25rem;">
+    <div style="font-size: 0.875rem;color:#6B7280;text-align:center;padding:0.5rem 0 0.25rem;">
       + rewrite lengkap CV dalam Bahasa Indonesia &amp; Inggris
     </div>`;
 
@@ -336,7 +336,7 @@ function setupTierRecommendation(score) {
   el.innerHTML = `
     <div style="display:flex;align-items:flex-start;gap:0.75rem;">
       <span style="font-size:1.1rem;flex-shrink:0;">💡</span>
-      <p style="font-size:0.85rem;color:rgba(255,255,255,0.9);margin:0;">${msg}
+      <p style="font-size: 0.875rem;color:rgba(255,255,255,0.9);margin:0;">${msg}
         <button id="rec-tier-btn" style="margin-left:4px;text-decoration:underline;font-weight:600;background:none;border:none;color:inherit;cursor:pointer;font-family:inherit;font-size:inherit;padding:0;">Pilih →</button>
       </p>
     </div>`;
@@ -384,7 +384,7 @@ function renderArchetypeAndVerdict(scoring) {
   verdictEl.style.background = cfg.bg;
   verdictEl.style.color = cfg.color;
   verdictEl.style.border = `1.5px solid ${cfg.border}`;
-  verdictEl.innerHTML = `<span style="font-size:1rem;">${scoring.veredict === 'DO' ? '✅' : scoring.veredict === 'DO NOT' ? '❌' : '⏳'}</span> <strong>${escapeHtml(cfg.label)}</strong><br><span style="font-weight:400;font-size:0.8rem;">${escapeHtml(cfg.desc)}</span>`;
+  verdictEl.innerHTML = `<span style="font-size:1rem;">${scoring.veredict === 'DO' ? '✅' : scoring.veredict === 'DO NOT' ? '❌' : '⏳'}</span> <strong>${escapeHtml(cfg.label)}</strong><br><span style="font-weight:400;font-size: 0.875rem;">${escapeHtml(cfg.desc)}</span>`;
   verdictEl.classList.remove('hidden');
   verdictEl.style.display = 'block';
 }
@@ -410,7 +410,7 @@ function renderSkor6D(skor6d) {
     const barColor = val >= 7 ? '#10B981' : val >= 4 ? '#F59E0B' : '#EF4444';
     return `
       <div>
-        <div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:2px;">
+        <div style="display:flex;justify-content:space-between;font-size: 0.875rem;margin-bottom:2px;">
           <span>${icon} ${escapeHtml(label)}</span>
           <span style="font-weight:600;">${val}/10</span>
         </div>
@@ -441,7 +441,7 @@ async function submitEmail() {
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
-    if (status) { status.textContent = 'Format email tidak valid.'; status.className = 'text-xs text-red-600 mt-1'; }
+    if (status) { status.textContent = 'Format email tidak valid.'; status.className = 'text-sm text-red-600 mt-1'; }
     return;
   }
 
@@ -472,7 +472,7 @@ async function submitEmail() {
   } catch (e) {
     btn.disabled = false;
     btn.textContent = orig;
-    if (status) { status.textContent = 'Gagal menyimpan. Coba lagi.'; status.className = 'text-xs text-red-600 mt-1'; }
+    if (status) { status.textContent = 'Gagal menyimpan. Coba lagi.'; status.className = 'text-sm text-red-600 mt-1'; }
     if (window.Analytics) Analytics.trackError('email_submit', { error_message: e.message });
   }
 }
