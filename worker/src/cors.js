@@ -3,7 +3,7 @@ import { PRODUCTION_ORIGINS, STAGING_ORIGINS } from './constants.js';
 export function getAllowedOrigins(env) {
   if (env.ENVIRONMENT === 'production') return PRODUCTION_ORIGINS;
   if (env.ENVIRONMENT === 'staging') return STAGING_ORIGINS;
-  return [];
+  return PRODUCTION_ORIGINS;
 }
 
 export function isOriginAllowed(request, env) {
