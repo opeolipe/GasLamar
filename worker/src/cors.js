@@ -3,7 +3,7 @@ import { PRODUCTION_ORIGINS, STAGING_ORIGINS } from './constants.js';
 export function getAllowedOrigins(env) {
   if (env.ENVIRONMENT === 'production') return PRODUCTION_ORIGINS;
   if (env.ENVIRONMENT === 'staging') return STAGING_ORIGINS;
-  return PRODUCTION_ORIGINS;
+  return PRODUCTION_ORIGINS; // sandbox and unknown environments mirror production
 }
 
 export function isOriginAllowed(request, env) {
