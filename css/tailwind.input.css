@@ -9,3 +9,31 @@ a:not(.no-underline) {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+
+/* Custom animation keyframes used via inline style= props across React components.
+   Tailwind only emits @keyframes it discovers via class names (e.g. animate-spin);
+   names used exclusively in inline styles must be declared here explicitly. */
+@keyframes gasDownloadSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes gasDownloadPulse {
+  0%, 100% { transform: scale(.95); opacity: .6; }
+  50%       { transform: scale(1.1); opacity: 1; }
+}
+@keyframes gasAnalysisPulse {
+  0%, 100% { transform: scale(.95); opacity: .6; }
+  50%       { transform: scale(1.1); opacity: 1; }
+}
+@keyframes gasStepSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes gasResultSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
