@@ -168,13 +168,18 @@ export function useDownloadSession(): UseDownloadSessionReturn {
           scheduleNextPoll(sId);
         } else {
           setShowCheckButton(true);
-          setStatusText('Klik tombol di bawah untuk cek ulang.');
+          setStatusText('Pembayaran belum terkonfirmasi. Jika kamu sudah membayar, tunggu beberapa saat lalu muat ulang halaman ini.');
         }
         return;
       }
 
       const data     = await res.json() as { status: string; tier?: string; credits_remaining?: number; total_credits?: number; expires_at?: number };
       const { status } = data;
+
+      // Non-blocking debug log so the payment flow can be traced in browser DevTools
+      if (status !== 'paid' && status !== 'generating') {
+        console.debug('[GasLamar] check-session:', { status, poll: pollCountRef.current, maxPolls: MAX_POLLS });
+      }
 
       if (status === 'paid' || status === 'generating') {
         if (pollTimerRef.current) { clearTimeout(pollTimerRef.current); pollTimerRef.current = null; }
@@ -204,7 +209,7 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         if (pollCountRef.current >= MAX_POLLS) {
           ;(window as any).Analytics?.track?.('payment_timeout', { poll_attempts: pollCountRef.current });
           setShowCheckButton(true);
-          setStatusText('Klik tombol di bawah untuk cek ulang.');
+          setStatusText('Pembayaran belum terkonfirmasi. Jika kamu sudah membayar, tunggu beberapa saat lalu muat ulang halaman ini.');
         } else {
           scheduleNextPoll(sId);
         }
@@ -300,7 +305,11 @@ export function useDownloadSession(): UseDownloadSessionReturn {
     }
 
     // ── Path 2: sessionStorage (normal post-payment flow) ────────────────────
-    const sId = sessionStorage.getItem('gaslamar_session');
+    // Fall back to localStorage: Result.tsx writes to both storages, but if
+    // Mayar redirected in a new tab, sessionStorage for this origin was never
+    // populated. localStorage survives cross-tab navigation.
+    const sId = sessionStorage.getItem('gaslamar_session')
+             ?? localStorage.getItem('gaslamar_session');
     if (!sId || !sId.startsWith('sess_')) {
       showError('Sesi tidak ditemukan', 'Link download tidak valid. Coba lagi dari awal.');
       return;

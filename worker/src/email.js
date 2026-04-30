@@ -38,6 +38,15 @@ async function createEmailToken(env, sessionId) {
   return token;
 }
 
+// Build an environment-aware frontend base URL so that email links point to
+// the correct Pages deployment. In staging the email token is stored in the
+// staging KV; if the link pointed to production the token lookup would 404.
+function frontendBaseUrl(env) {
+  return env.ENVIRONMENT === 'staging'
+    ? 'https://staging.gaslamar.pages.dev'
+    : 'https://gaslamar.com';
+}
+
 export async function sendPaymentConfirmationEmail(sessionId, env) {
   const apiKey = env.RESEND_API_KEY;
   if (!apiKey) {
@@ -52,7 +61,7 @@ export async function sendPaymentConfirmationEmail(sessionId, env) {
   // The token exchange endpoint (/exchange-token) sets the session cookie
   // and redirects to /download.html cleanly.
   const emailToken = await createEmailToken(env, sessionId);
-  const downloadUrl = `https://gaslamar.com/download.html?token=${emailToken}`;
+  const downloadUrl = `${frontendBaseUrl(env)}/download.html?token=${emailToken}`;
 
   const tierLabels = {
     coba:    'Coba Dulu (1 CV)',
@@ -63,7 +72,7 @@ export async function sendPaymentConfirmationEmail(sessionId, env) {
   const tierLabel = tierLabels[session.tier] || session.tier;
   const totalCredits = session.total_credits ?? 1;
   const isMulti = totalCredits > 1;
-  const validityText = isMulti ? '30 hari' : '24 jam';
+  const validityText = isMulti ? '30 hari' : '7 hari';
   const creditsNote = isMulti
     ? `<div style="background:#EFF6FF;border-radius:10px;padding:14px 18px;margin-bottom:20px">
         <p style="margin:0;font-size:14px;color:#1E40AF;font-weight:600">Kamu punya ${totalCredits} kredit CV</p>
@@ -123,7 +132,7 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
 
   // Single-use token — protects the session ID from email exposure
   const emailToken = await createEmailToken(env, sessionId);
-  const downloadUrl = `https://gaslamar.com/download.html?token=${emailToken}`;
+  const downloadUrl = `${frontendBaseUrl(env)}/download.html?token=${emailToken}`;
 
   const scoreNum = typeof score === 'number' ? score : parseInt(score, 10) || 0;
   const scoreColor = scoreNum >= 75 ? '#059669' : scoreNum >= 50 ? '#D97706' : '#DC2626';

@@ -55,6 +55,13 @@ export default function WaitingPayment({ statusText, showCheckButton, onCheckNow
           >
             Cek Ulang Status Pembayaran
           </button>
+          <button
+            onClick={() => window.location.reload()}
+            aria-label="Muat ulang halaman ini"
+            className="text-sm text-slate-500 hover:text-slate-700 transition-colors underline"
+          >
+            Muat Ulang Halaman
+          </button>
           {showContact && (
             <a
               href="mailto:support@gaslamar.com"

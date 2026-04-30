@@ -331,8 +331,11 @@ export default function Download() {
         className="px-4 py-8"
         style={{ paddingTop: countdownText ? 'calc(2rem + 34px)' : '2rem' }}
       >
-        {/* Delivery section — always rendered first when delivery exists in localStorage */}
-        {delivery && (
+        {/* Delivery section — only shown after the waiting phase to prevent conflict
+            with WaitingPayment. gaslamar_delivery is written at invoice-creation time
+            (before payment), so it would otherwise appear simultaneously with the
+            "Menunggu Konfirmasi" spinner. */}
+        {delivery && view !== 'waiting' && (
           <div className="max-w-[480px] mx-auto mb-8">
             <div style={{ background: '#F8FAFC', border: '1px solid rgba(148,163,184,0.18)', borderRadius: 20, padding: '1.25rem 1.5rem' }}>
               <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
