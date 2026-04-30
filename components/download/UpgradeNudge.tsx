@@ -58,7 +58,7 @@ export default function UpgradeNudge({ showUpsell = false }: Props) {
       >
         Upload CV untuk Loker Baru
       </a>
-      <p className="text-xs text-slate-400 mt-3">Bisa pakai CV yang sama atau upload CV yang sudah diperbarui</p>
+      <p className="text-sm text-slate-400 mt-3">Bisa pakai CV yang sama atau upload CV yang sudah diperbarui</p>
     </div>
   );
 }

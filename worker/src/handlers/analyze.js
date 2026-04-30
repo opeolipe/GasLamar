@@ -99,6 +99,10 @@ export async function handleAnalyze(request, env) {
       cvLength: extraction.text.length,
       isTimeout: e.message && e.message.includes('timeout'),
     });
+    const schemaFailure = e.message && e.message.includes('format_cv');
+    if (schemaFailure) {
+      return jsonResponse({ message: 'CV format not supported' }, 422, request, env);
+    }
     return jsonResponse({ message: e.message || 'Analisis gagal. Coba lagi.' }, 500, request, env);
   }
 }

@@ -32,12 +32,12 @@ export default function SubmitSection({ isValid, isLoading, showJdHint, onSubmit
       </button>
 
       {showJdHint && (
-        <p className="text-center text-xs text-amber-700 mt-3">
+        <p className="text-center text-sm text-amber-700 mt-3">
           Lengkapi job description untuk melanjutkan analisis.
         </p>
       )}
 
-      <p className="text-center text-xs text-slate-400 mt-4">
+      <p className="text-center text-sm text-slate-400 mt-4">
         CV tidak disimpan • tanpa registrasi • hasil dalam ±30 detik
       </p>
     </div>

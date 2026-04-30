@@ -305,7 +305,7 @@ function showExpiryError() {
   errDiv.className = 'mt-4 p-4 bg-yellow-50 border border-yellow-300 rounded-xl text-center';
   errDiv.innerHTML = `
     <p class="text-yellow-800 font-semibold text-sm mb-2">Sesi analisis sudah kedaluwarsa (30 menit)</p>
-    <p class="text-yellow-700 text-xs mb-3">Upload ulang CV kamu untuk melanjutkan.</p>
+    <p class="text-yellow-700 text-sm mb-3">Upload ulang CV kamu untuk melanjutkan.</p>
     <a href="upload.html" class="inline-block bg-primary text-white font-bold px-5 py-2.5 rounded-xl text-sm hover:bg-blue-700 transition-colors">
       Upload CV Lagi →
     </a>`;
@@ -323,5 +323,5 @@ console.log(
   '%cMengubah nilai di DevTools tidak akan mempengaruhi harga sebenarnya.\n' +
   'Pembayaran diproses oleh Mayar.id sesuai paket yang dipilih saat tombol bayar diklik.\n' +
   'Tier dan harga divalidasi ulang di server — tidak bisa dimanipulasi dari browser.',
-  'color:#374151;font-size:12px;line-height:1.7;'
+  'color:#374151;font-size:14px;line-height:1.7;'
 );

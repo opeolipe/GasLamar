@@ -95,7 +95,7 @@ export default function GeneratingCV({ progress, status, filename, tier, onCance
 
       {/* File badge */}
       <div
-        className="inline-flex items-center gap-2 text-xs font-medium rounded-full px-4 py-2 mb-7"
+        className="inline-flex items-center gap-2 text-sm font-medium rounded-full px-4 py-2 mb-7"
         style={{ background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.18)', color: '#1D4ED8' }}
       >
         📄 <strong>{filename}</strong> · Paket: {tierLabel}
@@ -172,7 +172,7 @@ export default function GeneratingCV({ progress, status, filename, tier, onCance
           onClick={() => {
             if (window.confirm('Batalkan proses penulisan?')) onCancel();
           }}
-          className="text-xs text-slate-400 hover:text-slate-600 transition-colors bg-transparent border-none cursor-pointer font-[inherit] min-h-[44px] px-3"
+          className="text-sm text-slate-400 hover:text-slate-600 transition-colors bg-transparent border-none cursor-pointer font-[inherit] min-h-[44px] px-3"
         >
           ← Batalkan &amp; kembali ke hasil analisis
         </button>

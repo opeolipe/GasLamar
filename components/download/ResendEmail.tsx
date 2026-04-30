@@ -232,7 +232,7 @@ export default function ResendEmail({ sessionSecret }: Props) {
                 color:        cooldown > 0 || sending ? '#94A3B8' : '#1D4ED8',
                 fontWeight:   600,
                 cursor:       cooldown > 0 || sending ? 'not-allowed' : 'pointer',
-                fontSize:     '0.82rem',
+                fontSize: '0.875rem',
                 fontFamily:   'inherit',
                 whiteSpace:   'nowrap' as const,
               }}
@@ -252,7 +252,7 @@ export default function ResendEmail({ sessionSecret }: Props) {
                 color:        '#64748B',
                 fontWeight:   500,
                 cursor:       'pointer',
-                fontSize:     '0.82rem',
+                fontSize: '0.875rem',
                 fontFamily:   'inherit',
               }}
             >
@@ -261,12 +261,12 @@ export default function ResendEmail({ sessionSecret }: Props) {
           </div>
 
           {sending && (
-            <p style={{ margin: '0.4rem 0 0', color: '#64748B', fontSize: '0.82rem' }}>
+            <p style={{ margin: '0.4rem 0 0', color: '#64748B', fontSize: '0.875rem' }}>
               Mengirim ulang...
             </p>
           )}
           {cooldown > 0 && !sending && (
-            <p style={{ margin: '0.4rem 0 0', color: '#64748B', fontSize: '0.82rem' }}>
+            <p style={{ margin: '0.4rem 0 0', color: '#64748B', fontSize: '0.875rem' }}>
               Kirim ulang dalam {cooldown}s
             </p>
           )}
@@ -317,7 +317,7 @@ export default function ResendEmail({ sessionSecret }: Props) {
                   color:        sending || emailSuggestion ? '#94A3B8' : 'white',
                   fontWeight:   600,
                   cursor:       sending || emailSuggestion ? 'not-allowed' : 'pointer',
-                  fontSize:     '0.82rem',
+                  fontSize: '0.875rem',
                   fontFamily:   'inherit',
                   whiteSpace:   'nowrap' as const,
                 }}
@@ -335,7 +335,7 @@ export default function ResendEmail({ sessionSecret }: Props) {
                   borderRadius: 8,
                   color:        '#64748B',
                   cursor:       'pointer',
-                  fontSize:     '0.82rem',
+                  fontSize: '0.875rem',
                   fontFamily:   'inherit',
                 }}
               >
@@ -346,7 +346,7 @@ export default function ResendEmail({ sessionSecret }: Props) {
 
           {/* Validation messages — one at a time */}
           {emailError && (
-            <p role="alert" style={{ margin: '0.35rem 0 0', color: '#DC2626', fontSize: '0.8rem', fontWeight: 500 }}>
+            <p role="alert" style={{ margin: '0.35rem 0 0', color: '#DC2626', fontSize: '0.875rem', fontWeight: 500 }}>
               ⚠️ {emailError}
             </p>
           )}
@@ -363,7 +363,7 @@ export default function ResendEmail({ sessionSecret }: Props) {
                 border:       '1px solid #BFDBFE',
                 borderRadius: 6,
                 color:        '#1D4ED8',
-                fontSize:     '0.8rem',
+                fontSize: '0.875rem',
                 fontWeight:   600,
                 cursor:       'pointer',
                 textAlign:    'left' as const,
@@ -375,12 +375,12 @@ export default function ResendEmail({ sessionSecret }: Props) {
             </button>
           )}
           {!emailError && !emailSuggestion && emailIsDisposable && (
-            <p style={{ margin: '0.35rem 0 0', color: '#D97706', fontSize: '0.8rem' }}>
+            <p style={{ margin: '0.35rem 0 0', color: '#D97706', fontSize: '0.875rem' }}>
               ⚠️ Gunakan email aktif agar kamu bisa menerima CV hasil perbaikan.
             </p>
           )}
           {!emailError && !emailSuggestion && !emailIsDisposable && emailIsConfirmed && (
-            <p style={{ margin: '0.35rem 0 0', color: '#16A34A', fontSize: '0.8rem' }}>
+            <p style={{ margin: '0.35rem 0 0', color: '#16A34A', fontSize: '0.875rem' }}>
               ✓ Email terlihat valid
             </p>
           )}

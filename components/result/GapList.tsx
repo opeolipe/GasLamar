@@ -13,7 +13,7 @@ export default function GapList({ gaps }: Props) {
         ⚠️ Yang bikin HR ragu
         <Tooltip text="Gap = hal yang dicari rekruter tapi belum terlihat di CV-mu. Tambahkan ini untuk naikkan skor." />
       </h4>
-      <ul style={{ paddingLeft: '1.2rem', fontSize: '0.85rem', color: '#374151', margin: 0 }}>
+      <ul style={{ paddingLeft: '1.2rem', fontSize: '0.875rem', color: '#374151', margin: 0 }}>
         {visible.map((g, i) => (
           <li key={i} style={{ margin: '0.5rem 0' }}>{g}</li>
         ))}

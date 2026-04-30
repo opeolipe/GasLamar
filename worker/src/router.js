@@ -43,7 +43,7 @@ export async function route(request, env, ctx) {
     return handleMayarWebhook(request, env, ctx);
   }
 
-  if (method === 'POST' && pathname === '/session/ping') {
+  if (method === 'POST' && (pathname === '/session/ping' || pathname === '/api/session/ping')) {
     return handleSessionPing(request, env);
   }
 
@@ -79,12 +79,24 @@ export async function route(request, env, ctx) {
     return handleResendEmail(request, env);
   }
 
-  if (method === 'POST' && pathname === '/interview-kit') {
+  if (method === 'POST' && (pathname === '/interview-kit' || pathname === '/api/interview-kit')) {
     return handleInterviewKit(request, env);
   }
 
   if (method === 'POST' && pathname === '/bypass-payment') {
     return handleBypassPayment(request, env);
+  }
+
+  if (method === 'POST' && pathname === '/api/log') {
+    const ip = clientIp(request);
+    const kvResult = await checkRateLimitKV(env, ip, 30, 60, 'client_log');
+    if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60);
+    const contentType = request.headers.get('Content-Type') || '';
+    const body = contentType.includes('application/json')
+      ? await request.json().catch(() => ({}))
+      : { raw: await request.text().catch(() => '') };
+    log('client_log', { body, ip });
+    return jsonResponse({ ok: true }, 200, request, env);
   }
 
   if (method === 'POST' && pathname === '/feedback') {
