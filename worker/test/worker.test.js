@@ -6,7 +6,7 @@
 
 import { SELF, env, fetchMock } from 'cloudflare:test';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { getCorsHeaders } from '../src/cors.js';
+import { getCorsHeaders, isOriginAllowed } from '../src/cors.js';
 
 // ---- Test helpers ----
 
@@ -243,25 +243,35 @@ describe('CORS', () => {
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe('https://www.gaslamar.com');
   });
 
-  it('blocks unknown origin — returns null', async () => {
+  it('blocks unknown origin by omitting Access-Control-Allow-Origin', async () => {
     const res = await SELF.fetch('https://gaslamar.com/health', {
       headers: { Origin: 'https://evil.com' },
     });
-    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('null');
+    expect(res.headers.has('Access-Control-Allow-Origin')).toBe(false);
   });
 
-  it('handles missing Origin header — returns null (not a real origin)', async () => {
+  it('handles missing Origin header by omitting Access-Control-Allow-Origin', async () => {
     const res = await SELF.fetch('https://gaslamar.com/health');
-    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('null');
+    expect(res.headers.has('Access-Control-Allow-Origin')).toBe(false);
   });
 
-  it('handles OPTIONS preflight — 204 no body', async () => {
+  it('handles allowed OPTIONS preflight — 204 no body', async () => {
     const res = await SELF.fetch('https://gaslamar.com/analyze', {
       method: 'OPTIONS',
       headers: { Origin: 'https://gaslamar.com' },
     });
     expect(res.status).toBe(204);
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('https://gaslamar.com');
     expect(res.headers.get('Access-Control-Allow-Methods')).toContain('POST');
+  });
+
+  it('rejects disallowed OPTIONS preflight — 403 without allow-origin', async () => {
+    const res = await SELF.fetch('https://gaslamar.com/analyze', {
+      method: 'OPTIONS',
+      headers: { Origin: 'https://evil.com' },
+    });
+    expect(res.status).toBe(403);
+    expect(res.headers.has('Access-Control-Allow-Origin')).toBe(false);
   });
 });
 
@@ -281,17 +291,17 @@ describe('CORS — environment-specific origin allowlists', () => {
 
   it('production: blocks staging.gaslamar.pages.dev', () => {
     const h = getCorsHeaders(makeReq('https://staging.gaslamar.pages.dev'), { ENVIRONMENT: 'production' });
-    expect(h['Access-Control-Allow-Origin']).toBe('null');
+    expect(h['Access-Control-Allow-Origin']).toBeUndefined();
   });
 
   it('production: blocks arbitrary pages.dev preview', () => {
     const h = getCorsHeaders(makeReq('https://abc123.gaslamar.pages.dev'), { ENVIRONMENT: 'production' });
-    expect(h['Access-Control-Allow-Origin']).toBe('null');
+    expect(h['Access-Control-Allow-Origin']).toBeUndefined();
   });
 
   it('production: blocks evil.com', () => {
     const h = getCorsHeaders(makeReq('https://evil.com'), { ENVIRONMENT: 'production' });
-    expect(h['Access-Control-Allow-Origin']).toBe('null');
+    expect(h['Access-Control-Allow-Origin']).toBeUndefined();
   });
 
   it('staging: allows staging.gaslamar.pages.dev', () => {
@@ -304,14 +314,24 @@ describe('CORS — environment-specific origin allowlists', () => {
     expect(h['Access-Control-Allow-Origin']).toBe('http://localhost:3000');
   });
 
+  it('staging: blocks localhost:8080', () => {
+    const h = getCorsHeaders(makeReq('http://localhost:8080'), { ENVIRONMENT: 'staging' });
+    expect(h['Access-Control-Allow-Origin']).toBeUndefined();
+  });
+
+  it('staging: blocks 127.0.0.1:3000', () => {
+    const h = getCorsHeaders(makeReq('http://127.0.0.1:3000'), { ENVIRONMENT: 'staging' });
+    expect(h['Access-Control-Allow-Origin']).toBeUndefined();
+  });
+
   it('staging: blocks gaslamar.com (use production worker for prod traffic)', () => {
     const h = getCorsHeaders(makeReq('https://gaslamar.com'), { ENVIRONMENT: 'staging' });
-    expect(h['Access-Control-Allow-Origin']).toBe('null');
+    expect(h['Access-Control-Allow-Origin']).toBeUndefined();
   });
 
   it('staging: blocks evil.com', () => {
     const h = getCorsHeaders(makeReq('https://evil.com'), { ENVIRONMENT: 'staging' });
-    expect(h['Access-Control-Allow-Origin']).toBe('null');
+    expect(h['Access-Control-Allow-Origin']).toBeUndefined();
   });
 
   it('sets Vary: Origin on all responses', () => {
@@ -322,6 +342,12 @@ describe('CORS — environment-specific origin allowlists', () => {
   it('sets Access-Control-Allow-Credentials: true on allowed origin', () => {
     const h = getCorsHeaders(makeReq('https://gaslamar.com'), { ENVIRONMENT: 'production' });
     expect(h['Access-Control-Allow-Credentials']).toBe('true');
+  });
+
+  it('staging: allows preflight only from explicit staging origins', () => {
+    expect(isOriginAllowed(makeReq('https://staging.gaslamar.pages.dev'), { ENVIRONMENT: 'staging' })).toBe(true);
+    expect(isOriginAllowed(makeReq('http://localhost:3000'), { ENVIRONMENT: 'staging' })).toBe(true);
+    expect(isOriginAllowed(makeReq('https://evil.com'), { ENVIRONMENT: 'staging' })).toBe(false);
   });
 });
 
