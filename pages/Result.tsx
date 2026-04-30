@@ -336,6 +336,13 @@ export default function Result() {
       sessionStorage.setItem('gaslamar_session',                 session_id);
       sessionStorage.setItem(`gaslamar_secret_${session_id}`, sessionSecret);
       sessionStorage.removeItem('gaslamar_cv_key');
+      // Mirror to localStorage so download.html can find the session even if
+      // Mayar redirects in a new tab where sessionStorage was never populated.
+      // Also needed by download-guard.js (which reads localStorage, not sessionStorage).
+      try {
+        localStorage.setItem('gaslamar_session', session_id);
+        localStorage.setItem(`gaslamar_secret_${session_id}`, sessionSecret);
+      } catch (_) {}
       try {
         localStorage.setItem('gaslamar_delivery', JSON.stringify({
           sessionId: session_id,
