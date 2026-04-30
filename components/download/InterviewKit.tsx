@@ -55,7 +55,7 @@ function CopyButton({ text, copyKey, copiedKey, onCopy }: {
 
 function GroupLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400 mt-5 mb-2 px-1">
+    <p className="text-xs font-bold tracking-widest uppercase text-slate-400 mt-5 mb-2 px-1">
       {children}
     </p>
   );

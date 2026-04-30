@@ -43,7 +43,7 @@ export default function MobileFallback({ cvTextId, cvTextEn, bilingual }: Props)
           />
           <button
             onClick={() => handleCopy(cvTextId, 'id')}
-            className="text-sm text-blue-600 font-semibold bg-transparent border-none cursor-pointer mt-1 font-[inherit] p-0"
+            className="text-sm text-blue-600 font-semibold bg-transparent border-none cursor-pointer mt-1 font-[inherit] min-h-[44px] px-2 py-2 inline-flex items-center"
             aria-label="Salin teks CV Bahasa Indonesia ke clipboard"
           >
             {copiedId ? 'Tersalin! ✓' : 'Salin'}
@@ -63,7 +63,7 @@ export default function MobileFallback({ cvTextId, cvTextEn, bilingual }: Props)
             />
             <button
               onClick={() => handleCopy(cvTextEn, 'en')}
-              className="text-sm text-blue-600 font-semibold bg-transparent border-none cursor-pointer mt-1 font-[inherit] p-0"
+              className="text-sm text-blue-600 font-semibold bg-transparent border-none cursor-pointer mt-1 font-[inherit] min-h-[44px] px-2 py-2 inline-flex items-center"
               aria-label="Copy English CV text to clipboard"
             >
               {copiedEn ? 'Copied! ✓' : 'Copy'}

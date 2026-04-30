@@ -86,6 +86,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
           }}
           id="job-desc"
           data-testid="jd-textarea"
+          inputMode="text"
           value={value}
           onChange={handleChange}
           maxLength={MAX_JD_CHARS}
