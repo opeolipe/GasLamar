@@ -125,7 +125,7 @@ export async function handleCreatePayment(request, env) {
 
     return jsonResponseWithCookie({ session_id: sessionId, invoice_url }, 200, cookieHeader, request, env);
   } catch (e) {
-    console.error(JSON.stringify({ event: 'create_payment_failed', error: e.message, tier, cv_text_key }));
+    console.error(JSON.stringify({ event: 'create_payment_failed', error: e.message, tier }));
     return jsonResponse({ message: e.message || 'Gagal membuat invoice' }, 500, request, env);
   }
 }

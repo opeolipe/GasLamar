@@ -28,11 +28,15 @@ export function getCorsHeaders(request, env) {
   return headers;
 }
 
+const SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+};
+
 export function corsResponse(body, status, headers, request, env) {
   const corsHeaders = getCorsHeaders(request, env);
   return new Response(body, {
     status,
-    headers: { ...corsHeaders, ...headers }
+    headers: { ...SECURITY_HEADERS, ...corsHeaders, ...headers }
   });
 }
 

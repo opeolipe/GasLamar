@@ -118,7 +118,11 @@ export async function extractTextFromDOCX(base64Data) {
 
   const target = 'word/document.xml';
 
-  for (let i = 0; i < bytes.length - 30; i++) {
+  // Cap the outer scan at the first 2 MB — word/document.xml is always near the
+  // start of a well-formed ZIP. Scanning beyond this protects against malformed
+  // files that would otherwise keep the Worker busy for its full CPU budget.
+  const SCAN_LIMIT = Math.min(bytes.length - 30, 2 * 1024 * 1024);
+  for (let i = 0; i < SCAN_LIMIT; i++) {
     // ZIP local file header signature: PK\x03\x04
     if (bytes[i] !== 0x50 || bytes[i+1] !== 0x4B || bytes[i+2] !== 0x03 || bytes[i+3] !== 0x04) continue;
 
@@ -139,7 +143,10 @@ export async function extractTextFromDOCX(base64Data) {
     // Scan forward to find either the data descriptor or the next local file header.
     if ((flags & 0x08) || compressedSz === 0) {
       let end = dataStart;
-      while (end < bytes.length - 4) {
+      // Limit forward scan to 10 MB past dataStart to prevent runaway loops on
+      // pathological files where the next PK marker never appears.
+      const innerLimit = Math.min(bytes.length - 4, dataStart + 10 * 1024 * 1024);
+      while (end < innerLimit) {
         if (bytes[end] === 0x50 && bytes[end+1] === 0x4B) {
           // Data descriptor signature (PK\x07\x08) or next local file header (PK\x03\x04)
           if ((bytes[end+2] === 0x07 && bytes[end+3] === 0x08) ||
