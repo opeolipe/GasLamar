@@ -462,13 +462,13 @@ Microsoft Office, JIRA, Confluence, Trello, Figma (basic), Google Analytics (bas
       }
       .stg-header-left { display: flex; align-items: center; gap: 0.5rem; }
       .stg-badge {
-        background: #EA580C; color: white; font-size: 0.7rem; font-weight: 700;
+        background: #EA580C; color: white; font-size: 0.875rem; font-weight: 700;
         padding: 0.15rem 0.5rem; border-radius: 6px;
       }
       .stg-title { font-size: 0.9rem; font-weight: 600; color: #9A3412; }
-      #stg-caret { font-size: 0.8rem; color: #EA580C; }
+      #stg-caret { font-size: 0.875rem; color: #EA580C; }
       #stg-body { display: none; padding: 0 1.25rem 1.25rem; }
-      .stg-hint { font-size: 0.75rem; color: #92400E; margin: 0 0 0.9rem; }
+      .stg-hint { font-size: 0.875rem; color: #92400E; margin: 0 0 0.9rem; }
       .stg-grid {
         display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.6rem;
       }
@@ -479,15 +479,15 @@ Microsoft Office, JIRA, Confluence, Trello, Figma (basic), Google Analytics (bas
       .stg-card-top { display: flex; align-items: flex-start; gap: 0.5rem; }
       .stg-emoji { font-size: 1.2rem; line-height: 1.2; }
       .stg-content { flex: 1; min-width: 0; }
-      .stg-label { font-size: 0.82rem; font-weight: 700; color: #111827; }
+      .stg-label { font-size: 0.875rem; font-weight: 700; color: #111827; }
       .stg-desc {
-        font-size: 0.72rem; color: #6B7280; margin-top: 0.1rem;
+        font-size: 0.875rem; color: #6B7280; margin-top: 0.1rem;
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       }
       .stg-btn-row { display: flex; gap: 0.4rem; margin-top: 0.55rem; }
       .stg-btn {
         flex: 1; background: #FFF7ED; border: 1px solid #FB923C; color: #9A3412;
-        border-radius: 8px; padding: 0.3rem 0; font-size: 0.75rem; font-weight: 600;
+        border-radius: 8px; padding: 0.3rem 0; font-size: 0.875rem; font-weight: 600;
         cursor: pointer; font-family: inherit;
       }
       .stg-card-active { outline: 2px solid #10B981; }

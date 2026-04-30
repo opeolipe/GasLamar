@@ -22,7 +22,7 @@ TUGASMU:
 5. Tentukan red_flags: hanya jika ada hal serius seperti job hopping ekstrem (pindah kerja >3x dalam 2 tahun), atau indikasi lain yang tidak tercakup sistem. Jika tidak ada, hilangkan field ini.
 
 PENTING:
-- Jangan mengarang angka. Jika CV tidak punya angka, gunakan placeholder "[sebutkan angka nyata]".
+- Jangan mengarang angka. Jika CV tidak punya angka, beri saran deskriptif tanpa placeholder bracket. Jangan pernah menulis placeholder dalam bracket.
 - Rekomendasi harus actionable dan bisa dilakukan minggu ini.
 - Jika veredict "DO NOT", rekomendasi harus menyarankan jalur alternatif (misal: role lain yang lebih cocok, pelatihan dasar).
 

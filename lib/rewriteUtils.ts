@@ -149,7 +149,7 @@ export function generateRewrite(issue: string, originalLine: string | null): Rew
     },
     north_star: {
       before: clean,
-      after:  clean + ' yang relevan dengan posisi yang ditargetkan',
+      after:  clean + ' yang sesuai dengan kebutuhan posisi ini',
       note:   null,
     },
     effort: {

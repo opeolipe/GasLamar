@@ -21,7 +21,7 @@ export default function Tooltip({ text }: Props) {
       {open && (
         <span
           aria-live="polite"
-          style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', background: '#1E293B', color: '#fff', fontSize: '0.75rem', fontWeight: 400, borderRadius: 8, padding: '0.5rem 0.75rem', width: 220, textAlign: 'center', zIndex: 200, pointerEvents: 'none', lineHeight: 1.4, whiteSpace: 'normal' }}
+          style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', background: '#1E293B', color: '#fff', fontSize: '0.875rem', fontWeight: 400, borderRadius: 8, padding: '0.5rem 0.75rem', width: 220, textAlign: 'center', zIndex: 200, pointerEvents: 'none', lineHeight: 1.4, whiteSpace: 'normal' }}
         >
           {text}
         </span>

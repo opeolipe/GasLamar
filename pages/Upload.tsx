@@ -36,6 +36,7 @@ export default function Upload() {
   const [fileName,    setFileName]    = useState<string | null>(null);
   const [fileSize,    setFileSize]    = useState<string | null>(null);
   const [cvText,      setCvText]      = useState('');
+  const [manualCvText, setManualCvText] = useState('');
   const [fileError,   setFileError]   = useState('');
   const [scanWarning, setScanWarning] = useState(false);
 
@@ -123,6 +124,10 @@ export default function Upload() {
       setCvText(restoreCv);
       setFileName(restoreName);
       setFileSize(pendingCv ? '(sudah diproses)' : '(draft dipulihkan)');
+      try {
+        const parsed = JSON.parse(restoreCv);
+        if (parsed?.type === 'txt' && typeof parsed.data === 'string') setManualCvText(parsed.data);
+      } catch (_) {}
     }
   }, []);
 
@@ -140,6 +145,7 @@ export default function Upload() {
     setFileError('');
     setScanWarning(false);
     setCvText('');
+    setManualCvText('');
 
     const err = validateFile(file);
     if (err) {
@@ -194,12 +200,39 @@ export default function Upload() {
     setFileName(null);
     setFileSize(null);
     setCvText('');
+    setManualCvText('');
     setFileError('');
     setScanWarning(false);
     try {
       sessionStorage.removeItem('gaslamar_cv_draft');
       sessionStorage.removeItem('gaslamar_filename_draft');
     } catch (_) {}
+  }
+
+  function handleManualCvChange(value: string) {
+    const next = value.slice(0, 60000);
+    setManualCvText(next);
+    setScanWarning(false);
+    setFileError('');
+
+    if (next.trim().length >= MIN_CV_TEXT_LENGTH) {
+      const encoded = JSON.stringify({ type: 'txt', data: next });
+      setCvText(encoded);
+      setFileName('CV dari paste');
+      setFileSize('(teks ditempel)');
+      try {
+        sessionStorage.setItem('gaslamar_cv_draft', encoded);
+        sessionStorage.setItem('gaslamar_filename_draft', 'CV dari paste');
+      } catch (_) {}
+    } else if (!fileName || fileSize === '(teks ditempel)') {
+      setCvText('');
+      setFileName(null);
+      setFileSize(null);
+      try {
+        sessionStorage.removeItem('gaslamar_cv_draft');
+        sessionStorage.removeItem('gaslamar_filename_draft');
+      } catch (_) {}
+    }
   }
 
   function handleJdChange(value: string) {
@@ -308,6 +341,8 @@ export default function Upload() {
               error={fileError}
               cvReady={hasFile}
               scanWarning={scanWarning}
+              manualCvText={manualCvText}
+              onManualCvChange={handleManualCvChange}
               onFileSelect={handleFileSelect}
               onRemove={handleRemove}
             />
@@ -338,7 +373,7 @@ export default function Upload() {
         </a>
       </main>
 
-      <footer className="text-center py-6 text-xs text-slate-400">
+      <footer className="text-center py-6 text-sm text-slate-400">
         <a href="privacy.html" className="text-slate-400 underline hover:text-slate-600 mx-2">Kebijakan Privasi</a>
         ·
         <a href="terms.html" className="text-slate-400 underline hover:text-slate-600 mx-2">Syarat Layanan</a>

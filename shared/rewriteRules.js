@@ -131,7 +131,7 @@ export const INFLATION_RULES = [
 export const ISSUE_FALLBACK_SUFFIX = {
   portfolio:        ' untuk menunjukkan dampak kerja secara lebih jelas',
   recruiter_signal: ' dengan fokus yang lebih spesifik pada peran dan hasil',
-  north_star:       ' yang relevan dengan posisi yang ditargetkan',
+  north_star:       ' yang sesuai dengan kebutuhan posisi ini',
   effort:           ' dengan konteks skill yang dibutuhkan untuk role ini',
   risk:             ' menggunakan pendekatan yang masih relevan saat ini',
 };

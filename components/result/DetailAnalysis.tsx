@@ -27,7 +27,7 @@ export default function DetailAnalysis({ strengths = [], hr7Data }: Props) {
             <h4 style={{ fontSize: '0.9rem', fontWeight: 700, margin: '0 0 0.6rem', color: '#065F46' }}>
               ✅ Ini yang sudah kuat (jangan diubah)
             </h4>
-            <ul style={{ paddingLeft: '1.2rem', fontSize: '0.85rem', color: '#2D3A5E', margin: 0 }}>
+            <ul style={{ paddingLeft: '1.2rem', fontSize: '0.875rem', color: '#2D3A5E', margin: 0 }}>
               {strengths.map((s, i) => <li key={i} style={{ margin: '0.4rem 0' }}>{s}</li>)}
             </ul>
           </div>
@@ -42,13 +42,13 @@ export default function DetailAnalysis({ strengths = [], hr7Data }: Props) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div>
                 <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>✅ Diperhatikan</div>
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '0.82rem', color: '#111827', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '0.875rem', color: '#111827', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                   {(hr7Data!.kuat || []).map((s, i) => <li key={i}>{s}</li>)}
                 </ul>
               </div>
               <div>
                 <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#DC2626', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>⏭️ Dilewati</div>
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '0.82rem', color: '#111827', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '0.875rem', color: '#111827', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                   {(hr7Data!.diabaikan || []).map((s, i) => <li key={i}>{s}</li>)}
                 </ul>
               </div>
