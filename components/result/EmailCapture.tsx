@@ -74,7 +74,7 @@ export default function EmailCapture({
         htmlFor="email-capture"
         style={labelStyle}
       >
-        Masukkan email untuk kirim CV hasil perbaikan <span style={{ color: '#DC2626' }}>*</span>
+        Email <span style={{ color: '#DC2626' }}>*</span>
         {isConfirmed && !error && !suggestion && (
           <span style={{ color: '#16A34A', marginLeft: '0.35rem', fontWeight: 700 }} aria-label="Email valid">✓</span>
         )}
@@ -131,19 +131,14 @@ export default function EmailCapture({
           ⚠️ Gunakan email aktif agar kamu bisa menerima CV hasil perbaikan.
         </p>
       )}
-      {showConfirmed && (
-        <p style={{ color: '#64748B', fontSize: '0.75rem', marginTop: '0.4rem' }}>
-          Pastikan email ini benar — hasil CV akan dikirim ke sini.
-        </p>
-      )}
 
-      {/* Confirm email field — revealed once primary email passes validation */}
-      <div style={{ marginTop: '0.85rem', overflow: 'hidden', maxHeight: (isConfirmed || confirmTouched) ? '200px' : 0, opacity: (isConfirmed || confirmTouched) ? 1 : 0, transition: 'max-height 0.3s ease, opacity 0.25s ease' }}>
+      {/* Confirm email field — always visible */}
+      <div style={{ marginTop: '0.85rem' }}>
         <label
           htmlFor="email-confirm"
           style={labelStyle}
         >
-          Konfirmasi Email <span style={{ color: '#DC2626' }}>*</span>
+          Ketik ulang email kamu <span style={{ color: '#DC2626' }}>*</span>
           {showConfirmSuccess && (
             <span style={{ color: '#16A34A', marginLeft: '0.35rem', fontWeight: 700 }} aria-label="Email konfirmasi cocok">✓</span>
           )}
@@ -172,7 +167,7 @@ export default function EmailCapture({
         )}
         {showConfirmSuccess && (
           <p style={{ color: '#16A34A', fontSize: '0.82rem', marginTop: '0.4rem', fontWeight: 500 }}>
-            ✓ Email sudah benar
+            ✓ Email sudah cocok
           </p>
         )}
       </div>
