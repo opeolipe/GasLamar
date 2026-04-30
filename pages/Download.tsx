@@ -219,7 +219,7 @@ export default function Download() {
 
   const handleUrlFetch = useCallback(async (url: string): Promise<string> => {
     const { sessionId, sessionSecret } = session;
-    const res = await fetch(`${WORKER_URL}/fetch-jd`, {
+    const res = await fetch(`${WORKER_URL}/fetch-job-url`, {
       method:      'POST',
       headers:     { 'Content-Type': 'application/json', ...buildSecretHeaders(sessionSecret) },
       credentials: 'include',
@@ -233,8 +233,8 @@ export default function Download() {
           : 'Gagal mengambil job description. Coba copy-paste manual.',
       );
     }
-    const data = await res.json() as { job_description?: string; text?: string };
-    return data.job_description || data.text || '';
+    const data = await res.json() as { job_desc?: string; job_description?: string; text?: string };
+    return data.job_desc || data.job_description || data.text || '';
   }, [session.sessionId, session.sessionSecret]);
 
   const handleCancelGeneration = useCallback(() => {
