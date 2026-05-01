@@ -1,4 +1,4 @@
-import { Document, Packer, Paragraph, TextRun, BorderStyle, AlignmentType, TabStopType } from 'docx';
+import { Document, Packer, Paragraph, TextRun, BorderStyle, AlignmentType, TabStopType, LevelFormat } from 'docx';
 import { jsPDF } from 'jspdf';
 import { WORKER_URL as PROD_WORKER_URL, SANDBOX_WORKER_URL } from '@/lib/uploadValidation';
 // IS_SANDBOX is a build-time define injected by esbuild (true in staging, false in production).
@@ -188,7 +188,7 @@ function generateHarvardPDF(cvText: string): Blob {
   for (let i = 0, lines = parseHarvardLines(cvText); i < lines.length; i++) {
     const { type, content } = lines[i];
 
-    if (type === 'blank')    { y += 3; continue; }
+    if (type === 'blank')    { y += 4; continue; }
     if (type === 'guidance') { continue; }
     checkPage();
 
@@ -205,6 +205,11 @@ function generateHarvardPDF(cvText: string): Blob {
       y += 7;
 
     } else if (type === 'heading') {
+      // Reserve space for: 5mm before-gap + ~7mm text+rule + 5mm after-gap + 2 body lines.
+      // checkPage() alone isn't enough — it only prevents y overflowing the margin,
+      // not the case where the heading fits but its first body lines don't.
+      const HEADING_NEEDED = 5 + 7 + 5 + lineH * 2;
+      if (y + HEADING_NEEDED > pageHeight - marginY) { doc.addPage(); y = marginY; }
       y += 5;
       doc.setFontSize(11);
       doc.setFont('times', 'bold');
@@ -217,6 +222,8 @@ function generateHarvardPDF(cvText: string): Blob {
       y += 5;
 
     } else if (type === 'company-role') {
+      // Small gap before each role entry so roles visually separate even without a blank line.
+      if (i > 0) y += 2;
       // Look ahead past blank lines for a location-date companion
       let nextIdx = i + 1;
       while (nextIdx < lines.length && lines[nextIdx].type === 'blank') nextIdx++;
@@ -282,9 +289,14 @@ function generateHarvardPDF(cvText: string): Blob {
     } else if (type === 'bullet') {
       doc.setFontSize(10);
       doc.setFont('times', 'normal');
-      (doc.splitTextToSize(`• ${content}`, contentW - 8) as string[]).forEach(l => {
+      // True hanging indent: '•' at bulletX, text content at contentX.
+      // Continuation lines align to contentX, not to bulletX.
+      const bulletX  = marginX + 5;
+      const contentX = marginX + 9;
+      (doc.splitTextToSize(content, contentW - 9) as string[]).forEach((l, idx) => {
         checkPage();
-        doc.text(l, marginX + 5, y);
+        if (idx === 0) doc.text('•', bulletX, y);
+        doc.text(l, contentX, y);
         y += lineH;
       });
 
@@ -303,6 +315,8 @@ function generateHarvardPDF(cvText: string): Blob {
 }
 
 // ── Harvard DOCX renderer ─────────────────────────────────────────────────────
+
+const DOCX_BULLET_REF = 'harvard-cv-bullets';
 
 async function generateHarvardDOCX(cvText: string): Promise<Blob> {
   // A4 = 11906 twips wide. Margins 720 twips ≈ 1.27 cm. Content width = 10466 twips.
@@ -413,7 +427,7 @@ async function generateHarvardDOCX(cvText: string): Promise<Blob> {
 
     } else if (type === 'bullet') {
       children.push(new Paragraph({
-        bullet: { level: 0 },
+        numbering: { reference: DOCX_BULLET_REF, level: 0 },
         spacing: { after: 40 },
         children: [new TextRun({ text: content, font: 'Times New Roman', size: 20 })],
       }));
@@ -434,6 +448,22 @@ async function generateHarvardDOCX(cvText: string): Promise<Blob> {
   }
 
   const doc = new Document({
+    numbering: {
+      config: [{
+        reference: DOCX_BULLET_REF,
+        levels: [{
+          level: 0,
+          format: LevelFormat.BULLET,
+          text: '•',
+          alignment: AlignmentType.LEFT,
+          style: {
+            paragraph: {
+              indent: { left: 432, hanging: 216 },
+            },
+          },
+        }],
+      }],
+    },
     sections: [{
       properties: {
         page: { margin: { top: MARGIN_TWIPS, right: MARGIN_TWIPS, bottom: MARGIN_TWIPS, left: MARGIN_TWIPS } },
