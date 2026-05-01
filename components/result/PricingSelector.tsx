@@ -36,7 +36,7 @@ export default function PricingSelector({ selectedTier, onSelect, score }: Props
 
       {/* Guided decision copy */}
       <p style={{ textAlign: 'center', fontSize: '0.875rem', color: '#475569', margin: '0.5rem 0 0', lineHeight: 1.5 }}>
-        Kalau kamu fokus 1 posisi → pilih Single. Kalau apply ke beberapa posisi → pilih 3‑Pack.
+        Fokus 1 posisi → Single. Apply ke banyak loker → 3‑Pack.
       </p>
 
       {/* Pricing grid */}
@@ -45,8 +45,8 @@ export default function PricingSelector({ selectedTier, onSelect, score }: Props
           const info     = TIER_CONFIG[tier];
           const selected = selectedTier === tier;
           const popular  = tier === '3pack';
+          const isRec    = rec?.tier === tier;
 
-          const isRec = rec?.tier === tier;
           return (
             <button
               key={tier}
@@ -54,9 +54,9 @@ export default function PricingSelector({ selectedTier, onSelect, score }: Props
               onClick={() => onSelect(tier)}
               style={{
                 background:   selected ? '#EFF6FF' : 'white',
-                borderRadius: 24,
-                padding:      '1.2rem',
-                textAlign:    'center',
+                borderRadius: 20,
+                padding:      '1.1rem 1rem',
+                textAlign:    'left',
                 border:       selected
                   ? '2px solid #2563eb'
                   : isRec
@@ -70,12 +70,13 @@ export default function PricingSelector({ selectedTier, onSelect, score }: Props
                 width:        '100%',
               }}
             >
+              {/* Badge */}
               {isRec && !selected && (
                 <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: '#2563EB', color: 'white', fontSize: '0.65rem', padding: '0.2rem 0.8rem', borderRadius: 60, fontWeight: 600, whiteSpace: 'nowrap' }}>
                   ✦ REKOMENDASI
                 </div>
               )}
-              {popular && selected && (
+              {selected && (
                 <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: '#2563EB', color: 'white', fontSize: '0.65rem', padding: '0.2rem 0.8rem', borderRadius: 60, fontWeight: 600, whiteSpace: 'nowrap' }}>
                   ✦ DIPILIH
                 </div>
@@ -85,9 +86,35 @@ export default function PricingSelector({ selectedTier, onSelect, score }: Props
                   Paling dipilih
                 </div>
               )}
-              <div style={{ fontWeight: 700, fontSize: '1.1rem', color: '#111827' }}>{info.label}</div>
-              <div style={{ fontSize: '1.8rem', fontWeight: 800, margin: '0.5rem 0', color: '#111827' }}>{info.priceStr}</div>
-              <div style={{ fontSize: '0.875rem', color: '#5B6E8C', margin: '0.5rem 0' }}>{info.desc}</div>
+
+              {/* Label + price row */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.35rem' }}>
+                <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#111827' }}>{info.label}</span>
+                <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#111827', whiteSpace: 'nowrap', marginLeft: 6 }}>{info.priceStr}</span>
+              </div>
+
+              {/* Per-CV price for multi-credit tiers */}
+              {info.perCvStr && (
+                <div style={{ fontSize: '0.72rem', color: '#059669', fontWeight: 600, marginBottom: '0.55rem' }}>
+                  {info.perCvStr}
+                </div>
+              )}
+              {!info.perCvStr && <div style={{ marginBottom: '0.55rem' }} />}
+
+              {/* Feature list */}
+              <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 0.6rem', display: 'flex', flexDirection: 'column', gap: '0.28rem' }}>
+                {info.features.map((f, i) => (
+                  <li key={i} style={{ fontSize: '0.75rem', color: selected ? '#1E40AF' : '#374151', display: 'flex', gap: '0.4rem', alignItems: 'flex-start', lineHeight: 1.4 }}>
+                    <span style={{ color: selected ? '#2563EB' : '#10B981', flexShrink: 0, fontWeight: 700 }}>✓</span>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+
+              {/* TTL */}
+              <div style={{ fontSize: '0.7rem', color: '#94A3B8' }}>
+                🗓 {info.ttl}
+              </div>
             </button>
           );
         })}

@@ -14,10 +14,11 @@ import { extractSampleLine } from '@/lib/cvUtils';
 export type StepStatus = 'pending' | 'active' | 'done';
 
 export interface AnalysisStep {
-  id:     number;
-  icon:   string;
-  label:  string;
-  status: StepStatus;
+  id:          number;
+  icon:        string;
+  label:       string;
+  activeDesc?: string;
+  status:      StepStatus;
 }
 
 export interface UseAnalysisResult {

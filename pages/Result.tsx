@@ -519,12 +519,34 @@ export default function Result() {
                       <VerdictCard verdict={data.veredict as 'DO' | 'DO NOT' | 'TIMED'} timeboxWeeks={data.timebox_weeks} />
                     </div>
                   )}
-                  <button
-                    onClick={handleToggleDetails}
-                    style={{ background: 'none', border: '1px solid #E2E8F0', borderRadius: 60, padding: '0.4rem 1.1rem', fontSize: '0.875rem', color: '#4B5563', cursor: 'pointer', marginTop: '0.85rem', fontFamily: 'inherit', transition: 'border-color 0.2s' }}
+
+                  {/* Quick scroll-to-pricing CTA — for users ready to act immediately */}
+                  <a
+                    href="#pricing-section"
+                    style={{
+                      display:         'inline-block',
+                      marginTop:       '1rem',
+                      background:      'linear-gradient(180deg,#3b82f6,#1d4ed8)',
+                      color:           'white',
+                      fontWeight:      700,
+                      fontSize:        '0.9rem',
+                      padding:         '0.65rem 1.5rem',
+                      borderRadius:    60,
+                      textDecoration:  'none',
+                      boxShadow:       '0 6px 20px rgba(37,99,235,0.28)',
+                    }}
                   >
-                    {showDetails ? 'Sembunyikan analisis ↑' : 'Lihat analisis lengkap ↓'}
-                  </button>
+                    Perbaiki CV sekarang →
+                  </a>
+
+                  <div style={{ marginTop: '0.65rem' }}>
+                    <button
+                      onClick={handleToggleDetails}
+                      style={{ background: 'none', border: '1px solid #E2E8F0', borderRadius: 60, padding: '0.4rem 1.1rem', fontSize: '0.875rem', color: '#4B5563', cursor: 'pointer', fontFamily: 'inherit', transition: 'border-color 0.2s' }}
+                    >
+                      {showDetails ? 'Sembunyikan analisis ↑' : 'Lihat analisis lengkap ↓'}
+                    </button>
+                  </div>
                 </div>
               </div>
 
