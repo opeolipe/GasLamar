@@ -123,7 +123,7 @@ export default function EmailCapture({
             fontFamily:   'inherit',
           }}
         >
-          💡 Maksud kamu <strong>{suggestion}</strong>? Klik untuk pakai alamat ini.
+          💡 Maksud kamu: <strong>{suggestion}</strong>? <span style={{ textDecoration: 'underline' }}>Pakai ini</span>
         </button>
       )}
       {showDisposable && (

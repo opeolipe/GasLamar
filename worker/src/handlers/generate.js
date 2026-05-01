@@ -174,6 +174,25 @@ export async function handleGenerate(request, env, ctx) {
 
     const newCreditsRemaining = creditsRemaining - 1;
 
+    // Persist last generated CV so the user can re-download after session is deleted.
+    // TTL mirrors the session: 7 days for single-credit, 30 days for multi-credit.
+    const resultTtl = (session.total_credits ?? 1) > 1 ? 2592000 : 604800;
+    const { job_title: resultJobTitle, company: resultCompany } = extractJobMetadata(effectiveJobDesc);
+    await env.GASLAMAR_SESSIONS.put(
+      `cv_result_${session_id}`,
+      JSON.stringify({
+        cv_id:      idResult.text,
+        cv_id_docx: idResult.docxText,
+        cv_en:      enResult?.text      ?? null,
+        cv_en_docx: enResult?.docxText  ?? null,
+        job_title:  resultJobTitle ?? null,
+        company:    resultCompany  ?? null,
+        tier,
+        saved_at:   Date.now(),
+      }),
+      { expirationTtl: resultTtl }
+    ).catch(() => {}); // non-critical — don't fail the response
+
     if (newCreditsRemaining <= 0) {
       // Last credit used — delete session
       await deleteSession(env, session_id);
