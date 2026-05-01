@@ -23,6 +23,9 @@
   <meta name="twitter:image"       content="https://gaslamar.com/assets/og-image.png" />
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
   <link rel="alternate" type="application/ld+json" href="/assets/structured-data-hasil.json">
+  <!-- Session guard — must run synchronously before body renders to prevent auth flash.
+       Source of truth: js/hasil-guard.js — keep in sync when editing. -->
+  <script>(function(){var KEYS=['gaslamar_scoring','gaslamar_cv_key','gaslamar_analyze_time'];function redirect(r){KEYS.forEach(function(k){sessionStorage.removeItem(k);});window.location.replace('upload.html?reason='+r);}var params=new URLSearchParams(location.search);var urlSession=params.get('session')||params.get('sessionId');if(urlSession!==null&&!urlSession.startsWith('cvtext_')){redirect('session_expired');return;}var rawScoring=sessionStorage.getItem('gaslamar_scoring');var cvKey=sessionStorage.getItem('gaslamar_cv_key')||'';var analyzeTime=parseInt(sessionStorage.getItem('gaslamar_analyze_time')||'0');var SESSION_SECS=7200;if(!rawScoring){redirect('no_session');return;}var parsed;try{parsed=JSON.parse(rawScoring);}catch(e){redirect('no_session');return;}var skor=parseInt(parsed&&parsed.skor);if(isNaN(skor)||skor<0||skor>100){redirect('no_session');return;}if(cvKey&&!cvKey.startsWith('cvtext_')){redirect('session_expired');return;}var isExpired=analyzeTime>0&&(Date.now()-analyzeTime)/1000>SESSION_SECS;if(isExpired){redirect('session_expired');return;}if(!analyzeTime){redirect('no_session');return;}if(urlSession&&urlSession!==cvKey){redirect('session_expired');return;}})();</script>
   <!-- Cloudflare Web Analytics -->
   <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "f9c97d82f2a04b9f95e051946eb0525e"}'></script>
   <link rel="stylesheet" href="css/tailwind.css">

@@ -194,6 +194,44 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
   }
 }
 
+// ── showExhaustedResult ───────────────────────────────────────────────────────
+// Fallback for users who return to the download page after all credits are
+// consumed and the session has been deleted server-side.
+// Called by poll() in download-api.js when /get-result returns 200.
+// `data` shape: { cv_id, cv_id_docx, cv_en, cv_en_docx, job_title, company, tier, exhausted: true }
+async function showExhaustedResult(data) {
+  const tier        = data.tier || 'single';
+  const isBilingual = tier !== 'coba';
+
+  // Populate cvDataCache so DOCX/PDF helpers (download-docx-pdf.js) can read it
+  cvDataCache = {
+    cv_id:         data.cv_id         != null ? data.cv_id         : null,
+    cv_en:         data.cv_en         != null ? data.cv_en         : null,
+    tier:          tier,
+    total_credits: null,
+    job_title:     data.job_title     != null ? data.job_title     : null,
+    company:       data.company       != null ? data.company       : null,
+  };
+
+  stopSessionHeartbeat();
+
+  // Transition to download-ready state with 0 credits (exhausted)
+  showDownloadReady(data.cv_id, data.cv_en, tier, isBilingual, 0);
+  showPostDownloadActions(0, tier);
+
+  // Show a "credits exhausted" banner so the user knows their session is gone
+  const bannerContainer = document.getElementById('post-download-actions');
+  if (bannerContainer) {
+    const banner = document.createElement('div');
+    banner.className = 'post-dl-card';
+    banner.innerHTML =
+      '<div class="post-dl-title">\uD83D\uDCCB CV tersimpan — kredit telah habis</div>' +
+      '<p class="post-dl-sub">Sesi kamu sudah berakhir karena semua kredit telah digunakan, ' +
+      'tetapi CV terakhir yang dibuat masih bisa diunduh di bawah ini selama 30 hari.</p>';
+    bannerContainer.insertBefore(banner, bannerContainer.firstChild);
+  }
+}
+
 // ── retryGeneration ───────────────────────────────────────────────────────────
 // Called by the "Coba Lagi" error button. Reloads if session ID is gone.
 function retryGeneration() {

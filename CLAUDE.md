@@ -50,6 +50,8 @@ Routes → `router.js`. Handlers → `worker/src/handlers/<endpoint>.js`. Pipeli
 
 Session TTL: 7 days (coba/single), 30 days (3pack/jobhunt).
 
+**Note:** All tiers are one-time purchases, not subscriptions. JobHunt gives 10 credits valid for 30 days — credits do not renew monthly.
+
 ---
 
 ## Dev Commands
@@ -83,7 +85,7 @@ npm run dev                     # watch mode
 - **Stale cache** — change prompt or scoring formula? Bump version in `analysis.js` (extract/analyze) or `tailoring.js` (gen). Old key = old result.
 - **IP mismatch** — `cv_text_key` is bound to the uploading IP. Testing across IPs or proxies will reject with mismatch.
 - **Frontend not updating** — `js/dist/` and `js/vendor/` are gitignored. Run `npm run build` before testing; CI builds them fresh.
-- **Double-gen race** — session lock `lock_<id>` TTL 30s. Retrying within that window will silently block.
+- **Double-gen race** — session lock `lock_<id>` TTL 120s. Retrying within that window will silently block.
 - **Wrong env deployed** — `wrangler deploy` without `--env production` goes to sandbox, not prod.
 - **Auth flash** — `js/hasil-guard.js` must stay as synchronous inline `<script>`. If it gets deferred/bundled, unauthenticated content flashes.
 
