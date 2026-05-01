@@ -50,6 +50,8 @@ Routes → `router.js`. Handlers → `worker/src/handlers/<endpoint>.js`. Pipeli
 
 Session TTL: 7 days (coba/single), 30 days (3pack/jobhunt).
 
+**Note:** All tiers are one-time purchases, not subscriptions. JobHunt gives 10 credits valid for 30 days — credits do not renew monthly.
+
 ---
 
 ## Dev Commands
