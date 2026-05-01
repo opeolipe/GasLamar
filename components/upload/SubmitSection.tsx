@@ -32,8 +32,8 @@ export default function SubmitSection({ isValid, isLoading, showJdHint, onSubmit
       </button>
 
       {showJdHint && (
-        <p className="text-center text-sm text-amber-700 mt-3">
-          Lengkapi job description untuk melanjutkan analisis.
+        <p className="text-center text-sm text-slate-500 mt-3">
+          Tambahkan job description untuk hasil analisis yang lebih akurat (opsional).
         </p>
       )}
 

@@ -59,4 +59,10 @@ NEVER:
 - Any bracketed placeholders
 - Personal pronouns: I, we, my, our
 - Multi-column layout or tables
-- Remove important context just to shorten the CV`;
+- Remove important context just to shorten the CV
+
+BANNED PHRASES (auto-detected — never output these):
+- "yang relevan dengan posisi yang ditargetkan"
+- "dengan hasil yang lebih jelas dan terstruktur"
+- "[sebutkan angka nyata]" or any bracket placeholder like [X], [number], [name]
+If the original CV has no metric, write the bullet without one — never insert a placeholder.`;

@@ -51,10 +51,9 @@ export default function Upload() {
   // JD textarea ref — used for auto-scroll after CV upload
   const jdRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // Derived
+  // Derived — JD is optional; button enables as soon as a valid CV is present.
   const hasFile: boolean = !!fileName && !!cvText;
-  const jdOk:    boolean = evaluateJDQuality(jd).isValid;
-  const isValid: boolean = hasFile && jdOk;
+  const isValid: boolean = hasFile;
 
   // Mount: read URL params + restore drafts
   useEffect(() => {
@@ -246,7 +245,8 @@ export default function Upload() {
       return;
     }
     const jobDesc = jd.trim();
-    if (!evaluateJDQuality(jobDesc).isValid) return;
+    // Only reject a non-empty JD that is too short/unstructured — empty JD runs general mode.
+    if (jobDesc.length > 0 && !evaluateJDQuality(jobDesc).isValid) return;
 
     setLoading(true);
     try {
