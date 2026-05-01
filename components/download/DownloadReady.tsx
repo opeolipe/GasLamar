@@ -42,10 +42,10 @@ function DownloadSteps() {
         { label: '3. Download', done: false, active: true  },
       ].map((s, i) => (
         <div key={i} className="relative z-10 flex flex-col items-center text-center flex-1">
-          <span className={`block text-[0.7rem] font-bold leading-none mb-1 ${s.done ? 'text-emerald-500' : 'text-slate-900'}`}>
+          <span className={`block text-xs font-bold leading-none mb-1 ${s.done ? 'text-emerald-500' : 'text-slate-900'}`}>
             {s.done ? '✓' : '●'}
           </span>
-          <span className={`text-[0.82rem] leading-tight ${s.done ? 'text-emerald-600 font-semibold' : 'text-slate-900 font-bold'}`}>
+          <span className={`text-sm leading-tight ${s.done ? 'text-emerald-600 font-semibold' : 'text-slate-900 font-bold'}`}>
             {s.label}
           </span>
         </div>
