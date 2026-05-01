@@ -3,6 +3,7 @@ import { clientIp, log, logError, extractJobMetadata } from '../utils.js';
 import { checkRateLimit, rateLimitResponse } from '../rateLimit.js';
 import { getSession, updateSession, deleteSession, verifySessionSecret } from '../sessions.js';
 import { tailorCVID, tailorCVEN } from '../tailoring.js';
+import { KV_CV_RESULT_PREFIX } from '../constants.js';
 import { sendCVReadyEmail } from '../email.js';
 import { getSessionIdFromCookie } from '../cookies.js';
 import { getRoleProfile } from '../roleProfiles.js';
@@ -179,19 +180,20 @@ export async function handleGenerate(request, env, ctx) {
     const resultTtl = (session.total_credits ?? 1) > 1 ? 2592000 : 604800;
     const { job_title: resultJobTitle, company: resultCompany } = extractJobMetadata(effectiveJobDesc);
     await env.GASLAMAR_SESSIONS.put(
-      `cv_result_${session_id}`,
+      `${KV_CV_RESULT_PREFIX}${session_id}`,
       JSON.stringify({
         cv_id:      idResult.text,
         cv_id_docx: idResult.docxText,
         cv_en:      enResult?.text      ?? null,
         cv_en_docx: enResult?.docxText  ?? null,
+        session_secret_hash: session.session_secret_hash ?? null,
         job_title:  resultJobTitle ?? null,
         company:    resultCompany  ?? null,
         tier,
         saved_at:   Date.now(),
       }),
       { expirationTtl: resultTtl }
-    ).catch(() => {}); // non-critical — don't fail the response
+    ).catch(e => { logError('cv_result_kv_write_failed', { session_id, error: e?.message }); });
 
     if (newCreditsRemaining <= 0) {
       // Last credit used — delete session

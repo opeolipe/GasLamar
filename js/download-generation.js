@@ -234,9 +234,9 @@ async function showExhaustedResult(data) {
 
 // ── retryGeneration ───────────────────────────────────────────────────────────
 // Called by the "Coba Lagi" error button. Reloads if session ID is gone.
-function retryGeneration() {
+async function retryGeneration() {
   if (!sessionIdCache) { window.location.reload(); return; }
-  fetchAndGenerateCV(sessionIdCache);
+  await fetchAndGenerateCV(sessionIdCache);
 }
 
 // ── generateForNewJob ─────────────────────────────────────────────────────────
