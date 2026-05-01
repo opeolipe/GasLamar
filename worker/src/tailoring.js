@@ -4,8 +4,8 @@ import { callClaude }      from './claude.js';
 import { sha256Hex }       from './utils.js';
 import { postProcessCV }   from './rewriteGuard.js';
 
-const GEN_KEY_PREFIX_ID = 'gen_id_v2_';
-const GEN_KEY_PREFIX_EN = 'gen_en_v2_';
+const GEN_KEY_PREFIX_ID = 'gen_id_v3_';
+const GEN_KEY_PREFIX_EN = 'gen_en_v3_';
 
 /**
  * Returns the first missing required section heading, 'too short' if the text
@@ -191,7 +191,16 @@ Output CV dalam Bahasa Indonesia dengan urutan section di atas:
 - PENDIDIKAN
 - KEAHLIAN: Core Skills | Tools | Bahasa
 
-Output hanya teks CV, tidak ada komentar atau penjelasan tambahan.`;
+Output hanya teks CV, tidak ada komentar atau penjelasan tambahan.
+
+VERIFIKASI WAJIB sebelum output (cek setiap poin):
+· Setiap bullet dimulai dengan kata kerja aktif Harvard
+· Tidak ada angka baru yang tidak ada di Ground Truth di atas
+· Keyword penting dari JD muncul secara alami di bullets yang relevan
+· Summary mencerminkan level seniority dari CV asli (bukan generik)
+· Tidak ada placeholder [...] dalam output
+· Nama, perusahaan, jabatan, tanggal — identik dengan CV asli
+· Setiap bullet 8–18 kata, satu baris`;
 
     const result = await callClaude(env, systemPrompt, 'Tailoring CV sekarang.', 4096, 'claude-haiku-4-5-20251001');
     let text = result?.content?.[0]?.text?.trim() ?? '';
@@ -294,7 +303,16 @@ Output the CV in English with sections in that order:
 - EDUCATION
 - SKILLS: Core Skills | Tools | Languages
 
-Output only the CV text, no additional comments.`;
+Output only the CV text, no additional comments.
+
+MANDATORY VERIFICATION before output (check every point):
+· Every bullet starts with a Harvard action verb
+· No new numbers not present in Ground Truth above
+· Key JD keywords appear naturally in relevant bullets
+· Summary reflects the candidate's actual seniority level (not generic)
+· No placeholders [...] anywhere in output
+· Names, companies, titles, dates — identical to original CV
+· Every bullet is 8–18 words, one line`;
 
     const result = await callClaude(env, systemPrompt, 'Tailor the CV now.', 4096, 'claude-haiku-4-5-20251001');
     let text = result?.content?.[0]?.text?.trim() ?? '';
