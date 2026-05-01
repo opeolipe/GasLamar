@@ -41,7 +41,7 @@ function CopyButton({ text, copyKey, copiedKey, onCopy }: {
   return (
     <button
       onClick={() => onCopy(text, copyKey)}
-      className="min-h-[44px] min-w-[44px] px-3 rounded-[10px] text-xs font-semibold transition-colors"
+      className="min-h-[44px] min-w-[44px] px-3 rounded-[10px] text-sm font-semibold transition-colors"
       style={{
         background: copied ? '#F0FDF4' : '#EFF6FF',
         border: `1px solid ${copied ? '#86EFAC' : '#BFDBFE'}`,
@@ -204,9 +204,9 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
               Email Lamaran
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">
-              <p className="text-xs font-medium text-slate-500 mb-1">Subject:</p>
+              <p className="text-sm font-medium text-slate-500 mb-1">Subject:</p>
               <p className="text-sm text-slate-800 bg-slate-50 rounded-[10px] px-3 py-2 mb-3">{kit.email_template.subject}</p>
-              <p className="text-xs font-medium text-slate-500 mb-1">Isi email:</p>
+              <p className="text-sm font-medium text-slate-500 mb-1">Isi email:</p>
               <p className="text-sm text-slate-700 whitespace-pre-wrap bg-slate-50 rounded-[10px] px-3 py-2 mb-3">{kit.email_template.body}</p>
               <CopyButton
                 text={`Subject: ${kit.email_template.subject}\n\n${kit.email_template.body}`}
@@ -239,7 +239,7 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
               "Tell Me About Yourself"
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">
-              <p className="text-xs text-slate-400 mb-2">Jawaban pembuka ~45-60 detik</p>
+              <p className="text-sm text-slate-400 mb-2">Jawaban pembuka ~45-60 detik</p>
               <p className="text-sm text-slate-700 whitespace-pre-wrap bg-slate-50 rounded-[10px] px-3 py-2 mb-3">{kit.tell_me_about_yourself}</p>
               <CopyButton
                 text={kit.tell_me_about_yourself}
@@ -268,11 +268,11 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
                       className="rounded-[12px] border border-slate-100 p-3"
                       style={isBlurred ? { filter: 'blur(4px)', userSelect: 'none', pointerEvents: 'none' } : undefined}
                     >
-                      <p className="text-xs font-bold text-blue-600 mb-1">Pertanyaan {index + 1}</p>
+                      <p className="text-sm font-bold text-blue-600 mb-1">Pertanyaan {index + 1}</p>
                       <p className="text-sm font-semibold text-slate-800 mb-2">
                         {activeLang === 'en' ? q.question_en : q.question_id}
                       </p>
-                      <p className="text-xs font-medium text-slate-500 mb-1">Contoh jawaban (STAR):</p>
+                      <p className="text-sm font-medium text-slate-500 mb-1">Contoh jawaban (STAR):</p>
                       <p className="text-sm text-slate-700 whitespace-pre-wrap bg-slate-50 rounded-[10px] px-3 py-2 mb-2">{q.sample_answer}</p>
                       <CopyButton
                         text={q.sample_answer}
@@ -315,7 +315,7 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
               <div className="flex flex-col gap-3">
                 {kit.job_insights.map((insight, index) => (
                   <div key={index} className="rounded-[10px] bg-slate-50 px-3 py-2">
-                    <p className="text-xs font-bold text-slate-700 mb-0.5">"{insight.phrase}"</p>
+                    <p className="text-sm font-bold text-slate-700 mb-0.5">"{insight.phrase}"</p>
                     <p className="text-sm text-slate-600">{insight.meaning}</p>
                   </div>
                 ))}

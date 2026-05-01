@@ -6,11 +6,13 @@ interface Props {
   error:        string;
   cvReady:      boolean;
   scanWarning:  boolean;
+  manualCvText: string;
+  onManualCvChange: (value: string) => void;
   onFileSelect: (file: File) => void;
   onRemove:     () => void;
 }
 
-export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWarning, onFileSelect, onRemove }: Props) {
+export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWarning, manualCvText, onManualCvChange, onFileSelect, onRemove }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   function onDragOver(e: React.DragEvent) {
@@ -53,7 +55,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
               <span className="text-2xl flex-shrink-0">📄</span>
               <div className="min-w-0">
                 <div className="font-semibold text-sm text-slate-800 truncate">{fileName}</div>
-                {fileSize && <div className="text-xs text-slate-400 mt-0.5">{fileSize}</div>}
+                {fileSize && <div className="text-sm text-slate-400 mt-0.5">{fileSize}</div>}
               </div>
             </div>
             <button
@@ -77,7 +79,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
             >
               Pilih file
             </button>
-            <div className="text-xs text-slate-400 mt-3">PDF, DOCX, atau TXT &nbsp;•&nbsp; maks 5MB</div>
+            <div className="text-sm text-slate-400 mt-3">PDF, DOCX, atau TXT &nbsp;•&nbsp; maks 5MB</div>
           </div>
         )}
         <input
@@ -92,20 +94,37 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
         />
       </div>
 
-      <p className="text-xs text-slate-400 mt-2">Pastikan CV kamu berisi teks yang bisa di-copy (bukan hasil scan/foto) untuk hasil analisis terbaik.</p>
+      <p className="text-sm text-slate-400 mt-2">Pastikan CV kamu berisi teks yang bisa di-copy (bukan hasil scan/foto) untuk hasil analisis terbaik.</p>
+
+      <div className="mt-4 w-full max-w-full">
+        <label htmlFor="cv-paste" className="block text-sm font-semibold text-slate-700 mb-2">
+          Atau copy-paste langsung isi CV Anda di sini
+        </label>
+        <textarea
+          id="cv-paste"
+          value={manualCvText}
+          onChange={(e) => onManualCvChange(e.target.value)}
+          className="w-full max-w-full min-h-[150px] rounded-2xl border border-slate-300 bg-transparent p-4 text-sm text-slate-900 resize-y outline-none transition-all focus:border-blue-500/50 focus:ring-2 focus:ring-slate-200 focus:ring-offset-2"
+          placeholder="Paste isi CV kamu jika upload file bermasalah. Sertakan pengalaman, pendidikan, skill, dan kontak utama."
+          aria-label="Paste isi CV secara manual"
+        />
+        <div className="text-right text-sm mt-1 text-slate-400">
+          {manualCvText.length.toLocaleString('id-ID')} karakter
+        </div>
+      </div>
 
       {scanWarning && (
-        <div className="mt-2 rounded-[10px] px-3 py-2.5 text-xs font-medium bg-amber-50 border border-amber-200 text-amber-800">
+        <div className="mt-2 rounded-[10px] px-3 py-2.5 text-sm font-medium bg-amber-50 border border-amber-200 text-amber-800">
           ⚠️ PDF ini sepertinya hasil scan atau gambar — teks tidak bisa dibaca. Coba upload versi DOCX atau PDF yang bisa di-copy.
         </div>
       )}
 
       {error && (
-        <p className="text-xs text-red-600 mt-2">{error}</p>
+        <p className="text-sm text-red-600 mt-2">{error}</p>
       )}
 
       {!error && !scanWarning && fileName && cvReady && (
-        <p className="text-xs text-emerald-600 mt-2">✓ CV siap dianalisis</p>
+        <p className="text-sm text-emerald-600 mt-2">✓ CV siap dianalisis</p>
       )}
     </div>
   );

@@ -32,18 +32,18 @@ export default function MobileFallback({ cvTextId, cvTextEn, bilingual }: Props)
       </p>
       <div className={`grid gap-4 ${bilingual && cvTextEn ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
         <div>
-          <p className="text-xs font-semibold text-slate-500 mb-1">Bahasa Indonesia</p>
+          <p className="text-sm font-semibold text-slate-500 mb-1">Bahasa Indonesia</p>
           <textarea
             readOnly
             rows={8}
             value={cvTextId}
             aria-label="Teks CV Bahasa Indonesia — bisa disalin manual"
-            className="w-full text-xs rounded-[12px] p-2 resize-none font-mono outline-none"
+            className="w-full text-sm rounded-[12px] p-2 resize-none font-mono outline-none"
             style={{ border: '1px solid #FDE68A', background: 'white' }}
           />
           <button
             onClick={() => handleCopy(cvTextId, 'id')}
-            className="text-xs text-blue-600 font-semibold bg-transparent border-none cursor-pointer mt-1 font-[inherit] p-0"
+            className="text-sm text-blue-600 font-semibold bg-transparent border-none cursor-pointer mt-1 font-[inherit] p-0"
             aria-label="Salin teks CV Bahasa Indonesia ke clipboard"
           >
             {copiedId ? 'Tersalin! ✓' : 'Salin'}
@@ -52,18 +52,18 @@ export default function MobileFallback({ cvTextId, cvTextEn, bilingual }: Props)
 
         {bilingual && cvTextEn && (
           <div>
-            <p className="text-xs font-semibold text-slate-500 mb-1">English</p>
+            <p className="text-sm font-semibold text-slate-500 mb-1">English</p>
             <textarea
               readOnly
               rows={8}
               value={cvTextEn}
               aria-label="CV text in English — can be copied manually"
-              className="w-full text-xs rounded-[12px] p-2 resize-none font-mono outline-none"
+              className="w-full text-sm rounded-[12px] p-2 resize-none font-mono outline-none"
               style={{ border: '1px solid #FDE68A', background: 'white' }}
             />
             <button
               onClick={() => handleCopy(cvTextEn, 'en')}
-              className="text-xs text-blue-600 font-semibold bg-transparent border-none cursor-pointer mt-1 font-[inherit] p-0"
+              className="text-sm text-blue-600 font-semibold bg-transparent border-none cursor-pointer mt-1 font-[inherit] p-0"
               aria-label="Copy English CV text to clipboard"
             >
               {copiedEn ? 'Copied! ✓' : 'Copy'}

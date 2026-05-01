@@ -64,6 +64,10 @@ const YEAR_ENDING_PATTERN = /\b(19|20)\d{2}\s*(-|–|—|s\/d|to)?\s*(present|se
 // 4. Education indicators (degree keywords, GPA/IPK)
 const EDUCATION_LINE_PATTERN = /^(S[123]|D[123]|SMA|SMK|SD|Bachelor|Master|PhD|Sarjana|Magister|Doktor|Diploma)\b|IPK|GPA|\b(Universitas|Institut|Sekolah|College|University|Institute)\b/i;
 
+// Summary section boundaries — used to extract and validate the professional summary block
+const SUMMARY_START_RE = /^(?:RINGKASAN\s+(?:PROFESIONAL|EKSEKUTIF|SINGKAT)|PROFESSIONAL\s+SUMMARY|SUMMARY|PROFILE|PROFESSIONAL\s+PROFILE)\s*$/i;
+const SUMMARY_END_RE   = /^(?:PENGALAMAN\s+KERJA|WORK\s+EXPERIENCE|EMPLOYMENT\s+HISTORY|PENDIDIKAN|EDUCATION|KEAHLIAN|SKILLS|TECHNICAL\s+SKILLS|SERTIFIKASI|CERTIFICATIONS)\s*$/i;
+
 const DOCX_GUIDANCE_ID  = '(catatan: tambahkan hasil konkret jika ada, misalnya: waktu ↓ atau output ↑)';
 const DOCX_GUIDANCE_EN  = '(note: add concrete results if available, e.g., time ↓ or output ↑)';
 const DOCX_MAX_HINTS    = 3;
@@ -143,21 +147,74 @@ function isWeakImprovement(before, after) {
   return WEAK_FILLER.some(phrase => lowerAfter.includes(phrase) && !lowerBefore.includes(phrase));
 }
 
+// ── Graded claim guards ───────────────────────────────────────────────────────
+
+// Checks only inflated claims (not tool terms) — used to distinguish high vs medium severity
+function hasInflatedClaims(before, after) {
+  for (const { pattern, impliedBy } of INFLATED_CLAIM_PATTERNS) {
+    if (pattern.test(after) && !pattern.test(before)) {
+      if (impliedBy && impliedBy.test(before)) continue;
+      return true;
+    }
+  }
+  return false;
+}
+
+// Checks only new tool terms (not inflated claims) — medium severity
+function hasNewToolTerms(before, after, entitasKlaim) {
+  const allowedTerms = entitasKlaim
+    ? new Set(entitasKlaim.map(k => k.trim().toLowerCase()).filter(k => k.length > 2))
+    : null;
+  const beforeTools = extractToolTerms(before);
+  for (const term of extractToolTerms(after)) {
+    if (beforeTools.has(term)) continue;
+    if (allowedTerms && allowedTerms.has(term)) continue;
+    return true;
+  }
+  return false;
+}
+
 // ── Validation ────────────────────────────────────────────────────────────────
 
 /**
- * @param {string}        before
- * @param {string}        after
- * @param {string[]|null} entitasKlaim
+ * Graded validation: returns { valid, severity } instead of a binary boolean.
+ * severity: 'high' (full fallback) | 'medium' (light fix) | 'low' (revert with suffix)
  */
+export function validateWithSeverity(before, after, entitasKlaim = null) {
+  if (!before || !after) return { valid: false, severity: 'high' };
+  if (before.trim() === after.trim()) return { valid: false, severity: 'low' };
+  if (after.length <= before.length)  return { valid: false, severity: 'low' };
+
+  if (addsNewNumbers(before, after))                return { valid: false, severity: 'high' };
+  if (hasInflatedClaims(before, after))             return { valid: false, severity: 'high' };
+  if (hasNewToolTerms(before, after, entitasKlaim)) return { valid: false, severity: 'medium' };
+  if (isWeakImprovement(before, after))             return { valid: false, severity: 'low' };
+
+  return { valid: true };
+}
+
+/** Backwards-compatible shim — delegates to validateWithSeverity. */
 export function validateRewrite(before, after, entitasKlaim = null) {
-  if (!before || !after) return false;
-  if (before.trim() === after.trim()) return false;
-  if (addsNewNumbers(before, after)) return false;
-  if (addsNewClaims(before, after, entitasKlaim)) return false;
-  if (isWeakImprovement(before, after)) return false;
-  if (after.length <= before.length) return false;
-  return true;
+  return validateWithSeverity(before, after, entitasKlaim).valid;
+}
+
+function applyValidationResult(severity, original, issue) {
+  if (severity === 'medium') {
+    // Light fix: keep original wording, append a relevant improvement suffix
+    return original + (ISSUE_FALLBACK[issue] ?? GENERIC_FALLBACK_SUFFIX);
+  }
+  // 'high' and 'low' both fall back fully via safeRewriteLine
+  return safeRewriteLine(original, issue);
+}
+
+// ── Logging ───────────────────────────────────────────────────────────────────
+
+function logHallucination(event) {
+  console.log(JSON.stringify({
+    event: 'hallucination_blocked',
+    timestamp: new Date().toISOString(),
+    ...event,
+  }));
 }
 
 // ── Line utilities ────────────────────────────────────────────────────────────
@@ -240,6 +297,47 @@ function findBestMatch(line, candidates) {
   return bestScore >= MATCH_THRESHOLD ? best : null;
 }
 
+// ── Summary validation ────────────────────────────────────────────────────────
+
+function extractSummarySection(cvText) {
+  const lines = cvText.split('\n');
+  let inSummary = false;
+  const summaryLines = [];
+  for (const line of lines) {
+    const t = line.trim();
+    if (SUMMARY_START_RE.test(t)) { inSummary = true; continue; }
+    if (inSummary) {
+      if (SECTION_HEADING_PATTERN.test(t)) break;
+      if (t) summaryLines.push(t);
+    }
+  }
+  return summaryLines.length > 0 ? summaryLines.join(' ') : null;
+}
+
+function validateSummaryBlock(summaryText, originalCVText, entitasKlaim) {
+  // Use the full original CV as "before" — any number or tool already in the CV is allowed
+  return addsNewNumbers(originalCVText, summaryText) ||
+         addsNewClaims(originalCVText, summaryText, entitasKlaim);
+}
+
+function buildSafeSummary(cvText, lang = 'id') {
+  const yearsM = cvText.match(/(\d+)\s*(?:\+\s*)?(?:tahun|years?)\s+(?:pengalaman|experience)/i);
+  const years  = yearsM ? yearsM[1] : null;
+  const titleM = cvText.match(/(?:—|–)\s*(.+?)(?:\s*\||\s*$)/m);
+  const title  = titleM ? titleM[1].trim().slice(0, 60) : null;
+
+  if (lang === 'en') {
+    if (title && years) return `${title} with ${years} years of professional experience.`;
+    if (title)          return `Experienced ${title} seeking to contribute to the target role.`;
+    if (years)          return `Professional with ${years} years of experience.`;
+    return 'Experienced professional seeking to contribute to the target role.';
+  }
+  if (title && years) return `${title} dengan ${years} tahun pengalaman profesional.`;
+  if (title)          return `Profesional berpengalaman di bidang ${title}.`;
+  if (years)          return `Profesional dengan ${years} tahun pengalaman.`;
+  return 'Profesional berpengalaman yang siap berkontribusi untuk posisi yang ditargetkan.';
+}
+
 // ── Safe fallback ─────────────────────────────────────────────────────────────
 
 function safeRewriteLine(original, issue) {
@@ -271,72 +369,89 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
   const originalLines      = extractBulletLines(originalCVText);
   const shortOriginalLines = extractShortOriginalLines(originalCVText);
 
-  let fallbackCount = 0;
-  let totalBullets  = 0;
+  let fallbackCount  = 0;
+  let downgradeCount = 0;
+  let totalBullets   = 0;
 
-  // Step 1: validate each bullet line
-  const outputLines = llmText.split('\n');
+  let result = llmText;
+
+  // Step 1a: validate professional summary — not covered by the per-bullet loop because
+  // summary sentences carry no bullet marker. Replaces with original or a safe fallback.
+  const llmSummary  = extractSummarySection(result);
+  const origSummary = extractSummarySection(originalCVText);
+  if (llmSummary && validateSummaryBlock(llmSummary, originalCVText, entitasKlaim)) {
+    logHallucination({ stage: 'summary', language });
+    const safeSummary = origSummary ?? buildSafeSummary(originalCVText, language);
+    result = result.replace(
+      /((?:RINGKASAN\s+(?:PROFESIONAL|EKSEKUTIF|SINGKAT)|PROFESSIONAL\s+SUMMARY|SUMMARY|PROFILE)\s*\n)([\s\S]*?)(?=\n(?:PENGALAMAN\s+KERJA|WORK\s+EXPERIENCE|EMPLOYMENT\s+HISTORY|PENDIDIKAN|EDUCATION|KEAHLIAN|SKILLS|TECHNICAL\s+SKILLS|SERTIFIKASI|CERTIFICATIONS)(?:\s|$))/i,
+      (_, heading, _body) => heading + safeSummary + '\n\n',
+    );
+    fallbackCount++;
+  }
+
+  // Step 1: validate each bullet line (graded severity)
+  const outputLines = result.split('\n');
   const validated   = outputLines.map(line => {
     const trimmed = line.trim();
     if (!trimmed)                               return line;
     if (SECTION_HEADING_PATTERN.test(trimmed))  return line;
     if (META_LINE_PATTERN.test(trimmed))        return line;
-    if (isNonBulletCVLine(trimmed))             return line; // names, companies, education, contact
+    if (isNonBulletCVLine(trimmed))             return line;
     if (!isBulletLine(trimmed))                 return line;
 
     const clean = cleanLine(trimmed);
     if (clean.length < MIN_LINE_LENGTH)         return line;
 
-    // Word count guard — matches frontend generateRewrite() behaviour
     const wordCount = clean.split(/\s+/).filter(w => w.length > 0).length;
     if (wordCount < MIN_WORD_COUNT)             return line;
 
     totalBullets++;
 
-    // Reject any line that still contains template placeholders like [NAME] or [POSITION]
     if (PLACEHOLDER_PATTERN.test(clean)) {
       const original = findBestMatch(clean, originalLines);
       const prefix = line.match(/^(\s*[-•*]\s*)/)?.[1] ?? '';
+      logHallucination({ stage: 'bullet', severity: 'high', reason: 'placeholder' });
       fallbackCount++;
       return prefix + (original ? safeRewriteLine(original, issue) : clean.replace(PLACEHOLDER_PATTERN, '').trim());
     }
 
     const original = findBestMatch(clean, originalLines);
     if (!original) {
-      // B4: if the LLM expanded a short original entry (e.g. "Admin" → longer text),
-      // revert to the verbatim short original — we cannot verify the expansion.
       const shortOriginal = findExpandedShortLine(clean, shortOriginalLines);
       if (shortOriginal) {
+        logHallucination({ stage: 'bullet', severity: 'high', reason: 'expanded_short' });
         fallbackCount++;
         const prefix = line.match(/^(\s*[-•*]\s*)/)?.[1] ?? '';
         return prefix + shortOriginal;
       }
-      return line; // no original found — trust LLM
+      return line;
     }
 
-    if (!validateRewrite(original, clean, entitasKlaim)) {
+    const { valid, severity } = validateWithSeverity(original, clean, entitasKlaim);
+    if (!valid) {
       const prefix = line.match(/^(\s*[-•*]\s*)/)?.[1] ?? '';
-      fallbackCount++;
-      return prefix + safeRewriteLine(original, issue);
+      logHallucination({ stage: 'bullet', severity });
+      if (severity === 'high') fallbackCount++;
+      else downgradeCount++;
+      return prefix + applyValidationResult(severity, original, issue);
     }
 
     return line;
   });
 
-  let result = validated.join('\n');
+  result = validated.join('\n');
 
   // Step 1b: strip any remaining LLM placeholder brackets from ALL lines
-  // (covers non-bulleted lines that are not processed by the per-bullet loop above)
   result = result.replace(/\[[^\]]{1,60}\]/g, '').replace(/[ \t]{2,}/g, ' ');
 
-  // Step 1c: strip banned output phrases (AI artifacts) that may have leaked from the LLM
+  // Step 1c: strip banned output phrases (AI artifacts)
   for (const phrase of BANNED_OUTPUT_PHRASES) {
     const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     result = result.replace(new RegExp(escaped, 'gi'), '');
   }
   result = result.replace(/[ \t]{2,}/g, ' ');
 
-  // Step 2: force preview consistency — raise threshold to 0.6 to avoid wrong mapping
+  // Step 2: force preview consistency
   if (previewSample && previewAfter) {
     let replaced = false;
     const consistencyLines = result.split('\n').map(line => {
@@ -352,9 +467,7 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
     result = consistencyLines.join('\n');
   }
 
-  // Step 3: DOCX mode — append guidance hint after the first DOCX_MAX_HINTS
-  // experience bullet lines only. Reset counter on each new section so guidance
-  // stays within the PENGALAMAN KERJA / WORK EXPERIENCE section.
+  // Step 3: DOCX mode — append guidance hint after first DOCX_MAX_HINTS experience bullets
   if (mode === 'docx') {
     const guidance = language === 'en' ? DOCX_GUIDANCE_EN : DOCX_GUIDANCE_ID;
     let hintsAdded   = 0;
@@ -365,7 +478,7 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
       const t = line.trim();
       if (ANY_HEADING.test(t)) {
         inExpSection = EXP_HEADING.test(t);
-        hintsAdded   = 0; // reset on every section boundary
+        hintsAdded   = 0;
         return [line];
       }
       if (!inExpSection)                         return [line];
@@ -377,7 +490,7 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
     result = docxLines.join('\n');
   }
 
-  // isTrusted: true if fallback rate is below 20% (or no bullets to validate)
+  // isTrusted: true if high-severity fallback rate < 20% (medium downgrades are acceptable)
   const fallbackRate = totalBullets > 0 ? fallbackCount / totalBullets : 0;
   const isTrusted    = fallbackRate < 0.2;
 

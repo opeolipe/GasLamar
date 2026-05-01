@@ -44,7 +44,7 @@ TONE MANUSIA (KRITIS):
 
 ANGKA:
 - Pertahankan HANYA angka dari CV asli. Jangan fabrikasi.
-- Jangan tambahkan placeholder seperti "[X%]".
+- Jangan tambahkan placeholder dalam bracket apa pun. Jika angka tidak ada di CV asli, tulis tanpa metrik.
 
 ATS-READY (WAJIB):
 - Layout satu kolom — tanpa tabel, kolom ganda, text box
@@ -56,7 +56,8 @@ ATS-READY (WAJIB):
 TIDAK BOLEH:
 - Em-dash di mana pun kecuali header peran (Perusahaan — Jabatan)
 - Angka palsu
-- Frasa generik AI: "dengan hasil yang lebih jelas", "yang relevan dengan posisi yang ditargetkan"
+- Frasa generik AI yang menyebut relevansi target secara umum tanpa bukti konkret
+- Placeholder dalam bracket apa pun
 - Kata ganti pribadi: saya, kami, kita, -ku, -mu
 - Layout multi-kolom atau tabel
 - Hapus konteks penting demi mempersingkat`;

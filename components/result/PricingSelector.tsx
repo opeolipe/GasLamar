@@ -22,7 +22,7 @@ export default function PricingSelector({ selectedTier, onSelect, score }: Props
 
       {/* Tier recommendation — inline, no black banner */}
       {rec && (
-        <p style={{ textAlign: 'center', fontSize: '0.82rem', color: '#2563EB', margin: '0.25rem 0 0.25rem', fontWeight: 500 }}>
+        <p style={{ textAlign: 'center', fontSize: '0.875rem', color: '#2563EB', margin: '0.25rem 0 0.25rem', fontWeight: 500 }}>
           💡 Kami rekomendasikan{' '}
           <button
             onClick={() => onSelect(rec.tier)}
@@ -35,7 +35,7 @@ export default function PricingSelector({ selectedTier, onSelect, score }: Props
       )}
 
       {/* Guided decision copy */}
-      <p style={{ textAlign: 'center', fontSize: '0.82rem', color: '#475569', margin: '0.5rem 0 0', lineHeight: 1.5 }}>
+      <p style={{ textAlign: 'center', fontSize: '0.875rem', color: '#475569', margin: '0.5rem 0 0', lineHeight: 1.5 }}>
         Kalau kamu fokus 1 posisi → pilih Single. Kalau apply ke beberapa posisi → pilih 3‑Pack.
       </p>
 
@@ -87,7 +87,7 @@ export default function PricingSelector({ selectedTier, onSelect, score }: Props
               )}
               <div style={{ fontWeight: 700, fontSize: '1.1rem', color: '#111827' }}>{info.label}</div>
               <div style={{ fontSize: '1.8rem', fontWeight: 800, margin: '0.5rem 0', color: '#111827' }}>{info.priceStr}</div>
-              <div style={{ fontSize: '0.7rem', color: '#5B6E8C', margin: '0.5rem 0' }}>{info.desc}</div>
+              <div style={{ fontSize: '0.875rem', color: '#5B6E8C', margin: '0.5rem 0' }}>{info.desc}</div>
             </button>
           );
         })}

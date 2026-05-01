@@ -94,11 +94,11 @@ export default function EmailCapture({
         aria-invalid={!!error}
         style={inputStyle}
       />
-      <p style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '0.4rem', margin: '0.4rem 0 0' }}>
+      <p style={{ fontSize: '0.875rem', color: '#6B7280', marginTop: '0.4rem', margin: '0.4rem 0 0' }}>
         {helper}
       </p>
       {error && (
-        <p role="alert" style={{ color: '#DC2626', fontSize: '0.82rem', marginTop: '0.4rem', fontWeight: 500 }}>
+        <p role="alert" style={{ color: '#DC2626', fontSize: '0.875rem', marginTop: '0.4rem', fontWeight: 500 }}>
           ⚠️ {error}
         </p>
       )}
@@ -116,7 +116,7 @@ export default function EmailCapture({
             border:       '1px solid #BFDBFE',
             borderRadius: 8,
             color:        '#1D4ED8',
-            fontSize:     '0.82rem',
+            fontSize: '0.875rem',
             fontWeight:   600,
             cursor:       'pointer',
             textAlign:    'left' as const,
@@ -127,7 +127,7 @@ export default function EmailCapture({
         </button>
       )}
       {showDisposable && (
-        <p style={{ color: '#D97706', fontSize: '0.82rem', marginTop: '0.4rem', fontWeight: 500 }}>
+        <p style={{ color: '#D97706', fontSize: '0.875rem', marginTop: '0.4rem', fontWeight: 500 }}>
           ⚠️ Gunakan email aktif agar kamu bisa menerima CV hasil perbaikan.
         </p>
       )}
@@ -161,12 +161,12 @@ export default function EmailCapture({
           style={{ ...inputStyle, border: `1.5px solid ${confirmBorderColor}` }}
         />
         {showConfirmError && (
-          <p role="alert" style={{ color: '#DC2626', fontSize: '0.82rem', marginTop: '0.4rem', fontWeight: 500 }}>
+          <p role="alert" style={{ color: '#DC2626', fontSize: '0.875rem', marginTop: '0.4rem', fontWeight: 500 }}>
             ⚠️ {confirmError}
           </p>
         )}
         {showConfirmSuccess && (
-          <p style={{ color: '#16A34A', fontSize: '0.82rem', marginTop: '0.4rem', fontWeight: 500 }}>
+          <p style={{ color: '#16A34A', fontSize: '0.875rem', marginTop: '0.4rem', fontWeight: 500 }}>
             ✓ Email sudah cocok
           </p>
         )}

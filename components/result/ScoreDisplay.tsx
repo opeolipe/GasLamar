@@ -92,13 +92,13 @@ export default function ScoreDisplay({ score, archetype, gapCount }: Props) {
 
       {/* Archetype badge */}
       {archetype && (
-        <div style={{ display: 'inline-block', fontSize: '0.72rem', fontWeight: 600, borderRadius: 20, padding: '0.2rem 0.8rem', background: '#EFF6FF', color: '#1D4ED8', marginBottom: '0.4rem' }}>
+        <div style={{ display: 'inline-block', fontSize: '0.875rem', fontWeight: 600, borderRadius: 20, padding: '0.2rem 0.8rem', background: '#EFF6FF', color: '#1D4ED8', marginBottom: '0.4rem' }}>
           {archetype}
         </div>
       )}
 
       {/* Score status badge */}
-      <div style={{ display: 'inline-block', padding: '0.25rem 1rem', borderRadius: 60, fontSize: '0.8rem', fontWeight: 600, marginTop: '0.5rem', background: badge.bg, color: badge.textColor }}>
+      <div style={{ display: 'inline-block', padding: '0.25rem 1rem', borderRadius: 60, fontSize: '0.875rem', fontWeight: 600, marginTop: '0.5rem', background: badge.bg, color: badge.textColor }}>
         {badge.text}
       </div>
 
@@ -113,7 +113,7 @@ export default function ScoreDisplay({ score, archetype, gapCount }: Props) {
       <button
         onClick={handleShare}
         aria-label="Bagikan skor analisis CV"
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid #E2E8F0', color: copied ? '#059669' : '#4B5563', fontSize: '0.85rem', fontWeight: 600, padding: '0.5rem 1.1rem', borderRadius: 40, background: 'white', cursor: 'pointer', marginTop: '1rem', minHeight: 44, fontFamily: 'inherit', transition: 'border-color 0.2s, color 0.2s', borderColor: copied ? '#10B981' : '#E2E8F0' }}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid #E2E8F0', color: copied ? '#059669' : '#4B5563', fontSize: '0.875rem', fontWeight: 600, padding: '0.5rem 1.1rem', borderRadius: 40, background: 'white', cursor: 'pointer', marginTop: '1rem', minHeight: 44, fontFamily: 'inherit', transition: 'border-color 0.2s, color 0.2s', borderColor: copied ? '#10B981' : '#E2E8F0' }}
       >
         {copied ? (
           <span>✓ Teks skor disalin!</span>

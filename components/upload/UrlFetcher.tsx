@@ -73,14 +73,14 @@ export default function UrlFetcher({ onFetchSuccess, onClose }: Props) {
           ✕
         </button>
       </div>
-      <p className="text-xs mt-1.5 text-slate-400">
+      <p className="text-sm mt-1.5 text-slate-400">
         Platform yang didukung: Glints, JobStreet, Kalibrr, Indeed.{' '}
         <span title="LinkedIn membatasi akses otomatis sehingga pengambilan sering gagal." className="cursor-help underline decoration-dotted">
           LinkedIn sering gagal.
         </span>
       </p>
       {error && (
-        <p className="text-xs mt-1 text-red-600">{error}</p>
+        <p className="text-sm mt-1 text-red-600">{error}</p>
       )}
     </div>
   );

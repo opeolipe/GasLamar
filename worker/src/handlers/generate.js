@@ -54,6 +54,17 @@ export async function handleGenerate(request, env, ctx) {
     // Normalize: deduplicate, lowercase, trim, drop very short tokens
     entitasKlaim = [...new Set(rawKlaim.map(k => k.trim().toLowerCase()).filter(k => k.length > 2))];
   }
+  // Optional angka_di_cv — numbers found in CV (forwarded from /analyze response)
+  // Used to anchor the ground-truth block in the tailor prompt.
+  const rawAngkaDiCv = body.angka_di_cv;
+  let angkaDiCv = null;
+  if (rawAngkaDiCv !== undefined) {
+    if (typeof rawAngkaDiCv !== 'string' || rawAngkaDiCv.length > 400) {
+      return jsonResponse({ message: 'angka_di_cv tidak valid' }, 400, request, env);
+    }
+    angkaDiCv = rawAngkaDiCv.trim() || null;
+  }
+
   // score and gaps are optional analytics fields forwarded to the CV-ready email.
   // Validate before use: score must be a finite number 0–100; gaps must be an
   // array of short strings. Reject the entire request if types are wrong.
@@ -132,7 +143,11 @@ export async function handleGenerate(request, env, ctx) {
     // Generate from KV data only — never from request body (except allowed job_desc override).
     // Run ID and EN tailoring in parallel to stay within Cloudflare's 30s wall-clock limit.
     // Sequential calls could reach 50s (2 × 25s Claude timeout) and hard-kill the Worker.
-    const tailorOpts = { issue: primaryIssue, previewSample, previewAfter, entitasKlaim, roleProfile, jdMode };
+    const extractedCV = (angkaDiCv || entitasKlaim)
+      ? { angka_di_cv: angkaDiCv ?? 'NOL ANGKA', entitas_klaim: entitasKlaim ?? [], skills_mentah: '' }
+      : null;
+
+    const tailorOpts = { issue: primaryIssue, previewSample, previewAfter, entitasKlaim, roleProfile, jdMode, extractedCV };
 
     // Pre-generate interview kit in parallel with CV tailoring.
     // Cache it under kit_${session_id}_id so /interview-kit can serve it
