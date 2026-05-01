@@ -17,6 +17,7 @@ import { useResultData }                       from '@/hooks/useResultData';
 import { useSessionCountdown }                 from '@/hooks/useSessionCountdown';
 import { WORKER_URL, TIER_CONFIG, EMAIL_REGEX, formatPrice, buildResultData } from '@/lib/resultUtils';
 import { validateEmail }                                                        from '@/utils/emailValidation';
+import { suggestEmailFix }                                                      from '@/utils/emailTypo';
 
 declare const IS_SANDBOX: boolean;
 
@@ -162,7 +163,7 @@ export default function Result() {
   function handleEmailChange(value: string) {
     setEmail(value);
     setEmailError('');
-    setEmailSuggestion(null);
+    setEmailSuggestion(suggestEmailFix(value));
     setEmailIsDisposable(false);
     setEmailIsConfirmed(false);
     setConfirmError('');

@@ -54,6 +54,16 @@ export async function handleCreatePayment(request, env) {
     return jsonResponse({ message: 'Sesi tidak valid dari jaringan ini. Ulangi upload CV.' }, 403, request, env);
   }
 
+  // Idempotency: prevent duplicate invoices from rapid concurrent requests.
+  // cv_text_key is single-use (deleted after invoice creation); a KV lock with a short
+  // TTL ensures only one request reaches the Mayar API per cv_text_key.
+  const invoiceLockKey = `invoice_lock_${cv_text_key}`;
+  const existingLock = await env.GASLAMAR_SESSIONS.get(invoiceLockKey);
+  if (existingLock) {
+    return jsonResponse({ message: 'Permintaan sedang diproses. Coba lagi sebentar.' }, 409, request, env);
+  }
+  await env.GASLAMAR_SESSIONS.put(invoiceLockKey, '1', { expirationTtl: 60 }); // KV minimum TTL is 60s
+
   // Create session
   const sessionId = `sess_${crypto.randomUUID()}`;
 
@@ -125,6 +135,8 @@ export async function handleCreatePayment(request, env) {
 
     return jsonResponseWithCookie({ session_id: sessionId, invoice_url }, 200, cookieHeader, request, env);
   } catch (e) {
+    // Release invoice lock so user can retry after a failed Mayar call
+    await env.GASLAMAR_SESSIONS.delete(invoiceLockKey).catch(() => {});
     console.error(JSON.stringify({ event: 'create_payment_failed', error: e.message, tier }));
     return jsonResponse({ message: e.message || 'Gagal membuat invoice' }, 500, request, env);
   }
