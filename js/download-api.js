@@ -116,7 +116,7 @@ async function poll(sessionId) {
         document.getElementById('poll-count-text').textContent = 'Klik tombol di bawah untuk cek ulang.';
         setTimeout(function() {
           document.getElementById('contact-btn').classList.remove('hidden');
-        }, 300000); // show contact support link after 5 minutes
+        }, 60000); // show contact support link 1 min after polling stops
       } else {
         scheduleNextPoll(sessionId);
       }

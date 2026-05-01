@@ -7,6 +7,12 @@ export async function handleMayarWebhook(request, env, ctx) {
   const { valid, body } = await verifyMayarWebhook(request, env);
 
   if (!valid) {
+    console.error(JSON.stringify({
+      event: 'webhook_unauthorized',
+      environment: env.ENVIRONMENT ?? 'sandbox',
+      has_signature: !!request.headers.get('x-mayar-signature'),
+      has_secret: !!env.MAYAR_WEBHOOK_SECRET,
+    }));
     return new Response('Unauthorized', { status: 401 });
   }
 
@@ -24,6 +30,14 @@ export async function handleMayarWebhook(request, env, ctx) {
   const invoiceId = payload.id || payload.invoice_id || payload.data?.id;
   const redirectUrl = payload.redirect_url || payload.data?.redirect_url || '';
   const status = payload.status || payload.data?.status;
+
+  console.log(JSON.stringify({
+    event: 'webhook_payload',
+    invoiceId,
+    status,
+    topLevelKeys: Object.keys(payload),
+    dataKeys: payload.data ? Object.keys(payload.data) : null,
+  }));
 
   if (!invoiceId && !redirectUrl) {
     return new Response('OK', { status: 200 });
@@ -61,8 +75,8 @@ export async function handleMayarWebhook(request, env, ctx) {
     return new Response('OK', { status: 200 });
   }
 
-  // Check if payment is successful
-  const isPaid = ['paid', 'settlement', 'capture', 'PAID', 'SETTLEMENT'].includes(status);
+  // Check if payment is successful — covers all known Mayar status variants across API versions and sandbox
+  const isPaid = ['paid', 'settlement', 'capture', 'PAID', 'SETTLEMENT', 'CAPTURE', 'success', 'SUCCESS'].includes(status);
 
   if (isPaid) {
     // Idempotency: skip if already processed (prevents duplicate emails on duplicate webhooks)
