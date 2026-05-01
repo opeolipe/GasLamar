@@ -31,18 +31,71 @@ export interface ScoringData {
 // ── Pricing ─────────────────────────────────────────────────────────────────
 
 export interface TierInfo {
-  label:     string;
-  price:     number;
-  bilingual: boolean;
-  desc:      string;
-  priceStr:  string;
+  label:      string;
+  price:      number;
+  bilingual:  boolean;
+  desc:       string;
+  priceStr:   string;
+  perCvStr?:  string;
+  ttl:        string;
+  features:   string[];
 }
 
 export const TIER_CONFIG: Record<string, TierInfo> = {
-  coba:    { label: 'Coba Dulu',     price: 29000,  bilingual: false, desc: '1 CV · Bahasa Indonesia',   priceStr: 'Rp 29k'  },
-  single:  { label: 'Single',        price: 59000,  bilingual: true,  desc: '1 CV · Bilingual ID + EN',  priceStr: 'Rp 59k'  },
-  '3pack': { label: '3-Pack',        price: 149000, bilingual: true,  desc: '3 CV · Bilingual ID + EN',  priceStr: 'Rp 149k' },
-  jobhunt: { label: 'Job Hunt Pack', price: 299000, bilingual: true,  desc: '10 CV · Bilingual ID + EN', priceStr: 'Rp 299k' },
+  coba: {
+    label:     'Coba Dulu',
+    price:     29000,
+    bilingual: false,
+    desc:      '1 CV · Bahasa Indonesia',
+    priceStr:  'Rp 29k',
+    ttl:       'Link berlaku 7 hari',
+    features:  [
+      'CV ATS-friendly dalam Bahasa Indonesia',
+      'Semua gap diperbaiki dari CV asli kamu',
+      'Download DOCX & PDF',
+    ],
+  },
+  single: {
+    label:     'Single',
+    price:     59000,
+    bilingual: true,
+    desc:      '1 CV · Bilingual ID + EN',
+    priceStr:  'Rp 59k',
+    ttl:       'Link berlaku 7 hari',
+    features:  [
+      'CV ATS-friendly ID + EN (bilingual)',
+      'Semua gap diperbaiki dari CV asli kamu',
+      'Download DOCX & PDF kedua versi',
+    ],
+  },
+  '3pack': {
+    label:    '3-Pack',
+    price:    149000,
+    bilingual: true,
+    desc:     '3 posisi berbeda · Bilingual',
+    priceStr: 'Rp 149k',
+    perCvStr: '≈ Rp 50k/CV',
+    ttl:      'Link berlaku 30 hari',
+    features: [
+      'Tailor CV untuk 3 lowongan berbeda',
+      'CV bilingual ID + EN tiap posisi',
+      'Hemat Rp 28k vs beli 3× Single',
+    ],
+  },
+  jobhunt: {
+    label:    'Job Hunt Pack',
+    price:    299000,
+    bilingual: true,
+    desc:     '10 posisi berbeda · Bilingual',
+    priceStr: 'Rp 299k',
+    perCvStr: '≈ Rp 30k/CV',
+    ttl:      'Link berlaku 30 hari',
+    features: [
+      'Tailor CV untuk 10 lowongan berbeda',
+      'CV bilingual ID + EN tiap posisi',
+      'Hemat Rp 291k vs beli 10× Single',
+    ],
+  },
 };
 
 export function formatPrice(price: number): string {

@@ -6,19 +6,35 @@ export const TOTAL_STEPS      = 4;
 export const STEP_INTERVAL    = Math.floor(ESTIMATED_MS / (TOTAL_STEPS + 1));
 
 export const TRUST_MESSAGES = [
-  '🔒 CV tidak disimpan — aman',
-  '🤖 Analisis berbasis pola HR & ATS',
-  '🎯 Hasil spesifik untuk job ini',
-  '⚡ Rata-rata selesai dalam 30 detik',
+  '🔒 CV tidak disimpan — data kamu aman',
+  '🎯 Membandingkan CV kamu dengan standar HR untuk posisi ini',
+  '📊 Menghitung 5 dimensi yang paling dilihat recruiter',
+  '✨ Hampir selesai — hasil spesifik untuk lowongan ini',
 ] as const;
 
-export interface StepDef { icon: string; label: string }
+export interface StepDef { icon: string; label: string; activeDesc: string }
 
 export const STEP_DEFS: StepDef[] = [
-  { icon: '📄', label: 'Membaca & memahami struktur CV'      },
-  { icon: '🔍', label: 'Mencocokkan dengan job description'  },
-  { icon: '📊', label: 'Menghitung skor & gap'               },
-  { icon: '✍️', label: 'Menyusun rekomendasi & rewrite'      },
+  {
+    icon:       '📄',
+    label:      'Membaca & memahami struktur CV',
+    activeDesc: 'Mengekstrak pengalaman, skill, dan pencapaian dari CV kamu…',
+  },
+  {
+    icon:       '🔍',
+    label:      'Mencocokkan dengan job description',
+    activeDesc: 'Mengidentifikasi skill yang diminta dan membandingkan dengan profil kamu…',
+  },
+  {
+    icon:       '📊',
+    label:      'Menghitung skor & gap',
+    activeDesc: 'Menilai 5 dimensi: bukti nyata, daya tarik, kesesuaian, effort, dan relevansi…',
+  },
+  {
+    icon:       '✍️',
+    label:      'Menyusun rekomendasi & rewrite',
+    activeDesc: 'Membuat contoh perbaikan CV berdasarkan gap yang ditemukan…',
+  },
 ];
 
 export function getTimerText(elapsed: number): string {
