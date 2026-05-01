@@ -11,7 +11,7 @@
 
 // ── Polling configuration ─────────────────────────────────────────────────────
 const POLL_INTERVAL      = 3000;            // ms between poll ticks
-const MAX_POLLS          = 40;              // stop auto-polling after this many attempts (40×3s = 2 min for webhook propagation)
+const MAX_POLLS          = 100;             // stop auto-polling after this many attempts (100×3s = 5 min for webhook propagation)
 const HEARTBEAT_INTERVAL = 3 * 60 * 1000;  // ms between session keep-alive pings
 
 // ── Mutable session state ─────────────────────────────────────────────────────
