@@ -55,6 +55,16 @@ export async function handleInterviewKit(request, env) {
   try {
     const cached = await env.GASLAMAR_SESSIONS.get(cacheKey, { type: 'json' });
     if (cached) {
+      // If the session still exists, enforce secret verification before returning cached data.
+      // If the session is gone (last credit consumed + deleted), the HttpOnly cookie is
+      // sufficient auth — no secret available to verify against.
+      const liveSession = await getSession(env, session_id);
+      if (liveSession) {
+        const providedSecret = request.headers.get('X-Session-Secret');
+        if (!await verifySessionSecret(liveSession, providedSecret)) {
+          return jsonResponse({ message: 'Akses ditolak: token sesi tidak valid' }, 403, request, env);
+        }
+      }
       log('interview_kit_cache_hit', { session_id, language });
       return jsonResponse({ success: true, kit: cached }, 200, request, env);
     }
@@ -71,6 +81,11 @@ export async function handleInterviewKit(request, env) {
   const providedSecret = request.headers.get('X-Session-Secret');
   if (!await verifySessionSecret(session, providedSecret)) {
     return jsonResponse({ message: 'Akses ditolak: token sesi tidak valid' }, 403, request, env);
+  }
+
+  const PAID_STATUSES = new Set(['paid', 'generating']);
+  if (!PAID_STATUSES.has(session.status)) {
+    return jsonResponse({ message: 'Pembayaran belum dikonfirmasi' }, 403, request, env);
   }
 
   const { cv_text, job_desc } = session;

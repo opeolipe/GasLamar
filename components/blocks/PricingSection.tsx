@@ -13,13 +13,13 @@ const TIERS: Tier[] = [
   {
     name: "Coba Dulu",
     price: "Rp 29k",
-    desc: "Analisis gratis dulu. Kalau lanjut rewrite, hasil aktif 7 hari.",
-    features: ["Analisis awal gratis", "Gap analysis utama", "Rewrite 1 CV (Bahasa Indonesia)", "Hasil aktif 7 hari"],
+    desc: "Rewrite 1 posisi dalam Bahasa Indonesia. Hasil aktif 7 hari.",
+    features: ["Gap analysis utama", "Rewrite 1 CV (Bahasa Indonesia)", "Hasil aktif 7 hari"],
   },
   {
     name: "Single",
     price: "Rp 59k",
-    desc: "Analisis gratis dulu. Kalau lanjut rewrite, hasil aktif 7 hari.",
+    desc: "Rewrite 1 posisi, versi ID + EN. Hasil aktif 7 hari.",
     features: ["Perbaikan 8 bagian utama CV", "Rewrite langsung dari CV kamu (bukan template)", "Versi ID + EN", "Siap kirim ke HR (ATS-friendly)"],
   },
   {

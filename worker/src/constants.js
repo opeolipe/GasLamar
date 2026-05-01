@@ -31,3 +31,7 @@ export const TIER_CREDITS = {
 
 export const SESSION_TTL       = 604800;   // 7 days — single-credit paid sessions (single / coba dulu)
 export const SESSION_TTL_MULTI = 2592000;  // 30 days — 3-Pack / Job Hunt Pack
+
+// ---- KV Key Prefixes ----
+
+export const KV_CV_RESULT_PREFIX = 'cv_result_';
