@@ -1,0 +1,9 @@
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "Download CV — GasLamar",
+  "url": "https://gaslamar.com/download.html",
+  "description": "Download CV bilingual kamu dalam format DOCX atau PDF — sudah di-tailor khusus untuk posisi yang kamu lamar. Siap kirim ke HR sekarang.",
+  "inLanguage": "id-ID",
+  "isPartOf": { "@type": "WebSite", "name": "GasLamar", "url": "https://gaslamar.com" }
+}

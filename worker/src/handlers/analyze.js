@@ -29,10 +29,11 @@ export async function handleAnalyze(request, env) {
     return jsonResponse({ message: 'Request body tidak valid' }, 400, request, env);
   }
 
-  const { cv, job_desc: rawJobDesc } = body;
+  // rawJobDesc defaults to '' so omitting it triggers general-mode analysis.
+  const { cv, job_desc: rawJobDesc = '' } = body;
 
-  if (!cv || !rawJobDesc) {
-    return jsonResponse({ message: 'CV dan job description wajib diisi' }, 400, request, env);
+  if (!cv) {
+    return jsonResponse({ message: 'CV wajib diisi' }, 400, request, env);
   }
 
   // cv must arrive as a JSON string — non-string values fail deep inside validateFileData;
@@ -56,9 +57,8 @@ export async function handleAnalyze(request, env) {
   // payloads from being stored in KV and echoed in any future API response or email.
   const job_desc = rawJobDesc.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 
-  // Enforce minimum length server-side — client-side validation can be bypassed via
-  // direct API calls or DevTools. A too-short JD wastes Claude credits on garbage output.
-  if (job_desc.length < 100) {
+  // Enforce minimum length only when JD is non-empty — empty JD is valid (general mode).
+  if (job_desc.length > 0 && job_desc.length < 100) {
     logError('analyze_invalid_input', { reason: 'jd_too_short', trimLen: job_desc.length, ip });
     return jsonResponse({ message: 'Job description terlalu pendek. Tulis minimal 100 karakter.' }, 400, request, env);
   }
@@ -101,7 +101,7 @@ export async function handleAnalyze(request, env) {
     });
     const schemaFailure = e.message && e.message.includes('format_cv');
     if (schemaFailure) {
-      return jsonResponse({ message: 'CV format not supported' }, 422, request, env);
+      return jsonResponse({ message: 'CV format tidak didukung. Gunakan PDF berbasis teks, bukan hasil scan.' }, 422, request, env);
     }
     return jsonResponse({ message: e.message || 'Analisis gagal. Coba lagi.' }, 500, request, env);
   }

@@ -362,9 +362,10 @@ describe('POST /analyze — validation', () => {
     expect(res.status).toBe(400);
   });
 
-  it('rejects missing job_desc → 400', async () => {
+  it('accepts missing job_desc as general-mode analysis — not rejected at validation level', async () => {
+    // JD is optional — omitting it triggers general (role-inferred) scoring, not a 400.
     const res = await post('/analyze', { cv: VALID_PDF_CV }, {}, nextIp());
-    expect(res.status).toBe(400);
+    expect(res.status).not.toBe(400); // passes validation; may fail downstream (no Claude key in tests)
   });
 
   it('rejects job_desc > 5000 chars → 400', async () => {
@@ -428,12 +429,10 @@ describe('POST /analyze — validation', () => {
     expect(body.message).toMatch(/terlalu pendek|100 karakter/i);
   });
 
-  it('rejects job_desc that is all whitespace (trimmed length = 0) → 400', async () => {
-    // 200 spaces passes the raw-length check but has trimmed length 0 — server must reject.
+  it('accepts whitespace-only job_desc as general-mode analysis — not rejected at validation level', async () => {
+    // 200 spaces trims to empty — treated as no JD (general mode), not a 400 validation error.
     const res = await post('/analyze', { cv: VALID_PDF_CV, job_desc: ' '.repeat(200) }, {}, nextIp());
-    expect(res.status).toBe(400);
-    const body = await res.json();
-    expect(body.message).toMatch(/terlalu pendek|100 karakter/i);
+    expect(res.status).not.toBe(400); // passes validation; may fail downstream (no Claude key in tests)
   });
 
   it('rejects cv as a non-string (object) → 400', async () => {

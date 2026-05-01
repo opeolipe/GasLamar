@@ -81,4 +81,10 @@ LARANGAN ABSOLUT:
 - Placeholder dalam bracket apa pun: [sebutkan...], [masukkan...], [angka nyata]
 - Kata ganti pribadi: saya, kami, kita, -ku, -mu
 - Layout multi-kolom atau tabel
-- Hapus konteks penting hanya untuk mempersingkat`;
+- Hapus konteks penting hanya untuk mempersingkat
+
+FRASA TERLARANG (jangan pernah gunakan — dideteksi otomatis):
+- "yang relevan dengan posisi yang ditargetkan"
+- "dengan hasil yang lebih jelas dan terstruktur"
+- "[sebutkan angka nyata]" atau bracket placeholder apa pun seperti [X], [angka], [nama]
+Jika tidak ada angka di CV asli, tulis bullet tanpa metrik — jangan sisipkan placeholder.`;

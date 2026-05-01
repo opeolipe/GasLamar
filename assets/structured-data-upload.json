@@ -1,0 +1,9 @@
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "Upload CV · GasLamar",
+  "url": "https://gaslamar.com/upload.html",
+  "description": "Upload CV dan job description kamu. Dapatkan skor kecocokan, feedback perspektif HR, dan CV bilingual yang sudah di-tailor dalam 2 menit.",
+  "inLanguage": "id-ID",
+  "isPartOf": { "@type": "WebSite", "name": "GasLamar", "url": "https://gaslamar.com" }
+}
