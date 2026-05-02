@@ -117,5 +117,18 @@ export async function route(request, env, ctx) {
     return jsonResponse({ ok: true }, 200, request, env);
   }
 
+  // In production the Worker owns gaslamar.com/* — proxy unmatched GET/HEAD requests
+  // to the Pages deployment so HTML pages and static assets are served correctly.
+  if ((method === 'GET' || method === 'HEAD') && env.ENVIRONMENT === 'production') {
+    const pagesUrl = 'https://gaslamar.pages.dev' + pathname + url.search;
+    const proxyHeaders = new Headers(request.headers);
+    proxyHeaders.delete('host');
+    return fetch(new Request(pagesUrl, {
+      method: request.method,
+      headers: proxyHeaders,
+      redirect: 'follow',
+    }));
+  }
+
   return jsonResponse({ message: 'Not found' }, 404, request, env);
 }
