@@ -2,7 +2,7 @@ import { jsonResponseWithCookie } from '../cors.js';
 import { jsonResponse } from '../cors.js';
 import { clientIp, sha256Full, log } from '../utils.js';
 import { checkRateLimit, rateLimitResponse } from '../rateLimit.js';
-import { TIER_CREDITS } from '../constants.js';
+import { TIER_CREDITS, SESSION_TTL_MULTI } from '../constants.js';
 import { createMayarInvoice, logMayarEnvironment } from '../mayar.js';
 import { createSession } from '../sessions.js';
 import { makeSessionCookie } from '../cookies.js';
@@ -126,6 +126,16 @@ export async function handleCreatePayment(request, env) {
       JSON.stringify({ session_id: sessionId }),
       { expirationTtl: credits > 1 ? 2592000 : 604800 }
     );
+
+    // Email → session index for access recovery (/resend-access).
+    // TTL is always the max session TTL (30 days) so the index outlives the session.
+    if (sessionEmail) {
+      await env.GASLAMAR_SESSIONS.put(
+        `email_session_${sessionEmail}`,
+        JSON.stringify({ session_id: sessionId }),
+        { expirationTtl: SESSION_TTL_MULTI }
+      );
+    }
 
     // Set HttpOnly session cookie — eliminates session_id from URLs (browser history,
     // Referer headers, server logs). Cookie travels automatically with all credentialed

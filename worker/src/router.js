@@ -13,6 +13,7 @@ import { handleSubmitEmail } from './handlers/submitEmail.js';
 import { handleFetchJobUrl } from './handlers/fetchJobUrl.js';
 import { handleExchangeToken }  from './handlers/exchangeToken.js';
 import { handleResendEmail }    from './handlers/resendEmail.js';
+import { handleResendAccess }  from './handlers/resendAccess.js';
 import { handleInterviewKit }  from './handlers/interviewKit.js';
 import { handleBypassPayment } from './handlers/bypassPayment.js';
 import { handleGetResult } from './handlers/getResult.js';
@@ -86,6 +87,10 @@ export async function route(request, env, ctx) {
 
   if (method === 'POST' && pathname === '/resend-email') {
     return handleResendEmail(request, env);
+  }
+
+  if (method === 'POST' && pathname === '/resend-access') {
+    return handleResendAccess(request, env);
   }
 
   if (method === 'POST' && (pathname === '/interview-kit' || pathname === '/api/interview-kit')) {
