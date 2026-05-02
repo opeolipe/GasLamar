@@ -1191,6 +1191,53 @@ describe('POST /webhook/mayar', () => {
     const body = await res.json();
     expect(body.reason).toBe('no_cookie');
   });
+
+  it('skips email on duplicate webhook delivery when sentinel key is present', async () => {
+    // Simulates a Mayar retry arriving after the sentinel was written by the first delivery.
+    // The handler must return 200 without re-sending the email or overwriting the session.
+    const sessionId = await seedSession('paid', 'single');
+
+    // Pre-seed the sentinel as the first successful delivery would have written it
+    await env.GASLAMAR_SESSIONS.put(`payment_processed_${sessionId}`, '1', { expirationTtl: 172800 });
+
+    const payload = JSON.stringify({
+      status: 'paid',
+      redirect_url: `https://gaslamar.com/download.html?session=${encodeURIComponent(sessionId)}`,
+    });
+
+    const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'any_sig_in_sandbox' },
+      body: payload,
+    });
+
+    expect(res.status).toBe(200);
+    // Session status must remain 'paid' (not reset to pending by a bad merge)
+    const session = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
+    expect(session?.status).toBe('paid');
+  });
+
+  it('skips email when session is already paid (belt-and-suspenders check)', async () => {
+    // Simulates a stale Mayar retry where the sentinel hasn't propagated yet but the
+    // session status has. Handler must still skip the email.
+    const sessionId = await seedSession('paid', 'single');
+    // No sentinel key — rely on session status check only
+
+    const payload = JSON.stringify({
+      status: 'paid',
+      redirect_url: `https://gaslamar.com/download.html?session=${encodeURIComponent(sessionId)}`,
+    });
+
+    const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'any_sig_in_sandbox' },
+      body: payload,
+    });
+
+    expect(res.status).toBe(200);
+    const session = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
+    expect(session?.status).toBe('paid');
+  });
 });
 
 describe('404 for unknown routes', () => {
