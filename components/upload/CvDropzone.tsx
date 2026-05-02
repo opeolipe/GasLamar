@@ -104,7 +104,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
           id="cv-paste"
           value={manualCvText}
           onChange={(e) => onManualCvChange(e.target.value)}
-          className="w-full max-w-full min-h-[150px] rounded-2xl border border-slate-300 bg-transparent p-4 text-sm text-slate-900 resize-y outline-none transition-all focus:border-blue-500/50 focus:ring-2 focus:ring-slate-200 focus:ring-offset-2"
+          className="block w-full max-w-full min-h-[150px] rounded-2xl border border-slate-300 bg-transparent p-4 text-sm text-slate-900 resize-y outline-none transition-all focus:border-blue-500/50 focus:ring-2 focus:ring-slate-200 focus:ring-offset-2"
           placeholder="Paste isi CV kamu jika upload file bermasalah. Sertakan pengalaman, pendidikan, skill, dan kontak utama."
           aria-label="Paste isi CV secara manual"
         />

@@ -41,9 +41,10 @@ export function validateExtractOutput(parsed) {
   if (!cv.format_cv || typeof cv.format_cv !== 'object') {
     errors.push('cv.format_cv missing or not object');
   } else {
-    // LLM sometimes returns localized strings or 0/1 values — coerce before type check.
-    cv.format_cv.satu_kolom = coerceBoolean(cv.format_cv.satu_kolom);
-    cv.format_cv.ada_tabel  = coerceBoolean(cv.format_cv.ada_tabel);
+    // LLM sometimes returns localized strings, 0/1, or omits the field entirely.
+    // coerceBoolean handles string/number variants; ?? false covers null/undefined.
+    cv.format_cv.satu_kolom = coerceBoolean(cv.format_cv.satu_kolom) ?? false;
+    cv.format_cv.ada_tabel  = coerceBoolean(cv.format_cv.ada_tabel)  ?? false;
     if (typeof cv.format_cv.satu_kolom !== 'boolean') errors.push('cv.format_cv.satu_kolom must be boolean');
     if (typeof cv.format_cv.ada_tabel  !== 'boolean') errors.push('cv.format_cv.ada_tabel must be boolean');
   }
