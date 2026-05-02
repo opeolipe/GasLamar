@@ -44,8 +44,10 @@ const WEAK_FILLER = [
   'in a better way', 'more optimally',
 ];
 
-// Placeholder pattern — LLM template artifacts that must never appear in final CV
-const PLACEHOLDER_PATTERN = /\[[^\]]{1,60}\]/;
+// Placeholder pattern — LLM template artifacts that must never appear in final CV.
+// Catches both [bracketed placeholders] and bare single-letter variable tokens
+// used as stand-ins (e.g. "sebesar X%", "selama Y tahun", "meningkat N persen").
+const PLACEHOLDER_PATTERN = /\[[^\]]{1,60}\]|\b[XYN]%|\b[XYN]\s+(tahun|bulan|minggu|hari|persen|kali|x)\b/i;
 
 // Section headings — never rewrite these
 const SECTION_HEADING_PATTERN =
@@ -98,11 +100,20 @@ const BANNED_OUTPUT_PHRASES = [
   'yang relevan dengan posisi yang ditargetkan',
   '[sebutkan angka nyata]',
   '[angka nyata]',
+  'sebutkan tools spesifik',
+  'sebutkan tool spesifik',
+  'sebutkan angka',
+  'masukkan angka',
+  'tambahkan angka',
+  'isi dengan angka',
   // English
   'with clearer and more structured results',
   'relevant to the target position',
   '[add specific number]',
   '[actual number]',
+  'mention specific tools',
+  'insert specific number',
+  'add specific tools',
 ];
 
 // ── Metric helpers ────────────────────────────────────────────────────────────

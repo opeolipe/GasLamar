@@ -44,6 +44,10 @@ export async function route(request, env, ctx) {
     return handleMayarWebhook(request, env, ctx);
   }
 
+  if (method === 'GET' && (pathname === '/session/ping' || pathname === '/api/session/ping')) {
+    return jsonResponse({ status: 'ok' }, 200, request, env);
+  }
+
   if (method === 'POST' && (pathname === '/session/ping' || pathname === '/api/session/ping')) {
     return handleSessionPing(request, env);
   }
