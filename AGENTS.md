@@ -93,7 +93,6 @@ POST /analyze
 | POST | /exchange-token | handlers/exchangeToken.js | |
 | POST | /resend-email | handlers/resendEmail.js | |
 | POST | /interview-kit (alias: /api/interview-kit) | handlers/interviewKit.js | |
-| POST | /bypass-payment | handlers/bypassPayment.js | |
 | POST | /api/log | inline in router.js | |
 | POST | /feedback | inline in router.js | |
 
