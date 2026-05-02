@@ -79,11 +79,28 @@ export async function handleMayarWebhook(request, env, ctx) {
   const isPaid = ['paid', 'settlement', 'capture', 'PAID', 'SETTLEMENT', 'CAPTURE', 'success', 'SUCCESS'].includes(status);
 
   if (isPaid) {
-    // Idempotency: skip if already processed (prevents duplicate emails on duplicate webhooks)
+    // Idempotency sentinel: a dedicated KV key that persists longer than any Mayar retry
+    // window (48 h). Checked before the session read so concurrent deliveries from different
+    // Cloudflare edge nodes — which may see stale KV data due to eventual consistency —
+    // are caught even when the session status write hasn't propagated yet.
+    const processedKey = `payment_processed_${sessionId}`;
+    const alreadyProcessed = await env.GASLAMAR_SESSIONS.get(processedKey);
+    if (alreadyProcessed) {
+      log('webhook_duplicate_skipped', { sessionId, invoiceId });
+      return new Response('OK', { status: 200 });
+    }
+
+    // Belt-and-suspenders: also check session status (catches retries after KV propagates)
     const existing = await getSession(env, sessionId);
     if (existing && existing.status !== 'pending') {
       return new Response('OK', { status: 200 });
     }
+
+    // Write the sentinel BEFORE updating session and sending the email.
+    // This minimises the race window to KV-write latency (~ms) instead of the full
+    // read→check→write→send sequence.
+    await env.GASLAMAR_SESSIONS.put(processedKey, '1', { expirationTtl: 172800 }); // 48 h
+
     const updated = await updateSession(env, sessionId, { status: 'paid', paid_at: Date.now() });
     if (!updated) {
       console.error(JSON.stringify({ event: 'webhook_session_update_failed', sessionId, invoiceId, environment: env.ENVIRONMENT ?? 'sandbox' }));
