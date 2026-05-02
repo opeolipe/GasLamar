@@ -1,5 +1,5 @@
 import { jsonResponse } from './cors.js';
-import { clientIp, log } from './utils.js';
+import { clientIp, log, logError } from './utils.js';
 import { checkRateLimitKV, rateLimitResponse } from './rateLimit.js';
 import { handleAnalyze } from './handlers/analyze.js';
 import { handleCreatePayment } from './handlers/createPayment.js';
@@ -119,15 +119,22 @@ export async function route(request, env, ctx) {
 
   // In production the Worker owns gaslamar.com/* — proxy unmatched GET/HEAD requests
   // to the Pages deployment so HTML pages and static assets are served correctly.
+  // redirect:'manual' prevents an infinite loop if Pages ever redirects pages.dev
+  // back to gaslamar.com (the Worker would follow that redirect into itself).
   if ((method === 'GET' || method === 'HEAD') && env.ENVIRONMENT === 'production') {
     const pagesUrl = 'https://gaslamar.pages.dev' + pathname + url.search;
     const proxyHeaders = new Headers(request.headers);
     proxyHeaders.delete('host');
-    return fetch(new Request(pagesUrl, {
-      method: request.method,
-      headers: proxyHeaders,
-      redirect: 'follow',
-    }));
+    try {
+      return await fetch(new Request(pagesUrl, {
+        method: request.method,
+        headers: proxyHeaders,
+        redirect: 'manual',
+      }));
+    } catch (err) {
+      logError('pages_proxy_error', { path: pathname, error: String(err) });
+      return jsonResponse({ message: 'Service temporarily unavailable' }, 503, request, env);
+    }
   }
 
   return jsonResponse({ message: 'Not found' }, 404, request, env);
