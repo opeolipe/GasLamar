@@ -82,12 +82,27 @@ const ISSUE_FALLBACK = {
 };
 const GENERIC_FALLBACK_SUFFIX = ' dengan hasil yang lebih konkret dan terukur';
 
+const ISSUE_FALLBACK_EN = {
+  portfolio:        ' to demonstrate concrete and measurable work impact',
+  recruiter_signal: ' with focus on specific roles and outcomes',
+  north_star:       ' aligned with the requirements of this position',
+  effort:           ' with the skill context needed for this role',
+  risk:             ' using an approach that remains relevant today',
+};
+const GENERIC_FALLBACK_SUFFIX_EN = ' with more concrete and measurable results';
+
 // Phrases that must never appear in final CV output — stripped as a last defence.
 const BANNED_OUTPUT_PHRASES = [
+  // Indonesian
   'dengan hasil yang lebih jelas dan terstruktur',
   'yang relevan dengan posisi yang ditargetkan',
   '[sebutkan angka nyata]',
   '[angka nyata]',
+  // English
+  'with clearer and more structured results',
+  'relevant to the target position',
+  '[add specific number]',
+  '[actual number]',
 ];
 
 // ── Metric helpers ────────────────────────────────────────────────────────────
@@ -183,7 +198,9 @@ function hasNewToolTerms(before, after, entitasKlaim) {
 export function validateWithSeverity(before, after, entitasKlaim = null) {
   if (!before || !after) return { valid: false, severity: 'high' };
   if (before.trim() === after.trim()) return { valid: false, severity: 'low' };
-  if (after.length <= before.length)  return { valid: false, severity: 'low' };
+  // Reject if after is a truncation (fewer than MIN_WORD_COUNT meaningful words).
+  // This allows concise rewrites while blocking LLM cut-offs.
+  if (after.trim().split(/\s+/).filter(w => w.length > 0).length < MIN_WORD_COUNT) return { valid: false, severity: 'low' };
 
   if (addsNewNumbers(before, after))                return { valid: false, severity: 'high' };
   if (hasInflatedClaims(before, after))             return { valid: false, severity: 'high' };
@@ -198,13 +215,13 @@ export function validateRewrite(before, after, entitasKlaim = null) {
   return validateWithSeverity(before, after, entitasKlaim).valid;
 }
 
-function applyValidationResult(severity, original, issue) {
+function applyValidationResult(severity, original, issue, lang = 'id') {
   if (severity === 'medium') {
-    // Light fix: keep original wording, append a relevant improvement suffix
-    return original + (ISSUE_FALLBACK[issue] ?? GENERIC_FALLBACK_SUFFIX);
+    const fallbackMap = lang === 'en' ? ISSUE_FALLBACK_EN : ISSUE_FALLBACK;
+    const defaultSuffix = lang === 'en' ? GENERIC_FALLBACK_SUFFIX_EN : GENERIC_FALLBACK_SUFFIX;
+    return original + (fallbackMap[issue] ?? defaultSuffix);
   }
-  // 'high' and 'low' both fall back fully via safeRewriteLine
-  return safeRewriteLine(original, issue);
+  return safeRewriteLine(original, issue, lang);
 }
 
 // ── Logging ───────────────────────────────────────────────────────────────────
@@ -340,8 +357,10 @@ function buildSafeSummary(cvText, lang = 'id') {
 
 // ── Safe fallback ─────────────────────────────────────────────────────────────
 
-function safeRewriteLine(original, issue) {
-  const suffix = (issue && ISSUE_FALLBACK[issue]) ?? GENERIC_FALLBACK_SUFFIX;
+function safeRewriteLine(original, issue, lang = 'id') {
+  const fallbackMap = lang === 'en' ? ISSUE_FALLBACK_EN : ISSUE_FALLBACK;
+  const defaultSuffix = lang === 'en' ? GENERIC_FALLBACK_SUFFIX_EN : GENERIC_FALLBACK_SUFFIX;
+  const suffix = (issue && fallbackMap[issue]) ?? defaultSuffix;
   return original + suffix;
 }
 
@@ -412,7 +431,7 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
       const prefix = line.match(/^(\s*[-•*]\s*)/)?.[1] ?? '';
       logHallucination({ stage: 'bullet', severity: 'high', reason: 'placeholder' });
       fallbackCount++;
-      return prefix + (original ? safeRewriteLine(original, issue) : clean.replace(PLACEHOLDER_PATTERN, '').trim());
+      return prefix + (original ? safeRewriteLine(original, issue, language) : clean.replace(PLACEHOLDER_PATTERN, '').trim());
     }
 
     const original = findBestMatch(clean, originalLines);
@@ -433,7 +452,7 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
       logHallucination({ stage: 'bullet', severity });
       if (severity === 'high') fallbackCount++;
       else downgradeCount++;
-      return prefix + applyValidationResult(severity, original, issue);
+      return prefix + applyValidationResult(severity, original, issue, language);
     }
 
     return line;

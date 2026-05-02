@@ -1371,15 +1371,15 @@ async function sha256HexLocal(text) {
 }
 
 /**
- * Pre-populate tailoring KV cache (gen_id_v2_ / gen_en_v2_) so tailorCVID/tailorCVEN
+ * Pre-populate tailoring KV cache (gen_id_v3_ / gen_en_v3_) so tailorCVID/tailorCVEN
  * short-circuit without making real Claude API calls.
  * Use this instead of fetchMock for generate success-path tests — avoids an
  * unreliable interaction between MockPool and concurrent parallel fetch calls.
  */
 async function preTailorCache(cvText, jobDesc) {
   const h = await sha256HexLocal(cvText + '||' + jobDesc);
-  await env.GASLAMAR_SESSIONS.put(`gen_id_v2_${h}`, MOCK_CV_ID.content[0].text, { expirationTtl: 172800 });
-  await env.GASLAMAR_SESSIONS.put(`gen_en_v2_${h}`, MOCK_CV_EN.content[0].text, { expirationTtl: 172800 });
+  await env.GASLAMAR_SESSIONS.put(`gen_id_v3_${h}`, MOCK_CV_ID.content[0].text, { expirationTtl: 172800 });
+  await env.GASLAMAR_SESSIONS.put(`gen_en_v3_${h}`, MOCK_CV_EN.content[0].text, { expirationTtl: 172800 });
 }
 
 /**
