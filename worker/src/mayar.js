@@ -112,8 +112,11 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
       data.checkout_url       || data.invoice_url;
 
     if (!invoice_url) {
-      console.error(JSON.stringify({ event: 'mayar_no_url', endpoint, data_keys: Object.keys(data), data_inner_keys: data.data ? Object.keys(data.data) : [] }));
-      throw new Error('Mayar tidak mengembalikan URL pembayaran. Hubungi support@gaslamar.com');
+      // Invoice was created on Mayar (we got an invoice_id) but no payment URL was returned.
+      // Return the invoice_id so the caller can consume cv_text_key and prevent duplicate
+      // invoices; caller must return an error to the user.
+      console.error(JSON.stringify({ event: 'mayar_no_url', endpoint, invoice_id, data_keys: Object.keys(data), data_inner_keys: data.data ? Object.keys(data.data) : [] }));
+      return { invoice_id, invoice_url: null };
     }
 
     return { invoice_id, invoice_url };
