@@ -68,7 +68,7 @@ export async function extractCVText(cvData, env) {
         return { success: false, error: 'File DOCX tidak bisa dibaca. Pastikan file tidak terproteksi password, lalu coba upload lagi. Jika masalah berlanjut, coba simpan ulang sebagai PDF.' };
       }
       if (text.length < 100) {
-        return { success: false, error: 'CV kamu tidak bisa dibaca. Pastikan CV berisi teks yang lengkap — bukan tabel gambar, file kosong, atau hasil scan.' };
+        return { success: false, error: 'CV kamu tidak bisa dibaca. Gunakan CV berbasis teks — bukan tabel gambar, file kosong, atau hasil scan.' };
       }
       return { success: true, text };
     }
@@ -99,7 +99,7 @@ export async function extractCVText(cvData, env) {
     const text = response?.content?.[0]?.text || '';
 
     if (text.length < 100) {
-      return { success: false, error: 'CV kamu tidak bisa dibaca. Pastikan CV dalam format teks — bukan hasil scan, foto, atau PDF dengan gambar saja. Coba konversi ke DOCX.' };
+      return { success: false, error: 'CV kamu tidak bisa dibaca. Gunakan CV berbasis teks — bukan hasil scan, foto, atau PDF dengan gambar saja. Coba konversi ke DOCX.' };
     }
 
     return { success: true, text };

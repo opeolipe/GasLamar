@@ -1,0 +1,9 @@
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "Hasil Analisis CV · GasLamar",
+  "url": "https://gaslamar.com/hasil.html",
+  "description": "Lihat skor kecocokan CV kamu, rekomendasi perbaikan dari perspektif HR, dan preview CV bilingual yang sudah di-tailor untuk posisi yang kamu lamar.",
+  "inLanguage": "id-ID",
+  "isPartOf": { "@type": "WebSite", "name": "GasLamar", "url": "https://gaslamar.com" }
+}

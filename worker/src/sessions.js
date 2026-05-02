@@ -2,8 +2,8 @@ import { SESSION_TTL, SESSION_TTL_MULTI } from './constants.js';
 import { sha256Full, logError } from './utils.js';
 
 // Returns the appropriate TTL based on how many total credits the session has.
-// Multi-credit sessions (total_credits > 1) get 7 days so users can come back
-// the next day (or later) to use remaining credits via the emailed link.
+// Multi-credit sessions (total_credits > 1) get 30 days so users can come back
+// later to use remaining credits via the emailed link.
 export function getSessionTtl(data) {
   return (data && data.total_credits > 1) ? SESSION_TTL_MULTI : SESSION_TTL;
 }

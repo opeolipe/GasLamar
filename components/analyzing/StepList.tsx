@@ -8,11 +8,11 @@ export default function StepList({ steps }: Props) {
       {steps.map((step, i) => (
         <div
           key={step.id}
-          className={`flex items-center gap-3 px-4 py-3 text-[0.85rem] ${
+          className={`flex items-start gap-3 px-4 text-[0.85rem] ${
             i < steps.length - 1 ? 'border-b border-slate-100' : ''
-          } ${step.status === 'pending' ? 'text-slate-400' : 'text-slate-700'}`}
+          } ${step.status === 'active' ? 'py-3.5' : 'py-3'} ${step.status === 'pending' ? 'text-slate-400' : 'text-slate-700'}`}
         >
-          <span className="w-5 flex-shrink-0 flex items-center justify-center">
+          <span className="w-5 flex-shrink-0 flex items-center justify-center mt-0.5">
             {step.status === 'done'
               ? <span className="text-emerald-500 font-bold text-sm">✓</span>
               : step.status === 'active'
@@ -22,11 +22,18 @@ export default function StepList({ steps }: Props) {
                   style={{ animation: 'gasStepSpin 0.8s linear infinite' }}
                 />
               )
-              : <span className="block w-2 h-2 rounded-full bg-slate-200" />
+              : <span className="block w-2 h-2 rounded-full bg-slate-200 mt-1" />
             }
           </span>
-          <span className={step.status === 'active' ? 'text-slate-800 font-medium' : ''}>
-            {step.icon} {step.label}
+          <span className="flex flex-col gap-0.5">
+            <span className={step.status === 'active' ? 'text-slate-800 font-medium' : ''}>
+              {step.icon} {step.label}
+            </span>
+            {step.status === 'active' && step.activeDesc && (
+              <span className="text-[0.78rem] text-blue-500 font-normal leading-snug">
+                {step.activeDesc}
+              </span>
+            )}
           </span>
         </div>
       ))}

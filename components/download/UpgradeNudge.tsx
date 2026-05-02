@@ -48,7 +48,7 @@ export default function UpgradeNudge({ showUpsell = false }: Props) {
       <div className="text-3xl mb-3" aria-hidden="true">🎉</div>
       <h3 className="font-semibold text-slate-900 mb-2" style={{ fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>Semua kredit sudah terpakai!</h3>
       <p className="text-sm text-slate-500 mb-5">
-        Masih ada loker lain yang ingin kamu lamar? Beli paket baru untuk CV yang disesuaikan.
+        Kredit kamu sudah habis. Masih ada loker lain yang ingin kamu lamar? Beli paket baru untuk CV yang disesuaikan.
       </p>
       <a
         href="upload.html"

@@ -49,7 +49,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
   }
 
   return (
-    <div>
+    <div className="w-full">
       <label className="block text-sm font-semibold mb-2 mt-6" htmlFor="job-desc">
         Job yang kamu targetkan
       </label>
@@ -77,7 +77,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
         )}
       </div>
 
-      <div>
+      <div className="w-full">
         <textarea
           ref={(el) => {
             internalRef.current = el;

@@ -15,6 +15,7 @@ import { handleExchangeToken }  from './handlers/exchangeToken.js';
 import { handleResendEmail }    from './handlers/resendEmail.js';
 import { handleInterviewKit }  from './handlers/interviewKit.js';
 import { handleBypassPayment } from './handlers/bypassPayment.js';
+import { handleGetResult } from './handlers/getResult.js';
 
 export async function route(request, env, ctx) {
   const url = new URL(request.url);
@@ -61,6 +62,10 @@ export async function route(request, env, ctx) {
 
   if (method === 'POST' && pathname === '/generate') {
     return handleGenerate(request, env, ctx);
+  }
+
+  if (method === 'POST' && pathname === '/get-result') {
+    return handleGetResult(request, env);
   }
 
   if (method === 'POST' && pathname === '/submit-email') {

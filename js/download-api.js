@@ -88,6 +88,23 @@ async function poll(sessionId) {
         scheduleNextPoll(sessionId);
         return;
       }
+      // Try /get-result before giving up \u2014 session may be deleted after credit exhaustion
+      // but the generated CV is stored separately for 30 days.
+      try {
+        const resultRes = await fetch(WORKER_URL + '/get-result', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        });
+        if (resultRes.ok) {
+          const resultData = await resultRes.json();
+          // Display the cached CV with 0 credits (exhausted state)
+          await showExhaustedResult(resultData);
+          return;
+        }
+      } catch (_) {}
+
+      // No stored result \u2014 show the original error
       clearClientSessionData(sessionId);
       showSessionError(
         'Sesi Tidak Ditemukan',
