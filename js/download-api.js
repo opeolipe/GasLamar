@@ -93,7 +93,7 @@ async function poll(sessionId) {
       try {
         const resultRes = await fetch(WORKER_URL + '/get-result', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...getSecretHeaders() },
           credentials: 'include',
         });
         if (resultRes.ok) {
