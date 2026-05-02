@@ -1118,6 +1118,80 @@ describe('POST /webhook/mayar', () => {
     });
     expect(res.status).toBe(200); // graceful no-op
   });
+
+  it('updates session with NO x-mayar-signature header in sandbox (critical bypass)', async () => {
+    // This is the primary failure scenario: Mayar sandbox omits the signature header entirely.
+    // Before the fix, this returned 401 before the sandbox bypass could run.
+    const sessionId = await seedSession('pending', 'single');
+    const payload = JSON.stringify({
+      status: 'paid',
+      redirect_url: `https://gaslamar.com/download.html?session=${encodeURIComponent(sessionId)}`,
+    });
+
+    const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }, // no x-mayar-signature
+      body: payload,
+    });
+
+    expect(res.status).toBe(200);
+    const session = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
+    expect(session?.status).toBe('paid');
+  });
+
+  it('updates session via KV secondary index without redirect_url (primary path)', async () => {
+    // Verifies the KV secondary-index path (mayar_session_{invoiceId}) works independently
+    // of the legacy redirect_url fallback.
+    const sessionId = await seedSession('pending', 'single');
+    const invoiceId = 'inv_kv_index_test_001';
+
+    await env.GASLAMAR_SESSIONS.put(
+      `mayar_session_${invoiceId}`,
+      JSON.stringify({ session_id: sessionId }),
+      { expirationTtl: 604800 },
+    );
+
+    const payload = JSON.stringify({ id: invoiceId, status: 'paid' }); // no redirect_url
+
+    const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'any_sig_in_sandbox' },
+      body: payload,
+    });
+
+    expect(res.status).toBe(200);
+    const session = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
+    expect(session?.status).toBe('paid');
+  });
+
+  it('skips update and returns 200 when session is missing from KV', async () => {
+    // updateSession returns false when the session doesn't exist; handler should still return 200
+    // (so Mayar stops retrying) but must not log payment_confirmed.
+    const missingSessionId = `sess_${crypto.randomUUID()}`;
+    const payload = JSON.stringify({
+      status: 'paid',
+      redirect_url: `https://gaslamar.com/download.html?session=${encodeURIComponent(missingSessionId)}`,
+    });
+
+    const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'any_sig' },
+      body: payload,
+    });
+
+    expect(res.status).toBe(200);
+    // Session must not exist in KV (updateSession silently failed)
+    const session = await env.GASLAMAR_SESSIONS.get(missingSessionId, { type: 'json' });
+    expect(session).toBeNull();
+  });
+
+  it('rejects malformed session ID on GET /check-session', async () => {
+    // ?session=invalid does not start with 'sess_' — should be rejected
+    const res = await SELF.fetch('https://gaslamar.com/check-session?session=invalid_id');
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.reason).toBe('no_cookie');
+  });
 });
 
 describe('404 for unknown routes', () => {
