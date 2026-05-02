@@ -45,7 +45,7 @@ POST /analyze
   ├─ Stage 1: EXTRACT (LLM — claude-haiku)
   │    Verbatim copy of data from CV and JD into structured schema.
   │    Validated by validate.js; retried once on schema failure.
-  │    Cached: extract_v1_<hash> — 24h TTL
+  │    Cached: extract_v2_<hash> — 24h TTL
   │
   ├─ Stage 2: ANALYZE (pure JS — pipeline/analyze.js)
   │    Skill matching, format detection, archetype detection, red flags.
@@ -54,7 +54,7 @@ POST /analyze
   │    6-dimension scoring: north_star, recruiter_signal, effort,
   │    opportunity_cost, risk, portfolio.
   │    Outputs: total score, verdict (DO / TIMED / DO NOT), timebox_weeks.
-  │    Cached: analysis_v4_<hash> — 48h TTL
+  │    Cached: analysis_v6_<hash> — 48h TTL
   │
   ├─ Stage 4: DIAGNOSE (LLM — claude-haiku)
   │    Receives gap list + scores from Stages 2/3. Writes human-readable
@@ -63,14 +63,14 @@ POST /analyze
   │
   ├─ Stage 5: REWRITE (LLM — called from POST /generate)
   │    tailorCVID / tailorCVEN: rewrites CV to match JD in ID and EN.
-  │    Cached: gen_id_<hash> / gen_en_<hash> — 48h TTL
+  │    Cached: gen_id_v3_<hash> / gen_en_v3_<hash> — 48h TTL
   │
   └─ Stage 6: VALIDATE (code — pipeline/validate.js)
        Schema validation embedded after every LLM call.
        validateExtractOutput(), validateDiagnoseOutput().
 ```
 
-**Cache key versioning:** Bump the version suffix (`v1_`, `v4_`, etc.) whenever a prompt or scoring formula changes significantly to avoid stale cache hits.
+**Cache key versioning:** Bump the version suffix (`v2_`, `v6_`, `v3_`, etc.) whenever a prompt or scoring formula changes significantly to avoid stale cache hits.
 
 ---
 
@@ -82,16 +82,20 @@ POST /analyze
 | POST | /analyze | handlers/analyze.js | Rate: 3/min (native binding + KV fallback) |
 | POST | /create-payment | handlers/createPayment.js | Rate: 5/min |
 | POST | /webhook/mayar | handlers/mayarWebhook.js | HMAC-SHA256 verified |
-| POST | /session/ping | handlers/sessionPing.js | Keepalive |
+| GET, POST | /session/ping (alias: /api/session/ping) | handlers/sessionPing.js | Keepalive |
 | GET | /check-session | handlers/checkSession.js | |
 | GET | /validate-session | handlers/validateSession.js | |
 | POST | /get-session | handlers/getSession.js | Requires `paid` status |
 | POST | /generate | handlers/generate.js | Rate: 5/min |
+| POST | /get-result | handlers/getResult.js | |
 | POST | /submit-email | handlers/submitEmail.js | |
 | POST | /fetch-job-url | handlers/fetchJobUrl.js | Rate: 5/min |
 | POST | /exchange-token | handlers/exchangeToken.js | |
 | POST | /resend-email | handlers/resendEmail.js | |
-| POST | /interview-kit | handlers/interviewKit.js | |
+| POST | /interview-kit (alias: /api/interview-kit) | handlers/interviewKit.js | |
+| POST | /bypass-payment | handlers/bypassPayment.js | |
+| POST | /api/log | inline in router.js | |
+| POST | /feedback | inline in router.js | |
 
 ---
 
@@ -146,7 +150,7 @@ Do not break these:
 - Server-side file validation: magic bytes (PDF: `%PDF`, DOCX: `PK`) + 5MB limit
 - `cv_text_key` is IP-bound — reject if request IP doesn't match
 - `/get-session` rejects sessions without `paid` status
-- Session lock (`lock_<session_id>`, TTL 30s) prevents double-generation races
+- Session lock (`lock_<session_id>`, TTL 120s) prevents double-generation races
 - Sessions are one-time use — deleted after credits exhausted
 
 ---
