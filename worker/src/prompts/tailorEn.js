@@ -80,4 +80,6 @@ BANNED PHRASES (auto-detected — never output these):
 - "yang relevan dengan posisi yang ditargetkan"
 - "dengan hasil yang lebih jelas dan terstruktur"
 - "[sebutkan angka nyata]" or any bracket placeholder like [X], [number], [name]
-If the original CV has no metric, write the bullet without one — never insert a placeholder.`;
+- "mention specific tools", "insert specific number", "add specific tools"
+- Bare variable stand-ins: "X%", "Y years", "N times", "by X", "for Y months"
+If the original CV has no metric, write the bullet without one — never insert a placeholder or variable of any kind.`;

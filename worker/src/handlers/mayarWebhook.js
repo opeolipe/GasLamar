@@ -84,7 +84,11 @@ export async function handleMayarWebhook(request, env, ctx) {
     if (existing && existing.status !== 'pending') {
       return new Response('OK', { status: 200 });
     }
-    await updateSession(env, sessionId, { status: 'paid', paid_at: Date.now() });
+    const updated = await updateSession(env, sessionId, { status: 'paid', paid_at: Date.now() });
+    if (!updated) {
+      console.error(JSON.stringify({ event: 'webhook_session_update_failed', sessionId, invoiceId, environment: env.ENVIRONMENT ?? 'sandbox' }));
+      return new Response('OK', { status: 200 });
+    }
     log('payment_confirmed', { sessionId, invoiceId });
     // Email: use ctx.waitUntil so CF Worker doesn't kill the Resend fetch before it completes
     ctx.waitUntil(

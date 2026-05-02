@@ -39,8 +39,12 @@ export interface UseDownloadSessionReturn {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const POLL_INTERVAL      = 3000;
-const MAX_POLLS          = 10;
+const MAX_POLLS          = 20; // 60 s auto-polling window (+2 s initial delay)
 const HEARTBEAT_INTERVAL = 3 * 60 * 1000;
+
+function getBackoffDelay(pollCount: number): number {
+  return Math.min(POLL_INTERVAL * Math.pow(1.3, Math.max(0, pollCount - 1)), 8000);
+}
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
 
@@ -117,13 +121,20 @@ export function useDownloadSession(): UseDownloadSessionReturn {
 
   // ── Polling ───────────────────────────────────────────────────────────────
 
-  function scheduleNextPoll(sId: string) {
+  function scheduleNextPoll(sId: string, delay = POLL_INTERVAL) {
     if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
-    pollTimerRef.current = setTimeout(() => poll(sId), POLL_INTERVAL);
+    pollTimerRef.current = setTimeout(() => poll(sId), delay);
   }
 
   async function poll(sId: string) {
     if (!mountedRef.current) return;
+
+    // Guard against a corrupted session ID reaching the server
+    if (!sId || !sId.startsWith('sess_') || sId.length < 10) {
+      showError('Sesi tidak valid', 'ID sesi tidak valid. Coba lagi dari awal.');
+      return;
+    }
+
     pollCountRef.current++;
 
     // Update the status text on each tick
@@ -134,9 +145,12 @@ export function useDownloadSession(): UseDownloadSessionReturn {
     }
 
     try {
+      // Send session ID as query param so check-session can resolve the session even
+      // when the cross-site HttpOnly cookie is blocked (e.g. Safari ITP / private mode).
+      const sessionParam = encodeURIComponent(sId);
       const checkUrl = devModeRef.current
-        ? `${WORKER_URL}/check-session?dev=1`
-        : `${WORKER_URL}/check-session`;
+        ? `${WORKER_URL}/check-session?dev=1&session=${sessionParam}`
+        : `${WORKER_URL}/check-session?session=${sessionParam}`;
       const res = await fetch(checkUrl, { credentials: 'include' });
 
       if (!mountedRef.current) return;
@@ -165,7 +179,7 @@ export function useDownloadSession(): UseDownloadSessionReturn {
 
       if (!res.ok) {
         if (pollCountRef.current < MAX_POLLS) {
-          scheduleNextPoll(sId);
+          scheduleNextPoll(sId, getBackoffDelay(pollCountRef.current));
         } else {
           setShowCheckButton(true);
           setStatusText('Pembayaran belum terkonfirmasi. Jika kamu sudah membayar, tunggu beberapa saat lalu muat ulang halaman ini.');
@@ -211,14 +225,14 @@ export function useDownloadSession(): UseDownloadSessionReturn {
           setShowCheckButton(true);
           setStatusText('Pembayaran belum terkonfirmasi. Jika kamu sudah membayar, tunggu beberapa saat lalu muat ulang halaman ini.');
         } else {
-          scheduleNextPoll(sId);
+          scheduleNextPoll(sId, getBackoffDelay(pollCountRef.current));
         }
         return;
       }
 
       // Unknown status — keep polling until MAX_POLLS
       if (pollCountRef.current < MAX_POLLS) {
-        scheduleNextPoll(sId);
+        scheduleNextPoll(sId, getBackoffDelay(pollCountRef.current));
       } else {
         setShowCheckButton(true);
         setStatusText('Klik tombol di bawah untuk cek ulang.');
@@ -226,7 +240,7 @@ export function useDownloadSession(): UseDownloadSessionReturn {
 
     } catch (_) {
       if (pollCountRef.current < MAX_POLLS && mountedRef.current) {
-        scheduleNextPoll(sId);
+        scheduleNextPoll(sId, getBackoffDelay(pollCountRef.current));
       }
     }
   }

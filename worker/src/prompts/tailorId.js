@@ -87,4 +87,6 @@ FRASA TERLARANG (jangan pernah gunakan — dideteksi otomatis):
 - "yang relevan dengan posisi yang ditargetkan"
 - "dengan hasil yang lebih jelas dan terstruktur"
 - "[sebutkan angka nyata]" atau bracket placeholder apa pun seperti [X], [angka], [nama]
-Jika tidak ada angka di CV asli, tulis bullet tanpa metrik — jangan sisipkan placeholder.`;
+- "sebutkan tools spesifik", "sebutkan angka", "masukkan angka", "tambahkan angka"
+- Variabel bebas sebagai pengganti angka: "X%", "Y tahun", "N kali", "sebesar X", "selama Y"
+Jika tidak ada angka di CV asli, tulis bullet tanpa metrik — jangan sisipkan placeholder atau variabel apa pun.`;
