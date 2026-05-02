@@ -9,12 +9,19 @@ interface Props {
 }
 
 export default function WaitingPayment({ statusText, showCheckButton, onCheckNow }: Props) {
-  const [showContact, setShowContact] = useState(false);
+  const [showContact,  setShowContact]  = useState(false);
+  const [showSlowHint, setShowSlowHint] = useState(false);
 
-  // Show contact link 5 minutes after the "check again" button appears
+  // Progressive hint after ~20 s — shows while still auto-polling, before check button
+  useEffect(() => {
+    const t = setTimeout(() => setShowSlowHint(true), 20_000);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Show contact link 2 minutes after the "check again" button appears
   useEffect(() => {
     if (!showCheckButton) return;
-    const t = setTimeout(() => setShowContact(true), 300_000);
+    const t = setTimeout(() => setShowContact(true), 120_000);
     return () => clearTimeout(t);
   }, [showCheckButton]);
 
@@ -40,13 +47,16 @@ export default function WaitingPayment({ statusText, showCheckButton, onCheckNow
       />
 
       <h2 className="text-lg font-semibold text-slate-900 mb-1" style={{ fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>Menunggu Konfirmasi Pembayaran</h2>
-      <p className="text-sm text-slate-500 mb-1">Biasanya 1–2 menit setelah pembayaran berhasil</p>
-      <p className="text-sm text-slate-400 mb-5" role="status" aria-live="polite">
+      <p className="text-sm text-slate-500 mb-1">Biasanya &lt; 1 menit setelah pembayaran berhasil</p>
+      <p className="text-sm text-slate-400 mb-1" role="status" aria-live="polite">
         {statusText}
       </p>
+      {showSlowHint && !showCheckButton && (
+        <p className="text-xs text-slate-400 mb-4">Masih diproses — tunggu sebentar atau klik cek ulang jika lebih dari 1 menit</p>
+      )}
 
       {showCheckButton && (
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-3 mt-4">
           <button
             onClick={onCheckNow}
             aria-label="Cek ulang status pembayaran ke server"

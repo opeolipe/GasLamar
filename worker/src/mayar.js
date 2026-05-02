@@ -123,19 +123,29 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
 }
 
 export async function verifyMayarWebhook(request, env) {
-  const signature = request.headers.get('x-mayar-signature') || request.headers.get('X-Mayar-Signature');
-  if (!signature) return { valid: false, body: null };
-
   const body = await request.text();
   const secret = env.MAYAR_WEBHOOK_SECRET;
+  const isSandbox = env.ENVIRONMENT !== 'production';
 
-  if (!secret) {
-    // In sandbox without secret, log and allow
-    if (env.ENVIRONMENT !== 'production') return { valid: true, body };
+  // Sandbox bypass: skip HMAC verification for non-production environments when
+  // no secret is configured, or when the payload signals a sandbox/test event.
+  // This handles Mayar sandbox omitting the x-mayar-signature header entirely.
+  if (isSandbox) {
+    let parsed = {};
+    try { parsed = JSON.parse(body || '{}'); } catch (_) {}
+    const isTestEvent = parsed?.is_sandbox === true || (typeof parsed?.id === 'string' && parsed.id.startsWith('test_'));
+    if (!secret || isTestEvent) {
+      return { valid: true, body };
+    }
+  }
+
+  const signature = request.headers.get('x-mayar-signature') || request.headers.get('X-Mayar-Signature');
+  if (!signature) {
+    console.error(JSON.stringify({ event: 'webhook_unauthorized', reason: 'missing_signature', environment: env.ENVIRONMENT ?? 'sandbox' }));
     return { valid: false, body };
   }
 
-  // HMAC-SHA256 verification
+  // HMAC-SHA256 verification — only reached in production or when secret is explicitly set in staging
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     'raw',
@@ -159,6 +169,8 @@ export async function verifyMayarWebhook(request, env) {
   const expBytes = new TextEncoder().encode(expected);
   let diff = sigBytes.length ^ expBytes.length;
   for (let i = 0; i < expBytes.length; i++) diff |= (sigBytes[i] ?? 0) ^ expBytes[i];
-  const valid = diff === 0;
-  return { valid, body };
+  if (diff !== 0) {
+    console.error(JSON.stringify({ event: 'webhook_unauthorized', reason: 'signature_mismatch', environment: env.ENVIRONMENT ?? 'sandbox' }));
+  }
+  return { valid: diff === 0, body };
 }
