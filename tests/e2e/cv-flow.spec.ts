@@ -406,6 +406,53 @@ test.describe('GasLamar CV Flow', () => {
     }
   });
 
+  // ── PAID SESSION RECOVERY BANNER ─────────────────────────────────────────
+
+  test('upload page shows recovery banner when paid sess_ key is in sessionStorage', async ({ page }) => {
+    // Seed sessionStorage before React mounts so the mount useEffect picks it up.
+    // addInitScript fires on every navigation; beforeEach clears storage after its
+    // own goto, so registering here only affects the goto below.
+    await page.addInitScript(() => {
+      if (location.pathname.startsWith('/upload')) {
+        sessionStorage.setItem('gaslamar_session', 'sess_e2e-recovery-test');
+      }
+    });
+
+    await page.goto('/upload');
+
+    const notice = page.locator('[role="status"]').filter({ hasText: 'Kamu sudah upload CV' });
+    await expect(notice).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('a', { hasText: 'Lanjutkan ke download' })).toHaveAttribute('href', 'download.html');
+  });
+
+  test('upload page shows recovery banner when paid sess_ key is in localStorage', async ({ page }) => {
+    await page.addInitScript(() => {
+      if (location.pathname.startsWith('/upload')) {
+        localStorage.setItem('gaslamar_session', 'sess_e2e-recovery-test');
+      }
+    });
+
+    await page.goto('/upload');
+
+    const notice = page.locator('[role="status"]').filter({ hasText: 'Kamu sudah upload CV' });
+    await expect(notice).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('a', { hasText: 'Lanjutkan ke download' })).toHaveAttribute('href', 'download.html');
+  });
+
+  test('upload page recovery banner suppresses reason=no_session when paid session exists', async ({ page }) => {
+    await page.addInitScript(() => {
+      if (location.pathname.startsWith('/upload')) {
+        sessionStorage.setItem('gaslamar_session', 'sess_e2e-recovery-test');
+      }
+    });
+
+    await page.goto('/upload?reason=no_session');
+
+    // Recovery banner must appear; no_session message must not
+    await expect(page.locator('[role="status"]').filter({ hasText: 'Kamu sudah upload CV' })).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=Sesi tidak ditemukan')).not.toBeVisible();
+  });
+
   // ── MOBILE VIEWPORT ───────────────────────────────────────────────────────
 
   test('mobile viewport: submit button meets 44px touch target, dropzone visible', async ({ page }) => {
