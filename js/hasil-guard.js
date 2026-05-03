@@ -1,6 +1,6 @@
 // Session guard — runs synchronously in <head> before body renders.
-// All invalid sessions (missing, expired, forged) redirect immediately to upload.html
-// with a ?reason= param so the user sees a contextual explanation on the upload page.
+// Expired sessions redirect to /access so the user can recover their paid CV link.
+// Missing/forged sessions redirect to upload.html for re-upload.
 (function() {
   var KEYS = ['gaslamar_scoring','gaslamar_cv_key','gaslamar_analyze_time'];
 
@@ -35,9 +35,14 @@
   // cv_key must have the expected format (cvtext_<uuid>) if present
   if (cvKey && !cvKey.startsWith('cvtext_')) { redirect('session_expired'); return; }
 
-  // Session must not be older than 2 hours
+  // Session must not be older than 2 hours — send to /access so returning
+  // paid users can recover their CV download link without re-uploading.
   var isExpired = analyzeTime > 0 && (Date.now() - analyzeTime) / 1000 > SESSION_SECS;
-  if (isExpired) { redirect('session_expired'); return; }
+  if (isExpired) {
+    KEYS.forEach(function(k) { sessionStorage.removeItem(k); });
+    window.location.replace('access.html?expired=1');
+    return;
+  }
 
   // analyze_time must be present (guards against manually injected data)
   if (!analyzeTime) { redirect('no_session'); return; }

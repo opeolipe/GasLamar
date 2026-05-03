@@ -47,7 +47,7 @@ function frontendBaseUrl(env) {
     : 'https://gaslamar.com';
 }
 
-export async function sendPaymentConfirmationEmail(sessionId, env) {
+export async function sendPaymentConfirmationEmail(sessionId, env, options = {}) {
   const apiKey = env.RESEND_API_KEY;
   if (!apiKey) {
     console.warn(JSON.stringify({ event: 'resend_api_key_missing', session_id: sessionId }));
@@ -87,9 +87,12 @@ export async function sendPaymentConfirmationEmail(sessionId, env) {
         <span style="font-weight:800;font-size:20px;color:#1B4FE8">GasLamar</span>
       </div>
 
-      <h1 style="font-size:22px;font-weight:700;margin-bottom:6px">CV kamu sudah aktif 🚀</h1>
+      ${options.heading
+        ? `<h1 style="font-size:22px;font-weight:700;margin-bottom:20px">${escapeHtml(options.heading)}</h1>`
+        : `<h1 style="font-size:22px;font-weight:700;margin-bottom:6px">CV kamu sudah aktif 🚀</h1>
       <p style="color:#6B7280;margin-bottom:6px;font-size:15px">Pembayaran kamu berhasil.</p>
-      <p style="color:#6B7280;margin-bottom:20px;font-size:14px">Sekarang kamu sudah bisa mulai lihat dan perbaiki CV kamu — prosesnya cepat dan langsung kelihatan hasilnya.</p>
+      <p style="color:#6B7280;margin-bottom:20px;font-size:14px">Sekarang kamu sudah bisa mulai lihat dan perbaiki CV kamu — prosesnya cepat dan langsung kelihatan hasilnya.</p>`
+      }
 
       <p style="margin-bottom:16px;font-size:14px">Paket: <strong>${escapeHtml(tierLabel)}</strong></p>
 
@@ -124,7 +127,8 @@ export async function sendPaymentConfirmationEmail(sessionId, env) {
 
       <p style="font-size:13px;color:#9CA3AF;margin-bottom:4px">Kamu tidak perlu bayar lagi. CV kamu tetap tersimpan selama masa aktif.</p>
       <p style="font-size:13px;color:#9CA3AF;margin-bottom:4px">Link ini berlaku 1 jam untuk akses pertama.</p>
-      <p style="font-size:13px;color:#9CA3AF;margin-bottom:20px">Setelah dibuka, kamu bisa kembali kapan saja selama ${validityText} (sesuai paket).</p>
+      <p style="font-size:13px;color:#9CA3AF;margin-bottom:4px">Setelah dibuka, kamu bisa kembali kapan saja selama ${validityText} (sesuai paket).</p>
+      <p style="font-size:13px;color:#9CA3AF;margin-bottom:20px">Link kedaluwarsa? Minta link baru kapan saja di <a href="${frontendBaseUrl(env)}/access" style="color:#1B4FE8">${frontendBaseUrl(env).replace('https://', '')}/access</a></p>
 
       <p style="font-size:13px;color:#9CA3AF">Butuh bantuan? <a href="mailto:support@gaslamar.com" style="color:#1B4FE8">support@gaslamar.com</a></p>
     </div>`;
@@ -138,7 +142,7 @@ export async function sendPaymentConfirmationEmail(sessionId, env) {
     body: JSON.stringify({
       from: 'GasLamar <noreply@gaslamar.com>',
       to: [session.email],
-      subject: 'Pembayaran berhasil — lanjut lihat hasil CV kamu',
+      subject: options.subject ?? 'Pembayaran berhasil — lanjut lihat hasil CV kamu',
       html,
     }),
   });
@@ -246,7 +250,8 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
 
       <p style="font-size:13px;color:#9CA3AF;margin-bottom:4px">Kamu tidak perlu bayar lagi. CV kamu tetap tersimpan selama masa aktif.</p>
       <p style="font-size:13px;color:#9CA3AF;margin-bottom:4px">Link ini berlaku 1 jam untuk akses pertama.</p>
-      <p style="font-size:13px;color:#9CA3AF;margin-bottom:20px">Setelah dibuka, kamu bisa kembali kapan saja selama ${validityText} (sesuai paket).</p>
+      <p style="font-size:13px;color:#9CA3AF;margin-bottom:4px">Setelah dibuka, kamu bisa kembali kapan saja selama ${validityText} (sesuai paket).</p>
+      <p style="font-size:13px;color:#9CA3AF;margin-bottom:20px">Link kedaluwarsa? Minta link baru kapan saja di <a href="${frontendBaseUrl(env)}/access" style="color:#1B4FE8">${frontendBaseUrl(env).replace('https://', '')}/access</a></p>
 
       <p style="font-size:13px;color:#9CA3AF">Butuh bantuan? <a href="mailto:support@gaslamar.com" style="color:#1B4FE8">support@gaslamar.com</a></p>
     </div>`;
