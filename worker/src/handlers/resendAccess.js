@@ -52,7 +52,10 @@ export async function handleResendAccess(request, env) {
   log('resend_access_attempt', { email_hash: emailHash, hasSession: true, rateLimited: false, ip });
 
   try {
-    await sendPaymentConfirmationEmail(indexRaw.session_id, env);
+    await sendPaymentConfirmationEmail(indexRaw.session_id, env, {
+      subject: 'Akses ulang CV kamu — GasLamar',
+      heading: 'Klik link di bawah untuk kembali ke CV kamu:',
+    });
     log('resend_access_sent', { email_hash: emailHash, ip });
   } catch (e) {
     logError('resend_access_email_failed', { error: e.message });

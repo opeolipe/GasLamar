@@ -47,7 +47,7 @@ function frontendBaseUrl(env) {
     : 'https://gaslamar.com';
 }
 
-export async function sendPaymentConfirmationEmail(sessionId, env) {
+export async function sendPaymentConfirmationEmail(sessionId, env, options = {}) {
   const apiKey = env.RESEND_API_KEY;
   if (!apiKey) {
     console.warn(JSON.stringify({ event: 'resend_api_key_missing', session_id: sessionId }));
@@ -87,9 +87,12 @@ export async function sendPaymentConfirmationEmail(sessionId, env) {
         <span style="font-weight:800;font-size:20px;color:#1B4FE8">GasLamar</span>
       </div>
 
-      <h1 style="font-size:22px;font-weight:700;margin-bottom:6px">CV kamu sudah aktif 🚀</h1>
+      ${options.heading
+        ? `<h1 style="font-size:22px;font-weight:700;margin-bottom:20px">${escapeHtml(options.heading)}</h1>`
+        : `<h1 style="font-size:22px;font-weight:700;margin-bottom:6px">CV kamu sudah aktif 🚀</h1>
       <p style="color:#6B7280;margin-bottom:6px;font-size:15px">Pembayaran kamu berhasil.</p>
-      <p style="color:#6B7280;margin-bottom:20px;font-size:14px">Sekarang kamu sudah bisa mulai lihat dan perbaiki CV kamu — prosesnya cepat dan langsung kelihatan hasilnya.</p>
+      <p style="color:#6B7280;margin-bottom:20px;font-size:14px">Sekarang kamu sudah bisa mulai lihat dan perbaiki CV kamu — prosesnya cepat dan langsung kelihatan hasilnya.</p>`
+      }
 
       <p style="margin-bottom:16px;font-size:14px">Paket: <strong>${escapeHtml(tierLabel)}</strong></p>
 
@@ -138,7 +141,7 @@ export async function sendPaymentConfirmationEmail(sessionId, env) {
     body: JSON.stringify({
       from: 'GasLamar <noreply@gaslamar.com>',
       to: [session.email],
-      subject: 'Pembayaran berhasil — lanjut lihat hasil CV kamu',
+      subject: options.subject ?? 'Pembayaran berhasil — lanjut lihat hasil CV kamu',
       html,
     }),
   });
