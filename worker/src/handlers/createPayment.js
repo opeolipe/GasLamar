@@ -2,7 +2,7 @@ import { jsonResponseWithCookie } from '../cors.js';
 import { jsonResponse } from '../cors.js';
 import { clientIp, sha256Full, log } from '../utils.js';
 import { checkRateLimit, rateLimitResponse } from '../rateLimit.js';
-import { TIER_CREDITS } from '../constants.js';
+import { TIER_CREDITS, SESSION_TTL_MULTI } from '../constants.js';
 import { createMayarInvoice, logMayarEnvironment } from '../mayar.js';
 import { createSession } from '../sessions.js';
 import { makeSessionCookie } from '../cookies.js';
@@ -136,6 +136,16 @@ export async function handleCreatePayment(request, env) {
       // Do NOT release the invoice lock; do NOT allow retry with the same cv_text_key.
       console.error(JSON.stringify({ event: 'create_payment_no_url', tier, invoice_id: invoice_id ?? null }));
       return jsonResponse({ message: 'Link pembayaran tidak tersedia. Hubungi support@gaslamar.com jika sudah melakukan pembayaran.' }, 503, request, env);
+    }
+
+    // Email → session index for access recovery (/resend-access).
+    // TTL is always the max session TTL (30 days) so the index outlives the session.
+    if (sessionEmail) {
+      await env.GASLAMAR_SESSIONS.put(
+        `email_session_${sessionEmail}`,
+        JSON.stringify({ session_id: sessionId }),
+        { expirationTtl: SESSION_TTL_MULTI }
+      );
     }
 
     // Set HttpOnly session cookie — eliminates session_id from URLs (browser history,

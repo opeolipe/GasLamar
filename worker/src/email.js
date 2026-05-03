@@ -69,31 +69,64 @@ export async function sendPaymentConfirmationEmail(sessionId, env) {
     '3pack': '3-Pack (3 CV Bilingual)',
     jobhunt: 'Job Hunt Pack (10 CV Bilingual)',
   };
-  const tierLabel = tierLabels[session.tier] || session.tier;
+  const tierLabel    = tierLabels[session.tier] || session.tier;
   const totalCredits = session.total_credits ?? 1;
-  const isMulti = totalCredits > 1;
+  const isMulti      = totalCredits > 1;
   const validityText = isMulti ? '30 hari' : '7 hari';
+
   const creditsNote = isMulti
     ? `<div style="background:#EFF6FF;border-radius:10px;padding:14px 18px;margin-bottom:20px">
         <p style="margin:0;font-size:14px;color:#1E40AF;font-weight:600">Kamu punya ${totalCredits} kredit CV</p>
-        <p style="margin:6px 0 0;font-size:13px;color:#3B82F6">Simpan link ini — kamu bisa kembali kapan saja dalam 30 hari untuk generate CV berikutnya dengan job description berbeda.</p>
+        <p style="margin:6px 0 0;font-size:13px;color:#3B82F6">Gunakan untuk apply ke beberapa posisi berbeda — hasilnya bisa disesuaikan tiap job.</p>
       </div>`
     : '';
 
   const html = `
-    <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
+    <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#1F2937">
       <div style="margin-bottom:24px">
         <span style="font-weight:800;font-size:20px;color:#1B4FE8">GasLamar</span>
       </div>
-      <h1 style="font-size:22px;font-weight:700;color:#1F2937;margin-bottom:8px">Pembayaran Dikonfirmasi</h1>
-      <p style="color:#6B7280;margin-bottom:20px">Paket <strong>${escapeHtml(tierLabel)}</strong> kamu sudah aktif.</p>
+
+      <h1 style="font-size:22px;font-weight:700;margin-bottom:6px">CV kamu sudah aktif 🚀</h1>
+      <p style="color:#6B7280;margin-bottom:6px;font-size:15px">Pembayaran kamu berhasil.</p>
+      <p style="color:#6B7280;margin-bottom:20px;font-size:14px">Sekarang kamu sudah bisa mulai lihat dan perbaiki CV kamu — prosesnya cepat dan langsung kelihatan hasilnya.</p>
+
+      <p style="margin-bottom:16px;font-size:14px">Paket: <strong>${escapeHtml(tierLabel)}</strong></p>
+
       ${creditsNote}
-      <a href="${downloadUrl}"
-        style="display:inline-block;background:#1B4FE8;color:#fff;font-weight:700;padding:14px 28px;border-radius:12px;text-decoration:none;margin-bottom:24px">
-        ${isMulti ? 'Mulai Generate CV →' : 'Download CV Sekarang →'}
-      </a>
-      <p style="font-size:14px;color:#9CA3AF">Link ini berlaku 1 jam. Kalau sudah kedaluwarsa, mulai ulang dari <a href="https://gaslamar.com/upload.html" style="color:#1B4FE8">sini</a>.</p>
-      <p style="font-size:14px;color:#9CA3AF">Setelah membuka link, sesi kamu akan aktif selama ${validityText} di browser tersebut.</p>
+
+      <ul style="margin:0 0 20px;padding-left:20px;font-size:14px;color:#374151;line-height:1.7">
+        <li>CV yang lebih relevan dengan posisi yang kamu incar</li>
+        <li>Struktur yang lebih kuat dan ATS-friendly</li>
+        <li>Insight bagian mana yang perlu diperbaiki</li>
+      </ul>
+
+      <div style="margin-bottom:24px">
+        <a href="${downloadUrl}"
+          style="display:inline-block;background:#1B4FE8;color:#fff;font-weight:700;padding:14px 28px;border-radius:12px;text-decoration:none;font-size:15px">
+          Mulai lihat &amp; perbaiki CV kamu →
+        </a>
+      </div>
+
+      <div style="background:#F8FAFC;border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:13px;color:#475569">
+        <p style="margin:0 0 4px;font-weight:600;color:#1E293B">Info penting</p>
+        <ul style="margin:0;padding-left:16px;line-height:1.8">
+          <li>Tidak perlu login</li>
+          <li>Link aman &amp; bisa dibuka dari device mana saja</li>
+          <li>Proses hanya ±30 detik</li>
+        </ul>
+      </div>
+
+      <p style="font-size:14px;color:#374151;margin-bottom:20px">
+        Akses link ini sekarang.<br>
+        <strong>Semakin cepat kamu apply, semakin besar peluang kamu dipanggil.</strong>
+      </p>
+
+      <p style="font-size:13px;color:#9CA3AF;margin-bottom:4px">Kamu tidak perlu bayar lagi. CV kamu tetap tersimpan selama masa aktif.</p>
+      <p style="font-size:13px;color:#9CA3AF;margin-bottom:4px">Link ini berlaku 1 jam untuk akses pertama.</p>
+      <p style="font-size:13px;color:#9CA3AF;margin-bottom:20px">Setelah dibuka, kamu bisa kembali kapan saja selama ${validityText} (sesuai paket).</p>
+
+      <p style="font-size:13px;color:#9CA3AF">Butuh bantuan? <a href="mailto:support@gaslamar.com" style="color:#1B4FE8">support@gaslamar.com</a></p>
     </div>`;
 
   const res = await fetch('https://api.resend.com/emails', {
@@ -105,7 +138,7 @@ export async function sendPaymentConfirmationEmail(sessionId, env) {
     body: JSON.stringify({
       from: 'GasLamar <noreply@gaslamar.com>',
       to: [session.email],
-      subject: `CV kamu siap download — GasLamar ${tierLabel}`,
+      subject: 'Pembayaran berhasil — lanjut lihat hasil CV kamu',
       html,
     }),
   });
@@ -134,42 +167,88 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
   const emailToken = await createEmailToken(env, sessionId);
   const downloadUrl = `${frontendBaseUrl(env)}/download.html?token=${emailToken}`;
 
-  const scoreNum = typeof score === 'number' ? score : parseInt(score, 10) || 0;
+  const scoreNum   = typeof score === 'number' ? score : parseInt(score, 10) || 0;
   const scoreColor = scoreNum >= 75 ? '#059669' : scoreNum >= 50 ? '#D97706' : '#DC2626';
-  const top3 = Array.isArray(gaps) ? gaps.slice(0, 3) : [];
+  const top3       = Array.isArray(gaps) ? gaps.slice(0, 3) : [];
+
   const gapsHtml = top3.length
     ? `<div style="background:#FFF7ED;border-radius:10px;padding:14px 18px;margin-bottom:20px">
-        <p style="margin:0 0 8px;font-size:14px;color:#92400E;font-weight:600">3 gap utama yang sudah diperbaiki di CV tailored-mu:</p>
-        <ul style="margin:0;padding-left:18px;font-size:13px;color:#78350F">
-          ${top3.map(g => `<li style="margin-bottom:4px">${escapeHtml(String(g).slice(0, 200))}</li>`).join('')}
-        </ul>
+        <p style="margin:0 0 8px;font-size:14px;color:#92400E;font-weight:600">Perubahan utama yang meningkatkan peluang kamu:</p>
+        <ol style="margin:0;padding-left:18px;font-size:13px;color:#78350F;line-height:1.8">
+          ${top3.map(g => `<li>${escapeHtml(String(g).slice(0, 200))}</li>`).join('')}
+        </ol>
       </div>`
     : '';
 
-  const tierLabels = { coba: 'Coba Dulu', single: 'Single', '3pack': '3-Pack', jobhunt: 'Job Hunt Pack' };
-  const tierLabel = tierLabels[session.tier] || session.tier;
-  const isMulti = (session.total_credits ?? 1) > 1;
+  const tierLabels   = { coba: 'Coba Dulu', single: 'Single', '3pack': '3-Pack', jobhunt: 'Job Hunt Pack' };
+  const tierLabel    = tierLabels[session.tier] || session.tier;
+  const isMulti      = (session.total_credits ?? 1) > 1;
+  const validityText = isMulti ? '30 hari' : '7 hari';
+
+  const upsellHtml = !isMulti
+    ? `<div style="background:#EFF6FF;border-radius:10px;padding:14px 18px;margin-bottom:20px">
+        <p style="margin:0 0 4px;font-size:13px;color:#1E40AF;font-weight:600">Mau apply ke lebih banyak posisi?</p>
+        <p style="margin:0;font-size:13px;color:#3B82F6">Gunakan <a href="https://gaslamar.com/?tier=3pack" style="color:#1B4FE8;font-weight:600">3-Pack</a> untuk generate CV berbeda per job. Lebih hemat dan peluang lebih tinggi.</p>
+      </div>`
+    : '';
 
   const html = `
-    <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
+    <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#1F2937">
       <div style="margin-bottom:24px">
         <span style="font-weight:800;font-size:20px;color:#1B4FE8">GasLamar</span>
       </div>
-      <h1 style="font-size:22px;font-weight:700;color:#1F2937;margin-bottom:8px">CV tailored-mu siap! 🎯</h1>
-      <p style="color:#6B7280;margin-bottom:20px">Paket <strong>${escapeHtml(tierLabel)}</strong> — hasil analisis AI:</p>
-      <div style="background:#F0FDF4;border-radius:12px;padding:16px 20px;margin-bottom:20px;text-align:center">
-        <p style="margin:0;font-size:13px;color:#6B7280">Skor match CV kamu</p>
-        <p style="margin:4px 0 0;font-size:40px;font-weight:800;color:${scoreColor}">${scoreNum}<span style="font-size:18px;color:#9CA3AF">/100</span></p>
+
+      <h1 style="font-size:22px;font-weight:700;margin-bottom:6px">CV kamu sekarang lebih siap untuk interview 🎯</h1>
+      <p style="color:#6B7280;margin-bottom:20px;font-size:14px">Kami sudah analisis dan perbaiki CV kamu.</p>
+
+      <div style="background:#F0FDF4;border-radius:12px;padding:16px 20px;margin-bottom:16px;text-align:center">
+        <p style="margin:0;font-size:13px;color:#6B7280">Skor kecocokan</p>
+        <p style="margin:4px 0 8px;font-size:40px;font-weight:800;color:${scoreColor}">${scoreNum}<span style="font-size:18px;color:#9CA3AF">/100</span></p>
+        <ul style="list-style:none;margin:0;padding:0;font-size:12px;color:#6B7280;line-height:1.7;text-align:left;display:inline-block">
+          <li>75+ → Sudah kuat untuk apply</li>
+          <li>50–74 → Masih bisa ditingkatkan</li>
+          <li>&lt;50 → Perlu perbaikan signifikan</li>
+        </ul>
       </div>
+
       ${gapsHtml}
-      <a href="${downloadUrl}"
-        style="display:inline-block;background:#1B4FE8;color:#fff;font-weight:700;padding:14px 28px;border-radius:12px;text-decoration:none;margin-bottom:24px">
-        Download CV Tailored →
-      </a>
-      ${isMulti ? '' : `<div style="background:#EFF6FF;border-radius:10px;padding:14px 18px;margin-bottom:20px">
-        <p style="margin:0;font-size:13px;color:#1E40AF">Punya loker lain? <a href="https://gaslamar.com/?tier=3pack" style="color:#1B4FE8;font-weight:600">Upgrade ke 3-Pack</a> dan hemat 40%.</p>
-      </div>`}
-      <p style="font-size:14px;color:#9CA3AF">Link download berlaku 1 jam. Pertanyaan? Email ke <a href="mailto:support@gaslamar.com" style="color:#1B4FE8">support@gaslamar.com</a></p>
+
+      <div style="background:#F8FAFC;border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:13px;color:#475569">
+        <p style="margin:0 0 4px;font-weight:600;color:#1E293B">Sekarang CV kamu:</p>
+        <ul style="margin:0;padding-left:16px;line-height:1.8">
+          <li>Lebih relevan dengan posisi yang kamu incar</li>
+          <li>Lebih jelas menunjukkan value kamu</li>
+          <li>Lebih mudah dibaca oleh HR dalam 5–10 detik</li>
+        </ul>
+      </div>
+
+      <div style="margin-bottom:24px">
+        <a href="${downloadUrl}"
+          style="display:inline-block;background:#1B4FE8;color:#fff;font-weight:700;padding:14px 28px;border-radius:12px;text-decoration:none;font-size:15px">
+          Download CV terbaik kamu →
+        </a>
+      </div>
+
+      <div style="margin-bottom:20px;font-size:14px;color:#374151">
+        <p style="margin:0 0 6px;font-weight:600">Langkah selanjutnya</p>
+        <ol style="margin:0;padding-left:18px;line-height:1.8">
+          <li>Download CV kamu</li>
+          <li>Apply ke posisi yang kamu incar</li>
+          <li>(Opsional) Gunakan CV berbeda untuk tiap job</li>
+        </ol>
+      </div>
+
+      ${upsellHtml}
+
+      <p style="font-size:14px;color:#374151;margin-bottom:20px">
+        <strong>Semakin cepat kamu apply, semakin besar peluang kamu dipanggil interview.</strong>
+      </p>
+
+      <p style="font-size:13px;color:#9CA3AF;margin-bottom:4px">Kamu tidak perlu bayar lagi. CV kamu tetap tersimpan selama masa aktif.</p>
+      <p style="font-size:13px;color:#9CA3AF;margin-bottom:4px">Link ini berlaku 1 jam untuk akses pertama.</p>
+      <p style="font-size:13px;color:#9CA3AF;margin-bottom:20px">Setelah dibuka, kamu bisa kembali kapan saja selama ${validityText} (sesuai paket).</p>
+
+      <p style="font-size:13px;color:#9CA3AF">Butuh bantuan? <a href="mailto:support@gaslamar.com" style="color:#1B4FE8">support@gaslamar.com</a></p>
     </div>`;
 
   const cvRes = await fetch('https://api.resend.com/emails', {
@@ -181,7 +260,7 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
     body: JSON.stringify({
       from: 'GasLamar <noreply@gaslamar.com>',
       to: [session.email],
-      subject: `CV tailored-mu siap — skor match ${scoreNum}/100 🎯`,
+      subject: `Skor CV kamu: ${scoreNum}/100 — ini yang sudah diperbaiki`,
       html,
     }),
   });

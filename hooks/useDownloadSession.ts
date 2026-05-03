@@ -19,6 +19,7 @@ export interface SessionError {
   title:     string;
   message:   string;
   retryable: boolean;
+  reason?:   string;
 }
 
 export type SessionPhase = 'init' | 'waiting' | 'confirmed' | 'returning' | 'error';
@@ -80,10 +81,10 @@ export function useDownloadSession(): UseDownloadSessionReturn {
 
   // ── Error helper ──────────────────────────────────────────────────────────
 
-  function showError(title: string, message: string, retryable = false) {
+  function showError(title: string, message: string, retryable = false, reason?: string) {
     if (!mountedRef.current) return;
     setPhase('error');
-    setError({ title, message, retryable });
+    setError({ title, message, retryable, ...(reason ? { reason } : {}) });
   }
 
   // ── Heartbeat ─────────────────────────────────────────────────────────────
@@ -113,6 +114,8 @@ export function useDownloadSession(): UseDownloadSessionReturn {
           showError(
             'Sesi Kedaluwarsa',
             `📅 Sesi download kamu sudah berakhir (berlaku ${label}). Upload ulang CV untuk memulai analisis baru, atau hubungi support@gaslamar.com jika kamu masih punya kredit tersisa.`,
+            false,
+            'expired',
           );
         }
       } catch (_) { /* ignore transient network errors */ }
@@ -307,6 +310,8 @@ export function useDownloadSession(): UseDownloadSessionReturn {
             showError(
               'Link Kedaluwarsa',
               'Link dari email sudah tidak berlaku (maksimal 1 jam). Gunakan link dari email terbaru, atau mulai ulang dari halaman upload.',
+              false,
+              'expired',
             );
           }
         } catch (_) {
