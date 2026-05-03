@@ -71,18 +71,12 @@ export default function Upload() {
     }
 
     const reason = params.get('reason');
-    if (reason === 'session_expired') {
-      history.replaceState(null, '', location.pathname);
-      newNotices.push({ type: 'info', text: '⏰ Sesi analisis sudah berakhir (berlaku 2 jam). Silakan upload CV kembali.' });
-    } else if (reason === 'no_session') {
+    if (reason === 'no_session') {
       history.replaceState(null, '', location.pathname);
       newNotices.push({ type: 'info', text: 'Sesi tidak ditemukan. Silakan mulai upload CV dari sini.' });
     } else if (reason === 'missing_data') {
       history.replaceState(null, '', location.pathname);
       newNotices.push({ type: 'warning', text: 'Data sesi tidak lengkap. Silakan upload CV kamu untuk memulai.' });
-    } else if (reason === 'expired') {
-      history.replaceState(null, '', location.pathname);
-      newNotices.push({ type: 'info', text: 'Sesi telah berakhir. Silakan upload CV kembali.' });
     }
 
     const uploadErr = sessionStorage.getItem('gaslamar_upload_error');
