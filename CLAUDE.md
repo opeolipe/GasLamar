@@ -1,6 +1,6 @@
 # GasLamar — Claude Code Instructions
 
-**Stack:** Cloudflare Workers (API) + Cloudflare Pages (frontend) + Claude claude-haiku-3-5 + Mayar (payment) + Cloudflare KV  
+**Stack:** Cloudflare Workers (API) + Cloudflare Pages (frontend) + `claude-sonnet-4-6` (prod analyze) / `claude-haiku-4-5-20251001` (staging analyze + all tailoring) + Mayar (payment) + Cloudflare KV  
 **Pages flow:** `index.html` → `upload.html` → `analyzing.html` → `hasil.html` → `download.html`  
 **URLs:** prod `gaslamar.com` / worker `gaslamar-worker.carolineratuolivia.workers.dev` / staging `gaslamar-worker-staging.carolineratuolivia.workers.dev`
 
@@ -36,6 +36,7 @@ Routes → `router.js`. Handlers → `worker/src/handlers/<endpoint>.js`. Pipeli
 | `worker/src/pipeline/roleInference.js` | Role inference called from `analyze.js` |
 | `js/config.js` | Staging vs prod worker URL selected by hostname at runtime |
 | `js/hasil-guard.js` | NOT bundled — must stay as synchronous inline `<script>` or auth flash occurs |
+| `worker/src/rewriteGuard.js` | Hallucination guard — called by `postProcessCV()` in `tailoring.js`; severity-grades every rewritten bullet (high/medium/low fallback). Adding/removing patterns here affects both ID and EN rewrites |
 
 ---
 
