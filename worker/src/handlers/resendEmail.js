@@ -5,6 +5,7 @@ import { getSessionIdFromCookie }            from '../cookies.js';
 import { clientIp, log, logError }           from '../utils.js';
 import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
 import { sendPaymentConfirmationEmail }      from '../email.js';
+import { SESSION_TTL_MULTI }               from '../constants.js';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -71,6 +72,16 @@ export async function handleResendEmail(request, env) {
         404, request, env,
       );
     }
+    // Remove old index so the old address no longer resolves to this session,
+    // then point the new address at it.
+    if (session.email) {
+      await env.GASLAMAR_SESSIONS.delete(`email_session_${session.email}`).catch(() => {});
+    }
+    await env.GASLAMAR_SESSIONS.put(
+      `email_session_${newEmail}`,
+      JSON.stringify({ session_id: sessionId }),
+      { expirationTtl: SESSION_TTL_MULTI }
+    );
     log('resend_email_changed', { session_id: sessionId, ip });
   }
 

@@ -522,11 +522,12 @@ export function getCountdownInfo(expiresAtMs: number, totalCredits: number): Cou
   return { text, variant: 'normal' };
 }
 
-export function formatExpiryDate(expiresAtMs: number): string {
-  const d       = new Date(expiresAtMs);
-  const dateStr = d.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
-  const timeStr = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-  return `📅 Link berlaku hingga ${dateStr} pukul ${timeStr}`;
+export function formatExpiryDate(expiresAtMs: number, totalCredits = 1): string {
+  const d            = new Date(expiresAtMs);
+  const dateStr      = d.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
+  const timeStr      = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+  const sessionLabel = totalCredits > 1 ? '30 hari' : '7 hari';
+  return `📅 Sesi aktif hingga ${dateStr} pukul ${timeStr}\nLink email: berlaku 1 jam · Akses ulang: tersedia hingga ${sessionLabel}`;
 }
 
 // ── Clipboard ─────────────────────────────────────────────────────────────────

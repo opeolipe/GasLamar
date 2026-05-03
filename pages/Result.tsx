@@ -352,14 +352,18 @@ export default function Result() {
         }));
       } catch (_) {}
 
-      // Validate invoice URL origin before redirecting (mayar.id = prod, mayar.club = sandbox)
-      let validUrl = false;
-      try {
-        const parsed = new URL(invoice_url);
-        validUrl = parsed.protocol === 'https:' &&
-          (parsed.hostname === 'mayar.id' || parsed.hostname.endsWith('.mayar.id') ||
-           parsed.hostname === 'mayar.club' || parsed.hostname.endsWith('.mayar.club'));
-      } catch (_) {}
+      // Validate invoice URL origin before redirecting.
+      // In sandbox/staging builds (IS_SANDBOX=true) skip the domain check — Mayar sandbox
+      // may use non-standard domains. In production, only allow known Mayar domains.
+      let validUrl = IS_SANDBOX;
+      if (!IS_SANDBOX) {
+        try {
+          const parsed = new URL(invoice_url);
+          validUrl = parsed.protocol === 'https:' &&
+            (parsed.hostname === 'mayar.id' || parsed.hostname.endsWith('.mayar.id') ||
+             parsed.hostname === 'mayar.club' || parsed.hostname.endsWith('.mayar.club'));
+        } catch (_) {}
+      }
       if (!validUrl) throw new Error('URL pembayaran tidak valid. Coba lagi.');
 
       setPayBtnOverride('Mengalihkan ke halaman pembayaran...');

@@ -2,7 +2,7 @@ import { jsonResponseWithCookie } from '../cors.js';
 import { jsonResponse } from '../cors.js';
 import { clientIp, sha256Full, log } from '../utils.js';
 import { checkRateLimit, rateLimitResponse } from '../rateLimit.js';
-import { TIER_CREDITS } from '../constants.js';
+import { TIER_CREDITS, SESSION_TTL_MULTI } from '../constants.js';
 import { createMayarInvoice, logMayarEnvironment } from '../mayar.js';
 import { createSession } from '../sessions.js';
 import { makeSessionCookie } from '../cookies.js';
@@ -95,37 +95,58 @@ export async function handleCreatePayment(request, env) {
 
     // Create Mayar invoice first — if this fails, cv_text_key is still intact and user can retry
     const { invoice_id, invoice_url } = await createMayarInvoice(sessionId, tier, env, redirectUrl, sessionEmail);
-    if (!invoice_url) throw new Error('URL pembayaran tidak tersedia. Coba lagi.');
 
-    // Consume cv_text_key only after invoice is successfully created (atomic enough for this use case)
-    await env.GASLAMAR_SESSIONS.delete(cv_text_key);
+    if (invoice_id) {
+      // Invoice was committed on Mayar's side (with or without a redirect URL).
+      // Consume cv_text_key immediately so a retry cannot create a second Mayar invoice
+      // for the same analysis session, which would spam the customer with duplicate
+      // "Transaksi telah dibuat" emails.
+      await env.GASLAMAR_SESSIONS.delete(cv_text_key);
 
-    // Store session in KV using pre-extracted text from /analyze
-    const sessionData = {
-      cv_text: stored.text,
-      job_desc: stored.job_desc,
-      // Carry inferred_role through to /generate so it can choose tailoring mode.
-      inferred_role: stored.inferred_role ?? null,
-      tier,
-      status: 'pending',
-      mayar_invoice_id: invoice_id,
-      credits_remaining: credits,
-      total_credits: credits,
-      ip,
-      ...(sessionEmail ? { email: sessionEmail } : {}),
-      ...(secretHash ? { session_secret_hash: secretHash } : {}),
-    };
-    await createSession(env, sessionId, sessionData);
+      // Store session so the Mayar webhook can complete it even if we don't redirect now.
+      const sessionData = {
+        cv_text: stored.text,
+        job_desc: stored.job_desc,
+        // Carry inferred_role through to /generate so it can choose tailoring mode.
+        inferred_role: stored.inferred_role ?? null,
+        tier,
+        status: 'pending',
+        mayar_invoice_id: invoice_id,
+        credits_remaining: credits,
+        total_credits: credits,
+        ip,
+        ...(sessionEmail ? { email: sessionEmail } : {}),
+        ...(secretHash ? { session_secret_hash: secretHash } : {}),
+      };
+      await createSession(env, sessionId, sessionData);
 
-    // Secondary KV index: invoice_id → session_id.
-    // The Mayar webhook identifies payments by invoice ID; without the ?session= query
-    // param in the redirect URL we need this index to correlate the webhook to a session.
-    // TTL matches the session (7d single / 30d multi).
-    await env.GASLAMAR_SESSIONS.put(
-      `mayar_session_${invoice_id}`,
-      JSON.stringify({ session_id: sessionId }),
-      { expirationTtl: credits > 1 ? 2592000 : 604800 }
-    );
+      // Secondary KV index: invoice_id → session_id.
+      // The Mayar webhook identifies payments by invoice ID; without the ?session= query
+      // param in the redirect URL we need this index to correlate the webhook to a session.
+      // TTL matches the session (7d single / 30d multi).
+      await env.GASLAMAR_SESSIONS.put(
+        `mayar_session_${invoice_id}`,
+        JSON.stringify({ session_id: sessionId }),
+        { expirationTtl: credits > 1 ? 2592000 : 604800 }
+      );
+    }
+
+    if (!invoice_url) {
+      // Invoice may or may not have been created — either way, cannot redirect.
+      // Do NOT release the invoice lock; do NOT allow retry with the same cv_text_key.
+      console.error(JSON.stringify({ event: 'create_payment_no_url', tier, invoice_id: invoice_id ?? null }));
+      return jsonResponse({ message: 'Link pembayaran tidak tersedia. Hubungi support@gaslamar.com jika sudah melakukan pembayaran.' }, 503, request, env);
+    }
+
+    // Email → session index for access recovery (/resend-access).
+    // TTL is always the max session TTL (30 days) so the index outlives the session.
+    if (sessionEmail) {
+      await env.GASLAMAR_SESSIONS.put(
+        `email_session_${sessionEmail}`,
+        JSON.stringify({ session_id: sessionId }),
+        { expirationTtl: SESSION_TTL_MULTI }
+      );
+    }
 
     // Set HttpOnly session cookie — eliminates session_id from URLs (browser history,
     // Referer headers, server logs). Cookie travels automatically with all credentialed
@@ -135,7 +156,8 @@ export async function handleCreatePayment(request, env) {
 
     return jsonResponseWithCookie({ session_id: sessionId, invoice_url }, 200, cookieHeader, request, env);
   } catch (e) {
-    // Release invoice lock so user can retry after a failed Mayar call
+    // Release invoice lock only for errors where Mayar never received the request
+    // (network failures, validation errors). This allows the user to retry safely.
     await env.GASLAMAR_SESSIONS.delete(invoiceLockKey).catch(() => {});
     console.error(JSON.stringify({ event: 'create_payment_failed', error: e.message, tier }));
     return jsonResponse({ message: e.message || 'Gagal membuat invoice' }, 500, request, env);

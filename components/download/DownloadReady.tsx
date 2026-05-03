@@ -332,9 +332,9 @@ export default function DownloadReady({
             </div>
 
             {/* Expiry date */}
-            {expiryText && (
-              <p className="text-center text-sm text-slate-500 mb-4">{expiryText}</p>
-            )}
+            {expiryText && expiryText.split('\n').map((line, i) => (
+              <p key={i} className="text-center text-sm text-slate-500 mb-1 last:mb-4">{line}</p>
+            ))}
 
             {/* Tips box */}
             <div className="rounded-[20px] p-4 mb-5" style={{ background: 'rgba(37,99,235,0.04)', borderLeft: '3px solid rgba(37,99,235,0.4)' }}>

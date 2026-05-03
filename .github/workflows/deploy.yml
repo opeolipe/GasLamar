@@ -56,14 +56,21 @@ jobs:
 
       - name: Health check
         run: |
-          echo "Waiting 10s for Worker to propagate..."
-          sleep 10
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://gaslamar-worker.carolineratuolivia.workers.dev/health)
-          if [ "$STATUS" != "200" ]; then
-            echo "Health check failed — got HTTP $STATUS"
-            exit 1
-          fi
-          echo "Health check passed (HTTP $STATUS)"
+          echo "Waiting 15s for Worker to propagate..."
+          sleep 15
+          for i in 1 2 3; do
+            RESPONSE=$(curl -s -w "\n%{http_code}" https://gaslamar.com/health)
+            BODY=$(echo "$RESPONSE" | head -n1)
+            STATUS=$(echo "$RESPONSE" | tail -n1)
+            echo "Attempt $i: HTTP $STATUS — $BODY"
+            if [ "$STATUS" = "200" ] && echo "$BODY" | grep -q '"ok"'; then
+              echo "Health check passed"
+              exit 0
+            fi
+            [ "$i" -lt 3 ] && sleep 10
+          done
+          echo "Health check failed after 3 attempts"
+          exit 1
 
   build-frontend:
     name: Build Frontend

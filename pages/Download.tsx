@@ -17,12 +17,13 @@ import {
 } from '@/lib/downloadUtils';
 import { buildResultData } from '@/lib/resultUtils';
 import type { ResultData } from '@/types/result';
-import SessionError   from '@/components/download/SessionError';
-import WaitingPayment from '@/components/download/WaitingPayment';
-import GeneratingCV   from '@/components/download/GeneratingCV';
-import DownloadReady  from '@/components/download/DownloadReady';
-import ResendEmail    from '@/components/download/ResendEmail';
-import InterviewKit   from '@/components/download/InterviewKit';
+import SessionError          from '@/components/download/SessionError';
+import WaitingPayment        from '@/components/download/WaitingPayment';
+import GeneratingCV          from '@/components/download/GeneratingCV';
+import DownloadReady         from '@/components/download/DownloadReady';
+import ResendEmail           from '@/components/download/ResendEmail';
+import InterviewKit          from '@/components/download/InterviewKit';
+import ExpiredLinkRecovery   from '@/components/download/ExpiredLinkRecovery';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -83,7 +84,7 @@ export default function Download() {
       setView('credits-dashboard');
       const data = session.sessionData;
       if (data?.expiresAt) {
-        setExpiryText(formatExpiryDate(data.expiresAt));
+        setExpiryText(formatExpiryDate(data.expiresAt, data.totalCredits));
         startCountdown(data.expiresAt, data.totalCredits);
       }
       if (data) session.startHeartbeat(data.totalCredits);
@@ -111,7 +112,7 @@ export default function Download() {
     if (generate.status === 'done' && generate.content) {
       const { expiresAt, totalCredits } = session.sessionData ?? { expiresAt: null, totalCredits: 1 };
       if (expiresAt) {
-        setExpiryText(formatExpiryDate(expiresAt));
+        setExpiryText(formatExpiryDate(expiresAt, totalCredits));
         startCountdown(expiresAt, totalCredits);
       }
       session.startHeartbeat(generate.content.totalCredits);
@@ -355,13 +356,17 @@ export default function Download() {
 
         {view === 'error' && sessionError && !delivery && (
           <div className="max-w-[480px] mx-auto">
-            <SessionError
-              title={sessionError.title}
-              message={sessionError.message}
-              retryable={sessionError.retryable}
-              onRetry={generate.error?.retryable ? generate.retryGeneration : undefined}
-              onRestart={() => clearClientSessionData(session.sessionId)}
-            />
+            {sessionError.reason === 'expired' ? (
+              <ExpiredLinkRecovery />
+            ) : (
+              <SessionError
+                title={sessionError.title}
+                message={sessionError.message}
+                retryable={sessionError.retryable}
+                onRetry={generate.error?.retryable ? generate.retryGeneration : undefined}
+                onRestart={() => clearClientSessionData(session.sessionId)}
+              />
+            )}
           </div>
         )}
 
