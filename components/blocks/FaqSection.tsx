@@ -7,7 +7,7 @@ import {
 
 const SERIF = { fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: "-0.03em" } as const;
 
-const FAQ_ITEMS = [
+const FAQ_ITEMS: { q: string; a: React.ReactNode }[] = [
   {
     q: "Apakah CV saya aman?",
     a: "Untuk paket Coba Dulu dan Single, CV kamu dihapus otomatis setelah kamu download (maks 2 jam). Untuk paket 3-Pack dan Job Hunt Pack, CV disimpan selama 30 hari agar kamu bisa kembali generate CV untuk loker berikutnya tanpa upload ulang — lalu dihapus otomatis setelah 30 hari atau saat semua kredit habis. Kami tidak menyimpan CV kamu secara permanen.",
@@ -31,6 +31,20 @@ const FAQ_ITEMS = [
   {
     q: "Bagaimana jika tidak bisa download setelah bayar?",
     a: "Sistem akan otomatis menunggu konfirmasi pembayaran (biasanya 1–2 menit). Jika masih bermasalah, hubungi kami di support@gaslamar.com dengan bukti pembayaran dan kami bantu dalam 24 jam.",
+  },
+  {
+    q: "Link CV saya sudah kedaluwarsa atau tidak bisa dibuka, bagaimana cara mendapatkannya kembali?",
+    a: (
+      <>
+        Kamu bisa minta link akses baru kapan saja di halaman{" "}
+        <a href="access.html" className="text-blue-600 hover:underline font-medium">
+          Akses CV
+        </a>
+        . Masukkan email yang kamu pakai saat pembayaran dan kami kirim link baru ke email kamu
+        — gratis, tidak perlu bayar lagi. Link baru berlaku 1 jam, dan CV kamu tetap tersimpan
+        selama masa aktif paket.
+      </>
+    ),
   },
 ];
 

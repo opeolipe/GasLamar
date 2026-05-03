@@ -127,7 +127,8 @@ export async function sendPaymentConfirmationEmail(sessionId, env, options = {})
 
       <p style="font-size:13px;color:#9CA3AF;margin-bottom:4px">Kamu tidak perlu bayar lagi. CV kamu tetap tersimpan selama masa aktif.</p>
       <p style="font-size:13px;color:#9CA3AF;margin-bottom:4px">Link ini berlaku 1 jam untuk akses pertama.</p>
-      <p style="font-size:13px;color:#9CA3AF;margin-bottom:20px">Setelah dibuka, kamu bisa kembali kapan saja selama ${validityText} (sesuai paket).</p>
+      <p style="font-size:13px;color:#9CA3AF;margin-bottom:4px">Setelah dibuka, kamu bisa kembali kapan saja selama ${validityText} (sesuai paket).</p>
+      <p style="font-size:13px;color:#9CA3AF;margin-bottom:20px">Link kedaluwarsa? Minta link baru kapan saja di <a href="${frontendBaseUrl(env)}/access" style="color:#1B4FE8">${frontendBaseUrl(env).replace('https://', '')}/access</a></p>
 
       <p style="font-size:13px;color:#9CA3AF">Butuh bantuan? <a href="mailto:support@gaslamar.com" style="color:#1B4FE8">support@gaslamar.com</a></p>
     </div>`;
@@ -249,7 +250,8 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
 
       <p style="font-size:13px;color:#9CA3AF;margin-bottom:4px">Kamu tidak perlu bayar lagi. CV kamu tetap tersimpan selama masa aktif.</p>
       <p style="font-size:13px;color:#9CA3AF;margin-bottom:4px">Link ini berlaku 1 jam untuk akses pertama.</p>
-      <p style="font-size:13px;color:#9CA3AF;margin-bottom:20px">Setelah dibuka, kamu bisa kembali kapan saja selama ${validityText} (sesuai paket).</p>
+      <p style="font-size:13px;color:#9CA3AF;margin-bottom:4px">Setelah dibuka, kamu bisa kembali kapan saja selama ${validityText} (sesuai paket).</p>
+      <p style="font-size:13px;color:#9CA3AF;margin-bottom:20px">Link kedaluwarsa? Minta link baru kapan saja di <a href="${frontendBaseUrl(env)}/access" style="color:#1B4FE8">${frontendBaseUrl(env).replace('https://', '')}/access</a></p>
 
       <p style="font-size:13px;color:#9CA3AF">Butuh bantuan? <a href="mailto:support@gaslamar.com" style="color:#1B4FE8">support@gaslamar.com</a></p>
     </div>`;
