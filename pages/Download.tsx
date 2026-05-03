@@ -63,7 +63,12 @@ export default function Download() {
   // ── Redirect guard ────────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (!delivery && !localStorage.getItem('gaslamar_session')) {
+    // Check both storages: after credits are exhausted useGenerateCV removes
+    // localStorage.gaslamar_session, but the session stays in sessionStorage for
+    // the current tab. Checking only localStorage causes a spurious redirect.
+    const sessionInStorage = localStorage.getItem('gaslamar_session')
+                          ?? sessionStorage.getItem('gaslamar_session');
+    if (!delivery && !sessionInStorage) {
       window.location.replace('access.html?expired=1');
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
