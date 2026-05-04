@@ -18,6 +18,13 @@ import { handleInterviewKit }  from './handlers/interviewKit.js';
 import { handleBypassPayment } from './handlers/bypassPayment.js';
 import { handleGetResult } from './handlers/getResult.js';
 
+// CSRF defence: this worker and the Pages frontend are on different origins
+// (workers.dev vs gaslamar.com). All state-mutating requests use
+// credentials:'include', and getCorsHeaders() only reflects back allowed origins.
+// Any future endpoint that mutates state MUST go through getCorsHeaders() so
+// cross-origin requests from unlisted origins receive no CORS headers and are
+// blocked by the browser. Do NOT add bare jsonResponse() calls to POST routes
+// without verifying the Origin header first.
 export async function route(request, env, ctx) {
   const url = new URL(request.url);
   const { pathname } = url;

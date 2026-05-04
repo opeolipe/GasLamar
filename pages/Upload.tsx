@@ -94,6 +94,12 @@ export default function Upload() {
       } else if (reason === 'missing_data') {
         history.replaceState(null, '', location.pathname);
         newNotices.push({ type: 'warning', text: 'Data sesi tidak lengkap. Silakan upload CV kamu untuk memulai.' });
+      } else if (reason === 'interrupted') {
+        history.replaceState(null, '', location.pathname);
+        newNotices.push({ type: 'warning', text: '⚠️ Analisis terputus — silakan upload ulang CV kamu untuk memulai.' });
+      } else if (reason === 'session_expired') {
+        history.replaceState(null, '', location.pathname);
+        newNotices.push({ type: 'info', text: '⏰ Sesi analisis sudah berakhir. Silakan upload CV kembali untuk analisis baru.' });
       }
 
       const uploadErr = sessionStorage.getItem('gaslamar_upload_error');
