@@ -35,6 +35,15 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
     return () => el.removeEventListener('input', onNativeInput);
   }, []);
 
+  // Resize height when value changes via React state (URL fetcher, session restore) —
+  // these don't fire the native 'input' event so the listener above misses them.
+  useEffect(() => {
+    const el = internalRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value]);
+
   const textareaCls = [
     'block w-full max-w-full min-h-[160px] rounded-2xl border bg-transparent p-5',
     'text-slate-900 resize-y outline-none text-sm font-sans transition-all',
