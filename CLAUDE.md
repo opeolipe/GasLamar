@@ -1,7 +1,7 @@
 # GasLamar — Claude Code Instructions
 
 **Stack:** Cloudflare Workers (API) + Cloudflare Pages (frontend) + `claude-sonnet-4-6` (prod analyze) / `claude-haiku-4-5-20251001` (staging analyze + all tailoring) + Mayar (payment) + Cloudflare KV  
-**Pages flow:** `index.html` → `upload.html` → `analyzing.html` → `hasil.html` → `download.html`  
+**Pages flow:** `index.html` → `upload.html` → `analyzing.html` → `hasil.html` → `download.html` (session expired/lost → `access.html`)  
 **URLs:** prod `gaslamar.com` / worker `gaslamar-worker.carolineratuolivia.workers.dev` / staging `gaslamar-worker-staging.carolineratuolivia.workers.dev`
 
 ---
@@ -37,6 +37,10 @@ Routes → `router.js`. Handlers → `worker/src/handlers/<endpoint>.js`. Pipeli
 | `js/config.js` | Staging vs prod worker URL selected by hostname at runtime |
 | `js/hasil-guard.js` | NOT bundled — must stay as synchronous inline `<script>` or auth flash occurs |
 | `worker/src/rewriteGuard.js` | Hallucination guard — called by `postProcessCV()` in `tailoring.js`; severity-grades every rewritten bullet (high/medium/low fallback). Adding/removing patterns here affects both ID and EN rewrites |
+| `worker/src/handlers/fetchJobUrl.js` | Fetches JD from a user-supplied URL. Strict domain allowlist (LinkedIn, Indeed, Glassdoor, etc.) — suffix-checked to block look-alikes. URL shorteners are intentionally blocked. |
+| `worker/src/handlers/exchangeToken.js` | Exchanges a single-use `email_token` (128-bit hex, 1h TTL) for a session cookie — enables download links in emails to work cross-device. Token deleted on success. |
+| `worker/src/handlers/interviewKit.js` | Generates interview prep kit (questions, email template, WhatsApp opener, elevator pitch). Cache-first: `kit_<session_id>_<language>` 24h. No caching on first call — only stored after a successful generation. |
+| `router.js` (inline) | `POST /feedback` (user survey, fire-and-forget) and `POST /api/log` (client error logging) have no handler files — logic lives inline in `router.js`. |
 
 ---
 
@@ -59,9 +63,11 @@ Session TTL: 7 days (coba/single), 30 days (3pack/jobhunt).
 
 ```bash
 # Worker
-cd worker && npm test           # vitest (all tests must pass)
-cd worker && npm run dev        # local dev
-cd worker && npm run tail       # prod log stream
+cd worker && npm test              # vitest (all tests must pass)
+cd worker && npm run test:watch    # vitest watch mode
+cd worker && npm run dev           # local dev
+cd worker && npm run tail          # prod log stream
+cd worker && npm run deploy:prod   # deploy to production (NOT bare `npm run deploy` — that targets sandbox)
 
 # Frontend (repo root)
 npm run build                   # vendor + JS bundles + React + Tailwind
@@ -69,6 +75,7 @@ npm run build:js                # esbuild bundles only
 npm run build:react             # React build only
 npm run build:vendor            # vendor libs + Tailwind only
 npm run dev                     # watch mode
+npm start                       # serve frontend locally on :3000
 ```
 
 ---
@@ -89,6 +96,18 @@ npm run dev                     # watch mode
 - **Double-gen race** — session lock `lock_<id>` TTL 120s. Retrying within that window will silently block.
 - **Wrong env deployed** — `wrangler deploy` without `--env production` goes to sandbox, not prod.
 - **Auth flash** — `js/hasil-guard.js` must stay as synchronous inline `<script>`. If it gets deferred/bundled, unauthenticated content flashes.
+- **Silent email skip** — `RESEND_API_KEY` is optional. If absent, all email sending silently no-ops with no error thrown. Useful for local dev but easy to miss in staging.
+- **Double-invoice race** — `invoice_lock_<cv_text_key>` TTL 120s prevents duplicate invoices for the same CV upload. Mirrors the double-gen lock pattern.
+
+---
+
+## Workflow
+
+- **Non-trivial tasks (3+ steps):** write a plan to `tasks/todo.md` with checkable items before starting. Re-plan if something goes sideways — don't keep pushing.
+- **Verification:** never mark a task complete without proving it works. Run `cd worker && npm test`, check logs, diff behavior.
+- **Bug reports:** fix autonomously. Read logs/errors, find root cause, resolve. No hand-holding needed.
+- **After any correction:** append the pattern to `tasks/lessons.md` to prevent recurrence.
+- **Minimal impact:** only touch what's necessary. If a fix feels hacky, find the elegant solution.
 
 ---
 
@@ -97,6 +116,17 @@ npm run dev                     # watch mode
 - CI: push to `main` → test → deploy worker → build frontend → deploy pages
 - Staging: `staging.gaslamar.pages.dev` → staging worker (Mayar sandbox)
 - Health check: `GET https://gaslamar-worker.carolineratuolivia.workers.dev/health`
+
+---
+
+## Reference Docs
+
+| File | Purpose |
+|---|---|
+| `SETUP.md` | Dev onboarding: KV setup, secrets, deploy steps |
+| `SECURITY.md` | Authorization model, session security, tier enforcement, data flow |
+| `DESIGN.md` | Color tokens, typography, spacing, decoration philosophy |
+| `AGENTS.md` | Architecture overview, pipeline summary for agent use |
 
 ---
 

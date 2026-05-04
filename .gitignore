@@ -7,3 +7,4 @@ dist/
 .gstack/
 test-results/
 playwright-report/
+tasks/todo.md
