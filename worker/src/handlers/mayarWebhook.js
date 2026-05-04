@@ -25,8 +25,7 @@ export async function handleMayarWebhook(request, env, ctx) {
 
   // Extract session ID from Mayar's invoice data.
   // Mayar sends the invoice data — find our session by:
-  //   1. KV secondary index `mayar_session_{invoiceId}` (new path — no session in URL)
-  //   2. ?session= in redirect_url (backward compat for invoices created before this change)
+  //   KV secondary index `mayar_session_{invoiceId}` (set by /create-payment)
   const invoiceId = payload.id || payload.invoice_id || payload.data?.id;
   const redirectUrl = payload.redirect_url || payload.data?.redirect_url || '';
   const status = payload.status || payload.data?.status;
@@ -55,17 +54,6 @@ export async function handleMayarWebhook(request, env, ctx) {
       sessionId = sid;
     } else if (sid !== undefined) {
       console.error(JSON.stringify({ event: 'webhook_invalid_session_id_format', invoiceId, sid: String(sid).slice(0, 20) }));
-    }
-  }
-
-  // Fallback: extract ?session= from redirect URL (invoices created before cookie migration)
-  if (!sessionId && redirectUrl) {
-    try {
-      const url = new URL(redirectUrl);
-      const legacy = url.searchParams.get('session');
-      if (legacy && legacy.startsWith('sess_')) sessionId = legacy;
-    } catch (e) {
-      // ignore
     }
   }
 
