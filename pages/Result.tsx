@@ -788,6 +788,8 @@ export default function Result() {
               <a href="privacy.html" className="text-slate-400 no-underline hover:underline mx-2">Kebijakan Privasi</a>
               ·
               <a href="terms.html" className="text-slate-400 no-underline hover:underline mx-2">Syarat Layanan</a>
+              ·
+              <a href="accessibility.html" className="text-slate-400 no-underline hover:underline mx-2">Aksesibilitas</a>
             </footer>
           </>
         )}
