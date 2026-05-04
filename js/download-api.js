@@ -108,8 +108,8 @@ async function poll(sessionId) {
       clearClientSessionData(sessionId);
       showSessionError(
         'Sesi Tidak Ditemukan',
-        'Sesi pembayaran tidak ditemukan. Jika kamu baru saja membayar, coba refresh halaman ini \u2014 ' +
-        'kadang butuh 1\u20132 menit. Jika masalah berlanjut, hubungi support@gaslamar.com dengan bukti pembayaran.',
+        'Sesi tidak ditemukan atau sudah kedaluwarsa. Cek email kamu untuk link download CV, ' +
+        'atau hubungi support@gaslamar.com dengan bukti pembayaran.',
         false
       );
       return;
