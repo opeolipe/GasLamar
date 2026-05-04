@@ -92,6 +92,16 @@ npm run dev                     # watch mode
 
 ---
 
+## Workflow
+
+- **Non-trivial tasks (3+ steps):** write a plan to `tasks/todo.md` with checkable items before starting. Re-plan if something goes sideways — don't keep pushing.
+- **Verification:** never mark a task complete without proving it works. Run `cd worker && npm test`, check logs, diff behavior.
+- **Bug reports:** fix autonomously. Read logs/errors, find root cause, resolve. No hand-holding needed.
+- **After any correction:** append the pattern to `tasks/lessons.md` to prevent recurrence.
+- **Minimal impact:** only touch what's necessary. If a fix feels hacky, find the elegant solution.
+
+---
+
 ## Deploy
 
 - CI: push to `main` → test → deploy worker → build frontend → deploy pages
