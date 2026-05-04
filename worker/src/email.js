@@ -1,68 +1,13 @@
 import { getSession } from './sessions.js';
 import { hexToken } from './utils.js';
+import { generateInterviewKitPdf } from './interviewKitPdf.js';
 
-function toBase64(text) {
-  const bytes = new TextEncoder().encode(text);
+function toBase64(bytes) {
   let binary = '';
   for (let i = 0; i < bytes.length; i++) {
     binary += String.fromCharCode(bytes[i]);
   }
   return btoa(binary);
-}
-
-function formatInterviewKitText(kit) {
-  const lines = [];
-  lines.push('INTERVIEW KIT — GasLamar');
-  lines.push('='.repeat(50));
-  lines.push('');
-
-  if (kit.tell_me_about_yourself) {
-    lines.push('PERKENALAN DIRI (Tell Me About Yourself)');
-    lines.push('-'.repeat(40));
-    lines.push(kit.tell_me_about_yourself);
-    lines.push('');
-  }
-
-  if (kit.email_template) {
-    lines.push('TEMPLATE EMAIL LAMARAN');
-    lines.push('-'.repeat(40));
-    lines.push(`Subject: ${kit.email_template.subject}`);
-    lines.push('');
-    lines.push(kit.email_template.body);
-    lines.push('');
-  }
-
-  if (kit.whatsapp_message) {
-    lines.push('PESAN WHATSAPP');
-    lines.push('-'.repeat(40));
-    lines.push(kit.whatsapp_message);
-    lines.push('');
-  }
-
-  if (Array.isArray(kit.interview_questions) && kit.interview_questions.length > 0) {
-    lines.push('PERTANYAAN INTERVIEW');
-    lines.push('-'.repeat(40));
-    kit.interview_questions.forEach((q, i) => {
-      const qText = q.question_id || q.question_en || '';
-      lines.push(`${i + 1}. ${qText}`);
-      if (q.question_id && q.question_en) lines.push(`   (${q.question_en})`);
-      lines.push('');
-      lines.push('   Contoh jawaban:');
-      lines.push(`   ${q.sample_answer}`);
-      lines.push('');
-    });
-  }
-
-  if (Array.isArray(kit.job_insights) && kit.job_insights.length > 0) {
-    lines.push('KATA KUNCI JOB DESCRIPTION');
-    lines.push('-'.repeat(40));
-    kit.job_insights.forEach(ji => {
-      lines.push(`- ${ji.phrase}: ${ji.meaning}`);
-    });
-    lines.push('');
-  }
-
-  return lines.join('\n');
 }
 
 function escapeHtml(str) {
@@ -231,14 +176,15 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
   const session = await getSession(env, sessionId);
   if (!session || !session.email) return;
 
-  // Try to attach the pre-generated interview kit (non-critical)
+  // Try to attach the pre-generated interview kit as PDF (non-critical)
   let kitAttachment = null;
   try {
     const kit = await env.GASLAMAR_SESSIONS.get(`kit_${sessionId}_id`, { type: 'json' });
     if (kit) {
+      const pdfBytes = await generateInterviewKitPdf(kit);
       kitAttachment = {
-        filename: 'interview-kit.txt',
-        content: toBase64(formatInterviewKitText(kit)),
+        filename: 'interview-kit.pdf',
+        content: toBase64(pdfBytes),
       };
     }
   } catch {
@@ -277,7 +223,7 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
   const kitNoteHtml = kitAttachment
     ? `<div style="background:#F0F9FF;border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:13px;color:#0369A1">
         <p style="margin:0 0 4px;font-weight:600;color:#0C4A6E">Interview Kit terlampir</p>
-        <p style="margin:0">Email ini dilengkapi file <strong>interview-kit.txt</strong> berisi pertanyaan interview, contoh jawaban, template email lamaran, pesan WhatsApp, dan perkenalan diri yang disesuaikan dengan posisi yang kamu lamar.</p>
+        <p style="margin:0">Email ini dilengkapi file <strong>interview-kit.pdf</strong> berisi pertanyaan interview, contoh jawaban, template email lamaran, pesan WhatsApp, dan perkenalan diri yang disesuaikan dengan posisi yang kamu lamar.</p>
       </div>`
     : '';
 
