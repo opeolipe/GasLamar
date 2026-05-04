@@ -278,8 +278,6 @@ function renderRewritePreview(rekomendasi, gap) {
       + rewrite lengkap CV dalam Bahasa Indonesia &amp; Inggris
     </div>`;
 
-  document.getElementById('preview-lock-text').textContent =
-    `🔒 Lihat semua ${totalCount} perbaikan + CV rewrite lengkap (ID &amp; EN) setelah pilih paket`;
   document.getElementById('preview-lock-text').innerHTML =
     `🔒 Lihat semua ${totalCount} perbaikan + CV rewrite lengkap (ID &amp; EN) setelah pilih paket`;
 

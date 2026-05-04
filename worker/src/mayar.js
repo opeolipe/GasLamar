@@ -128,6 +128,15 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
 export async function verifyMayarWebhook(request, env) {
   const body = await request.text();
   const secret = env.MAYAR_WEBHOOK_SECRET;
+
+  // Fail-closed: if ENVIRONMENT is not explicitly set in the deploy, block all webhooks.
+  // An undefined ENVIRONMENT would otherwise evaluate as non-production (isSandbox=true)
+  // and bypass HMAC when no secret is configured, accepting unauthenticated payloads.
+  if (env.ENVIRONMENT === undefined) {
+    console.error(JSON.stringify({ event: 'webhook_misconfigured', reason: 'ENVIRONMENT_not_set' }));
+    return { valid: false, body };
+  }
+
   const isSandbox = env.ENVIRONMENT !== 'production';
 
   // Sandbox bypass: skip HMAC verification for non-production environments when
