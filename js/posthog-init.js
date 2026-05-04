@@ -11,6 +11,9 @@ posthog.init('phc_DmeD8QdyUMMGwZ4GUKnDurFXrquR3APqUKrcEuDbgy3X',{
   disable_surveys:true,
   disable_web_experiments:true,
   disable_session_recording:true,
+  // Prevent PostHog from injecting dynamic <script> elements (would violate CSP script-src).
+  // All PostHog JS is loaded via the static <script src="…/array.js"> tag instead.
+  disable_external_dependency_loading:true,
   // Strip sensitive URL params (session token, email token) from all captured URLs.
   sanitize_properties: function(props) {
     var STRIP = ['session', 'token'];
