@@ -1128,9 +1128,13 @@ describe('POST /webhook/mayar', () => {
     // This is the primary failure scenario: Mayar sandbox omits the signature header entirely.
     // Before the fix, this returned 401 before the sandbox bypass could run.
     const sessionId = await seedSession('pending', 'single');
+    const invoiceId = 'inv_sandbox_bypass_test';
+    await env.GASLAMAR_SESSIONS.put(`mayar_session_${invoiceId}`, JSON.stringify({ session_id: sessionId }), { expirationTtl: 604800 });
+
     const payload = JSON.stringify({
       status: 'paid',
-      redirect_url: `https://gaslamar.com/download.html?session=${encodeURIComponent(sessionId)}`,
+      id: invoiceId,
+      redirect_url: 'https://gaslamar.com/download.html',
     });
 
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {

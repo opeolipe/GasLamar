@@ -1,5 +1,14 @@
 import { getSession } from './sessions.js';
 import { hexToken } from './utils.js';
+import { generateInterviewKitPdf } from './interviewKitPdf.js';
+
+function toBase64(bytes) {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
 
 function escapeHtml(str) {
   return String(str)
@@ -167,6 +176,21 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
   const session = await getSession(env, sessionId);
   if (!session || !session.email) return;
 
+  // Try to attach the pre-generated interview kit as PDF (non-critical)
+  let kitAttachment = null;
+  try {
+    const kit = await env.GASLAMAR_SESSIONS.get(`kit_${sessionId}_id`, { type: 'json' });
+    if (kit) {
+      const pdfBytes = await generateInterviewKitPdf(kit);
+      kitAttachment = {
+        filename: 'interview-kit.pdf',
+        content: toBase64(pdfBytes),
+      };
+    }
+  } catch {
+    // proceed without attachment
+  }
+
   // Single-use token — protects the session ID from email exposure
   const emailToken = await createEmailToken(env, sessionId);
   const downloadUrl = `${frontendBaseUrl(env)}/download.html?token=${emailToken}`;
@@ -196,6 +220,13 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
       </div>`
     : '';
 
+  const kitNoteHtml = kitAttachment
+    ? `<div style="background:#F0F9FF;border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:13px;color:#0369A1">
+        <p style="margin:0 0 4px;font-weight:600;color:#0C4A6E">Interview Kit terlampir</p>
+        <p style="margin:0">Email ini dilengkapi file <strong>interview-kit.pdf</strong> berisi pertanyaan interview, contoh jawaban, template email lamaran, pesan WhatsApp, dan perkenalan diri yang disesuaikan dengan posisi yang kamu lamar.</p>
+      </div>`
+    : '';
+
   const html = `
     <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#1F2937">
       <div style="margin-bottom:24px">
@@ -216,6 +247,8 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
       </div>
 
       ${gapsHtml}
+
+      ${kitNoteHtml}
 
       <div style="background:#F8FAFC;border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:13px;color:#475569">
         <p style="margin:0 0 4px;font-weight:600;color:#1E293B">Sekarang CV kamu:</p>
@@ -267,6 +300,7 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
       to: [session.email],
       subject: `Skor CV kamu: ${scoreNum}/100 — ini yang sudah diperbaiki`,
       html,
+      ...(kitAttachment && { attachments: [kitAttachment] }),
     }),
   });
   if (!cvRes.ok) {
