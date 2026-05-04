@@ -1069,11 +1069,14 @@ describe('POST /webhook/mayar', () => {
 
   it('updates session to paid for valid webhook (sandbox bypass)', async () => {
     const sessionId = await seedSession('pending', 'single');
+    const invoiceId = 'inv_test_paid_1';
+    await env.GASLAMAR_SESSIONS.put(`mayar_session_${invoiceId}`, JSON.stringify({ session_id: sessionId }), { expirationTtl: 604800 });
 
     // In sandbox mode (no MAYAR_WEBHOOK_SECRET set), webhook passes HMAC check
     const payload = JSON.stringify({
       status: 'paid',
-      redirect_url: `https://gaslamar.com/download.html?session=${encodeURIComponent(sessionId)}`,
+      id: invoiceId,
+      redirect_url: 'https://gaslamar.com/download.html',
     });
 
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
@@ -1091,10 +1094,13 @@ describe('POST /webhook/mayar', () => {
 
   it('ignores non-paid statuses (does not update session)', async () => {
     const sessionId = await seedSession('pending', 'single');
+    const invoiceId = 'inv_test_expired_1';
+    await env.GASLAMAR_SESSIONS.put(`mayar_session_${invoiceId}`, JSON.stringify({ session_id: sessionId }), { expirationTtl: 604800 });
 
     const payload = JSON.stringify({
       status: 'expired',
-      redirect_url: `https://gaslamar.com/download.html?session=${encodeURIComponent(sessionId)}`,
+      id: invoiceId,
+      redirect_url: 'https://gaslamar.com/download.html',
     });
 
     await SELF.fetch('https://gaslamar.com/webhook/mayar', {
@@ -1252,6 +1258,7 @@ describe('Multi-credit session — total_credits preserved through updateSession
   it('webhook: total_credits=3 preserved after status → paid', async () => {
     const WEBHOOK_SECRET = 'test_webhook_secret_key';
     const sessionId = `sess_${crypto.randomUUID()}`;
+    const invoiceId = 'inv_multi1';
     await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
       cv_text: 'CV text',
       job_desc: JOB_DESC,
@@ -1259,13 +1266,14 @@ describe('Multi-credit session — total_credits preserved through updateSession
       status: 'pending',
       credits_remaining: 3,
       total_credits: 3,
-      mayar_invoice_id: 'inv_multi1',
+      mayar_invoice_id: invoiceId,
       created_at: Date.now(),
     }), { expirationTtl: 604800 });
+    await env.GASLAMAR_SESSIONS.put(`mayar_session_${invoiceId}`, JSON.stringify({ session_id: sessionId }), { expirationTtl: 604800 });
 
     const payload = JSON.stringify({
       status: 'paid',
-      data: { redirect_url: `https://gaslamar.com/download.html?session=${sessionId}` },
+      data: { id: invoiceId, redirect_url: 'https://gaslamar.com/download.html' },
     });
     const sig = await hmacSign(WEBHOOK_SECRET, payload);
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
