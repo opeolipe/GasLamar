@@ -41,13 +41,21 @@ export default function Home() {
         <a href="index.html" className="font-extrabold text-lg text-slate-900 no-underline tracking-tight min-h-[44px] inline-flex items-center">
           GasLamar
         </a>
-        <a
-          href="upload.html"
-          className="inline-flex items-center min-h-[44px] text-white font-bold text-sm px-5 py-[10px] rounded-full no-underline transition-all hover:-translate-y-[1px]"
-          style={{ background: "linear-gradient(180deg,#2563eb,#1d4ed8)", boxShadow: SHADOW }}
-        >
-          Cek Peluang Saya
-        </a>
+        <div className="flex items-center gap-2">
+          <a
+            href="access.html"
+            className="inline-flex items-center min-h-[44px] text-slate-600 hover:text-slate-900 font-medium text-sm px-3 no-underline transition-colors"
+          >
+            Akses CV
+          </a>
+          <a
+            href="upload.html"
+            className="inline-flex items-center min-h-[44px] text-white font-bold text-sm px-5 py-[10px] rounded-full no-underline transition-all hover:-translate-y-[1px]"
+            style={{ background: "linear-gradient(180deg,#2563eb,#1d4ed8)", boxShadow: SHADOW }}
+          >
+            Cek Peluang Saya
+          </a>
+        </div>
       </nav>
 
       <main id="main-content" className="max-w-screen-xl mx-auto px-6">

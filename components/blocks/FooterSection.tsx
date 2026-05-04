@@ -7,6 +7,13 @@ export default function FooterSection() {
       </p>
       <p className="mt-2 space-x-2">
         <a
+          href="access.html"
+          className="text-slate-500 hover:text-slate-800 underline-offset-2 hover:underline font-medium"
+        >
+          Akses CV
+        </a>
+        <span className="text-slate-300" aria-hidden="true">•</span>
+        <a
           href="https://gaslamar.com/privacy.html"
           className="text-slate-400 hover:text-slate-700 underline-offset-2 hover:underline"
         >

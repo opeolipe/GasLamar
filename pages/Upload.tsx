@@ -70,38 +70,50 @@ export default function Upload() {
       try { sessionStorage.setItem('gaslamar_tier', tierParam); } catch (_) {}
     }
 
-    const reason = params.get('reason');
-    if (reason === 'session_expired') {
-      history.replaceState(null, '', location.pathname);
-      newNotices.push({ type: 'info', text: '⏰ Sesi analisis sudah berakhir (berlaku 2 jam). Silakan upload CV kembali.' });
-    } else if (reason === 'no_session') {
-      history.replaceState(null, '', location.pathname);
-      newNotices.push({ type: 'info', text: 'Sesi tidak ditemukan. Silakan mulai upload CV dari sini.' });
-    } else if (reason === 'missing_data') {
-      history.replaceState(null, '', location.pathname);
-      newNotices.push({ type: 'warning', text: 'Data sesi tidak lengkap. Silakan upload CV kamu untuk memulai.' });
-    } else if (reason === 'expired') {
-      history.replaceState(null, '', location.pathname);
-      newNotices.push({ type: 'info', text: 'Sesi telah berakhir. Silakan upload CV kembali.' });
-    }
+    // Paid session takes priority — redirect the user straight to download.html
+    // instead of showing stale analysis notices that point to hasil.html.
+    // gaslamar_scoring is cleared by useGenerateCV after generation, so the
+    // analysis notice would link to a page that immediately bounces back with
+    // reason=no_session once scoring data is gone.
+    const paidSessionId = sessionStorage.getItem('gaslamar_session') ?? localStorage.getItem('gaslamar_session') ?? '';
+    const hasPaidSession = paidSessionId.startsWith('sess_');
 
-    const uploadErr = sessionStorage.getItem('gaslamar_upload_error');
-    if (uploadErr) {
-      sessionStorage.removeItem('gaslamar_upload_error');
-      newNotices.push({ type: 'error', text: '⚠️ Analisis gagal: ' + uploadErr });
-    }
+    if (hasPaidSession) {
+      const reason = params.get('reason');
+      if (reason) history.replaceState(null, '', location.pathname);
+      newNotices.push({
+        type: 'info',
+        text: '📁 Kamu sudah upload CV dan menyelesaikan pembayaran.',
+        link: { href: 'download.html', label: 'Lanjutkan ke download →' },
+      });
+    } else {
+      const reason = params.get('reason');
+      if (reason === 'no_session') {
+        history.replaceState(null, '', location.pathname);
+        newNotices.push({ type: 'info', text: 'Sesi tidak ditemukan. Silakan mulai upload CV dari sini.' });
+      } else if (reason === 'missing_data') {
+        history.replaceState(null, '', location.pathname);
+        newNotices.push({ type: 'warning', text: 'Data sesi tidak lengkap. Silakan upload CV kamu untuk memulai.' });
+      }
 
-    const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
-    if (analyzeTime && sessionStorage.getItem('gaslamar_scoring')) {
-      const remaining = 7200 - Math.floor((Date.now() - analyzeTime) / 1000);
-      if (remaining > 0) {
-        const h = Math.floor(remaining / 3600);
-        const m = Math.floor((remaining % 3600) / 60);
-        newNotices.push({
-          type: 'info',
-          text: `⏰ Kamu masih punya hasil analisis aktif (${h > 0 ? `${h}j ${m}m` : `${m} menit`} tersisa).`,
-          link: { href: 'hasil.html', label: 'Lihat hasil →' },
-        });
+      const uploadErr = sessionStorage.getItem('gaslamar_upload_error');
+      if (uploadErr) {
+        sessionStorage.removeItem('gaslamar_upload_error');
+        newNotices.push({ type: 'error', text: '⚠️ Analisis gagal: ' + uploadErr });
+      }
+
+      const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
+      if (analyzeTime && sessionStorage.getItem('gaslamar_scoring')) {
+        const remaining = 7200 - Math.floor((Date.now() - analyzeTime) / 1000);
+        if (remaining > 0) {
+          const h = Math.floor(remaining / 3600);
+          const m = Math.floor((remaining % 3600) / 60);
+          newNotices.push({
+            type: 'info',
+            text: `⏰ Kamu masih punya hasil analisis aktif (${h > 0 ? `${h}j ${m}m` : `${m} menit`} tersisa).`,
+            link: { href: 'hasil.html', label: 'Lihat hasil →' },
+          });
+        }
       }
     }
 
@@ -273,7 +285,7 @@ export default function Upload() {
 
   return (
     <div
-      className="min-h-screen text-gray-900 font-sans"
+      className="min-h-screen w-full overflow-x-hidden text-gray-900 font-sans"
       style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37,99,235,0.08), transparent)' }}
     >
       {/* Skip link */}
@@ -294,7 +306,7 @@ export default function Upload() {
         </a>
       </nav>
 
-      <main className="max-w-screen-xl mx-auto px-6 pt-14 pb-8" id="upload-form">
+      <main className="w-full max-w-screen-xl mx-auto px-6 pt-14 pb-8" id="upload-form">
 
         {/* Notices */}
         {notices.map((n, i) => (
@@ -322,7 +334,7 @@ export default function Upload() {
 
         {/* ZONE 2: Form panel (soft panel) */}
         <div
-          className="rounded-[24px] px-4 py-6 sm:px-8 sm:py-9 max-w-4xl mx-auto"
+          className="w-full rounded-[24px] px-4 py-6 sm:px-8 sm:py-9 max-w-4xl mx-auto"
           style={{
             background:     'rgba(255,255,255,0.88)',
             border:         '1px solid rgba(148,163,184,0.14)',

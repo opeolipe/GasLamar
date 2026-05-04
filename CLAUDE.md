@@ -1,6 +1,6 @@
 # GasLamar — Claude Code Instructions
 
-**Stack:** Cloudflare Workers (API) + Cloudflare Pages (frontend) + Claude claude-haiku-3-5 + Mayar (payment) + Cloudflare KV  
+**Stack:** Cloudflare Workers (API) + Cloudflare Pages (frontend) + `claude-sonnet-4-6` (prod analyze) / `claude-haiku-4-5-20251001` (staging analyze + all tailoring) + Mayar (payment) + Cloudflare KV  
 **Pages flow:** `index.html` → `upload.html` → `analyzing.html` → `hasil.html` → `download.html`  
 **URLs:** prod `gaslamar.com` / worker `gaslamar-worker.carolineratuolivia.workers.dev` / staging `gaslamar-worker-staging.carolineratuolivia.workers.dev`
 
@@ -16,7 +16,7 @@ LLM = extraction + text only. All scoring is pure JS.
 | 2. ANALYZE | pure JS — skill match, format, archetype, red flags |
 | 3. SCORE | formula → 6D scores, verdict (DO/TIMED/DO NOT), timebox. Cache: `analysis_v6_<hash>` 48h |
 | 4. DIAGNOSE | LLM → human-readable gap explanation only (cannot change scores) |
-| 5. REWRITE | LLM via `/generate` → tailored CV in ID + EN. Cache: `gen_id_<hash>` / `gen_en_<hash>` 48h |
+| 5. REWRITE | LLM via `/generate` → tailored CV in ID + EN. Cache: `gen_id_v3_<hash>` / `gen_en_v3_<hash>` 48h |
 | 6. VALIDATE | schema check + 1 retry after every LLM call |
 
 **Cache bump rule:** when changing a prompt or scoring formula, bump the version suffix in `analysis.js` / `tailoring.js`.
@@ -30,12 +30,13 @@ Routes → `router.js`. Handlers → `worker/src/handlers/<endpoint>.js`. Pipeli
 | File | Why non-obvious |
 |---|---|
 | `worker/src/analysis.js` | Cache key versions live here (`extract_v2`, `analysis_v6`) — bump here, not in pipeline files |
-| `worker/src/tailoring.js` | Gen key prefixes live here (`gen_id_`, `gen_en_`) — bump here when changing tailor prompts |
+| `worker/src/tailoring.js` | Gen key prefixes live here (`gen_id_v3_`, `gen_en_v3_`) — bump here when changing tailor prompts |
 | `worker/src/roleProfiles.js` | Role-weighted scoring inputs — not in `score.js` |
 | `worker/src/pipeline/archetypes.js` | Archetype detection called from `analyze.js` |
 | `worker/src/pipeline/roleInference.js` | Role inference called from `analyze.js` |
 | `js/config.js` | Staging vs prod worker URL selected by hostname at runtime |
 | `js/hasil-guard.js` | NOT bundled — must stay as synchronous inline `<script>` or auth flash occurs |
+| `worker/src/rewriteGuard.js` | Hallucination guard — called by `postProcessCV()` in `tailoring.js`; severity-grades every rewritten bullet (high/medium/low fallback). Adding/removing patterns here affects both ID and EN rewrites |
 
 ---
 

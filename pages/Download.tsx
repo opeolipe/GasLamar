@@ -23,7 +23,7 @@ import GeneratingCV          from '@/components/download/GeneratingCV';
 import DownloadReady         from '@/components/download/DownloadReady';
 import ResendEmail           from '@/components/download/ResendEmail';
 import InterviewKit          from '@/components/download/InterviewKit';
-import ExpiredLinkRecovery   from '@/components/download/ExpiredLinkRecovery';
+
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -63,8 +63,13 @@ export default function Download() {
   // ── Redirect guard ────────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (!delivery && !localStorage.getItem('gaslamar_session')) {
-      window.location.replace('upload.html?reason=expired');
+    // Check both storages: after credits are exhausted useGenerateCV removes
+    // localStorage.gaslamar_session, but the session stays in sessionStorage for
+    // the current tab. Checking only localStorage causes a spurious redirect.
+    const sessionInStorage = localStorage.getItem('gaslamar_session')
+                          ?? sessionStorage.getItem('gaslamar_session');
+    if (!delivery && !sessionInStorage) {
+      window.location.replace('access.html?expired=1');
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -93,6 +98,10 @@ export default function Download() {
 
   useEffect(() => {
     if (session.phase === 'error' && viewRef.current === 'waiting') {
+      if (session.error?.reason === 'expired') {
+        window.location.replace('access.html?expired=1');
+        return;
+      }
       setView('error');
     }
   }, [session.phase]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -356,17 +365,13 @@ export default function Download() {
 
         {view === 'error' && sessionError && !delivery && (
           <div className="max-w-[480px] mx-auto">
-            {sessionError.reason === 'expired' ? (
-              <ExpiredLinkRecovery />
-            ) : (
-              <SessionError
-                title={sessionError.title}
-                message={sessionError.message}
-                retryable={sessionError.retryable}
-                onRetry={generate.error?.retryable ? generate.retryGeneration : undefined}
-                onRestart={() => clearClientSessionData(session.sessionId)}
-              />
-            )}
+            <SessionError
+              title={sessionError.title}
+              message={sessionError.message}
+              retryable={sessionError.retryable}
+              onRetry={generate.error?.retryable ? generate.retryGeneration : undefined}
+              onRestart={() => clearClientSessionData(session.sessionId)}
+            />
           </div>
         )}
 

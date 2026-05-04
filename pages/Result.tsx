@@ -105,12 +105,15 @@ export default function Result() {
     if (saved && TIER_CONFIG[saved]) setSelectedTier(saved);
   }, []);
 
-  // Redirect to upload when session is missing or expired — use replace() to avoid
+  // Redirect when session is missing or expired — use replace() to avoid
   // adding a broken hasil.html entry to browser history.
   useEffect(() => {
     if (!noSession) return;
-    const reason = noSession === 'expired' ? 'session_expired' : 'no_session';
-    window.location.replace(`upload.html?reason=${reason}`);
+    if (noSession === 'expired') {
+      window.location.replace('access.html?expired=1');
+      return;
+    }
+    window.location.replace('upload.html?reason=no_session');
   }, [noSession]);
 
   // Show 5-minute expiry toast once
