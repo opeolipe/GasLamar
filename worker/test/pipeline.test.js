@@ -9,6 +9,7 @@ import { validateExtractOutput, validateDiagnoseOutput } from '../src/pipeline/v
 import { detectArchetype } from '../src/pipeline/archetypes.js';
 import { addsNewNumbers, addsNewClaims, validateRewrite, postProcessCV } from '../src/rewriteGuard.js';
 import { inferRole, applyRoleWeights, computePrimaryIssue, isJDQualityHigh } from '../src/pipeline/roleInference.js';
+import { generateInterviewKitPdf } from '../src/interviewKitPdf.js';
 
 // ── Fixture helpers ───────────────────────────────────────────────────────────
 
@@ -795,5 +796,84 @@ describe('isJDQualityHigh', () => {
       'Kualifikasi tambahan: kemampuan komunikasi lisan dan tulisan yang baik dalam Bahasa Indonesia dan Inggris, ' +
       'mampu bekerja di bawah tekanan, memiliki inisiatif tinggi dan semangat belajar yang kuat.';
     expect(isJDQualityHigh(jd)).toBe(true);
+  });
+});
+
+// ── generateInterviewKitPdf ───────────────────────────────────────────────────
+
+const FULL_KIT = {
+  tell_me_about_yourself: 'Saya adalah software engineer dengan 4 tahun pengalaman di backend development.',
+  email_template: {
+    subject: 'Lamaran Posisi Software Engineer — Budi Santoso',
+    body: 'Kepada Yth. Tim Rekrutmen,\n\nSaya ingin melamar posisi Software Engineer.\n\nHormat saya,\nBudi',
+  },
+  whatsapp_message: 'Halo, saya Budi. Saya tertarik dengan posisi Software Engineer di perusahaan Anda.',
+  interview_questions: [
+    {
+      question_id: 'Ceritakan pengalaman kamu menangani sistem high-traffic.',
+      question_en: 'Tell me about your experience with high-traffic systems.',
+      sample_answer: 'Di PT XYZ, saya memimpin migrasi ke arsitektur microservices yang meningkatkan throughput 3x.',
+    },
+    {
+      question_id: 'Bagaimana kamu menangani konflik dalam tim?',
+      question_en: 'How do you handle team conflicts?',
+      sample_answer: 'Saya selalu mendahulukan komunikasi terbuka dan mencari solusi yang menguntungkan semua pihak.',
+    },
+  ],
+  job_insights: [
+    { phrase: 'high-traffic', meaning: 'Sistem yang menangani jutaan request per hari.' },
+    { phrase: 'microservices', meaning: 'Arsitektur layanan yang terdistribusi dan independen.' },
+  ],
+};
+
+describe('generateInterviewKitPdf', () => {
+  it('returns a Uint8Array starting with PDF magic bytes', async () => {
+    const bytes = await generateInterviewKitPdf(FULL_KIT);
+    expect(bytes).toBeInstanceOf(Uint8Array);
+    // PDF magic bytes: %PDF
+    expect(bytes[0]).toBe(0x25); // %
+    expect(bytes[1]).toBe(0x50); // P
+    expect(bytes[2]).toBe(0x44); // D
+    expect(bytes[3]).toBe(0x46); // F
+  });
+
+  it('produces a non-trivial file (> 1KB)', async () => {
+    const bytes = await generateInterviewKitPdf(FULL_KIT);
+    expect(bytes.length).toBeGreaterThan(1024);
+  });
+
+  it('handles a minimal kit with only one section', async () => {
+    const bytes = await generateInterviewKitPdf({ tell_me_about_yourself: 'Saya seorang desainer.' });
+    expect(bytes).toBeInstanceOf(Uint8Array);
+    expect(bytes[0]).toBe(0x25);
+  });
+
+  it('handles an empty kit without throwing', async () => {
+    const bytes = await generateInterviewKitPdf({});
+    expect(bytes).toBeInstanceOf(Uint8Array);
+  });
+
+  it('handles non-Latin-1 characters (em-dash, smart quotes) without throwing', async () => {
+    const bytes = await generateInterviewKitPdf({
+      tell_me_about_yourself: 'Pengalaman saya — "luar biasa" — selama 3–5 tahun.',
+      whatsapp_message: 'Halo… saya tertarik’',
+    });
+    expect(bytes).toBeInstanceOf(Uint8Array);
+    expect(bytes[0]).toBe(0x25);
+  });
+
+  it('handles long text that requires multiple pages', async () => {
+    const longAnswer = 'Ini adalah jawaban yang sangat panjang. '.repeat(80);
+    const kit = {
+      ...FULL_KIT,
+      interview_questions: Array.from({ length: 5 }, (_, i) => ({
+        question_id: `Pertanyaan nomor ${i + 1}`,
+        question_en: `Question number ${i + 1}`,
+        sample_answer: longAnswer,
+      })),
+    };
+    const bytes = await generateInterviewKitPdf(kit);
+    expect(bytes).toBeInstanceOf(Uint8Array);
+    expect(bytes[0]).toBe(0x25);
   });
 });

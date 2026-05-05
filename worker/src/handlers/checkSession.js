@@ -6,9 +6,10 @@ import { getSessionIdFromCookie } from '../cookies.js';
 export async function handleCheckSession(request, env) {
   const url = new URL(request.url);
 
-  // Cookie is the primary source. The ?session= query param is kept as a
-  // backward-compatibility fallback for existing links/bookmarks during
-  // the transition period. New clients never include ?session= in the URL.
+  // Cookie is the primary source. The ?session= query param is a backward-
+  // compatibility fallback for old links/bookmarks. Session IDs in URLs leak
+  // into browser history, Referer headers, and CF access logs — this fallback
+  // should be removed once all pre-cookie links have expired (after 2026-06-01).
   const sessionId = getSessionIdFromCookie(request) || url.searchParams.get('session');
 
   if (!sessionId || !sessionId.startsWith('sess_')) {
