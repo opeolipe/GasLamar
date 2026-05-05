@@ -1,6 +1,6 @@
 import { jsonResponse } from '../cors.js';
-import { logError, log } from '../utils.js';
-import { getSession, getSessionTtl, updateSession } from '../sessions.js';
+import { logError } from '../utils.js';
+import { getSession, getSessionTtl } from '../sessions.js';
 import { getSessionIdFromCookie } from '../cookies.js';
 
 export async function handleCheckSession(request, env) {
@@ -21,18 +21,6 @@ export async function handleCheckSession(request, env) {
   if (!session) {
     logError('check_session_not_found', { session_id: sessionId });
     return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa.', reason: 'expired' }, 404, request, env);
-  }
-
-  // Dev bypass: ?dev=1 on non-production upgrades a pending session to paid so
-  // the download page can proceed without a real Mayar webhook.
-  if (
-    env.ENVIRONMENT !== 'production' &&
-    url.searchParams.get('dev') === '1' &&
-    session.status === 'pending'
-  ) {
-    await updateSession(env, sessionId, { status: 'paid', paid_at: Date.now() });
-    session.status = 'paid';
-    log('dev_bypass_payment', { session_id: sessionId });
   }
 
   const expiresAt = session.created_at

@@ -15,7 +15,6 @@ import { handleExchangeToken }  from './handlers/exchangeToken.js';
 import { handleResendEmail }    from './handlers/resendEmail.js';
 import { handleResendAccess }  from './handlers/resendAccess.js';
 import { handleInterviewKit }  from './handlers/interviewKit.js';
-import { handleBypassPayment } from './handlers/bypassPayment.js';
 import { handleGetResult } from './handlers/getResult.js';
 
 // CSRF defence: this worker and the Pages frontend are on different origins
@@ -102,10 +101,6 @@ export async function route(request, env, ctx) {
 
   if (method === 'POST' && (pathname === '/interview-kit' || pathname === '/api/interview-kit')) {
     return handleInterviewKit(request, env);
-  }
-
-  if (method === 'POST' && pathname === '/bypass-payment') {
-    return handleBypassPayment(request, env);
   }
 
   if (method === 'POST' && pathname === '/api/log') {
