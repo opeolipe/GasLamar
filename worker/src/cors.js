@@ -30,6 +30,7 @@ export function getCorsHeaders(request, env) {
 
 const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
 };
 
 export function corsResponse(body, status, headers, request, env) {

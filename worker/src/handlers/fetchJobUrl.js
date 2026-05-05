@@ -153,20 +153,59 @@ export async function handleFetchJobUrl(request, env) {
   // ── Step 5: Fetch the page ───────────────────────────────────────────────────
   // All SSRF checks have passed; make the outbound request.
   // Abort after 10s — prevents the Worker from being occupied by a slow host.
+  //
+  // We use redirect:'manual' to intercept each redirect and re-validate the
+  // destination URL against the domain allowlist before following it. This
+  // prevents an open-redirect on any allowlisted job board from being used
+  // to proxy arbitrary external URLs through this endpoint.
+  const FETCH_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
+    'Cache-Control': 'no-cache',
+  };
+
   const fetchController = new AbortController();
   const fetchTimeoutId = setTimeout(() => fetchController.abort(), 10000);
+
   let pageRes;
+  let currentUrl = url;
   try {
-    pageRes = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Cache-Control': 'no-cache',
-      },
-      redirect: 'follow',
-      signal: fetchController.signal,
-    });
+    // Follow up to 5 redirects manually, re-validating each hop.
+    for (let hop = 0; hop < 5; hop++) {
+      // eslint-disable-next-line no-await-in-loop
+      const res = await fetch(currentUrl, {
+        headers: FETCH_HEADERS,
+        redirect: 'manual',
+        signal: fetchController.signal,
+      });
+
+      if (res.status >= 300 && res.status < 400) {
+        const location = res.headers.get('location');
+        if (!location) break; // no Location header — treat as terminal response
+
+        // Resolve relative redirects against the current URL
+        let nextUrl;
+        try { nextUrl = new URL(location, currentUrl).href; } catch { break; }
+
+        // Re-validate the redirect destination: must be HTTPS and on an allowed domain
+        let nextParsed;
+        try { nextParsed = new URL(nextUrl); } catch { break; }
+        if (nextParsed.protocol !== 'https:' || !isAllowedDomain(nextParsed.hostname)) {
+          log('fetch_job_url_blocked', { reason: 'redirect_off_allowlist', dest: nextParsed.hostname, requesterIp: ip });
+          clearTimeout(fetchTimeoutId);
+          return jsonResponse(
+            { message: 'URL dialihkan ke domain yang tidak diizinkan. Coba copy-paste manual.' },
+            422, request, env
+          );
+        }
+        currentUrl = nextUrl;
+        continue;
+      }
+
+      pageRes = res;
+      break;
+    }
   } catch (err) {
     clearTimeout(fetchTimeoutId);
     const msg = err.name === 'AbortError'
@@ -176,9 +215,14 @@ export async function handleFetchJobUrl(request, env) {
   }
   clearTimeout(fetchTimeoutId);
 
+  if (!pageRes) {
+    return jsonResponse({ message: 'Tidak bisa mengakses URL tersebut. Coba copy-paste manual.' }, 422, request, env);
+  }
+
   // LinkedIn redirects unauthenticated requests to /authwall — detect the redirect
   // before wasting CPU on HTMLRewriter extraction.
-  if (isLinkedIn && (pageRes.url.includes('/authwall') || pageRes.url.includes('/login'))) {
+  // currentUrl holds the final resolved URL after manual redirect chain.
+  if (isLinkedIn && (currentUrl.includes('/authwall') || currentUrl.includes('/login'))) {
     return jsonResponse({
       message: 'LinkedIn membutuhkan login untuk melihat lowongan ini. Silakan copy-paste deskripsi pekerjaan secara manual.',
       linkedin_auth_required: true,
