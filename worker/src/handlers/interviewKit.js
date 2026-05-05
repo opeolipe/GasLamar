@@ -1,8 +1,9 @@
 import { jsonResponse } from '../cors.js';
-import { log, logError } from '../utils.js';
+import { log, logError, clientIp } from '../utils.js';
 import { getSession, verifySessionSecret } from '../sessions.js';
 import { getSessionIdFromCookie } from '../cookies.js';
 import { callClaude } from '../claude.js';
+import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
 import { INTERVIEW_KIT_SYSTEM_PROMPT } from '../prompts/interviewKit.js';
 
 /**
@@ -34,6 +35,10 @@ export async function generateInterviewKit(cv_text, job_desc, language, env) {
 }
 
 export async function handleInterviewKit(request, env) {
+  const ip = clientIp(request);
+  const rl = await checkRateLimitKV(env, ip, 10, 60, 'interview_kit');
+  if (!rl.allowed) return rateLimitResponse(request, env, rl.retryAfter ?? 60);
+
   const session_id = getSessionIdFromCookie(request);
   if (!session_id) {
     return jsonResponse({ message: 'Sesi tidak ditemukan. Pastikan browser mengizinkan cookies.' }, 401, request, env);
