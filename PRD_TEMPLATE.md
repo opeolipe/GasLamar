@@ -2154,7 +2154,473 @@ if (!isPDF && !isDOCX) return error(400, 'INVALID_FILE');
 
 ---
 
-## Appendix: Things We Will NOT Do — Hard Anti-Patterns
+## 25. Cost Structure & Unit Economics
+
+> Know your numbers before you build. The most common founder mistake is discovering the unit economics are broken after spending months building.
+
+> 💡 **Plain English:** "Unit economics" = the cost and revenue of serving one user. If it costs you more to serve a user than they pay you, the business doesn't work — no matter how many users you get.
+
+### 25.1 Per-Request Cost Breakdown
+
+Estimate the cost of one complete user session (analyze + generate):
+
+| Operation | Provider | Cost Basis | Estimated Cost |
+|---|---|---|---|
+| CV extraction (LLM) | Anthropic Haiku | ~2,000 input tokens + 800 output | `[FILL]` |
+| Diagnosis (LLM) | Anthropic Sonnet | ~3,000 input + 1,000 output | `[FILL]` |
+| Rewrite ID (LLM) | Anthropic Haiku | ~4,000 input + 2,000 output | `[FILL]` |
+| Rewrite EN (LLM) | Anthropic Haiku | ~4,000 input + 2,000 output | `[FILL]` |
+| KV reads (session lifecycle) | Cloudflare | ~10 reads per session | `[FILL]` |
+| KV writes (cache + session) | Cloudflare | ~5 writes per session | `[FILL]` |
+| Email (access link + confirmation) | Resend | per email sent | `[FILL]` |
+| Worker CPU + requests | Cloudflare | per request | `[FILL]` |
+| **Total cost per paying session** | | | **`[FILL]`** |
+
+> **[GASLAMAR] approximate (2025 pricing):**
+> Haiku: ~$0.00025/1K input tokens, ~$0.00125/1K output. Sonnet: ~$0.003/1K input, ~$0.015/1K output.
+> One full session (extract + diagnose + rewrite ID + rewrite EN) ≈ $0.04–0.08 in LLM costs.
+> Cloudflare Workers free tier covers ~10M requests/month. KV: $0.50/million reads.
+> Resend free tier: 3,000 emails/month.
+> At Rp 59,000 (~$3.50) for the `single` tier: margin is very healthy at current volumes.
+
+### 25.2 Monthly Fixed Costs
+
+| Service | Plan | Monthly Cost | Scales At |
+|---|---|---|---|
+| Cloudflare Workers | `[FILL]` | `[FILL]` | >10M requests/month |
+| Cloudflare KV | `[FILL]` | `[FILL]` | >1M reads/month |
+| Cloudflare Pages | `[FILL]` | `[FILL]` | >500 builds/month |
+| Anthropic API | Pay-per-use | variable | — |
+| Resend | `[FILL]` | `[FILL]` | >3,000 emails/month |
+| Payment provider fees | % per transaction | variable | — |
+| Domain | annual | `[FILL]` | — |
+| Uptime monitoring | `[FILL]` | `[FILL]` | — |
+| **Total fixed monthly** | | **`[FILL]`** | |
+
+### 25.3 Break-Even Analysis
+
+```
+Monthly fixed costs:          [FILL]
+Cost per paying session:      [FILL]
+Revenue per paying session:   [FILL] (average across tiers)
+
+Break-even sessions/month = fixed_costs / (revenue_per_session - cost_per_session)
+Break-even: [FILL] paying sessions/month
+```
+
+> 💡 **Plain English:** "Break-even" = the point where revenue covers all costs. Below this, you're losing money each month. Above it, you're profitable.
+
+### 25.4 Unit Economics Health Checks
+
+| Metric | Formula | Target |
+|---|---|---|
+| Gross margin per session | `(revenue - LLM cost) / revenue` | > 80% |
+| LTV (lifetime value) | `avg_revenue × avg_credits_purchased` | `[FILL]` |
+| CAC (cost to acquire a customer) | `marketing_spend / new_paying_users` | < LTV / 3 |
+| Payback period | `CAC / avg_monthly_revenue_per_user` | < 3 months |
+
+> 💡 **Plain English:** "LTV" = total money a user pays you over their lifetime. "CAC" = how much you spend to get one paying user. Rule of thumb: LTV should be at least 3× CAC, or the business isn't sustainable.
+
+### 25.5 Cost Alert Thresholds
+
+Set these as env vars and alert when crossed:
+```
+DAILY_LLM_BUDGET_USD    = [FILL]   # alert if LLM spend exceeds this in a day
+MONTHLY_LLM_BUDGET_USD  = [FILL]   # alert at 80% of monthly LLM budget
+```
+
+---
+
+## 26. Go-To-Market / Distribution Plan
+
+> The best product without distribution = zero users. Define this before building — it changes what you prioritize in the product.
+
+> 💡 **Plain English:** "Go-to-market" = how you get your first paying users. Products don't market themselves. You need a deliberate plan for who sees the product, where, and why they'd pay for it.
+
+### 26.1 Target Beachhead
+
+> 💡 **Plain English:** "Beachhead" = the smallest, most specific audience you'll target first. It's easier to dominate a narrow segment than compete broadly.
+
+`[FILL]` — One specific group. Not "job seekers in Indonesia" — more like "fresh graduates applying to their first corporate jobs in Jakarta, active in LinkedIn and university alumni groups."
+
+> **[GASLAMAR]:** Fresh graduates + active job seekers in Indonesian white-collar job communities (LinkedIn, Kalibrr, Glints, university alumni Telegram/WhatsApp groups).
+
+### 26.2 First 100 Users Plan
+
+Where do you get your first 100 paying users — specifically, not generally?
+
+| Channel | Action | Target Users | Cost |
+|---|---|---|---|
+| `[FILL]` | `[FILL]` | `[FILL]` | `[FILL]` |
+
+> **[GASLAMAR] example channels:**
+> | Channel | Action | Notes |
+> |---|---|---|
+> | LinkedIn organic | Post personal story about CV rejection → soft product mention | Zero cost, high trust |
+> | University alumni groups (WA/Telegram) | Post in 5 active groups with genuine context | Zero cost, high intent audience |
+> | Career communities (Discord, Reddit) | Be genuinely helpful first; mention product when relevant | Zero cost, credibility-based |
+> | Direct outreach | DM 50 people actively posting about job search struggles | Zero cost, high conversion |
+> | JobStreet / Kalibrr blog SEO | Long-form article on CV tips → CTA to tool | Slow start, compounds over time |
+
+### 26.3 Validation Milestones Before Paid Acquisition
+
+Do NOT spend money on ads until these are true:
+
+- [ ] **Milestone 1:** 10 users paid without any prompting from you (organic proof of demand)
+- [ ] **Milestone 2:** Conversion rate from /analyze to payment > `[FILL]`% (proof the funnel works)
+- [ ] **Milestone 3:** At least 3 users come back for a second purchase OR refer a friend (proof of satisfaction)
+- [ ] **Milestone 4:** Support ticket rate < `[FILL]`% of sessions (proof the product is stable enough to scale)
+
+> 💡 **Plain English:** Spending on ads before your funnel is proven = pouring water into a leaky bucket. Validate organically first, then amplify what works.
+
+### 26.4 Launch Checklist
+
+Things to do in the 48 hours around launch:
+
+- [ ] Post on Product Hunt (schedule for Tuesday–Thursday, 12:01am SF time)
+- [ ] Submit to relevant directories: `[FILL]` (e.g., Indie Hackers, BetaList, relevant local listings)
+- [ ] Post in 5 targeted communities with genuine context (not just "I made this")
+- [ ] Email any beta users or waitlist you've built
+- [ ] Have support email monitored live for first 24 hours
+- [ ] Have staging smoke test passing before launch day
+- [ ] Health monitoring active — know if the system goes down immediately
+
+### 26.5 SEO Content Plan (Long-Term)
+
+> 💡 **Plain English:** SEO content = articles or tools that rank on Google and bring users to you without paying for ads. Slow to start (3–6 months), but compounds.
+
+`[FILL]` — Define 3–5 high-intent search queries your target users would type, and the content you'd create to rank for them.
+
+| Search Query | Intent | Content Type | Priority |
+|---|---|---|---|
+| `[FILL]` | `[FILL]` | Article / Tool / Guide | `[FILL]` |
+
+> **[GASLAMAR]:** "cara membuat CV ATS friendly", "template CV fresh graduate", "contoh CV bahasa Inggris" — high-volume Indonesian job search queries. Blog content driving to the tool is a planned channel.
+
+---
+
+## 27. Technical Debt Register
+
+> A living log of known shortcuts taken during build. Without this, debt accumulates silently — only surfacing during incidents when you're already under pressure.
+
+> 💡 **Plain English:** "Technical debt" = shortcuts you took to ship faster that you know you should fix later. Like borrowing money — useful in the short term, but it costs you over time if you don't pay it back. Writing it down is the difference between managed debt and hidden debt.
+
+### 27.1 Format
+
+| ID | What Was Shortcuts | Where | Risk If Not Fixed | Priority | Target Sprint |
+|---|---|---|---|---|---|
+| TD-001 | `[FILL]` | `[FILL]` | `[FILL]` | High / Medium / Low | `[FILL]` |
+
+> **[GASLAMAR] known debt at launch:**
+> | ID | Shortcut | Location | Risk | Priority |
+> |---|---|---|---|---|
+> | TD-001 | Red-flag penalty applied as runtime patch on cached results (instead of cache-busting) | `analysis.js:50-54` | Incorrect scores served from cache if penalty thresholds change again | Medium |
+> | TD-002 | `rewriteGuard.js` constants duplicated from `shared/rewriteRules.js` — dual-maintenance required | `rewriteGuard.js:2-8` | Rules drift between server and client if not kept in sync manually | High |
+> | TD-003 | `POST /feedback` and `POST /api/log` logic inline in `router.js` — no handler files | `router.js` | Harder to test and extend as these endpoints grow | Low |
+> | TD-004 | No `/health/kv` or `/health/llm` endpoints — diagnostics require manual log inspection | `router.js` | Incident response slower without per-subsystem health signals | Medium |
+> | TD-005 | No golden dataset for regression testing | `tests/` | Prompt regressions only caught by user complaints | High |
+
+### 27.2 Debt Triage Rules
+
+- **High** (fix within 2 sprints): risk of user-facing bug or security issue
+- **Medium** (fix within next quarter): risk of developer confusion or slow incident response
+- **Low** (fix when touching related code): code quality / maintainability only
+
+> Rule: every sprint, review the debt register. If a High item is >60 days old without a plan, it must be addressed before new features.
+
+### 27.3 How to Add Debt
+
+When you take a known shortcut, add a row immediately — not "later":
+1. Create a new `TD-NNN` entry with today's date
+2. Add a `// TODO(TD-NNN): ...` comment at the exact line in code
+3. Set priority honestly
+
+---
+
+## 28. Browser & Device Support Matrix
+
+> Define explicitly which browsers are supported. "It works in Chrome" is not a support policy. Without this definition, you'll get bug reports from browsers you never tested and have no standard to apply.
+
+> 💡 **Plain English:** Different browsers (Chrome, Safari, Firefox) and different devices (iPhone, Android, old laptops) render websites differently. You can't support everything equally — define what you commit to.
+
+### 28.1 Support Tiers
+
+| Tier | Definition | Your Response to Bugs |
+|---|---|---|
+| **Fully Supported** | Tested on every release; all features must work | Fix within P1 SLA (24h) |
+| **Best Effort** | Not tested on every release; known quirks documented | Fix if straightforward; document if not |
+| **Out of Scope** | Not tested; no commitment | Inform user; no fix committed |
+
+### 28.2 Browser Support Matrix
+
+`[FILL]`
+
+| Browser | Minimum Version | Tier | Notes |
+|---|---|---|---|
+| Chrome (desktop) | `[FILL]` | Fully Supported | Primary test browser |
+| Safari (macOS) | `[FILL]` | Fully Supported | iOS users likely on Safari |
+| Safari (iOS) | `[FILL]` | Fully Supported | Largest mobile browser in Southeast Asia |
+| Chrome (Android) | `[FILL]` | Fully Supported | Largest Android browser |
+| Firefox (desktop) | `[FILL]` | Best Effort | — |
+| Samsung Internet | `[FILL]` | Best Effort | Significant share on Samsung devices |
+| Edge (desktop) | `[FILL]` | Best Effort | Chromium-based; usually works |
+| IE 11 | Any | Out of Scope | End of life 2022 |
+| Opera Mini | Any | Out of Scope | Aggressive compression breaks JS |
+
+> **[GASLAMAR]:** Fully supported: Chrome 90+, Safari 14+, iOS Safari 14+, Chrome Android 90+. Samsung Internet and Firefox are best-effort. IE is explicitly out of scope.
+
+### 28.3 Device Support Matrix
+
+| Device Category | Screen Width | Tier | Test Method |
+|---|---|---|---|
+| Small phone (iPhone SE) | 375px | Fully Supported | Chrome DevTools emulation + real device |
+| Standard phone | 390–430px | Fully Supported | Chrome DevTools emulation |
+| Large phone / small tablet | 430–768px | Fully Supported | Chrome DevTools emulation |
+| Tablet (landscape) | 768–1024px | Best Effort | Chrome DevTools emulation |
+| Desktop | 1024px+ | Fully Supported | Direct browser testing |
+
+### 28.4 Known Incompatibilities
+
+> 💡 **Plain English:** Document browser-specific quirks here as you discover them — before they become support tickets.
+
+| Issue | Affected Browser/Device | Workaround | Fixed? |
+|---|---|---|---|
+| `[FILL]` | `[FILL]` | `[FILL]` | `[FILL]` |
+
+> **[GASLAMAR]:** File picker behavior differs on iOS Safari — `accept=".pdf,.docx"` works but the picker label shows "All Files". Documented, not fixed (not a functional bug).
+
+---
+
+## 29. Third-Party SLA Dependencies
+
+> Your app's uptime is bounded by your providers' uptime. If Cloudflare is down, you're down. Define your fallback behavior for each provider before it happens — not during the incident.
+
+> 💡 **Plain English:** "SLA" (Service Level Agreement) = a provider's uptime promise. If they promise 99.9% uptime, that's ~8.7 hours of allowed downtime per year. Your app can't be more reliable than your least reliable provider.
+
+### 29.1 Provider SLA Table
+
+`[FILL]`
+
+| Provider | What You Use It For | Their SLA | Status Page | Your Fallback If Down |
+|---|---|---|---|---|
+| Cloudflare Workers | API runtime | 99.99% | `cloudflarestatus.com` | Nothing — app is down; show maintenance page |
+| Cloudflare KV | Sessions + cache | 99.9% | `cloudflarestatus.com` | In-memory cache for read operations (short-term) |
+| Cloudflare Pages | Frontend hosting | 99.99% | `cloudflarestatus.com` | Nothing — frontend is down |
+| Anthropic API | LLM calls | ~99.9%* | `status.anthropic.com` | Circuit breaker → return 503 with `retryable: true` |
+| Mayar / Payment provider | Payment processing | `[FILL]` | `[FILL]` | Show "payment temporarily unavailable" + support email |
+| Resend | Transactional email | 99.9% | `status.resend.com` | Queue in KV; retry on next request; show in-app notice |
+| `[FILL]` | `[FILL]` | `[FILL]` | `[FILL]` | `[FILL]` |
+
+*Anthropic does not publish a formal SLA for API usage as of 2025 — plan for occasional degraded periods.
+
+### 29.2 Cascade Failure Map
+
+> 💡 **Plain English:** When one provider goes down, what else breaks? A cascade failure is when one failure triggers others. Know your domino chain before it falls.
+
+```
+Cloudflare Workers down    → Entire app unavailable (frontend still shows, API 503)
+Cloudflare KV degraded     → Sessions slow; generation may time out; use in-memory fallback
+Anthropic API down         → /analyze and /generate fail; /check-session still works
+Payment provider down      → New purchases fail; existing sessions unaffected
+Resend down               → Email not sent; user can still access app; recovery flow breaks
+```
+
+### 29.3 Monitoring Bookmarks
+
+Keep these open in a browser tab during any incident:
+
+```
+Cloudflare:  https://www.cloudflarestatus.com
+Anthropic:   https://status.anthropic.com
+Resend:      https://status.resend.com
+[Payment]:   [FILL]
+```
+
+### 29.4 Multi-Provider Contingency (Future)
+
+> 💡 **Plain English:** Vendor lock-in mitigation (Section 2.7) means you CAN switch providers — this section is about WHEN you'd consider it and what the trigger is.
+
+| Provider | Switch Trigger | Alternative |
+|---|---|---|
+| Anthropic | >2h outage/month consistently, or >50% price increase | OpenAI GPT-4o, Google Gemini — `claude.js` wrapper makes swap easy |
+| Resend | >5% delivery failure rate, or pricing becomes prohibitive | Postmark, AWS SES — `email.js` wrapper makes swap easy |
+| Cloudflare | Major regional outage affecting target market | Evaluate Vercel + Upstash KV — requires more significant refactor |
+
+---
+
+## 30. Capacity Planning & Scale Triggers
+
+> Define the ceilings before you hit them. When the product grows, you'll know exactly which component will break first — and what to do.
+
+> 💡 **Plain English:** "Capacity planning" = knowing in advance what your system can handle and what breaks first when traffic grows. Like knowing your restaurant can seat 50 people before opening — you don't find out at 51.
+
+### 30.1 Current Architecture Ceilings
+
+| Component | Current Limit | At What Traffic Level | Symptom When Hit |
+|---|---|---|---|
+| Cloudflare Workers (free) | 100,000 req/day | ~5,000 sessions/day | Requests start failing at limit |
+| Cloudflare Workers (paid) | 10M req/day | ~500,000 sessions/day | Effectively no limit for most apps |
+| Cloudflare KV reads | 100,000/day (free) | ~3,000 sessions/day | KV calls start failing |
+| Anthropic Haiku rate limit | ~50 req/min (varies) | ~50 concurrent analyses | 429 errors on LLM calls |
+| Anthropic Sonnet rate limit | ~20 req/min (varies) | ~20 concurrent diagnoses | 429 errors on LLM calls |
+| Resend free tier | 3,000 emails/month | ~3,000 sessions/month | Emails silently fail |
+| `[FILL]` | `[FILL]` | `[FILL]` | `[FILL]` |
+
+> 💡 **Plain English:** Most of these ceilings are on free tiers. Upgrading costs ~$5–25/month and removes most limits. Plan to upgrade before you hit the ceiling — not after users start reporting failures.
+
+### 30.2 Scale Trigger Thresholds
+
+Define the metric that triggers an upgrade or architectural change:
+
+| Trigger | Metric | Action |
+|---|---|---|
+| Upgrade Cloudflare Workers | >80,000 req/day for 3 consecutive days | Upgrade to Workers Paid ($5/month) |
+| Upgrade Cloudflare KV | >80,000 reads/day for 3 consecutive days | Upgrade KV plan |
+| Upgrade Resend | >2,500 emails/month | Upgrade Resend plan |
+| Add LLM request queuing | >20 concurrent /analyze failures in 10 min | Implement request queue with backpressure |
+| Shard KV sessions | KV read latency p95 > 200ms | Partition sessions by prefix |
+| Add read replica / caching layer | >100,000 sessions/month | Evaluate Cloudflare D1 for session metadata |
+| Hire first engineer | >1,000 paying users/month | Operational complexity exceeds solo founder capacity |
+
+### 30.3 Traffic Shape Assumptions
+
+> 💡 **Plain English:** Traffic is not evenly distributed. Job seekers are more active on weekday mornings and Sunday evenings. Know your peak vs. off-peak ratio so you plan for the spike, not the average.
+
+- Peak hours: `[FILL]` (e.g., weekday 8–10am and 8–10pm local time)
+- Peak multiplier: `[FILL]`× average (e.g., 3× — if average is 100 sessions/day, peak hour is 300)
+- Seasonal spikes: `[FILL]` (e.g., post-graduation season May–July, year-end hiring pushes)
+
+> **[GASLAMAR]:** Peak usage correlates with Indonesian job posting cycles — spikes around start-of-month (when new job listings post) and after major holidays. Plan capacity for 5× average during these windows.
+
+### 30.4 Viral / Unexpected Spike Playbook
+
+If traffic suddenly 10×s (e.g., a viral post):
+
+1. Cloudflare native rate limiting automatically absorbs the spike at the edge
+2. Monitor `/health/kv` and `/health/llm` — are they degraded?
+3. If LLM rate-limited: backpressure kicks in → users see "Sedang sibuk" → retry in 30s
+4. If KV degraded: read ops fall back to in-memory; write ops queue
+5. If Resend overwhelmed: email queued in KV; users see in-app notice
+6. Upgrade Workers/KV plan within 1 hour if sustained
+7. Post status update on the app if degradation visible to users
+
+---
+
+## 31. Developer Onboarding
+
+> How does someone get this app running from scratch in under 30 minutes? Write this on day 1. You will need it — either for a collaborator, or for yourself after 6 months away from the codebase.
+
+> 💡 **Plain English:** "Onboarding" = the path a new developer takes to go from zero to running the app locally. Without written instructions, this takes 2–4 hours of trial and error. With them, it takes 20 minutes.
+
+### 31.1 Prerequisites
+
+Before cloning the repo, ensure you have:
+
+- [ ] Node.js `[FILL]`+ installed (`node -v` to check)
+- [ ] Wrangler CLI installed (`npm install -g wrangler`)
+- [ ] A Cloudflare account with Workers and KV enabled
+- [ ] An Anthropic API key (get from `console.anthropic.com`)
+- [ ] `[FILL]` — any other prerequisite
+
+> **[GASLAMAR]:** Node 18+, Wrangler 3+, Cloudflare account. Payment provider account (Mayar) needed only for payment testing — can skip for pure development.
+
+### 31.2 First-Time Setup
+
+```bash
+# 1. Clone and install dependencies
+git clone [repo-url]
+cd [project-name]
+npm install
+cd worker && npm install && cd ..
+
+# 2. Create local KV namespace for development
+wrangler kv:namespace create "SESSIONS" --preview
+
+# 3. Copy the secrets template and fill in your values
+cp worker/.dev.vars.example worker/.dev.vars
+# Edit worker/.dev.vars:
+#   ANTHROPIC_API_KEY=sk-ant-...
+#   SESSION_SECRET=any-random-string-for-local-dev
+#   RESEND_API_KEY=  (leave blank — email will silently no-op)
+#   PAYMENT_WEBHOOK_SECRET=test-secret
+
+# 4. Build frontend assets
+npm run build
+
+# 5. Start the worker locally
+cd worker && npm run dev
+
+# 6. In a separate terminal, serve the frontend
+npm start
+# Open http://localhost:3000
+```
+
+### 31.3 Verifying the Setup
+
+After setup, verify these work:
+
+- [ ] `GET http://localhost:8787/health` → `{ status: 'ok', env: 'development' }`
+- [ ] `cd worker && npm test` → all tests pass
+- [ ] Open `http://localhost:3000` → landing page loads without console errors
+- [ ] Upload a test PDF → analysis starts (may be slow locally due to no caching warmup)
+
+### 31.4 Local Development Gotchas
+
+> 💡 **Plain English:** These are the things that trip up everyone the first time. Read this section before you spend an hour debugging.
+
+| Gotcha | Symptom | Fix |
+|---|---|---|
+| KV namespace ID not updated | `wrangler dev` errors about unknown binding | Copy the preview namespace ID from step 2 into `wrangler.toml` |
+| Frontend not rebuilding | Changes to JS not reflected in browser | Run `npm run build` after any JS change; or `npm run dev` for watch mode |
+| Wrong worker URL in config | Frontend calls production API from localhost | Check `js/config.js` — local hostname triggers staging URL, not prod |
+| Email silently not sending | No error but email never arrives | Expected — `RESEND_API_KEY` blank means emails no-op locally |
+| Stale cache from previous test | Changing a prompt has no effect | Add `?no_cache=1` to the request URL in development |
+| IP binding mismatch | 403 on /generate after uploading from different network | Restart the session — IP binding is per-upload |
+
+> **[GASLAMAR]:** Most common local issue: forgetting to run `npm run build` after editing JS. The served files are in `js/dist/` (gitignored, not auto-updated). `npm run dev` (watch mode) solves this.
+
+### 31.5 Secrets Reference
+
+| Secret Name | Where to Get It | Required for Local Dev? |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | `console.anthropic.com` → API Keys | Yes — required for any LLM call |
+| `SESSION_SECRET` | Any random 32+ character string | Yes — any value works locally |
+| `PAYMENT_WEBHOOK_SECRET` | Payment provider dashboard | No — only needed for payment testing |
+| `RESEND_API_KEY` | `resend.com` → API Keys | No — emails silently no-op without it |
+| `[FILL]` | `[FILL]` | `[FILL]` |
+
+### 31.6 Useful Development Commands
+
+```bash
+# Worker
+cd worker && npm test              # run all tests (must pass before any PR)
+cd worker && npm run test:watch    # tests in watch mode while developing
+cd worker && npm run dev           # start local worker on :8787
+cd worker && npm run tail          # stream live production logs
+cd worker && npm run deploy:prod   # deploy to production (NOT bare npm run deploy)
+
+# Frontend
+npm run build                      # build all bundles (always run before testing)
+npm run build:js                   # esbuild bundles only
+npm run build:vendor               # vendor libs + Tailwind
+npm run dev                        # watch mode (rebuilds on file change)
+npm start                          # serve frontend locally on :3000
+```
+
+### 31.7 Architecture Orientation (Read This Before Writing Any Code)
+
+> 💡 **Plain English:** This is the 5-minute tour so you understand the system before changing anything.
+
+Before touching any code:
+1. Read `CLAUDE.md` (root) — non-obvious files, gotchas, invariants
+2. Read `AGENTS.md` — architecture summary and pipeline overview
+3. Read `SECURITY.md` — auth model and session security
+4. Understand the 6-stage pipeline (Section 3 of this PRD) — most bugs come from misunderstanding stage boundaries
+5. Run `npm test` and confirm it passes — your baseline
+
+---
+
+
 
 > These are explicit prohibitions. Each one caused a real bug or security vulnerability in GasLamar. Treat them as hard rules, not suggestions.
 
