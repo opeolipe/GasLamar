@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { MIN_CV_TEXT_LENGTH, MAX_CV_PASTE_CHARS } from '@/lib/uploadValidation';
 
 interface Props {
   fileName:     string | null;
@@ -104,12 +105,25 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
           id="cv-paste"
           value={manualCvText}
           onChange={(e) => onManualCvChange(e.target.value)}
+          maxLength={MAX_CV_PASTE_CHARS}
           className="block w-full max-w-full min-h-[150px] rounded-2xl border border-slate-300 bg-transparent p-4 text-sm text-slate-900 resize-y outline-none transition-all focus:border-blue-500/50 focus:ring-2 focus:ring-slate-200 focus:ring-offset-2"
           placeholder="Paste isi CV kamu jika upload file bermasalah. Sertakan pengalaman, pendidikan, skill, dan kontak utama."
           aria-label="Paste isi CV secara manual"
         />
-        <div className="text-right text-sm mt-1 text-slate-400">
-          {manualCvText.length.toLocaleString('id-ID')} karakter
+        <div className="flex items-center justify-between mt-1 text-sm">
+          {manualCvText.trim().length > 0 && manualCvText.trim().length < MIN_CV_TEXT_LENGTH ? (
+            <span className="text-amber-600 font-medium">
+              ⚠️ Terlalu singkat — tambahkan detail pengalaman &amp; skill
+            </span>
+          ) : (
+            <span />
+          )}
+          <span className="text-slate-400 ml-auto">
+            {manualCvText.length.toLocaleString('id-ID')}
+            {manualCvText.trim().length < MIN_CV_TEXT_LENGTH && manualCvText.length > 0
+              ? ` / min. ${MIN_CV_TEXT_LENGTH}`
+              : ` / ${MAX_CV_PASTE_CHARS.toLocaleString('id-ID')}`} karakter
+          </span>
         </div>
       </div>
 

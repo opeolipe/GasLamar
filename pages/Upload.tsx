@@ -228,7 +228,10 @@ export default function Upload() {
     try {
       sessionStorage.removeItem('gaslamar_cv_draft');
       sessionStorage.removeItem('gaslamar_filename_draft');
+      // Clear JD draft too — user is starting over, stale JD would be confusing.
+      sessionStorage.removeItem('gaslamar_jd_draft');
     } catch (_) {}
+    setJd('');
   }
 
   function handleManualCvChange(value: string) {
@@ -259,7 +262,14 @@ export default function Upload() {
 
   function handleJdChange(value: string) {
     setJd(value);
-    try { sessionStorage.setItem('gaslamar_jd_draft', escapeHtml(value)); } catch (_) {}
+    try {
+      if (value.trim()) {
+        sessionStorage.setItem('gaslamar_jd_draft', escapeHtml(value));
+      } else {
+        // Explicit clear — remove draft so navigation back doesn't restore stale content.
+        sessionStorage.removeItem('gaslamar_jd_draft');
+      }
+    } catch (_) {}
   }
 
   function handleSubmit() {
