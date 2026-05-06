@@ -202,6 +202,83 @@ In-page, visible mobile only (`flex sm:hidden`):
 <div class="flex sm:hidden text-xs font-semibold text-primary">Langkah N / 3 — Label</div>
 ```
 
+### Frosted glass card (app pages)
+Used on `analyzing.html`, `download.html`, `access.html` — not on the marketing landing page.
+```jsx
+<div
+  className="rounded-[24px] px-6 py-6"
+  style={{
+    background:     'rgba(255,255,255,0.88)',
+    border:         '1px solid rgba(148,163,184,0.14)',
+    boxShadow:      '0 18px 44px rgba(15, 23, 42, 0.08)',
+    backdropFilter: 'blur(14px)',
+  }}
+>
+```
+Shadow constant reused across components: `'0 18px 44px rgba(15, 23, 42, 0.08)'`.
+
+### App page shell
+App pages (upload, analyzing, hasil, download, access) share a light shell — distinct from the dark marketing hero:
+- **Background:** `radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37,99,235,0.08), transparent)` on `min-h-screen`.
+- **Sticky navbar:** `rgba(255,255,255,0.88)` bg, `backdropFilter: blur(14px)`, `borderColor: rgba(148,163,184,0.18)`.
+- **Content max width:** `max-w-2xl` for focused single-column flows (analyzing, access); `max-w-screen-xl` for wider layouts (download).
+
+### Serif display heading
+Used for page headings and success states on app pages — creates a softer, document-like feel that contrasts with the marketing headings:
+```js
+const SERIF = {
+  fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif',
+  letterSpacing: '-0.02em',
+}
+```
+Applied to: download success heading, access page H1. Not used on `index.html`.
+
+### Language tab pills
+Toggle between ID/EN content inside a component:
+```jsx
+<button
+  className={`min-h-[44px] px-5 rounded-full font-semibold text-sm transition-all ${
+    active ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300'
+  }`}
+>
+```
+
+### CopyButton (dual-state)
+Idle: `#EFF6FF` bg / `#BFDBFE` border / `#1D4ED8` text.
+Copied (2s): `#F0FDF4` bg / `#86EFAC` border / `#15803D` text, label "✓ Disalin!".
+Minimum touch target: `min-h-[44px] min-w-[44px]`.
+
+### InterviewKit accordion
+Frosted glass wrapper. Sections grouped by `GroupLabel` (metadata above item clusters):
+```jsx
+<p className="text-xs font-bold tracking-widest uppercase text-slate-400 mt-5 mb-2 px-1">
+  LABEL GRUP
+</p>
+```
+Items use shadcn `<Accordion type="single" collapsible>`. Each item: `border border-slate-100 rounded-[14px] mb-2 overflow-hidden`.
+Accordion trigger: `min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50`.
+
+### Download buttons
+Primary (DOCX): gradient `linear-gradient(180deg,#3b82f6,#1d4ed8)`, `boxShadow: 0 4px 14px rgba(37,99,235,0.28)`, white text, `rounded-full`, `hover:translate-x-1`.
+Secondary (PDF): white bg, `border: 1px solid rgba(37,99,235,0.2)`, `#1E3A8A` text.
+
+### Post-download coaching card
+Dismissible card shown after first download. Two variants:
+- **Credits remaining:** `#EFF6FF` bg / `#BFDBFE` border — encourages using remaining credits.
+- **No credits left:** `#F0FDF4` bg / `#86EFAC` border — upsell or interview tips.
+
+Both use `rounded-[20px] p-5 mb-4 relative` with an `✕` dismiss button (`absolute top-3 right-3`).
+
+### Expired / notice banner
+Amber warning strip used above cards when a session link has expired:
+```jsx
+<div
+  role="status"
+  className="rounded-[16px] px-4 py-3 text-sm mb-4 text-amber-800"
+  style={{ background: 'rgba(255,251,235,0.9)', border: '1px solid rgba(253,230,138,0.8)' }}
+>
+```
+
 ---
 
 ## Page Inventory
@@ -209,9 +286,11 @@ In-page, visible mobile only (`flex sm:hidden`):
 | Page | Purpose | Key components |
 |------|---------|---------------|
 | `index.html` | Marketing / landing | Hero, stats bar, cara kerja, pricing, FAQ, CTA, footer |
-| `upload.html` | Step 1: upload CV + JD | Drop zone, file input, progress indicator |
-| `hasil.html` | Step 2: score + gaps | Score ring, gap list, tier cards, email capture |
-| `download.html` | Step 3: download | Download buttons, success state |
+| `upload.html` | Step 1: upload CV + JD | Drop zone, file input, URL fetcher, progress indicator |
+| `analyzing.html` | Analysis in progress | Progress ring, step list, trust rotator, cancel/back |
+| `hasil.html` | Step 2: score + gaps | Score ring, verdict card, gap list, tier cards, email capture |
+| `download.html` | Step 3: download | Download grid, score bars, interview kit, coaching card |
+| `access.html` | Session recovery | Email form, expired banner, success confirmation |
 
 ---
 
@@ -238,4 +317,4 @@ Before shipping a new section:
 
 ---
 
-*Last updated: 2026-03-31 | gstack /design-consultation*
+*Last updated: 2026-05-06 | gstack /design-consultation*
