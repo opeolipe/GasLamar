@@ -3,6 +3,7 @@ import { clientIp, hexToken, logError } from '../utils.js';
 import { checkRateLimit, checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
 import { validateFileData, extractCVText } from '../fileExtraction.js';
 import { analyzeCV } from '../analysis.js';
+import { sanitizeForLLM, hasPromptInjection } from '../sanitize.js';
 
 export async function handleAnalyze(request, env) {
   const ip = clientIp(request);
@@ -55,7 +56,15 @@ export async function handleAnalyze(request, env) {
 
   // Strip HTML tags — treat job description as plain text only. This prevents XSS
   // payloads from being stored in KV and echoed in any future API response or email.
-  const job_desc = rawJobDesc.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  const rawJobDescStripped = rawJobDesc.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+
+  // Hard-reject before any further processing if the JD contains injection patterns.
+  if (hasPromptInjection(rawJobDescStripped)) {
+    logError('analyze_invalid_input', { reason: 'jd_injection', ip });
+    return jsonResponse({ message: 'Job description mengandung konten yang tidak diizinkan.' }, 400, request, env);
+  }
+
+  const job_desc = sanitizeForLLM(rawJobDescStripped);
 
   // Enforce minimum length only when JD is non-empty — empty JD is valid (general mode).
   if (job_desc.length > 0 && job_desc.length < 100) {
