@@ -19,7 +19,19 @@ LLM = extraction + text only. All scoring is pure JS.
 | 5. REWRITE | LLM via `/generate` → tailored CV in ID + EN. Cache: `gen_id_v3_<hash>` / `gen_en_v3_<hash>` 48h |
 | 6. VALIDATE | schema check + 1 retry after every LLM call |
 
-**Cache bump rule:** when changing a prompt or scoring formula, bump the version suffix in `analysis.js` / `tailoring.js`.
+**Cache bump rule:** two independent versions in `analysis.js`:
+- `EXTRACT_CACHE_VERSION` (`extract_v2_*`) — bump when changing `pipeline/extract.js` or `prompts/extract.js`
+- `ANALYSIS_CACHE_VERSION` (`analysis_v6_*`) — bump when changing anything else in `pipeline/` or `prompts/`
+- Tailoring: bump `gen_id_v3_` / `gen_en_v3_` prefix in `tailoring.js` when changing tailor prompts
+
+**Session state machine:**
+
+| Transition | Trigger |
+|---|---|
+| `pending → paid` | `POST /webhook/mayar` confirms payment |
+| `paid → generating` | First `POST /get-session` call |
+| `generating → paid` | `POST /generate` completes with credits remaining |
+| `generating → deleted` | `POST /generate` uses last credit |
 
 ---
 
@@ -41,6 +53,9 @@ Routes → `router.js`. Handlers → `worker/src/handlers/<endpoint>.js`. Pipeli
 | `worker/src/handlers/exchangeToken.js` | Exchanges a single-use `email_token` (128-bit hex, 1h TTL) for a session cookie — enables download links in emails to work cross-device. Token deleted on success. |
 | `worker/src/handlers/interviewKit.js` | Generates interview prep kit (questions, email template, WhatsApp opener, elevator pitch). Cache-first: `kit_<session_id>_<language>` 24h. No caching on first call — only stored after a successful generation. |
 | `router.js` (inline) | `POST /feedback` (user survey, fire-and-forget) and `POST /api/log` (client error logging) have no handler files — logic lives inline in `router.js`. |
+| `worker/src/handlers/mayarWebhook.js` | HMAC-SHA256 verification + idempotency sentinel `payment_processed_<session_id>` (48h TTL) — written BEFORE session update to survive retries. Normalizes many Mayar status variants (paid/settlement/capture/SUCCESS/…). Email send via `ctx.waitUntil`. |
+| `worker/src/handlers/bypassPayment.js` | Sandbox/E2E only — returns 404 if `ENVIRONMENT === 'production'`. Creates a paid session without going through Mayar. Used for automated tests. |
+| `js/download-guard.js` | Blocking external `<script>` loaded in download.html `<head>` (not inline). Three valid entry paths: `?token=` (email link), localStorage `gaslamar_session` (post-payment), localStorage `gaslamar_delivery` (email-delivery flow). All others → `window.location.replace('/')`. |
 
 ---
 
@@ -87,6 +102,7 @@ npm start                       # serve frontend locally on :3000
 - CORS: only `gaslamar.com` + `www.gaslamar.com`.
 - File validation: magic bytes (PDF `%PDF`, DOCX `PK`) + 5MB — server-side.
 - Rate limiting: Cloudflare native binding + KV fallback — **both** must allow.
+- `bypassPayment.js` must always return 404 in production — the `ENVIRONMENT === 'production'` guard must never be removed.
 
 ## Gotchas (common bug sources)
 
@@ -97,7 +113,16 @@ npm start                       # serve frontend locally on :3000
 - **Wrong env deployed** — `wrangler deploy` without `--env production` goes to sandbox, not prod.
 - **Auth flash** — `js/hasil-guard.js` must stay as synchronous inline `<script>`. If it gets deferred/bundled, unauthenticated content flashes.
 - **Silent email skip** — `RESEND_API_KEY` is optional. If absent, all email sending silently no-ops with no error thrown. Useful for local dev but easy to miss in staging.
-- **Double-invoice race** — `invoice_lock_<cv_text_key>` TTL 120s prevents duplicate invoices for the same CV upload. Mirrors the double-gen lock pattern.
+- **Double-invoice race** — `invoice_lock_<cv_text_key>` TTL 60s (KV minimum) prevents duplicate invoices for the same CV upload. Mirrors the double-gen lock pattern.
+- **PDF beta header prod-only** — `anthropic-beta: pdfs-2024-09-25` is sent only for Sonnet (prod). On staging (Haiku), PDFs are pre-converted to text — PDF document blocks are never sent.
+- **CV download is client-side** — DOCX/PDF files are generated entirely in the browser (docx.js + jsPDF from `cvDataCache`). The worker never serves file bytes.
+- **Webhook idempotency sentinel** — `payment_processed_<session_id>` (48h TTL) is written BEFORE the session update in `mayarWebhook.js`. Removing it breaks Mayar retry safety.
+- **`gaslamar_scoring` deleted after render** — `scoring.js` deletes it from sessionStorage immediately after reading. This is intentional security hardening, not a bug.
+- **`konfidensitas` discarded from LLM** — `diagnose.js` returns a `konfidensitas` field but the orchestrator (`analysis.js`) ignores it. Stage 2 (pure JS) is always authoritative for confidence level.
+- **`opportunity_cost` is derived, not scored** — always 5 or 10, computed from `effort`. It is never independently scored. Don't add scoring logic here.
+- **`skor_sesudah` is deterministic JS** — not LLM-generated. Formula: `skor + improvement`, rounded to nearest 5, clamped to [skor+10, 95]. Improvement = min(20, missing_skills × 3) + 5 if no numbers.
+- **Red-flag penalty is absolute** — -15 (1 flag), -20 (2 flags), -25 max. Applied to `skor` and `skor_sesudah` only — never to `skor_6d`.
+- **CV silently truncated in tailoring** — `tailoring.js` truncates CVs at 4000 chars. Old experience entries are dropped without error or warning.
 
 ---
 
