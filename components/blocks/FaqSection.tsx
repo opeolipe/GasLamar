@@ -51,7 +51,7 @@ const FAQ_ITEMS: { q: string; a: React.ReactNode }[] = [
 export default function FaqSection() {
   return (
     <section className="py-8 md:py-12 max-w-3xl mx-auto">
-      <h2 className="text-[clamp(2rem,4vw,3.2rem)] font-semibold mb-6 md:mb-10" style={SERIF}>FAQ</h2>
+      <h2 className="text-[clamp(1.8rem,3.5vw,2.8rem)] font-semibold mb-6 md:mb-10" style={SERIF}>FAQ</h2>
       <Accordion type="single" collapsible className="divide-y divide-slate-100">
         {FAQ_ITEMS.map((item, i) => (
           <AccordionItem key={i} value={`item-${i}`} className="py-1">

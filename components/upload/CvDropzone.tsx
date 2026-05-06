@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { MIN_CV_TEXT_LENGTH, MAX_CV_PASTE_CHARS } from '@/lib/uploadValidation';
 
 interface Props {
   fileName:     string | null;
@@ -52,7 +53,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
         {fileName ? (
           <div data-testid="file-preview" className="flex items-center justify-between gap-3 w-full text-left">
             <div className="flex items-center gap-3 flex-1 min-w-0">
-              <span className="text-2xl flex-shrink-0">📄</span>
+              <span className="text-2xl flex-shrink-0" aria-hidden="true">📄</span>
               <div className="min-w-0">
                 <div className="font-semibold text-sm text-slate-800 truncate">{fileName}</div>
                 {fileSize && <div className="text-sm text-slate-400 mt-0.5">{fileSize}</div>}
@@ -69,7 +70,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
           </div>
         ) : (
           <div>
-            <div className="text-3xl mb-2">📁</div>
+            <div className="text-3xl mb-2" aria-hidden="true">📁</div>
             <div className="font-semibold text-slate-700 mb-3">Upload CV kamu</div>
             <button
               type="button"
@@ -104,12 +105,25 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
           id="cv-paste"
           value={manualCvText}
           onChange={(e) => onManualCvChange(e.target.value)}
+          maxLength={MAX_CV_PASTE_CHARS}
           className="block w-full max-w-full min-h-[150px] rounded-2xl border border-slate-300 bg-transparent p-4 text-sm text-slate-900 resize-y outline-none transition-all focus:border-blue-500/50 focus:ring-2 focus:ring-slate-200 focus:ring-offset-2"
           placeholder="Paste isi CV kamu jika upload file bermasalah. Sertakan pengalaman, pendidikan, skill, dan kontak utama."
           aria-label="Paste isi CV secara manual"
         />
-        <div className="text-right text-sm mt-1 text-slate-400">
-          {manualCvText.length.toLocaleString('id-ID')} karakter
+        <div className="flex items-center justify-between mt-1 text-sm">
+          {manualCvText.trim().length > 0 && manualCvText.trim().length < MIN_CV_TEXT_LENGTH ? (
+            <span className="text-amber-600 font-medium">
+              ⚠️ Terlalu singkat — tambahkan detail pengalaman &amp; skill
+            </span>
+          ) : (
+            <span />
+          )}
+          <span className="text-slate-400 ml-auto">
+            {manualCvText.length.toLocaleString('id-ID')}
+            {manualCvText.trim().length < MIN_CV_TEXT_LENGTH && manualCvText.length > 0
+              ? ` / min. ${MIN_CV_TEXT_LENGTH}`
+              : ` / ${MAX_CV_PASTE_CHARS.toLocaleString('id-ID')}`} karakter
+          </span>
         </div>
       </div>
 

@@ -289,6 +289,11 @@ describe('CORS — environment-specific origin allowlists', () => {
     expect(h['Access-Control-Allow-Origin']).toBe('https://www.gaslamar.com');
   });
 
+  it('production: allows gaslamar.pages.dev (Cloudflare Pages canonical URL)', () => {
+    const h = getCorsHeaders(makeReq('https://gaslamar.pages.dev'), { ENVIRONMENT: 'production' });
+    expect(h['Access-Control-Allow-Origin']).toBe('https://gaslamar.pages.dev');
+  });
+
   it('production: blocks staging.gaslamar.pages.dev', () => {
     const h = getCorsHeaders(makeReq('https://staging.gaslamar.pages.dev'), { ENVIRONMENT: 'production' });
     expect(h['Access-Control-Allow-Origin']).toBeUndefined();
