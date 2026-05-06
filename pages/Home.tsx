@@ -51,7 +51,7 @@ export default function Home() {
           <a
             href="upload.html"
             className="inline-flex items-center min-h-[44px] text-white font-bold text-sm px-5 py-[10px] rounded-full no-underline transition-all hover:-translate-y-[1px]"
-            style={{ background: "linear-gradient(180deg,#2563eb,#1d4ed8)", boxShadow: SHADOW }}
+            style={{ background: "#1B4FE8", boxShadow: SHADOW }}
           >
             Cek Peluang Saya
           </a>
@@ -110,7 +110,7 @@ export default function Home() {
           <a
             href="upload.html"
             className="inline-flex items-center justify-center min-h-[52px] rounded-[16px] px-[26px] py-3 text-white text-base font-bold no-underline transition-all hover:-translate-y-[1px]"
-            style={{ background: "linear-gradient(180deg,#2563eb,#1d4ed8)", boxShadow: SHADOW }}
+            style={{ background: "#1B4FE8", boxShadow: SHADOW }}
           >
             Cek Peluang Saya
           </a>

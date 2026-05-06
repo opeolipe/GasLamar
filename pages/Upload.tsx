@@ -68,6 +68,11 @@ export default function Upload() {
     } else if ((VALID_TIERS as readonly string[]).includes(tierParam)) {
       setTier(tierParam);
       try { sessionStorage.setItem('gaslamar_tier', tierParam); } catch (_) {}
+      // Remove tier from URL after reading — the value is saved in sessionStorage.
+      // Keeping it in the address bar allows manipulation that misleads users about
+      // which tier they selected (even though backend enforces the real tier at checkout).
+      params.delete('tier');
+      history.replaceState(null, '', params.toString() ? `${location.pathname}?${params}` : location.pathname);
     }
 
     // Paid session takes priority — redirect the user straight to download.html
@@ -90,7 +95,7 @@ export default function Upload() {
       const reason = params.get('reason');
       if (reason === 'no_session') {
         history.replaceState(null, '', location.pathname);
-        newNotices.push({ type: 'info', text: 'Sesi tidak ditemukan. Silakan mulai upload CV dari sini.' });
+        newNotices.push({ type: 'info', text: 'Sesi tidak ditemukan atau sudah kedaluwarsa (hasil analisis gratis aktif selama 2 jam). Silakan upload CV kembali untuk memulai analisis baru.' });
       } else if (reason === 'missing_data') {
         history.replaceState(null, '', location.pathname);
         newNotices.push({ type: 'warning', text: 'Data sesi tidak lengkap. Silakan upload CV kamu untuk memulai.' });
@@ -223,7 +228,10 @@ export default function Upload() {
     try {
       sessionStorage.removeItem('gaslamar_cv_draft');
       sessionStorage.removeItem('gaslamar_filename_draft');
+      // Clear JD draft too — user is starting over, stale JD would be confusing.
+      sessionStorage.removeItem('gaslamar_jd_draft');
     } catch (_) {}
+    setJd('');
   }
 
   function handleManualCvChange(value: string) {
@@ -253,8 +261,17 @@ export default function Upload() {
   }
 
   function handleJdChange(value: string) {
-    setJd(value);
-    try { sessionStorage.setItem('gaslamar_jd_draft', escapeHtml(value)); } catch (_) {}
+    // Strip null bytes and non-printable control characters (keep tab, LF, CR).
+    const sanitized = value.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+    setJd(sanitized);
+    try {
+      if (sanitized.trim()) {
+        sessionStorage.setItem('gaslamar_jd_draft', escapeHtml(sanitized));
+      } else {
+        // Explicit clear — remove draft so navigation back doesn't restore stale content.
+        sessionStorage.removeItem('gaslamar_jd_draft');
+      }
+    } catch (_) {}
   }
 
   function handleSubmit() {
@@ -323,6 +340,18 @@ export default function Upload() {
             )}
           </div>
         ))}
+
+        {/* Mobile step indicator — hidden on desktop */}
+        <div className="flex items-center justify-center gap-2 mb-4 sm:hidden" aria-label="Langkah 1 dari 3">
+          <div className="flex items-center gap-1.5">
+            <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">1</span>
+            <div className="w-8 h-0.5 bg-blue-200 rounded" />
+            <span className="w-6 h-6 rounded-full bg-slate-200 text-slate-400 text-xs font-bold flex items-center justify-center">2</span>
+            <div className="w-8 h-0.5 bg-slate-200 rounded" />
+            <span className="w-6 h-6 rounded-full bg-slate-200 text-slate-400 text-xs font-bold flex items-center justify-center">3</span>
+          </div>
+          <span className="text-xs text-slate-500 font-medium ml-1">Langkah 1 / 3</span>
+        </div>
 
         {/* ZONE 1: Hero (no box) */}
         <div className="text-center mb-8">

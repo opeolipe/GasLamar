@@ -473,9 +473,12 @@ export default function Result() {
         {/* ── Main results ── */}
         {data && !loading && !error && (
           <>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1.25rem', fontFamily: '"Plus Jakarta Sans","Inter",sans-serif', letterSpacing: '-0.02em', color: '#0F172A' }}>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.35rem', fontFamily: '"Plus Jakarta Sans","Inter",sans-serif', letterSpacing: '-0.02em', color: '#0F172A' }}>
               Hasil Analisis CV
             </h1>
+            <p style={{ fontSize: '0.8rem', color: '#94A3B8', marginBottom: '1.25rem', textAlign: 'center' }}>
+              Hasil ini aktif selama 2 jam sejak dianalisis — selesaikan pembayaran sebelum waktu habis
+            </p>
 
             {/* Progress steps */}
             <header aria-label="Langkah analisis CV">

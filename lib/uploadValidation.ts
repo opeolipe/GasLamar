@@ -5,6 +5,7 @@ export const SANDBOX_WORKER_URL = 'https://gaslamar-worker-staging.carolineratuo
 
 export const MAX_FILE_SIZE = 5 * 1024 * 1024;
 export const MAX_JD_CHARS = 5000;
+export const MAX_CV_PASTE_CHARS = 60000;
 export const MIN_JD_LENGTH = 100;
 export const MIN_CV_TEXT_LENGTH = 100;
 

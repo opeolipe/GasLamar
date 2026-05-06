@@ -52,7 +52,7 @@ export default function PricingSection() {
         <a
           href="upload.html"
           className="inline-flex items-center justify-center min-h-[52px] rounded-[16px] px-[26px] py-3 text-white text-base font-bold no-underline transition-all hover:-translate-y-[1px]"
-          style={{ background: "linear-gradient(180deg,#2563eb,#1d4ed8)", boxShadow: SHADOW }}
+          style={{ background: "#1B4FE8", boxShadow: SHADOW }}
         >
           Cek Peluang Saya
         </a>
@@ -101,7 +101,7 @@ export default function PricingSection() {
             <ul className="space-y-2 text-sm mb-6 flex-1">
               {tier.features.map((f) => (
                 <li key={f} className="flex items-start gap-2 text-slate-600">
-                  <Check className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+                  <Check className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" aria-hidden="true" />
                   {f}
                 </li>
               ))}
@@ -114,7 +114,7 @@ export default function PricingSection() {
                   ? "text-white border-0"
                   : "bg-white text-blue-700 border border-blue-200"
               }`}
-              style={tier.featured ? { background: "linear-gradient(180deg,#2563eb,#1d4ed8)" } : {}}
+              style={tier.featured ? { background: "#1B4FE8" } : {}}
             >
               Coba analisis gratis
             </a>

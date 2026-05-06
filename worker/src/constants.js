@@ -3,6 +3,7 @@
 export const PRODUCTION_ORIGINS = [
   'https://gaslamar.com',
   'https://www.gaslamar.com',
+  'https://gaslamar.pages.dev', // Cloudflare Pages canonical URL (non-staging)
 ];
 
 export const STAGING_ORIGINS = [
