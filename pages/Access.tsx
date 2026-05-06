@@ -6,9 +6,29 @@ type Status = 'idle' | 'loading' | 'sent' | 'error';
 const SHADOW  = '0 18px 44px rgba(15, 23, 42, 0.08)';
 const SERIF   = { fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' } as const;
 
+function isSameOriginUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return parsed.origin === window.location.origin;
+  } catch {
+    return false;
+  }
+}
+
 export default function Access() {
-  const showExpiredBanner =
-    new URLSearchParams(window.location.search).get('expired') === '1';
+  const params = new URLSearchParams(window.location.search);
+  const showExpiredBanner = params.get('expired') === '1';
+
+  // Strip return_url immediately — this page doesn't redirect to it.
+  // Leaving external URLs in the query string creates an open-redirect signal
+  // even if client-side code never follows them.
+  if (params.has('return_url')) {
+    const raw = params.get('return_url') ?? '';
+    if (!isSameOriginUrl(raw)) {
+      params.delete('return_url');
+      history.replaceState(null, '', params.toString() ? `${location.pathname}?${params}` : location.pathname);
+    }
+  }
 
   const [email,  setEmail]  = useState('');
   const [status, setStatus] = useState<Status>('idle');
@@ -166,7 +186,7 @@ export default function Access() {
                     type="submit"
                     disabled={status === 'loading' || !email.trim()}
                     className="min-h-[48px] px-6 rounded-[16px] font-bold text-white text-sm transition-all hover:-translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed"
-                    style={{ background: 'linear-gradient(180deg,#2563eb,#1d4ed8)', boxShadow: SHADOW }}
+                    style={{ background: '#1B4FE8', boxShadow: SHADOW }}
                   >
                     {status === 'loading' ? 'Mengirim link...' : 'Kirim ulang link'}
                   </button>
