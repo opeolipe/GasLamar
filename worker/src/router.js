@@ -1,6 +1,7 @@
 import { jsonResponse } from './cors.js';
 import { clientIp, log, logError } from './utils.js';
 import { checkRateLimitKV, rateLimitResponse } from './rateLimit.js';
+import { sanitizeLogValue } from './sanitize.js';
 import { handleAnalyze } from './handlers/analyze.js';
 import { handleCreatePayment } from './handlers/createPayment.js';
 import { handleMayarWebhook } from './handlers/mayarWebhook.js';
@@ -113,9 +114,16 @@ export async function route(request, env, ctx) {
     const kvResult = await checkRateLimitKV(env, ip, 30, 60, 'client_log');
     if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60);
     const contentType = request.headers.get('Content-Type') || '';
-    const body = contentType.includes('application/json')
+    // Reject oversized log bodies before parsing (prevents memory exhaustion)
+    const contentLength = parseInt(request.headers.get('Content-Length') || '0', 10);
+    if (contentLength > 8192) return jsonResponse({ ok: true }, 200, request, env);
+    const rawBody = contentType.includes('application/json')
       ? await request.json().catch(() => ({}))
       : { raw: await request.text().catch(() => '') };
+    // Sanitize all string values before writing to logs to prevent log injection
+    const body = Object.fromEntries(
+      Object.entries(rawBody).map(([k, v]) => [sanitizeLogValue(k, 100), sanitizeLogValue(v, 500)])
+    );
     log('client_log', { body, ip });
     return jsonResponse({ ok: true }, 200, request, env);
   }
@@ -125,7 +133,12 @@ export async function route(request, env, ctx) {
     const kvResult = await checkRateLimitKV(env, ip, 10, 60, 'feedback');
     if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60);
     const body = await request.json().catch(() => ({}));
-    log('user_feedback', { type: body.type, answer: body.answer, ip });
+    // Validate type against an allowlist — reject anything not in it to prevent log spam
+    const VALID_FEEDBACK_TYPES = new Set(['interview_outcome', 'cv_quality', 'experience', 'other']);
+    const type = typeof body.type === 'string' && VALID_FEEDBACK_TYPES.has(body.type) ? body.type : 'unknown';
+    // Cap answer length and sanitize control chars — fire-and-forget, no need to reject
+    const answer = sanitizeLogValue(typeof body.answer === 'string' ? body.answer : '', 1000);
+    log('user_feedback', { type, answer, ip });
     return jsonResponse({ ok: true }, 200, request, env);
   }
 

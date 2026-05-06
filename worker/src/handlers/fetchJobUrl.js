@@ -1,6 +1,7 @@
 import { jsonResponse } from '../cors.js';
 import { clientIp, log } from '../utils.js';
 import { checkRateLimit, rateLimitResponse } from '../rateLimit.js';
+import { sanitizeForLLM } from '../sanitize.js';
 
 // ---- Allowlist ---------------------------------------------------------------
 //
@@ -315,5 +316,5 @@ export async function handleFetchJobUrl(request, env) {
 
   if (raw.length > 5000) raw = raw.slice(0, 5000);
 
-  return jsonResponse({ job_desc: raw }, 200, request, env);
+  return jsonResponse({ job_desc: sanitizeForLLM(raw) }, 200, request, env);
 }

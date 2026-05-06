@@ -31,6 +31,10 @@ export function getCorsHeaders(request, env) {
 const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
+  // Deny framing by any origin — prevents clickjacking against API responses
+  'X-Frame-Options': 'DENY',
+  // Restrict browser feature access — API worker has no need for any of these
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
 };
 
 export function corsResponse(body, status, headers, request, env) {

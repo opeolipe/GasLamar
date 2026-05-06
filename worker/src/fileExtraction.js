@@ -1,4 +1,5 @@
 import { callClaude } from './claude.js';
+import { sanitizeForLLM } from './sanitize.js';
 
 // ---- File Validation ----
 
@@ -51,7 +52,7 @@ export async function extractCVText(cvData, env) {
 
     // TXT files: text is already extracted on the frontend, no Claude call needed
     if (parsed.type === 'txt') {
-      const text = parsed.data || '';
+      const text = sanitizeForLLM(parsed.data || '');
       if (text.trim().length < 100) {
         return { success: false, error: 'CV kamu tidak bisa dibaca. Pastikan file berisi teks CV yang lengkap (minimal 100 karakter).' };
       }
@@ -60,17 +61,17 @@ export async function extractCVText(cvData, env) {
 
     // DOCX: extract text locally via ZIP+XML parsing (no API call needed)
     if (parsed.type === 'docx') {
-      let text;
+      let rawText;
       try {
-        text = await extractTextFromDOCX(parsed.data);
+        rawText = await extractTextFromDOCX(parsed.data);
       } catch (docxErr) {
         console.error('[extractCVText:docx]', docxErr.message);
         return { success: false, error: 'File DOCX tidak bisa dibaca. Pastikan file tidak terproteksi password, lalu coba upload lagi. Jika masalah berlanjut, coba simpan ulang sebagai PDF.' };
       }
-      if (text.length < 100) {
+      if (rawText.length < 100) {
         return { success: false, error: 'CV kamu tidak bisa dibaca. Gunakan CV berbasis teks — bukan tabel gambar, file kosong, atau hasil scan.' };
       }
-      return { success: true, text };
+      return { success: true, text: sanitizeForLLM(rawText) };
     }
 
     // PDF: use Claude document API
@@ -96,13 +97,13 @@ export async function extractCVText(cvData, env) {
       return { success: false, error: 'CV kamu terlalu panjang untuk diproses. Coba konversi ke format DOCX, atau ringkas CV menjadi maksimal 3 halaman.' };
     }
 
-    const text = response?.content?.[0]?.text || '';
+    const rawText = response?.content?.[0]?.text || '';
 
-    if (text.length < 100) {
+    if (rawText.length < 100) {
       return { success: false, error: 'CV kamu tidak bisa dibaca. Gunakan CV berbasis teks — bukan hasil scan, foto, atau PDF dengan gambar saja. Coba konversi ke DOCX.' };
     }
 
-    return { success: true, text };
+    return { success: true, text: sanitizeForLLM(rawText) };
   } catch (e) {
     console.error('[extractCVText]', e.message);
     return { success: false, error: 'Gagal memproses file CV. Pastikan file tidak rusak atau terproteksi, lalu coba lagi.' };
