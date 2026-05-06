@@ -69,7 +69,7 @@ export default function ResultPreview() {
             className={`min-h-[44px] px-3 py-[10px] rounded-full text-sm font-semibold cursor-pointer border-0 transition-all w-full text-center ${
               tab === t ? "text-white" : "text-slate-800 bg-slate-100 hover:bg-slate-200"
             }`}
-            style={tab === t ? { background: "linear-gradient(180deg,#2563eb,#1d4ed8)" } : {}}
+            style={tab === t ? { background: "#1B4FE8" } : {}}
           >
             {t}
           </button>

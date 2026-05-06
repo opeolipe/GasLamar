@@ -24,7 +24,7 @@ export default function HeroUpload() {
           <a
             href="upload.html"
             className="inline-flex items-center justify-center min-h-[56px] rounded-[16px] px-[26px] py-4 text-white text-base font-bold no-underline transition-all hover:-translate-y-[1px] w-full sm:w-auto"
-            style={{ background: "linear-gradient(180deg,#2563eb,#1d4ed8)", boxShadow: SHADOW }}
+            style={{ background: "#1B4FE8", boxShadow: SHADOW }}
           >
             Cek Peluang Saya
           </a>

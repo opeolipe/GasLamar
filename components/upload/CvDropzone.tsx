@@ -53,7 +53,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
         {fileName ? (
           <div data-testid="file-preview" className="flex items-center justify-between gap-3 w-full text-left">
             <div className="flex items-center gap-3 flex-1 min-w-0">
-              <span className="text-2xl flex-shrink-0">📄</span>
+              <span className="text-2xl flex-shrink-0" aria-hidden="true">📄</span>
               <div className="min-w-0">
                 <div className="font-semibold text-sm text-slate-800 truncate">{fileName}</div>
                 {fileSize && <div className="text-sm text-slate-400 mt-0.5">{fileSize}</div>}
@@ -70,7 +70,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
           </div>
         ) : (
           <div>
-            <div className="text-3xl mb-2">📁</div>
+            <div className="text-3xl mb-2" aria-hidden="true">📁</div>
             <div className="font-semibold text-slate-700 mb-3">Upload CV kamu</div>
             <button
               type="button"
