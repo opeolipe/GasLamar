@@ -62,7 +62,9 @@ async function attemptExtract(userContent, env) {
  * @returns {object}        — validated extraction matching the SKILL_EXTRACT schema
  */
 export async function callExtract(cvText, jobDesc, env) {
-  const userContent = `CV:\n${cvText}\n\nJOB DESCRIPTION:\n${jobDesc}`;
+  // Wrap user-supplied content in XML tags so the LLM can clearly distinguish
+  // data from instructions, reducing prompt-injection risk.
+  const userContent = `<cv_content>\n${cvText}\n</cv_content>\n\n<job_description>\n${jobDesc || '(kosong)'}\n</job_description>`;
 
   try {
     return await attemptExtract(userContent, env);
