@@ -1,5 +1,7 @@
 import { callClaude } from './claude.js';
-import { sanitizeForLLM } from './sanitize.js';
+import { sanitizeForLLM, hasPromptInjection } from './sanitize.js';
+
+const INJECTION_ERROR = 'CV mengandung konten yang tidak diizinkan. Pastikan file CV tidak berisi perintah sistem.';
 
 // ---- File Validation ----
 
@@ -52,7 +54,13 @@ export async function extractCVText(cvData, env) {
 
     // TXT files: text is already extracted on the frontend, no Claude call needed
     if (parsed.type === 'txt') {
-      const text = sanitizeForLLM(parsed.data || '');
+      const raw = parsed.data || '';
+      // Reject before any processing — TXT is the highest-risk path because the
+      // user types/pastes content directly and it reaches the LLM verbatim.
+      if (hasPromptInjection(raw)) {
+        return { success: false, error: INJECTION_ERROR };
+      }
+      const text = sanitizeForLLM(raw);
       if (text.trim().length < 100) {
         return { success: false, error: 'CV kamu tidak bisa dibaca. Pastikan file berisi teks CV yang lengkap (minimal 100 karakter).' };
       }
@@ -70,6 +78,9 @@ export async function extractCVText(cvData, env) {
       }
       if (rawText.length < 100) {
         return { success: false, error: 'CV kamu tidak bisa dibaca. Gunakan CV berbasis teks — bukan tabel gambar, file kosong, atau hasil scan.' };
+      }
+      if (hasPromptInjection(rawText)) {
+        return { success: false, error: INJECTION_ERROR };
       }
       return { success: true, text: sanitizeForLLM(rawText) };
     }
@@ -101,6 +112,10 @@ export async function extractCVText(cvData, env) {
 
     if (rawText.length < 100) {
       return { success: false, error: 'CV kamu tidak bisa dibaca. Gunakan CV berbasis teks — bukan hasil scan, foto, atau PDF dengan gambar saja. Coba konversi ke DOCX.' };
+    }
+    // Check extracted PDF text — catches injection embedded in the document body
+    if (hasPromptInjection(rawText)) {
+      return { success: false, error: INJECTION_ERROR };
     }
 
     return { success: true, text: sanitizeForLLM(rawText) };

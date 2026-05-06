@@ -1,7 +1,7 @@
 import { jsonResponse } from '../cors.js';
 import { clientIp, log } from '../utils.js';
 import { checkRateLimit, rateLimitResponse } from '../rateLimit.js';
-import { sanitizeForLLM } from '../sanitize.js';
+import { sanitizeForLLM, hasPromptInjection } from '../sanitize.js';
 
 // ---- Allowlist ---------------------------------------------------------------
 //
@@ -315,6 +315,14 @@ export async function handleFetchJobUrl(request, env) {
   if (trimStart > 0) raw = raw.slice(trimStart);
 
   if (raw.length > 5000) raw = raw.slice(0, 5000);
+
+  // Reject scraped content that contains injection patterns before sending to caller.
+  // Unlikely from allowlisted job boards, but defence-in-depth against a compromised
+  // page or future redirect to an attacker-controlled allowed subdomain.
+  if (hasPromptInjection(raw)) {
+    log('fetch_job_url_blocked', { reason: 'injection_detected', url, requesterIp: ip });
+    return jsonResponse({ message: 'Halaman mengandung konten yang tidak diizinkan. Coba copy-paste manual.' }, 422, request, env);
+  }
 
   return jsonResponse({ job_desc: sanitizeForLLM(raw) }, 200, request, env);
 }
