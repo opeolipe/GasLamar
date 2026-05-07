@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { WORKER_URL } from '@/lib/downloadUtils';
+import { WORKER_URL } from '@/lib/uploadValidation';
 
 type Status = 'idle' | 'loading' | 'sent' | 'error';
 
