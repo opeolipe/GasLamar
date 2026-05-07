@@ -116,7 +116,7 @@ export default function PricingSection() {
               }`}
               style={tier.featured ? { background: "linear-gradient(180deg,#2563eb,#1d4ed8)" } : {}}
             >
-              Coba analisis gratis
+              {tier.featured ? "Mulai 3-Pack" : "Coba gratis dulu"}
             </a>
           </div>
         ))}

@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import HeroUpload    from "@/components/blocks/HeroUpload";
 import ResultPreview from "@/components/blocks/ResultPreview";
 import PricingSection from "@/components/blocks/PricingSection";
@@ -20,6 +21,20 @@ const BENEFITS = [
 ];
 
 export default function Home() {
+  const [showStickyBar, setShowStickyBar] = useState(false);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    let triggered = false;
+    function onScroll() {
+      if (triggered || window.scrollY <= 200) return;
+      triggered = true;
+      timer = setTimeout(() => setShowStickyBar(true), 2000);
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => { window.removeEventListener('scroll', onScroll); clearTimeout(timer); };
+  }, []);
+
   return (
     <div
       className="min-h-screen text-gray-900 font-sans"
@@ -121,6 +136,22 @@ export default function Home() {
       </main>
 
       <FooterSection />
+
+      {/* Sticky mobile CTA — only on small screens, appears after scroll */}
+      {showStickyBar && (
+        <div
+          className="md:hidden"
+          style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100, background: 'rgba(255,255,255,0.96)', borderTop: '1px solid rgba(148,163,184,0.18)', backdropFilter: 'blur(14px)', padding: '0.75rem 1rem', display: 'flex', justifyContent: 'center' }}
+        >
+          <a
+            href="upload.html"
+            className="w-full max-w-sm"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 48, borderRadius: 16, background: 'linear-gradient(180deg,#2563eb,#1d4ed8)', color: 'white', fontWeight: 700, fontSize: '0.95rem', textDecoration: 'none', boxShadow: SHADOW }}
+          >
+            Cek Peluang Kamu — Gratis →
+          </a>
+        </div>
+      )}
     </div>
   );
 }
