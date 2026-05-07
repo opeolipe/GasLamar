@@ -139,13 +139,15 @@ export async function handleCreatePayment(request, env) {
     }
 
     // Email → session index for access recovery (/resend-access).
-    // TTL is always the max session TTL (30 days) so the index outlives the session.
+    // Stored as an array so repeat buyers don't lose access to earlier sessions.
+    // No TTL on the index — sessions expire on their own; this just maps email → [ids].
     if (sessionEmail) {
-      await env.GASLAMAR_SESSIONS.put(
-        `email_session_${sessionEmail}`,
-        JSON.stringify({ session_id: sessionId }),
-        { expirationTtl: SESSION_TTL_MULTI }
-      );
+      const indexKey = `email_session_${sessionEmail}`;
+      const existing = await env.GASLAMAR_SESSIONS.get(indexKey, { type: 'json' });
+      // Support old single-id format from before this change
+      const ids = existing?.session_ids ?? (existing?.session_id ? [existing.session_id] : []);
+      if (!ids.includes(sessionId)) ids.push(sessionId);
+      await env.GASLAMAR_SESSIONS.put(indexKey, JSON.stringify({ session_ids: ids }));
     }
 
     // Set HttpOnly session cookie — eliminates session_id from URLs (browser history,
