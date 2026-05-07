@@ -3,7 +3,7 @@ export default function FooterSection() {
     <footer className="border-t border-slate-100 py-8 text-center text-sm text-slate-500">
       <p>© 2026 GasLamar — bantu kamu tahu peluang interview sebelum apply.</p>
       <p className="mt-2">
-        Privasi utama: CV tidak disimpan, tanpa registrasi, diproses otomatis dan dihapus.
+        Privasi utama: CV tidak disimpan permanen, tanpa registrasi, diproses otomatis dan dihapus sesuai masa aktif.
       </p>
       <p className="mt-2 space-x-2">
         <a

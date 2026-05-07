@@ -10,7 +10,7 @@ const SERIF = { fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua
 const FAQ_ITEMS: { q: string; a: React.ReactNode }[] = [
   {
     q: "Apakah CV saya aman?",
-    a: "Untuk paket Coba Dulu dan Single, CV kamu dihapus otomatis setelah kamu download (maks 2 jam). Untuk paket 3-Pack dan Job Hunt Pack, CV disimpan selama 30 hari agar kamu bisa kembali generate CV untuk loker berikutnya tanpa upload ulang — lalu dihapus otomatis setelah 30 hari atau saat semua kredit habis. Kami tidak menyimpan CV kamu secara permanen.",
+    a: "Hasil analisis gratis tersimpan di browser kamu selama 2 jam — selesaikan pembayaran sebelum waktu habis untuk lanjut download CV. Untuk paket Coba Dulu dan Single, CV tersimpan di server selama 7 hari setelah pembayaran, lalu dihapus otomatis. Untuk paket 3-Pack dan Job Hunt Pack, CV disimpan selama 30 hari agar kamu bisa kembali generate CV untuk loker berikutnya tanpa upload ulang — lalu dihapus otomatis setelah 30 hari atau saat semua kredit habis. Kami tidak menyimpan CV kamu secara permanen.",
   },
   {
     q: "Format CV apa yang didukung?",

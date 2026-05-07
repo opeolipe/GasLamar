@@ -60,7 +60,10 @@ export async function extractCVText(cvData, env) {
       if (hasPromptInjection(raw)) {
         return { success: false, error: INJECTION_ERROR };
       }
-      const text = sanitizeForLLM(raw);
+      // Enforce the same 60k-char ceiling the frontend textarea claims.
+      // Silently truncate rather than reject — extra chars may come from
+      // sessionStorage manipulation but the user still deserves a result.
+      const text = sanitizeForLLM(raw).slice(0, 60000);
       if (text.trim().length < 100) {
         return { success: false, error: 'CV kamu tidak bisa dibaca. Pastikan file berisi teks CV yang lengkap (minimal 100 karakter).' };
       }
