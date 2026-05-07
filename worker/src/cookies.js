@@ -2,11 +2,10 @@
  * Cookie utilities for session management.
  *
  * NOTE on SameSite=None:
- *   The Worker runs on a different registrable domain from the frontend
- *   (gaslamar-worker.carolineratuolivia.workers.dev vs gaslamar.com).
- *   SameSite=Strict/Lax would block the cookie from being included in
- *   cross-site fetch requests that use credentials:'include'. SameSite=None;Secure
- *   is required for cross-domain cookie transmission.
+ *   The Worker and frontend share the gaslamar.com domain via Cloudflare routes.
+ *   SameSite=None;Secure is retained for compatibility across both production
+ *   (gaslamar.com) and staging (api-staging.gaslamar.com) environments where
+ *   the cookie domain may still differ from the Pages subdomain.
  *
  * CSRF SECURITY ASSESSMENT — no CSRF tokens needed:
  *
