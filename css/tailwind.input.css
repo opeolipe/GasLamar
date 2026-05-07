@@ -10,6 +10,11 @@ a:not(.no-underline) {
   text-underline-offset: 2px;
 }
 
+/* Eliminate 300ms tap delay on all interactive elements. */
+a, button, input, select, textarea, label {
+  touch-action: manipulation;
+}
+
 /* Custom animation keyframes used via inline style= props across React components.
    Tailwind only emits @keyframes it discovers via class names (e.g. animate-spin);
    names used exclusively in inline styles must be declared here explicitly. */

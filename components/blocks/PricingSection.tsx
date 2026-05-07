@@ -116,7 +116,7 @@ export default function PricingSection() {
               }`}
               style={tier.featured ? { background: "#1B4FE8" } : {}}
             >
-              Coba analisis gratis
+              {tier.featured ? "Mulai 3-Pack" : "Coba gratis dulu"}
             </a>
           </div>
         ))}

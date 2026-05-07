@@ -5,7 +5,6 @@ import { getSessionIdFromCookie }            from '../cookies.js';
 import { clientIp, log, logError }           from '../utils.js';
 import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
 import { sendPaymentConfirmationEmail }      from '../email.js';
-import { SESSION_TTL_MULTI }               from '../constants.js';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -72,16 +71,24 @@ export async function handleResendEmail(request, env) {
         404, request, env,
       );
     }
-    // Remove old index so the old address no longer resolves to this session,
-    // then point the new address at it.
+    // Remove this session from the old email's index (leave other sessions under that email intact),
+    // then append it to the new email's index.
     if (session.email) {
-      await env.GASLAMAR_SESSIONS.delete(`email_session_${session.email}`).catch(() => {});
+      const oldKey = `email_session_${session.email}`;
+      const oldIndex = await env.GASLAMAR_SESSIONS.get(oldKey, { type: 'json' });
+      const oldIds = (oldIndex?.session_ids ?? (oldIndex?.session_id ? [oldIndex.session_id] : []))
+        .filter(id => id !== sessionId);
+      if (oldIds.length) {
+        await env.GASLAMAR_SESSIONS.put(oldKey, JSON.stringify({ session_ids: oldIds })).catch(() => {});
+      } else {
+        await env.GASLAMAR_SESSIONS.delete(oldKey).catch(() => {});
+      }
     }
-    await env.GASLAMAR_SESSIONS.put(
-      `email_session_${newEmail}`,
-      JSON.stringify({ session_id: sessionId }),
-      { expirationTtl: SESSION_TTL_MULTI }
-    );
+    const newKey = `email_session_${newEmail}`;
+    const newIndex = await env.GASLAMAR_SESSIONS.get(newKey, { type: 'json' });
+    const newIds = newIndex?.session_ids ?? (newIndex?.session_id ? [newIndex.session_id] : []);
+    if (!newIds.includes(sessionId)) newIds.push(sessionId);
+    await env.GASLAMAR_SESSIONS.put(newKey, JSON.stringify({ session_ids: newIds }));
     log('resend_email_changed', { session_id: sessionId, ip });
   }
 

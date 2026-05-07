@@ -32,3 +32,31 @@ posthog.init('phc_DmeD8QdyUMMGwZ4GUKnDurFXrquR3APqUKrcEuDbgy3X',{
     return props;
   },
 });
+
+// UTM capture — runs once per page load.
+// If UTM params are in the URL (landing page), persist them to sessionStorage so they
+// survive navigation to upload.html → hasil.html → download.html.
+// Registers them as PostHog super properties so every subsequent event carries attribution.
+(function() {
+  var UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'];
+  var STORAGE_KEY = 'gaslamar_utm';
+  var params = new URLSearchParams(location.search);
+
+  // Pick up fresh UTMs from URL (landing hit)
+  var fresh = {};
+  UTM_KEYS.forEach(function(k) { var v = params.get(k); if (v) fresh[k] = v; });
+
+  // Merge with any UTMs already stored for this session (first-touch wins)
+  var stored = {};
+  try { stored = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '{}'); } catch(e) {}
+
+  // First-touch: only write to sessionStorage if we don't have anything yet
+  if (Object.keys(fresh).length && !Object.keys(stored).length) {
+    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(fresh)); } catch(e) {}
+    stored = fresh;
+  }
+
+  if (Object.keys(stored).length) {
+    posthog.register(stored);
+  }
+})();
