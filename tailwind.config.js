@@ -16,6 +16,8 @@ module.exports = {
         danger:  '#EF4444',
       },
       fontFamily: {
+        // Override default sans so `font-sans` utility class → Inter (matches body font).
+        sans:    ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         heading: ['"Plus Jakarta Sans"', 'sans-serif'],
         body:    ['Inter', 'sans-serif'],
       },

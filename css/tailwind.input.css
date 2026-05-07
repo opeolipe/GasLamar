@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Apply Plus Jakarta Sans to all headings per design system.
+   Inline style= overrides this for display H1/H2 (serif variant). */
+h1, h2, h3, h4, h5, h6, .font-heading {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
 /* Underline body-text links by default.
    Logo and button-style links carry .no-underline explicitly to opt out.
    Placed after utilities so it overrides Tailwind's a{text-decoration:inherit} reset. */
