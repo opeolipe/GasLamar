@@ -7,12 +7,12 @@
  * used instead of the production gateway (api.mayar.id).
  *
  * Worker URLs:
- *   production : gaslamar-worker.carolineratuolivia.workers.dev
- *   staging    : gaslamar-worker-staging.carolineratuolivia.workers.dev
+ *   production : gaslamar.com (worker routes configured in wrangler.toml)
+ *   staging    : api-staging.gaslamar.com (CNAME → gaslamar-worker-staging.carolineratuolivia.workers.dev)
  */
 const WORKER_URL = (() => {
   if (typeof window !== 'undefined' && window.location.hostname === 'staging.gaslamar.pages.dev') {
-    return 'https://gaslamar-worker-staging.carolineratuolivia.workers.dev';
+    return 'https://api-staging.gaslamar.com';
   }
-  return 'https://gaslamar-worker.carolineratuolivia.workers.dev';
+  return 'https://gaslamar.com';
 })();
