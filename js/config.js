@@ -8,7 +8,7 @@
  *
  * Worker URLs:
  *   production : gaslamar.com (worker routes configured in wrangler.toml)
- *   staging    : api-staging.gaslamar.com (CNAME → gaslamar-worker-staging.carolineratuolivia.workers.dev)
+ *   staging    : api-staging.gaslamar.com
  */
 const WORKER_URL = (() => {
   if (typeof window !== 'undefined' && window.location.hostname === 'staging.gaslamar.pages.dev') {
