@@ -38,28 +38,40 @@ export async function handleResendAccess(request, env) {
   const emailHash = (await sha256Full(email)).slice(0, 16);
 
   const indexRaw = await env.GASLAMAR_SESSIONS.get(`email_session_${email}`, { type: 'json' });
-  if (!indexRaw?.session_id) {
+  // Support both old { session_id } and new { session_ids } format
+  const sessionIds = indexRaw?.session_ids ?? (indexRaw?.session_id ? [indexRaw.session_id] : []);
+
+  if (!sessionIds.length) {
     log('resend_access_attempt', { email_hash: emailHash, hasSession: false, rateLimited: false, ip });
     return jsonResponse(GENERIC_OK, 200, request, env);
   }
 
-  const session = await getSession(env, indexRaw.session_id);
-  if (!session || !PAID_STATUSES.has(session.status)) {
+  // Find every session that still exists and is paid — send one email per active session.
+  // Cap at 3 to avoid sending a flood if someone has many old purchases.
+  const activeIds = [];
+  for (const id of sessionIds) {
+    const session = await getSession(env, id);
+    if (session && PAID_STATUSES.has(session.status)) activeIds.push(id);
+  }
+
+  if (!activeIds.length) {
     log('resend_access_attempt', { email_hash: emailHash, hasSession: false, rateLimited: false, ip });
     return jsonResponse(GENERIC_OK, 200, request, env);
   }
 
-  log('resend_access_attempt', { email_hash: emailHash, hasSession: true, rateLimited: false, ip });
+  log('resend_access_attempt', { email_hash: emailHash, hasSession: true, count: activeIds.length, rateLimited: false, ip });
 
-  try {
-    await sendPaymentConfirmationEmail(indexRaw.session_id, env, {
-      subject: 'Akses ulang CV kamu — GasLamar',
-      heading: 'Klik link di bawah untuk kembali ke CV kamu:',
-    });
-    log('resend_access_sent', { email_hash: emailHash, ip });
-  } catch (e) {
-    logError('resend_access_email_failed', { error: e.message });
+  for (const id of activeIds.slice(0, 3)) {
+    try {
+      await sendPaymentConfirmationEmail(id, env, {
+        subject: 'Akses ulang CV kamu — GasLamar',
+        heading: 'Klik link di bawah untuk kembali ke CV kamu:',
+      });
+    } catch (e) {
+      logError('resend_access_email_failed', { error: e.message });
+    }
   }
+  log('resend_access_sent', { email_hash: emailHash, count: activeIds.length, ip });
 
   return jsonResponse(GENERIC_OK, 200, request, env);
 }
