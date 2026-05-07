@@ -36,18 +36,18 @@ export default {
       }));
     }
 
-    // Handle CORS preflight. Reject disallowed origins before any route logic runs.
-    if (request.method === 'OPTIONS') {
-      if (!isOriginAllowed(request, env)) {
-        return new Response(null, { status: 403, headers: { Vary: 'Origin' } });
-      }
-      return new Response(null, {
-        status: 204,
-        headers: getCorsHeaders(request, env),
-      });
-    }
-
     try {
+      // Handle CORS preflight. Reject disallowed origins before any route logic runs.
+      if (request.method === 'OPTIONS') {
+        if (!isOriginAllowed(request, env)) {
+          return new Response(null, { status: 403, headers: { Vary: 'Origin' } });
+        }
+        return new Response(null, {
+          status: 204,
+          headers: getCorsHeaders(request, env),
+        });
+      }
+
       return await route(request, env, ctx);
     } catch (err) {
       console.error('Unhandled error:', err);
