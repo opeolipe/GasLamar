@@ -232,8 +232,10 @@ function syncSubmitBtn() {
   const hint = document.getElementById('submit-hint');
   if (!btn) return;
   const hasFile = !!selectedFile;
-  const jdTrimLen = document.getElementById('job-desc').value.trim().length;
-  const jdTooShort = jdTrimLen < MIN_JD_LENGTH;
+  // Normalize whitespace the same way the backend does (collapse \s+ → ' ' then trim)
+  // so the frontend min-length check matches what the server will validate.
+  const jdNormLen = document.getElementById('job-desc').value.replace(/\s+/g, ' ').trim().length;
+  const jdTooShort = jdNormLen < MIN_JD_LENGTH;
   const jdTooLong  = document.getElementById('job-desc').value.length > MAX_JD_CHARS;
 
   btn.disabled = !hasFile || jdTooShort || jdTooLong;
@@ -285,7 +287,7 @@ function updateCharCount() {
     hideError('jd-error'); // well past MIN_JD_LENGTH — no "too short" needed
   } else {
     warning.classList.add('hidden');
-    const trimLen = jd.value.trim().length;
+    const trimLen = jd.value.replace(/\s+/g, ' ').trim().length;
     if (jdTouched && trimLen < MIN_JD_LENGTH) {
       // Show "required / too short" without the button shake — direct DOM update only
       const jdErrEl = document.getElementById('jd-error');
@@ -300,10 +302,11 @@ function updateCharCount() {
     }
   }
 
-  // Success indicator: visible when JD meets the minimum length
+  // Success indicator: visible when JD meets the minimum length.
+  // Use the same whitespace normalization as the backend to avoid false positives.
   const successEl = document.getElementById('jd-success-indicator');
   if (successEl) {
-    const meetsMin = jd.value.trim().length >= MIN_JD_LENGTH;
+    const meetsMin = jd.value.replace(/\s+/g, ' ').trim().length >= MIN_JD_LENGTH;
     successEl.classList.toggle('hidden', !meetsMin);
     jd.classList.toggle('jd-success', meetsMin);
   }
@@ -323,7 +326,8 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
     showError('jd-error', `Job description terlalu panjang. Maksimal ${MAX_JD_CHARS.toLocaleString('id-ID')} karakter.`);
     return;
   }
-  const jobDesc = rawJd.trim().slice(0, MAX_JD_CHARS);
+  // Normalize whitespace the same way the backend does before the length check.
+  const jobDesc = rawJd.replace(/\s+/g, ' ').trim().slice(0, MAX_JD_CHARS);
 
   // Validate inputs
   if (!selectedFile || !cvText) {
