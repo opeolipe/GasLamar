@@ -339,7 +339,6 @@ export default function Result() {
 
       sessionStorage.setItem('gaslamar_session',                 session_id);
       sessionStorage.setItem(`gaslamar_secret_${session_id}`, sessionSecret);
-      sessionStorage.removeItem('gaslamar_cv_key');
       // Mirror to localStorage so download.html can find the session even if
       // Mayar redirects in a new tab where sessionStorage was never populated.
       // Also needed by download-guard.js (which reads localStorage, not sessionStorage).
@@ -356,18 +355,20 @@ export default function Result() {
       } catch (_) {}
 
       // Validate invoice URL origin before redirecting.
-      // In sandbox/staging builds (IS_SANDBOX=true) skip the domain check — Mayar sandbox
-      // may use non-standard domains. In production, only allow known Mayar domains.
-      let validUrl = IS_SANDBOX;
-      if (!IS_SANDBOX) {
-        try {
-          const parsed = new URL(invoice_url);
-          validUrl = parsed.protocol === 'https:' &&
-            (parsed.hostname === 'mayar.id' || parsed.hostname.endsWith('.mayar.id') ||
-             parsed.hostname === 'mayar.club' || parsed.hostname.endsWith('.mayar.club'));
-        } catch (_) {}
-      }
+      // Only require HTTPS — the URL comes directly from our backend which fetched it
+      // from Mayar's API, so it is already a trusted source. A strict hostname allowlist
+      // would break if Mayar ever changes subdomains or adds new checkout domains.
+      let validUrl = false;
+      try {
+        const parsed = new URL(invoice_url);
+        validUrl = parsed.protocol === 'https:';
+      } catch (_) {}
       if (!validUrl) throw new Error('URL pembayaran tidak valid. Coba lagi.');
+
+      // cv_text_key was consumed server-side; remove it from sessionStorage only after
+      // we have confirmed the invoice URL is valid and are about to redirect. This ensures
+      // a user who hits a transient error can retry without seeing "Data CV tidak ditemukan".
+      sessionStorage.removeItem('gaslamar_cv_key');
 
       setPayBtnOverride('Mengalihkan ke halaman pembayaran...');
       window.location.href = invoice_url;
@@ -443,8 +444,8 @@ export default function Result() {
         className="border-b py-4 px-6 flex items-center sticky top-0 z-50 backdrop-blur-[14px]"
         style={{ borderColor: 'rgba(148,163,184,0.18)', background: 'rgba(255,255,255,0.88)' }}
       >
-        <a href="index.html" className="font-extrabold text-lg text-slate-900 no-underline tracking-tight min-h-[44px] inline-flex items-center">
-          GasLamar
+        <a href="index.html" className="no-underline min-h-[44px] inline-flex items-center">
+          <img src="assets/logo.svg" alt="GasLamar" height="28" style={{ display: 'block' }} />
         </a>
       </nav>
 
@@ -757,6 +758,7 @@ export default function Result() {
                   onClick={proceedToPayment}
                   disabled={payBtnDisabled}
                   aria-label="Lihat CV hasil rewrite lengkap"
+                  title={payBtnDisabled && payHint ? payHint : undefined}
                   style={{ background: payBtnDisabled ? '#CBD5E1' : 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', border: 'none', borderRadius: 60, padding: '0.9rem 1.5rem', fontWeight: 700, cursor: payBtnDisabled ? 'not-allowed' : 'pointer', width: '100%', transition: '0.2s', fontFamily: 'inherit', fontSize: '1rem', opacity: payBtnDisabled ? 0.6 : 1, boxShadow: payBtnDisabled ? 'none' : '0 8px 24px rgba(37,99,235,0.30)' }}
                 >
                   {payBtnLabel}
@@ -767,8 +769,8 @@ export default function Result() {
                   </p>
                 )}
                 {payHint && !sessionExpiredByPay && (
-                  <p style={{ fontSize: '0.875rem', color: '#6B7280', textAlign: 'center', marginTop: '0.5rem' }}>
-                    {payHint}
+                  <p style={{ fontSize: '0.875rem', color: '#DC2626', fontWeight: 500, textAlign: 'center', marginTop: '0.5rem' }}>
+                    ⚠️ {payHint}
                   </p>
                 )}
                 {paymentError && (
