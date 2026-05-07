@@ -319,6 +319,11 @@
           <td>Pengiriman email link download</td>
           <td>Alamat email &amp; link sesi</td>
         </tr>
+        <tr>
+          <td><strong>PostHog</strong></td>
+          <td>Analitik produk (event usage, funnel, tidak ada rekaman sesi)</td>
+          <td>Data penggunaan anonim (halaman dikunjungi, event klik, UTM); tidak ada CV, tidak ada email</td>
+        </tr>
       </tbody>
     </table>
   </div>
@@ -336,9 +341,10 @@
     <p>GasLamar menggunakan cookie seminimal mungkin:</p>
     <ul>
       <li><strong>Cookie sesi (HttpOnly, Secure)</strong> — satu cookie esensial yang diatur setelah pembayaran berhasil, digunakan untuk mengautentikasi permintaan download CV. Cookie ini bersifat <em>strictly necessary</em> agar layanan dapat berfungsi dan dikecualikan dari persyaratan persetujuan berdasarkan GDPR/ePrivacy Directive. Cookie ini tidak digunakan untuk pelacakan.</li>
-      <li><strong>Cloudflare Analytics</strong> — analitik anonim yang disediakan oleh Cloudflare untuk memantau performa situs. Tidak ada data pribadi yang dikumpulkan; tidak ada cookie pelacak pihak ketiga.</li>
+      <li><strong>Cloudflare Analytics</strong> — analitik anonim yang disediakan oleh Cloudflare untuk memantau performa situs. Tidak ada data pribadi yang dikumpulkan.</li>
+      <li><strong>PostHog</strong> — analitik produk untuk memahami bagaimana fitur digunakan (halaman yang dikunjungi, event interaksi, funnel). Data diproses di server EU PostHog. Rekaman sesi, survei, dan eksperimen dinonaktifkan. Tidak ada CV, email, atau data pribadi lain yang dikirim ke PostHog. Kamu dapat opt-out dengan mengaktifkan <em>Do Not Track</em> di browser.</li>
     </ul>
-    <p>GasLamar tidak menggunakan cookie iklan, cookie retargeting, atau alat pelacakan pihak ketiga lainnya.</p>
+    <p>GasLamar tidak menggunakan cookie iklan atau cookie retargeting.</p>
   </div>
 
   <!-- 9. Hak Pengguna -->
