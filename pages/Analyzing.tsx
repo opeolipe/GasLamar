@@ -123,7 +123,7 @@ export default function Analyzing() {
         className="border-b py-4 px-6 flex items-center sticky top-0 z-50 backdrop-blur-[14px]"
         style={{ borderColor: 'rgba(148,163,184,0.18)', background: 'rgba(255,255,255,0.88)' }}
       >
-        <span className="font-extrabold text-lg text-slate-900 tracking-tight">GasLamar</span>
+        <img src="assets/logo.svg" alt="GasLamar" height="28" style={{ display: 'block' }} />
       </nav>
 
       <main className="max-w-2xl mx-auto px-4 py-8 sm:py-12">
