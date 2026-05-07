@@ -5,7 +5,6 @@ import { getSessionIdFromCookie }            from '../cookies.js';
 import { clientIp, log, logError }           from '../utils.js';
 import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
 import { sendPaymentConfirmationEmail }      from '../email.js';
-import { SESSION_TTL_MULTI }               from '../constants.js';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
