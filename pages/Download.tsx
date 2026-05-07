@@ -327,11 +327,8 @@ export default function Download() {
         }}
         aria-label="Site navigation"
       >
-        <a
-          href="index.html"
-          className="font-extrabold text-[1.1rem] text-slate-900 no-underline tracking-[-0.02em]"
-        >
-          GasLamar
+        <a href="index.html" className="no-underline inline-flex items-center">
+          <img src="assets/logo.svg" alt="GasLamar" height="28" style={{ display: 'block' }} />
         </a>
       </nav>
 
