@@ -247,6 +247,22 @@ export default function Result() {
   async function proceedToPayment() {
     if (!selectedTier || paymentInProgress) return;
 
+    // If the user returned via browser back button after being redirected to Mayar,
+    // the cv_text_key was already consumed server-side and removed from sessionStorage.
+    // Resume the existing invoice instead of failing with "data not found".
+    const pendingRaw = sessionStorage.getItem('gaslamar_pending_invoice');
+    if (pendingRaw) {
+      try {
+        const pending = JSON.parse(pendingRaw) as { invoice_url: string; created_at: number };
+        if (pending.invoice_url && (Date.now() - (pending.created_at || 0)) < 7200000) {
+          setPayBtnOverride('Mengalihkan ke halaman pembayaran...');
+          window.location.href = pending.invoice_url;
+          return;
+        }
+      } catch (_) {}
+      sessionStorage.removeItem('gaslamar_pending_invoice');
+    }
+
     const cvTextKey = sessionStorage.getItem('gaslamar_cv_key');
     if (!cvTextKey) {
       alert('Data CV tidak ditemukan. Mohon upload CV kamu kembali.');
@@ -364,6 +380,15 @@ export default function Result() {
         validUrl = parsed.protocol === 'https:';
       } catch (_) {}
       if (!validUrl) throw new Error('URL pembayaran tidak valid. Coba lagi.');
+
+      // Persist the invoice URL so that if the user clicks browser-back from Mayar
+      // they can resume this invoice without needing cv_text_key again.
+      try {
+        sessionStorage.setItem('gaslamar_pending_invoice', JSON.stringify({
+          invoice_url,
+          created_at: Date.now(),
+        }));
+      } catch (_) {}
 
       // cv_text_key was consumed server-side; remove it from sessionStorage only after
       // we have confirmed the invoice URL is valid and are about to redirect. This ensures
