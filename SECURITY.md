@@ -61,7 +61,7 @@ flow only from KV → Worker → browser response, never the other way.
 | 5 | **`pending → paid` gate via webhook** — a session cannot be used until the Mayar payment webhook sets `status: 'paid'`; the client cannot self-promote | `mayarWebhook.js`, `getSession.js:31` |
 | 6 | **Session secret (HMAC)** — `/get-session` and `/generate` verify `X-Session-Secret` against a SHA-256 hash stored in KV using constant-time comparison | `sessions.js:46–56` |
 | 7 | **IP-binding on `cv_text_key`** — the analysis key from `/analyze` is bound to the originating IP; cannot be reused from a different network | `createPayment.js:50–52` |
-| 8 | **Distributed lock** — a `lock_<session_id>` KV entry prevents concurrent double-generation race conditions | `generate.js:65–70` |
+| 8 | **Distributed lock** — a `lock_<session_id>` KV entry (TTL 120s) prevents concurrent double-generation race conditions | `generate.js:136–141` |
 | 9 | **Credit exhaustion → session deletion** — at zero credits, `deleteSession()` removes the KV entry; the session cannot be replayed | `generate.js:89–91` |
 | 10 | **Server overwrites client tier** — after payment confirmation, `/check-session` returns `data.tier` which `download.js` immediately writes to `sessionStorage`, correcting any tampered value | `download.js:119` |
 

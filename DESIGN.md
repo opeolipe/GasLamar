@@ -10,7 +10,7 @@
 
 ## Color
 
-### Tokens (CSS variables in `css/style.css`)
+### Tokens (CSS variables in `css/main.css`)
 
 | Token | Hex | Use |
 |-------|-----|-----|
@@ -203,7 +203,7 @@ In-page, visible mobile only (`flex sm:hidden`):
 ```
 
 ### Frosted glass card (app pages)
-Used on `analyzing.html`, `download.html`, `access.html` — not on the marketing landing page.
+Used on `analyzing.html`, `download.html`, `access.html`, `exchange-token.html` — not on the marketing landing page.
 ```jsx
 <div
   className="rounded-[24px] px-6 py-6"
@@ -218,7 +218,7 @@ Used on `analyzing.html`, `download.html`, `access.html` — not on the marketin
 Shadow constant reused across components: `'0 18px 44px rgba(15, 23, 42, 0.08)'`.
 
 ### App page shell
-App pages (upload, analyzing, hasil, download, access) share a light shell — distinct from the dark marketing hero:
+App pages (upload, analyzing, hasil, download, access, exchange-token) share a light shell — distinct from the dark marketing hero:
 - **Background:** `radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37,99,235,0.08), transparent)` on `min-h-screen`.
 - **Sticky navbar:** `rgba(255,255,255,0.88)` bg, `backdropFilter: blur(14px)`, `borderColor: rgba(148,163,184,0.18)`.
 - **Content max width:** `max-w-2xl` for focused single-column flows (analyzing, access); `max-w-screen-xl` for wider layouts (download).
@@ -291,6 +291,11 @@ Amber warning strip used above cards when a session link has expired:
 | `hasil.html` | Step 2: score + gaps | Score ring, verdict card, gap list, tier cards, email capture |
 | `download.html` | Step 3: download | Download grid, score bars, interview kit, coaching card |
 | `access.html` | Session recovery | Email form, expired banner, success confirmation |
+| `exchange-token.html` | Email download-link handler | Auto-redirects after token exchange; minimal shell |
+| `accessibility.html` | Accessibility statement | Static content page, light shell |
+| `privacy.html` | Privacy policy | Static content page, light shell |
+| `terms.html` | Terms of service | Static content page, light shell |
+| `404.html` | Not found fallback | Static error page |
 
 ---
 
@@ -317,4 +322,4 @@ Before shipping a new section:
 
 ---
 
-*Last updated: 2026-05-06 | gstack /design-consultation*
+*Last updated: 2026-05-08 | gstack /design-consultation*
