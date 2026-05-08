@@ -56,6 +56,47 @@ Routes → `router.js`. Handlers → `worker/src/handlers/<endpoint>.js`. Pipeli
 | `worker/src/handlers/mayarWebhook.js` | HMAC-SHA256 verification + idempotency sentinel `payment_processed_<session_id>` (48h TTL) — written BEFORE session update to survive retries. Normalizes many Mayar status variants (paid/settlement/capture/SUCCESS/…). Email send via `ctx.waitUntil`. |
 | `worker/src/handlers/bypassPayment.js` | Sandbox/E2E only — returns 404 if `ENVIRONMENT === 'production'`. Creates a paid session without going through Mayar. Used for automated tests. |
 | `js/download-guard.js` | Blocking external `<script>` loaded in download.html `<head>` (not inline). Three valid entry paths: `?token=` (email link), localStorage `gaslamar_session` (post-payment), localStorage `gaslamar_delivery` (email-delivery flow). All others → `window.location.replace('/')`. |
+| `worker/src/handlers/validateCoupon.js` | `POST /validate-coupon` — pre-payment coupon validation. Calls Mayar `GET /coupon/validate` as a query-string request (GET with body is forbidden by Fetch spec). Rate-limited 10 req/min per IP to block enumeration. Returns discount amount so the frontend can show a live discounted price before redirecting to Mayar. |
+
+---
+
+## Coupon / Discount Promos
+
+Coupons are managed entirely in Mayar — GasLamar does not store coupon definitions. The worker calls Mayar's API at validation time.
+
+**Flow:**
+1. User enters a code on the hasil page → frontend calls `POST /validate-coupon`
+2. Worker calls `GET /coupon/validate?couponCode=…&finalAmount=…` on Mayar (query params, NOT body — Fetch spec bans GET bodies)
+3. Valid code → frontend shows live discounted price on the pay button
+4. On payment, `coupon_code` is forwarded to Mayar invoice creation body
+5. User enters the code again on Mayar's checkout page to apply it
+
+**Creating a coupon (Mayar dashboard or API):**
+```bash
+curl -X POST https://api.mayar.id/hl/v1/coupon/create \
+  -H "Authorization: Bearer $MAYAR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Launch Promo",
+    "expiredAt": "2026-12-31T23:59:59.000Z",
+    "discount": { "discountType": "percentage", "value": 50, "totalCoupons": 200, "eligibleCustomerType": "all", "minimumPurchase": 0 },
+    "coupon":   { "code": "HEMAT50", "type": "reusable" },
+    "products": []
+  }'
+```
+
+**Operational controls:**
+
+| Goal | How |
+|---|---|
+| **Stop a promo immediately** | Expire or deactivate coupon in Mayar dashboard (web.mayar.id → Discount & Coupon). Zero code changes needed. |
+| **Limit to a date range** | Set `expiredAt` when creating the coupon in Mayar. |
+| **Limit total uses** | Set `totalCoupons` (quota). Mayar rejects the code once quota is exhausted. |
+| **New customers only** | Set `eligibleCustomerType: "new"` in Mayar. |
+| **Limit to specific tiers** | `handleValidateCoupon` receives the tier — add a check before calling Mayar: `if (tier !== 'jobhunt') return { valid: false, message: 'Kode ini hanya berlaku untuk Job Hunt Pack' }` |
+| **Emergency kill switch (all coupons)** | Set `COUPONS_DISABLED=true` Wrangler secret → add `if (env.COUPONS_DISABLED === 'true') return jsonResponse({ valid: false, message: 'Promo sedang tidak tersedia' }, 200, request, env)` at top of `handleValidateCoupon`. |
+
+**Coupon does NOT bypass Mayar's price** — the discount is only applied when the user enters the code on Mayar's checkout page. Our UI shows the projected price for UX, but Mayar is authoritative. If a coupon is expired/over-quota by the time the user pays, Mayar will reject it at checkout.
 
 ---
 
@@ -123,6 +164,8 @@ npm start                       # serve frontend locally on :3000
 - **`skor_sesudah` is deterministic JS** — not LLM-generated. Formula: `skor + improvement`, rounded to nearest 5, clamped to [skor+10, 95]. Improvement = min(20, missing_skills × 3) + 5 if no numbers.
 - **Red-flag penalty is absolute** — -15 (1 flag), -20 (2 flags), -25 max. Applied to `skor` and `skor_sesudah` only — never to `skor_6d`.
 - **CV silently truncated in tailoring** — `tailoring.js` truncates CVs at 4000 chars. Old experience entries are dropped without error or warning.
+- **Coupon GET with body forbidden** — Mayar's docs show `GET /coupon/validate` with a JSON body (curl `--data`), but the Fetch API spec forbids GET bodies (throws TypeError). Always use query string params for this endpoint. Using `method:'GET'` + `body:` will silently return `valid:false` in production.
+- **Coupon discount is UX-only** — GasLamar shows a projected discounted price but Mayar is authoritative. The actual discount is applied on Mayar's checkout page when the user enters the code. A coupon that passes our validation may still be rejected at Mayar checkout if it expires between validation and payment.
 
 ---
 
