@@ -353,13 +353,15 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
   submitBtn.disabled = true;
 
   try {
-    // Strip HTML tags and escape before storing — defense-in-depth against XSS payloads
-    // reaching KV or being echoed in API responses or emails.
-    const safeJd = jobDesc.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    // C5 FIX: Removed the unreliable /<[^>]*>/g tag-stripping step.
+    // That regex doesn't neutralise event handlers inside malformed/unclosed tags
+    // (e.g. <img onerror="..." with no closing >). escapeHtml() is the correct and
+    // sufficient XSS defense — it encodes <, >, &, ", ' making raw HTML inert.
+    const normalised = jobDesc.replace(/\s+/g, ' ').trim();
     sessionStorage.setItem('gaslamar_cv_pending', cvText);
-    sessionStorage.setItem('gaslamar_jd_pending', escapeHtml(safeJd));
+    sessionStorage.setItem('gaslamar_jd_pending', escapeHtml(normalised));
     sessionStorage.setItem('gaslamar_filename', selectedFile ? selectedFile.name : 'CV');
-    sessionStorage.setItem('gaslamar_had_jd', safeJd.length >= 50 ? '1' : '0');
+    sessionStorage.setItem('gaslamar_had_jd', normalised.length >= 50 ? '1' : '0');
   } catch (_) {
     // Safari private mode blocks sessionStorage writes — inform user
     showError('file-error', 'Browser kamu memblokir penyimpanan sementara (mode pribadi?). Coba gunakan mode normal.');

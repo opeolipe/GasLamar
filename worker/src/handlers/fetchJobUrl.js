@@ -172,8 +172,9 @@ export async function handleFetchJobUrl(request, env) {
   let pageRes;
   let currentUrl = url;
   try {
-    // Follow up to 5 redirects manually, re-validating each hop.
-    for (let hop = 0; hop < 5; hop++) {
+    // C2 FIX: Reduced from 5 to 2 hops — legitimate job boards redirect at most once
+    // (e.g., HTTP→HTTPS or www-normalisation). More hops increase SSRF surface.
+    for (let hop = 0; hop < 2; hop++) {
       // eslint-disable-next-line no-await-in-loop
       const res = await fetch(currentUrl, {
         headers: FETCH_HEADERS,
@@ -197,6 +198,18 @@ export async function handleFetchJobUrl(request, env) {
           clearTimeout(fetchTimeoutId);
           return jsonResponse(
             { message: 'URL dialihkan ke domain yang tidak diizinkan. Coba copy-paste manual.' },
+            422, request, env
+          );
+        }
+        // C2 FIX: Also re-run the private-IP check on every redirect destination.
+        // The initial check only covers the user-supplied URL, not redirect hops.
+        // A compromised allowlisted server could redirect to an internal IP address.
+        const { isIP: nextIsIP, isPrivate: nextIsPrivate } = classifyHostname(nextParsed.hostname);
+        if (nextIsIP && nextIsPrivate) {
+          log('fetch_job_url_blocked', { reason: 'redirect_private_ip', dest: nextParsed.hostname, requesterIp: ip });
+          clearTimeout(fetchTimeoutId);
+          return jsonResponse(
+            { message: 'URL dialihkan ke alamat yang tidak diizinkan. Coba copy-paste manual.' },
             422, request, env
           );
         }

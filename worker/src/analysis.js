@@ -48,8 +48,13 @@ export async function analyzeCV(cvText, jobDesc, env) {
   const cacheKey = `analysis_${ANALYSIS_CACHE_VERSION}_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
   const cached = await env.GASLAMAR_SESSIONS.get(cacheKey, { type: 'json' });
   if (cached) {
-    // Re-apply red-flag penalty for entries cached before this logic was added.
-    if (Array.isArray(cached.red_flags) && cached.red_flags.length > 0 && cached.skor > 85) {
+    // H8 FIX: Re-apply red-flag penalty unconditionally for any cached entry that has
+    // red flags. The previous gate `cached.skor > 85` meant entries with skor ≤ 85
+    // and red flags were served without the penalty, inflating their scores.
+    // Unconditional re-application is idempotent for entries already correctly penalised
+    // (they would fail the `cached.red_flags.length > 0` check if penalty was already
+    // applied and flags were cleared, which they are not — so we re-compute safely).
+    if (Array.isArray(cached.red_flags) && cached.red_flags.length > 0) {
       applyRedFlagPenalty(cached);
     }
     return cached;

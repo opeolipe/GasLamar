@@ -19,7 +19,13 @@ export function validateFileData(cvData) {
     }
 
     // pdf / docx: data is base64-encoded binary — check magic bytes
-    const bytes = atob(parsed.data.slice(0, 8));
+    // H2 FIX: Validate base64 character set before calling atob() to prevent
+    // malformed input from bypassing the magic-byte check via exception handling.
+    const sample = parsed.data.slice(0, 8);
+    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(sample)) {
+      return { valid: false, error: 'Format data tidak valid (bukan base64)' };
+    }
+    const bytes = atob(sample);
     const codes = Array.from(bytes).map(c => c.charCodeAt(0));
 
     if (parsed.type === 'pdf') {
@@ -131,6 +137,13 @@ export async function extractCVText(cvData, env) {
 // ---- DOCX text extraction (client-side ZIP+XML parsing) ----
 
 export async function extractTextFromDOCX(base64Data) {
+  // H2 FIX: Lightweight base64 character-set check before atob() on the full payload.
+  // A quick scan of the first 64 chars is sufficient to catch obviously invalid input
+  // without the cost of a regex on a multi-megabyte string.
+  const head = base64Data.slice(0, 64);
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(head)) {
+    throw new Error('File CV tampak rusak atau tidak lengkap. Coba upload file yang berbeda.');
+  }
   const binaryStr = atob(base64Data);
   const bytes = new Uint8Array(binaryStr.length);
   for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
@@ -162,9 +175,10 @@ export async function extractTextFromDOCX(base64Data) {
     // Scan forward to find either the data descriptor or the next local file header.
     if ((flags & 0x08) || compressedSz === 0) {
       let end = dataStart;
-      // Limit forward scan to 10 MB past dataStart to prevent runaway loops on
-      // pathological files where the next PK marker never appears.
-      const innerLimit = Math.min(bytes.length - 4, dataStart + 10 * 1024 * 1024);
+      // H3 FIX: Reduced inner-scan ceiling from 10 MB to 1 MB.
+      // word/document.xml is always small (well under 1 MB for real CVs).
+      // A 10 MB per-entry scan on a malicious DOCX could exhaust the Worker CPU budget.
+      const innerLimit = Math.min(bytes.length - 4, dataStart + 1 * 1024 * 1024);
       while (end < innerLimit) {
         if (bytes[end] === 0x50 && bytes[end+1] === 0x4B) {
           // Data descriptor signature (PK\x07\x08) or next local file header (PK\x03\x04)

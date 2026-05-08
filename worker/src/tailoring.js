@@ -28,7 +28,12 @@ export function validateCVSections(text, lang) {
  * numbers and tool terms it is allowed to use — the primary hallucination guard.
  */
 function buildGroundTruthBlock(cv, lang = 'id') {
-  if (!cv) return '';
+  if (!cv) {
+    // C8 FIX: Log when the hallucination guard is disabled so it's visible in
+    // production monitoring. Returning '' silently disables the guard entirely.
+    console.warn(JSON.stringify({ event: 'ground_truth_block_disabled', reason: 'extractedCV_null' }));
+    return '';
+  }
   const entitasStr = cv.entitas_klaim && cv.entitas_klaim.length > 0
     ? cv.entitas_klaim.join(', ').slice(0, 500)
     : null;
