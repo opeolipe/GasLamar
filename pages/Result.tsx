@@ -7,6 +7,7 @@ import RecommendationList                      from '@/components/result/Recomme
 import BeforeAfterProjection                   from '@/components/result/BeforeAfterProjection';
 import PricingSelector                         from '@/components/result/PricingSelector';
 import EmailCapture                            from '@/components/result/EmailCapture';
+import CouponInput, { CouponResult }           from '@/components/result/CouponInput';
 import RewritePreview                          from '@/components/result/RewritePreview';
 import DetailAnalysis                          from '@/components/result/DetailAnalysis';
 import RedFlags                                from '@/components/result/RedFlags';
@@ -94,6 +95,7 @@ export default function Result() {
   const [showExpiryToast,       setShowExpiryToast]       = useState(false);
   const [showDetails,           setShowDetails]           = useState(false);
   const [showAllDimensions,     setShowAllDimensions]     = useState(false);
+  const [appliedCoupon,         setAppliedCoupon]         = useState<CouponResult | null>(null);
 
   const toastShownRef   = useRef(false);
   const blurTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -141,9 +143,13 @@ export default function Result() {
     ? 'Email konfirmasi tidak sama'
     : null;
 
+  const effectivePrice = appliedCoupon && selectedTier
+    ? appliedCoupon.discounted_amount
+    : (selectedTier ? TIER_CONFIG[selectedTier]?.price : null);
+
   const payBtnLabel = payBtnOverride
-    ?? (selectedTier
-      ? 'Dapatkan CV siap kirim →'
+    ?? (selectedTier && effectivePrice !== null
+      ? `Bayar Rp ${effectivePrice!.toLocaleString('id-ID')} →`
       : '✨ Lihat CV hasil rewrite lengkap');
 
   const payBtnDisabled = !selectedTier || paymentInProgress || sessionExpiredByPay
@@ -153,6 +159,7 @@ export default function Result() {
   function handleTierSelect(tier: string) {
     setSelectedTier(tier);
     setPaymentError(null);
+    setAppliedCoupon(null);
     sessionStorage.setItem('gaslamar_tier', tier);
     setEmailError('');
     ;(window as any).Analytics?.track?.('tier_selected', {
@@ -328,6 +335,7 @@ export default function Result() {
           cv_text_key:    cvTextKey,
           session_secret: sessionSecret,
           email:          capturedEmail,
+          ...(appliedCoupon ? { coupon_code: appliedCoupon.coupon_code } : {}),
         }),
         signal: controller.signal,
       });
@@ -756,6 +764,15 @@ export default function Result() {
                 confirmTouched={confirmTouched}
               />
 
+              {/* Coupon input */}
+              <CouponInput
+                tier={selectedTier}
+                email={email.trim()}
+                applied={appliedCoupon}
+                onApplied={setAppliedCoupon}
+                onCleared={() => setAppliedCoupon(null)}
+              />
+
               {/* Session expired by payment error */}
               {sessionExpiredByPay && (
                 <div style={{ marginBottom: '1rem', padding: '1rem', background: '#FFFBEB', border: '1px solid rgba(252,211,77,0.5)', borderRadius: 16, textAlign: 'center' }}>
@@ -791,6 +808,11 @@ export default function Result() {
                 {emailIsConfirmed && !payHint && !sessionExpiredByPay && (
                   <p style={{ fontSize: '0.875rem', color: '#374151', textAlign: 'center', marginTop: '0.5rem' }}>
                     📬 CV akan dikirim ke: <strong>{email.trim()}</strong>
+                    {appliedCoupon && selectedTier && (
+                      <span style={{ display: 'block', marginTop: '0.25rem', color: '#15803D', fontWeight: 600 }}>
+                        🎉 Kode <strong>{appliedCoupon.coupon_code}</strong> — masukkan di halaman pembayaran
+                      </span>
+                    )}
                   </p>
                 )}
                 {payHint && !sessionExpiredByPay && (

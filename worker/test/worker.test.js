@@ -1963,3 +1963,224 @@ describe('POST /interview-kit', () => {
   });
 });
 
+describe('POST /bypass-payment — sandbox bypass', () => {
+  const CV_TEXT = 'Budi Santoso\nSoftware Engineer\n\nPENGALAMAN\nDeveloper PT XYZ 2020-2024\n- Node.js REST API\n- React dashboard\n\nPENDIDIKAN\nS1 Teknik Informatika UI 2020';
+
+  async function seedCVKey(ip = '5.5.5.5') {
+    const key = `cvtext_${crypto.randomUUID()}`;
+    await env.GASLAMAR_SESSIONS.put(key, JSON.stringify({ text: CV_TEXT, job_desc: JOB_DESC, ip }), { expirationTtl: 3600 });
+    return key;
+  }
+
+  it('happy path — creates paid session and returns session_id with cookie', async () => {
+    const key = await seedCVKey();
+    const res = await post('/bypass-payment', { tier: 'single', cv_text_key: key }, {}, '5.5.5.5');
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.session_id).toMatch(/^sess_/);
+
+    const setCookie = res.headers.get('set-cookie');
+    expect(setCookie).toContain('session_id=sess_');
+
+    const session = await env.GASLAMAR_SESSIONS.get(body.session_id, { type: 'json' });
+    expect(session.status).toBe('paid');
+    expect(session.tier).toBe('single');
+    expect(session.mayar_invoice_id).toBe('bypass_sandbox');
+    expect(session.cv_text).toBe(CV_TEXT);
+  });
+
+  it('consumes cv_text_key — second call returns 400 (key not found)', async () => {
+    const key = await seedCVKey();
+    const res1 = await post('/bypass-payment', { tier: 'single', cv_text_key: key }, {}, '5.5.5.5');
+    expect(res1.status).toBe(200);
+
+    const res2 = await post('/bypass-payment', { tier: 'single', cv_text_key: key }, {}, '5.5.5.5');
+    expect(res2.status).toBe(400);
+    const body2 = await res2.json();
+    expect(body2.message).toMatch(/kedaluwarsa|analisis/i);
+  });
+
+  it('rejects missing tier → 400', async () => {
+    const key = await seedCVKey();
+    const res = await post('/bypass-payment', { cv_text_key: key }, {}, '5.5.5.5');
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects invalid tier → 400', async () => {
+    const key = await seedCVKey();
+    const res = await post('/bypass-payment', { tier: 'premium', cv_text_key: key }, {}, '5.5.5.5');
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/tier/i);
+  });
+
+  it('rejects cv_text_key without cvtext_ prefix → 400', async () => {
+    const res = await post('/bypass-payment', { tier: 'single', cv_text_key: 'sess_abc123' }, {}, '5.5.5.5');
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/cv_text_key/i);
+  });
+
+  it('rejects unknown cv_text_key → 400', async () => {
+    const res = await post('/bypass-payment', { tier: 'single', cv_text_key: 'cvtext_nonexistent' }, {}, '5.5.5.5');
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/kedaluwarsa|analisis/i);
+  });
+
+  it('sets correct credits for 3pack tier', async () => {
+    const key = await seedCVKey();
+    const res = await post('/bypass-payment', { tier: '3pack', cv_text_key: key }, {}, '5.5.5.5');
+    expect(res.status).toBe(200);
+    const { session_id } = await res.json();
+    const session = await env.GASLAMAR_SESSIONS.get(session_id, { type: 'json' });
+    expect(session.credits_remaining).toBe(3);
+    expect(session.total_credits).toBe(3);
+  });
+
+  it('rejects malformed JSON body → 400', async () => {
+    const res = await SELF.fetch('https://gaslamar.com/bypass-payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: GASLAMAR_ORIGIN, 'CF-Connecting-IP': '5.5.5.5' },
+      body: 'not-json',
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('POST /validate-coupon', () => {
+  beforeAll(() => fetchMock.activate());
+  afterAll(() => fetchMock.deactivate());
+
+  it('rejects missing coupon_code → 400', async () => {
+    const res = await post('/validate-coupon', { tier: 'single' });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+  });
+
+  it('rejects code shorter than 3 chars → 400', async () => {
+    const res = await post('/validate-coupon', { coupon_code: 'AB', tier: 'single' });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+  });
+
+  it('rejects missing or invalid tier → 400', async () => {
+    const res = await post('/validate-coupon', { coupon_code: 'PROMO50', tier: 'premium' });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+    expect(body.message).toMatch(/paket/i);
+  });
+
+  it('returns valid=false when Mayar says coupon is invalid', async () => {
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: /\/hl\/v1\/coupon\/validate/, method: 'GET' })
+      .reply(200, JSON.stringify({ statusCode: 200, data: { valid: false } }));
+
+    const res = await post('/validate-coupon', { coupon_code: 'EXPIRED123', tier: 'single' });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+  });
+
+  it('returns discount info for a valid percentage coupon', async () => {
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: /\/hl\/v1\/coupon\/validate/, method: 'GET' })
+      .reply(200, JSON.stringify({
+        statusCode: 200,
+        data: {
+          valid: true,
+          coupon: { discountType: 'percentage', discountValue: 50, minimumPurchase: null },
+        },
+      }));
+
+    const res = await post('/validate-coupon', { coupon_code: 'HEMAT50', tier: 'single' });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.coupon_code).toBe('HEMAT50');
+    expect(body.discount_type).toBe('percentage');
+    expect(body.discount_value).toBe(50);
+    expect(body.original_amount).toBe(59000);
+    expect(body.discounted_amount).toBe(29500); // 59000 * 0.5
+  });
+
+  it('returns discount info for a valid monetary coupon', async () => {
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: /\/hl\/v1\/coupon\/validate/, method: 'GET' })
+      .reply(200, JSON.stringify({
+        statusCode: 200,
+        data: {
+          valid: true,
+          coupon: { discountType: 'monetary', discountValue: 10000, minimumPurchase: null },
+        },
+      }));
+
+    const res = await post('/validate-coupon', { coupon_code: 'HEMAT10K', tier: '3pack' });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.discount_type).toBe('monetary');
+    expect(body.original_amount).toBe(149000);
+    expect(body.discounted_amount).toBe(139000);
+  });
+
+  it('100% discount yields discounted_amount of 0', async () => {
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: /\/hl\/v1\/coupon\/validate/, method: 'GET' })
+      .reply(200, JSON.stringify({
+        statusCode: 200,
+        data: {
+          valid: true,
+          coupon: { discountType: 'percentage', discountValue: 100, minimumPurchase: null },
+        },
+      }));
+
+    const res = await post('/validate-coupon', { coupon_code: 'LAUNCH100', tier: 'coba' });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.discounted_amount).toBe(0);
+    expect(body.original_amount).toBe(29000);
+  });
+
+  it('Mayar API error is caught and surfaces as valid=false (graceful degradation)', async () => {
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: /\/hl\/v1\/coupon\/validate/, method: 'GET' })
+      .reply(500, 'Internal Server Error');
+
+    const res = await post('/validate-coupon', { coupon_code: 'ANYCODE', tier: 'jobhunt' });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+    // Must not surface raw server error text
+    expect(body.message).not.toContain('Internal Server Error');
+  });
+
+  it('coupon code is normalised to uppercase in the response', async () => {
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: /\/hl\/v1\/coupon\/validate/, method: 'GET' })
+      .reply(200, JSON.stringify({
+        statusCode: 200,
+        data: {
+          valid: true,
+          coupon: { discountType: 'percentage', discountValue: 20, minimumPurchase: null },
+        },
+      }));
+
+    const res = await post('/validate-coupon', { coupon_code: 'hemat20', tier: 'single' });
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.coupon_code).toBe('HEMAT20');
+  });
+});

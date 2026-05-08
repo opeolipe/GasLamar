@@ -1,5 +1,7 @@
-import { useState } from 'react';
-import { WORKER_URL } from '@/lib/uploadValidation';
+import { useState, useRef }      from 'react';
+import { WORKER_URL }             from '@/lib/downloadUtils';
+import { validateEmail, EMAIL_REGEX } from '@/utils/emailValidation';
+import { suggestEmailFix }        from '@/utils/emailTypo';
 
 type Status = 'idle' | 'loading' | 'sent' | 'error';
 
@@ -19,9 +21,6 @@ export default function Access() {
   const params = new URLSearchParams(window.location.search);
   const showExpiredBanner = params.get('expired') === '1';
 
-  // Strip return_url immediately — this page doesn't redirect to it.
-  // Leaving external URLs in the query string creates an open-redirect signal
-  // even if client-side code never follows them.
   if (params.has('return_url')) {
     const raw = params.get('return_url') ?? '';
     if (!isSameOriginUrl(raw)) {
@@ -30,25 +29,157 @@ export default function Access() {
     }
   }
 
-  const [email,  setEmail]  = useState('');
-  const [status, setStatus] = useState<Status>('idle');
+  const [email,            setEmail]            = useState('');
+  const [emailError,       setEmailError]       = useState('');
+  const [emailSuggestion,  setEmailSuggestion]  = useState<string | null>(null);
+  const [emailIsDisposable,setEmailIsDisposable]= useState(false);
+  const [emailIsConfirmed, setEmailIsConfirmed] = useState(false);
+
+  const [confirmEmail,     setConfirmEmail]     = useState('');
+  const [confirmTouched,   setConfirmTouched]   = useState(false);
+  const [confirmError,     setConfirmError]     = useState('');
+
+  const [status,           setStatus]           = useState<Status>('idle');
+
+  const blurTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const confirmEmailRef = useRef<HTMLInputElement>(null);
+
+  // ── Derived ──────────────────────────────────────────────────────────────
+  const emailValid  = EMAIL_REGEX.test(email.trim());
+  const emailsMatch = email.trim().toLowerCase() === confirmEmail.trim().toLowerCase();
+
+  const isSubmitDisabled =
+    status === 'loading'
+    || !email.trim()
+    || !!emailError
+    || !!emailSuggestion
+    || !emailValid
+    || !confirmEmail.trim()
+    || !emailsMatch;
+
+  const hint: string | null =
+      !!emailSuggestion      ? 'Periksa email kamu sebelum lanjut'
+    : !emailValid && !!email  ? 'Masukkan email yang valid'
+    : !confirmEmail.trim()    ? 'Ketik ulang email kamu untuk lanjut'
+    : !emailsMatch            ? 'Email konfirmasi tidak sama'
+    : null;
+
+  // ── Handlers ─────────────────────────────────────────────────────────────
+  function handleEmailChange(value: string) {
+    setEmail(value);
+    setEmailError('');
+    setEmailSuggestion(suggestEmailFix(value));
+    setEmailIsDisposable(false);
+    setEmailIsConfirmed(false);
+    setConfirmError('');
+  }
+
+  function handleEmailBlur() {
+    if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+    blurTimerRef.current = setTimeout(() => {
+      const result = validateEmail(email);
+      setEmailError(result.error ?? '');
+      setEmailSuggestion(result.suggestion);
+      setEmailIsDisposable(result.isDisposable);
+      setEmailIsConfirmed(result.valid && !result.suggestion);
+    }, 200);
+  }
+
+  function handleEmailPaste() {
+    // Security: force user to manually type the confirm field
+    setTimeout(() => confirmEmailRef.current?.focus(), 0);
+  }
+
+  function handleConfirmEmailChange(value: string) {
+    setConfirmEmail(value);
+    if (confirmTouched) {
+      const matches = email.trim().toLowerCase() === value.trim().toLowerCase();
+      setConfirmError(matches ? '' : 'Email tidak sama. Periksa kembali');
+    }
+  }
+
+  function handleConfirmEmailBlur() {
+    setConfirmTouched(true);
+    const matches = email.trim().toLowerCase() === confirmEmail.trim().toLowerCase();
+    if (!matches) {
+      setConfirmError('Email tidak sama. Periksa kembali');
+      ;(window as any).Analytics?.track?.('access_email_mismatch_detected');
+    } else {
+      setConfirmError('');
+      if (emailIsConfirmed) {
+        ;(window as any).Analytics?.track?.('access_email_confirm_success');
+      }
+    }
+  }
+
+  function handleConfirmEmailPaste() {
+    setConfirmTouched(true);
+    setTimeout(() => {
+      const el = confirmEmailRef.current;
+      if (!el) return;
+      const matches = email.trim().toLowerCase() === el.value.trim().toLowerCase();
+      setConfirmEmail(el.value);
+      setConfirmError(matches ? '' : 'Email tidak sama. Periksa kembali');
+    }, 0);
+  }
+
+  function handleAcceptSuggestion() {
+    if (!emailSuggestion) return;
+    const accepted = emailSuggestion;
+    setEmail(accepted);
+    setEmailError('');
+    setEmailSuggestion(null);
+    setEmailIsDisposable(false);
+    setEmailIsConfirmed(true);
+    setConfirmError('');
+    setTimeout(() => confirmEmailRef.current?.focus(), 0);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const trimmed = email.trim();
-    if (!trimmed || status === 'loading') return;
+
+    // Final guard — mirrors proceedToPayment() in Result.tsx
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.valid || emailValidation.suggestion) {
+      setEmailError(emailValidation.error ?? 'Email tidak valid.');
+      setEmailSuggestion(emailValidation.suggestion);
+      setEmailIsConfirmed(false);
+      return;
+    }
+    setEmailError('');
+    setEmailSuggestion(null);
+
+    if (confirmEmail.trim().toLowerCase() !== email.trim().toLowerCase()) {
+      setConfirmTouched(true);
+      setConfirmError('Email tidak sama. Periksa kembali');
+      confirmEmailRef.current?.focus();
+      return;
+    }
+
+    if (status === 'loading') return;
     setStatus('loading');
+
     try {
       await fetch(`${WORKER_URL}/resend-access`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ email: trimmed.toLowerCase() }),
+        body:    JSON.stringify({ email: email.trim().toLowerCase() }),
       });
       setStatus('sent');
     } catch {
       setStatus('error');
     }
   }
+
+  // ── Computed display flags (priority: error > suggestion > disposable > confirmed) ──
+  const showSuggestion      = !emailError && !!emailSuggestion;
+  const showDisposable      = !emailError && !emailSuggestion && emailIsDisposable;
+  const showConfirmed       = !emailError && !emailSuggestion && !emailIsDisposable && emailIsConfirmed;
+  const showConfirmError    = !emailError && !emailSuggestion && !!confirmError;
+  const showConfirmSuccess  = !emailError && !emailSuggestion && emailIsConfirmed && emailsMatch && confirmTouched;
+
+  const primaryBorderClass  = emailError ? 'border-red-400 ring-red-200' : showConfirmed ? 'border-green-400 ring-green-100' : 'border-slate-200';
+  const confirmBorderClass  = showConfirmError ? 'border-red-400 ring-red-200' : showConfirmSuccess ? 'border-green-400 ring-green-100' : 'border-slate-200';
 
   return (
     <div
@@ -77,7 +208,7 @@ export default function Access() {
       {/* Main */}
       <main id="access-main" className="max-w-screen-xl mx-auto px-6 pt-14 pb-8">
 
-        {/* Page title — above the card, not inside it */}
+        {/* Page title */}
         <div className="text-center mb-8 max-w-[480px] mx-auto">
           <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">
             Pemulihan akses
@@ -96,7 +227,7 @@ export default function Access() {
 
         <div className="max-w-[480px] mx-auto">
 
-          {/* Expired notice — same pattern as Upload's notice system */}
+          {/* Expired notice */}
           {showExpiredBanner && (
             <div
               role="status"
@@ -135,10 +266,7 @@ export default function Access() {
                     />
                   </svg>
                 </div>
-                <h2
-                  className="text-lg font-semibold text-slate-900 mb-2"
-                  style={SERIF}
-                >
+                <h2 className="text-lg font-semibold text-slate-900 mb-2" style={SERIF}>
                   Link sudah dikirim
                 </h2>
                 <p className="text-sm text-slate-500 leading-relaxed max-w-xs mx-auto">
@@ -153,7 +281,7 @@ export default function Access() {
               <>
                 {/* Email icon */}
                 <div
-                  className="w-16 h-16 rounded-[20px] flex items-center justify-center mx-auto mb-4"
+                  className="w-16 h-16 rounded-[20px] flex items-center justify-center mx-auto mb-6"
                   style={{ background: 'rgba(239,246,255,0.9)', border: '1px solid rgba(59,130,246,0.18)' }}
                   aria-hidden="true"
                 >
@@ -168,20 +296,109 @@ export default function Access() {
                   </svg>
                 </div>
 
-                <form onSubmit={handleSubmit} className="flex flex-col gap-3 items-stretch max-w-xs mx-auto">
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    placeholder="email@kamu.com"
-                    required
-                    disabled={status === 'loading'}
-                    className="min-h-[48px] px-4 rounded-[14px] border border-slate-200 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    aria-label="Alamat email"
-                  />
+                <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-1 items-stretch max-w-xs mx-auto text-left">
+
+                  {/* ── Primary email ── */}
+                  <div className="flex flex-col gap-1 mb-1">
+                    <label htmlFor="access-email" className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                      Email
+                      {showConfirmed && (
+                        <span className="ml-1 text-green-600" aria-label="Email valid">✓</span>
+                      )}
+                    </label>
+                    <input
+                      id="access-email"
+                      type="email"
+                      inputMode="email"
+                      autoCapitalize="off"
+                      autoComplete="email"
+                      value={email}
+                      onChange={e => handleEmailChange(e.target.value)}
+                      onBlur={handleEmailBlur}
+                      onPaste={handleEmailPaste}
+                      placeholder="email@kamu.com"
+                      required
+                      disabled={status === 'loading'}
+                      aria-label="Alamat email"
+                      aria-invalid={!!emailError}
+                      aria-describedby={emailError ? 'email-error' : undefined}
+                      className={`min-h-[48px] px-4 rounded-[14px] border text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 transition-colors ${primaryBorderClass}`}
+                    />
+
+                    {emailError && (
+                      <p id="email-error" role="alert" className="text-xs text-red-500 font-medium mt-0.5">
+                        ⚠️ {emailError}
+                      </p>
+                    )}
+
+                    {showSuggestion && (
+                      <button
+                        type="button"
+                        onClick={handleAcceptSuggestion}
+                        className="w-full min-h-[44px] mt-1 px-3 py-2 text-left text-sm font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-[10px] hover:bg-blue-100 transition-colors"
+                      >
+                        💡 Maksud kamu: <strong>{emailSuggestion}</strong>?{' '}
+                        <span className="underline">Pakai ini</span>
+                      </button>
+                    )}
+
+                    {showDisposable && (
+                      <p className="text-xs text-amber-600 font-medium mt-0.5">
+                        ⚠️ Gunakan email aktif agar link akses bisa diterima.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* ── Confirm email ── */}
+                  <div className="flex flex-col gap-1 mb-3">
+                    <label htmlFor="access-email-confirm" className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                      Ketik ulang email kamu
+                      {showConfirmSuccess && (
+                        <span className="ml-1 text-green-600" aria-label="Email konfirmasi cocok">✓</span>
+                      )}
+                    </label>
+                    <input
+                      id="access-email-confirm"
+                      ref={confirmEmailRef}
+                      type="email"
+                      inputMode="email"
+                      autoCapitalize="off"
+                      autoComplete="email"
+                      data-testid="email-confirm-input"
+                      value={confirmEmail}
+                      onChange={e => handleConfirmEmailChange(e.target.value)}
+                      onBlur={handleConfirmEmailBlur}
+                      onPaste={handleConfirmEmailPaste}
+                      placeholder="email@kamu.com"
+                      required
+                      disabled={status === 'loading'}
+                      aria-label="Konfirmasi alamat email"
+                      aria-invalid={showConfirmError}
+                      aria-describedby={showConfirmError ? 'confirm-email-error' : undefined}
+                      className={`min-h-[48px] px-4 rounded-[14px] border text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 transition-colors ${confirmBorderClass}`}
+                    />
+
+                    {showConfirmError && (
+                      <p id="confirm-email-error" role="alert" className="text-xs text-red-500 font-medium mt-0.5">
+                        ⚠️ {confirmError}
+                      </p>
+                    )}
+
+                    {showConfirmSuccess && (
+                      <p className="text-xs text-green-600 font-medium mt-0.5">
+                        ✓ Email sudah cocok
+                      </p>
+                    )}
+                  </div>
+
+                  {/* ── Hint line ── */}
+                  {hint && !emailError && !showConfirmError && (
+                    <p className="text-xs text-slate-400 text-center -mt-1 mb-1">{hint}</p>
+                  )}
+
                   <button
                     type="submit"
-                    disabled={status === 'loading' || !email.trim()}
+                    disabled={isSubmitDisabled}
                     className="min-h-[48px] px-6 rounded-[16px] font-bold text-white text-sm transition-all hover:-translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed"
                     style={{ background: '#1B4FE8', boxShadow: SHADOW }}
                   >
@@ -189,13 +406,13 @@ export default function Access() {
                   </button>
 
                   {status === 'error' && (
-                    <p className="text-xs text-red-500 text-center" role="alert">
+                    <p className="text-xs text-red-500 text-center mt-1" role="alert">
                       Terjadi kendala. Coba lagi dalam beberapa detik.
                     </p>
                   )}
                 </form>
 
-                <p className="mt-6 text-xs text-slate-400 leading-relaxed max-w-xs mx-auto">
+                <p className="mt-6 text-xs text-slate-400 leading-relaxed max-w-xs mx-auto text-center">
                   Tidak perlu bayar lagi. CV kamu tetap tersimpan selama masa aktif.
                 </p>
               </>

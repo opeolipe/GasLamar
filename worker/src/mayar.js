@@ -26,7 +26,11 @@ export function logMayarEnvironment(env) {
   }));
 }
 
-export async function createMayarInvoice(sessionId, tier, env, redirectUrl, customerEmail = null) {
+export async function createMayarInvoice(sessionId, tier, env, redirectUrl, customerEmail = null, _couponCode = null) {
+  // _couponCode is accepted for callers that pass it, but not forwarded to Mayar.
+  // couponCode is not a documented invoice/payment creation field — passing unknown
+  // fields risks a 400 from Mayar that would break payment for all coupon users.
+  // The coupon is applied by the user on Mayar's own checkout page.
   const tierConfig = TIER_PRICES[tier];
   if (!tierConfig) throw new Error('Tier tidak valid');
 
@@ -123,6 +127,37 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
   }
 
   throw new Error('Pembayaran belum tersedia. Hubungi support@gaslamar.com');
+}
+
+// Validate a coupon code against a tier's price.
+// Mayar documents this as GET /coupon/validate — params go in the query string because
+// the Fetch API spec forbids bodies on GET requests (throws TypeError).
+export async function validateCoupon(env, couponCode, finalAmount, customerEmail) {
+  const apiUrl = getMayarApiUrl(env);
+  const apiKey = getMayarApiKey(env);
+  if (!apiKey) throw new Error('Mayar API key tidak tersedia');
+
+  const params = new URLSearchParams({ couponCode, finalAmount: String(finalAmount) });
+  if (customerEmail) params.set('customerEmail', customerEmail);
+
+  const res = await fetch(`${apiUrl}/coupon/validate?${params}`, {
+    method: 'GET',
+    headers: { 'Authorization': `Bearer ${apiKey}` },
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    let errMsg;
+    try {
+      const errJson = JSON.parse(errText);
+      errMsg = (typeof errJson.messages === 'string' ? errJson.messages : errJson.messages?.[0]) || errJson.message || `Coupon error: ${res.status}`;
+    } catch {
+      errMsg = `Coupon error: ${res.status}`;
+    }
+    throw new Error(errMsg);
+  }
+
+  return res.json();
 }
 
 export async function verifyMayarWebhook(request, env) {

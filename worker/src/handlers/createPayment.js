@@ -22,7 +22,12 @@ export async function handleCreatePayment(request, env) {
     return jsonResponse({ message: 'Request body tidak valid' }, 400, request, env);
   }
 
-  const { tier, cv_text_key, email: rawEmail, session_secret: rawSecret } = body;
+  const { tier, cv_text_key, email: rawEmail, session_secret: rawSecret, coupon_code: rawCoupon } = body;
+
+  // Sanitize coupon code — uppercase, strip non-alphanumeric, max 64 chars
+  const couponCode = (rawCoupon && typeof rawCoupon === 'string')
+    ? rawCoupon.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '').substring(0, 64) || null
+    : null;
 
   // Optional email — basic validation, silently ignore if malformed
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -97,7 +102,7 @@ export async function handleCreatePayment(request, env) {
     console.log(JSON.stringify({ event: 'payment_redirect_url', redirectUrl, environment: env.ENVIRONMENT ?? 'sandbox' }));
 
     // Create Mayar invoice first — if this fails, cv_text_key is still intact and user can retry
-    const { invoice_id, invoice_url } = await createMayarInvoice(sessionId, tier, env, redirectUrl, sessionEmail);
+    const { invoice_id, invoice_url } = await createMayarInvoice(sessionId, tier, env, redirectUrl, sessionEmail, couponCode);
 
     if (invoice_id) {
       // Invoice was committed on Mayar's side (with or without a redirect URL).

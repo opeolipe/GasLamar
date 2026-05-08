@@ -233,6 +233,17 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         return;
       }
 
+      // Session fully consumed — all credits used up
+      if (status === 'deleted') {
+        clearClientSessionData(sId);
+        ;(window as any).Analytics?.track?.('download_session_deleted', { poll_attempts: pollCountRef.current });
+        showError(
+          'CV Sudah Diunduh',
+          'Semua kredit kamu sudah digunakan. Untuk menganalisis CV berikutnya, upload ulang di halaman utama.',
+        );
+        return;
+      }
+
       // Unknown status — keep polling until MAX_POLLS
       if (pollCountRef.current < MAX_POLLS) {
         scheduleNextPoll(sId, getBackoffDelay(pollCountRef.current));
