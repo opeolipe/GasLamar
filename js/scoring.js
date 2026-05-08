@@ -360,6 +360,8 @@ function renderArchetypeAndVerdict(scoring) {
   }
 
   // Verdict card
+  // NOTE: "veredict" (with one 'd') is intentional — it matches the backend field name.
+  // Do not rename to "verdict" here without a coordinated backend migration.
   const verdictEl = document.getElementById('verdict-card');
   if (!verdictEl || !scoring.veredict) return;
 

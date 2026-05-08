@@ -161,7 +161,14 @@ export async function analyzeCV(cvText, jobDesc, env) {
     applyRedFlagPenalty(scoring);
   }
 
-  // Legacy backward-compat fields
+  // Legacy backward-compat fields — kept for clients that still read the old shape.
+  // These are NOT independently scored dimensions; they are projections of existing 6D scores
+  // using multipliers chosen to match the scale of the original pre-6D scoring system:
+  //   skor_relevansi    ≈ north_star × 4    (north_star is 0–25, old relevansi was 0–100)
+  //   skor_requirements ≈ recruiter_signal × 3 (old requirements was 0–30 out of a 100-pt scale)
+  //   skor_kualitas     ≈ portfolio × 2       (old kualitas was 0–20)
+  //   skor_keywords     ≈ recruiter_signal     (raw, maps 0–10 to an informal keyword score)
+  // Do not add new scoring logic here — use skor_6d instead.
   scoring.skor_relevansi    = skor_6d.north_star * 4;
   scoring.skor_requirements = Math.round(skor_6d.recruiter_signal * 3);
   scoring.skor_kualitas     = Math.round(skor_6d.portfolio * 2);

@@ -13,7 +13,9 @@ if (!cvData || !jobDesc) {
   // If a fresh analysis result already exists, send them to hasil.html
   const existingScore = sessionStorage.getItem('gaslamar_scoring');
   const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
-  const isFresh = existingScore && analyzeTime && (Date.now() - analyzeTime) < 7200000;
+  // SYNC: 7200000ms (2h) must match SESSION_SECS (7200) in hasil-page.js and
+//       the 7200000 freshness check in hasil-guard.js. Change all three together.
+const isFresh = existingScore && analyzeTime && (Date.now() - analyzeTime) < 7200000;
   window.location.replace(isFresh ? 'hasil.html' : 'upload.html');
 }
 

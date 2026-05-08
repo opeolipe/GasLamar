@@ -158,6 +158,9 @@ function handleTailoringCta() {
 }
 
 function submitInterviewFeedback(answer) {
+  // Optimistic UX: show "Thanks" immediately regardless of network outcome.
+  // Feedback is non-critical survey data — a failed send is acceptable and
+  // showing an error here would confuse users after they've already answered.
   document.getElementById('feedback-buttons').classList.add('hidden');
   document.getElementById('feedback-thanks').classList.remove('hidden');
   fetch(`${WORKER_URL}/feedback`, {
