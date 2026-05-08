@@ -38,7 +38,7 @@ export default function SubmitSection({ isValid, isLoading, showJdHint, onSubmit
       )}
 
       <p className="text-center text-sm text-slate-400 mt-4">
-        CV tidak disimpan • tanpa registrasi • analisis dalam ±30 detik
+        CV tidak disimpan • tanpa registrasi • analisis ±30 detik • hasil gratis aktif 2 jam
       </p>
     </div>
   );

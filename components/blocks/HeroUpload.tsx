@@ -29,7 +29,7 @@ export default function HeroUpload() {
             Cek Peluang Saya
           </a>
           <p className="mt-4 text-[#6b7280] text-sm leading-[1.5]">
-            CV tidak disimpan permanen • tanpa registrasi • analisis dalam ±30 detik
+            CV tidak disimpan permanen • tanpa registrasi • analisis ±30 detik • hasil gratis aktif 2 jam
           </p>
         </div>
       </div>
