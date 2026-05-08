@@ -125,8 +125,30 @@ async function seedCVTextKey(
   return key;
 }
 
+// C3 FIX: A fixed session secret used by seedSession so all test sessions have a
+// session_secret_hash. Tests that call session-protected endpoints must send this
+// value in the X-Session-Secret header.
+const FIXED_TEST_SECRET = 'fixed-test-session-secret-for-vitest';
+
 /** Seed a full session in KV with a given status and return sessionId. */
 async function seedSession(status = 'paid', tier = 'single') {
+  const sessionId = `sess_${crypto.randomUUID()}`;
+  const secretHash = await sha256Full(FIXED_TEST_SECRET);
+  await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
+    cv_text: 'Budi Santoso\nSoftware Engineer\n\nPENGALAMAN\nDeveloper PT XYZ\n- Node.js\n- React\n\nPENDIDIKAN\nS1 Informatika',
+    job_desc: JOB_DESC,
+    tier,
+    status,
+    created_at: Date.now(),
+    mayar_invoice_id: 'inv_test123',
+    ip: '1.2.3.4',
+    session_secret_hash: secretHash,
+  }), { expirationTtl: 1800 });
+  return sessionId;
+}
+
+/** Seed a legacy session (no session_secret_hash) — for testing rejection paths only. */
+async function seedLegacySession(status = 'paid', tier = 'single') {
   const sessionId = `sess_${crypto.randomUUID()}`;
   await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
     cv_text: 'Budi Santoso\nSoftware Engineer\n\nPENGALAMAN\nDeveloper PT XYZ\n- Node.js\n- React\n\nPENDIDIKAN\nS1 Informatika',
@@ -744,7 +766,7 @@ describe('POST /session/ping', () => {
 
   it('returns ok:true and refreshes session for known session', async () => {
     const sessionId = await seedSession('paid', 'single');
-    const res = await post('/session/ping', {}, sessionCookie(sessionId));
+    const res = await post('/session/ping', {}, { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
@@ -844,7 +866,7 @@ describe('POST /get-session', () => {
 
   it('returns cv/job_desc/tier and sets status to generating for paid session', async () => {
     const sessionId = await seedSession('paid', 'single');
-    const res = await post('/get-session', {}, sessionCookie(sessionId));
+    const res = await post('/get-session', {}, { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.cv).toBeTruthy();
@@ -868,12 +890,14 @@ describe('extractJobMetadata — via /generate response', () => {
     // Pre-populate KV tailoring cache so tailorCVID/tailorCVEN skip Claude calls
     await preTailorCache(META_CV, jobDesc);
     const sessionId = `sess_${crypto.randomUUID()}`;
+    const secretHash = await sha256Full(FIXED_TEST_SECRET);
     await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
       cv_text: META_CV,
       job_desc: jobDesc,
       tier: 'single',
       status: 'generating',
       created_at: Date.now(),
+      session_secret_hash: secretHash,
     }), { expirationTtl: 1800 });
     return sessionId;
   }
@@ -882,7 +906,7 @@ describe('extractJobMetadata — via /generate response', () => {
     const sessionId = await seedSessionWithJobDesc(
       'Posisi: Product Manager\nPerusahaan: Tokopedia\nRequirements: 3 tahun pengalaman'
     );
-    const res = await post('/generate', {}, { ...sessionCookie(sessionId) }, META_IP);
+    const res = await post('/generate', {}, { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET }, META_IP);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.job_title).toBe('Product-Manager');
@@ -893,7 +917,7 @@ describe('extractJobMetadata — via /generate response', () => {
     const sessionId = await seedSessionWithJobDesc(
       'Position: Data Analyst\nCompany: Gojek\nWe are looking for...'
     );
-    const res = await post('/generate', {}, { ...sessionCookie(sessionId) }, META_IP);
+    const res = await post('/generate', {}, { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET }, META_IP);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.job_title).toBe('Data-Analyst');
@@ -908,7 +932,7 @@ describe('extractJobMetadata — via /generate response', () => {
     const sessionId = await seedSessionWithJobDesc(
       'Senior Backend Engineer\n\nPT Bukalapak\nKami mencari kandidat terbaik.'
     );
-    const res = await post('/generate', {}, { ...sessionCookie(sessionId) }, META_IP);
+    const res = await post('/generate', {}, { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET }, META_IP);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.job_title).toBe('Senior-Backend-Engin');   // truncated to 20 chars
@@ -919,7 +943,7 @@ describe('extractJobMetadata — via /generate response', () => {
     const sessionId = await seedSessionWithJobDesc(
       'Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod.'
     );
-    const res = await post('/generate', {}, { ...sessionCookie(sessionId) }, META_IP);
+    const res = await post('/generate', {}, { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET }, META_IP);
     expect(res.status).toBe(200);
     const body = await res.json();
     // First line is short (<80 chars), not excluded — extracted as job_title; no company match
@@ -975,7 +999,7 @@ describe('POST /generate — happy path (mocked Claude)', () => {
     // .times(1) intercepts; KV cache pre-population is the robust alternative.
     await preTailorCache(SEED_CV, JOB_DESC);
 
-    const res = await post('/generate', {}, { ...sessionCookie(sessionId) }, GENERATE_IP);
+    const res = await post('/generate', {}, { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET }, GENERATE_IP);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.cv_id).toBeTruthy();
@@ -996,7 +1020,7 @@ describe('POST /generate — happy path (mocked Claude)', () => {
     const sessionId = await seedSession('generating', 'coba');
     await preTailorCache(SEED_CV, JOB_DESC);
 
-    const res = await post('/generate', {}, { ...sessionCookie(sessionId) }, GENERATE_IP);
+    const res = await post('/generate', {}, { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET }, GENERATE_IP);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.cv_id).toBeTruthy();
@@ -1016,7 +1040,7 @@ describe('POST /generate — happy path (mocked Claude)', () => {
       .reply(500, JSON.stringify({ error: { message: 'Internal server error' } }))
       .times(2); // both parallel calls fail
 
-    const res = await post('/generate', {}, { ...sessionCookie(sessionId) }, GENERATE_IP);
+    const res = await post('/generate', {}, { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET }, GENERATE_IP);
     expect(res.status).toBe(500);
 
     // Session reset to 'paid' so user can retry
@@ -1323,6 +1347,7 @@ describe('POST /fetch-job-url — validation', () => {
 describe('POST /get-session — returns credits_remaining', () => {
   it('includes credits_remaining and total_credits in response', async () => {
     const sessionId = `sess_${crypto.randomUUID()}`;
+    const secretHash = await sha256Full(FIXED_TEST_SECRET);
     await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
       cv_text: 'Budi CV text',
       job_desc: JOB_DESC,
@@ -1331,9 +1356,10 @@ describe('POST /get-session — returns credits_remaining', () => {
       credits_remaining: 3,
       total_credits: 3,
       created_at: Date.now(),
+      session_secret_hash: secretHash,
     }), { expirationTtl: 1800 });
 
-    const res = await post('/get-session', {}, sessionCookie(sessionId));
+    const res = await post('/get-session', {}, { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.credits_remaining).toBe(3);
@@ -1341,18 +1367,20 @@ describe('POST /get-session — returns credits_remaining', () => {
     expect(body.tier).toBe('3pack');
   });
 
-  it('falls back to credits_remaining=1 for legacy sessions without the field', async () => {
+  it('falls back to credits_remaining=1 for sessions without the field', async () => {
     const sessionId = `sess_${crypto.randomUUID()}`;
-    // Seed without credits fields (legacy)
+    const secretHash = await sha256Full(FIXED_TEST_SECRET);
+    // Seed without credits fields (omitted, not a legacy session without hash)
     await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
       cv_text: 'Budi CV text',
       job_desc: JOB_DESC,
       tier: 'single',
       status: 'paid',
       created_at: Date.now(),
+      session_secret_hash: secretHash,
     }), { expirationTtl: 1800 });
 
-    const res = await post('/get-session', {}, sessionCookie(sessionId));
+    const res = await post('/get-session', {}, { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.credits_remaining).toBe(1);
@@ -1407,6 +1435,7 @@ describe('Multi-credit session — total_credits preserved through updateSession
 
   it('get-session: total_credits=10 preserved after status → generating', async () => {
     const sessionId = `sess_${crypto.randomUUID()}`;
+    const secretHash = await sha256Full(FIXED_TEST_SECRET);
     await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
       cv_text: 'CV text jobhunt',
       job_desc: JOB_DESC,
@@ -1415,9 +1444,10 @@ describe('Multi-credit session — total_credits preserved through updateSession
       credits_remaining: 10,
       total_credits: 10,
       created_at: Date.now(),
+      session_secret_hash: secretHash,
     }), { expirationTtl: 604800 });
 
-    const res = await post('/get-session', {}, { ...sessionCookie(sessionId) }, '10.3.0.1');
+    const res = await post('/get-session', {}, { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET }, '10.3.0.1');
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.total_credits).toBe(10);
@@ -1552,11 +1582,14 @@ describe('Session secret — POST /get-session', () => {
     expect(body.tier).toBe('single');
   });
 
-  it('returns 200 for legacy sessions without a stored hash (no secret required)', async () => {
-    // seedSession creates sessions without session_secret_hash — backward compat
-    const sessionId = await seedSession('paid', 'single');
+  it('rejects legacy sessions without a stored hash (C3 fix: fail-closed)', async () => {
+    // C3 FIX: Legacy sessions (no session_secret_hash) are now permanently rejected.
+    // seedLegacySession creates sessions without the hash to test the rejection path.
+    const sessionId = await seedLegacySession('paid', 'single');
     const res = await post('/get-session', {}, sessionCookie(sessionId));
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.message).toMatch(/akses ditolak|token sesi/i);
   });
 });
 
@@ -1606,10 +1639,11 @@ describe('Session secret — POST /session/ping', () => {
     expect(body.ok).toBe(true);
   });
 
-  it('returns 200 for legacy sessions without stored hash (backward compat)', async () => {
-    const sessionId = await seedSession('paid', 'single');
+  it('rejects legacy sessions without stored hash (C3 fix: fail-closed)', async () => {
+    // C3 FIX: Legacy sessions (no session_secret_hash) are now rejected with 403.
+    const sessionId = await seedLegacySession('paid', 'single');
     const res = await post('/session/ping', {}, sessionCookie(sessionId));
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(403);
   });
 });
 
@@ -1891,7 +1925,7 @@ describe('POST /interview-kit', () => {
       .reply(200, JSON.stringify(MOCK_CLAUDE_KIT_RESPONSE))
       .times(1);
 
-    const res = await post('/interview-kit', { language: 'id' }, sessionCookie(sessionId), nextKitIp());
+    const res = await post('/interview-kit', { language: 'id' }, { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET }, nextKitIp());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
@@ -1915,12 +1949,12 @@ describe('POST /interview-kit', () => {
       .times(1);
 
     const ip = nextKitIp();
-    const res1 = await post('/interview-kit', { language: 'id' }, sessionCookie(sessionId), ip);
+    const res1 = await post('/interview-kit', { language: 'id' }, { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET }, ip);
     expect(res1.status).toBe(200);
     const body1 = await res1.json();
 
     // Second call — Claude mock is exhausted (.times(1)); if intercepted it would 500/throw
-    const res2 = await post('/interview-kit', { language: 'id' }, sessionCookie(sessionId), ip);
+    const res2 = await post('/interview-kit', { language: 'id' }, { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET }, ip);
     expect(res2.status).toBe(200);
     const body2 = await res2.json();
 
@@ -1936,7 +1970,7 @@ describe('POST /interview-kit', () => {
       .reply(200, JSON.stringify({ content: [{ text: '{"partial":true}' }], stop_reason: 'max_tokens' }))
       .times(1);
 
-    const res = await post('/interview-kit', { language: 'id' }, sessionCookie(sessionId), nextKitIp());
+    const res = await post('/interview-kit', { language: 'id' }, { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET }, nextKitIp());
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.message).toMatch(/terpotong|coba lagi/i);
@@ -1952,8 +1986,8 @@ describe('POST /interview-kit', () => {
       .reply(200, JSON.stringify(MOCK_CLAUDE_KIT_RESPONSE))
       .times(2);
 
-    await post('/interview-kit', { language: 'id' }, sessionCookie(sessionId), ip);
-    await post('/interview-kit', { language: 'en' }, sessionCookie(sessionId), ip);
+    await post('/interview-kit', { language: 'id' }, { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET }, ip);
+    await post('/interview-kit', { language: 'en' }, { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET }, ip);
 
     const cachedId = await env.GASLAMAR_SESSIONS.get(`kit_${sessionId}_id`, { type: 'json' });
     const cachedEn = await env.GASLAMAR_SESSIONS.get(`kit_${sessionId}_en`, { type: 'json' });

@@ -146,6 +146,16 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
     setProgress(75);
     setGeneratingText('Menyiapkan file download...');
 
+    // C6 FIX: Validate Content-Type before calling res.json().
+    // If the server returns an HTML error page (e.g. Cloudflare 504), res.json()
+    // throws a parse error. Without this check the catch block shows a generic
+    // error with no retry guidance, and the session state is left ambiguous.
+    const ct = res.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) {
+      showSessionError('Gagal Generate CV', 'Respons server tidak terduga. Klik “Coba Lagi” untuk mencoba ulang.', true);
+      return;
+    }
+
     const { cv_id, cv_en, credits_remaining, total_credits, job_title, company } = await res.json();
 
     // Cache for retries and for buildCVFilename in download-docx-pdf.js

@@ -39,7 +39,15 @@ export async function handleMayarWebhook(request, env, ctx) {
   }));
 
   if (!invoiceId && !redirectUrl) {
-    return new Response('OK', { status: 200 });
+    // C4 FIX: Return 400 so Mayar retries and the operator can see the drop.
+    // A silent 200 here permanently swallows the webhook with no telemetry.
+    console.error(JSON.stringify({
+      event: 'webhook_unresolvable_payload',
+      reason: 'missing_invoiceId_and_redirectUrl',
+      topLevelKeys: Object.keys(payload),
+      dataKeys: payload.data ? Object.keys(payload.data) : null,
+    }));
+    return new Response('Bad Request: missing invoiceId and redirectUrl', { status: 400 });
   }
 
   // Primary: KV secondary index (set by /create-payment)

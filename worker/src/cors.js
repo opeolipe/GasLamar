@@ -3,7 +3,12 @@ import { PRODUCTION_ORIGINS, STAGING_ORIGINS } from './constants.js';
 export function getAllowedOrigins(env) {
   if (env.ENVIRONMENT === 'production') return PRODUCTION_ORIGINS;
   if (env.ENVIRONMENT === 'staging') return STAGING_ORIGINS;
-  return PRODUCTION_ORIGINS; // sandbox and unknown environments mirror production
+  if (env.ENVIRONMENT === 'sandbox') return PRODUCTION_ORIGINS; // local dev / CI tests
+  // C1 FIX: Any value other than the three known environments is a misconfiguration.
+  // Silently mirroring production for an unknown env (e.g. a typo like "prodution")
+  // could grant unexpected CORS access without operator awareness. Fail closed so the
+  // misconfiguration is immediately visible in logs/startup errors.
+  throw new Error(`Unknown ENVIRONMENT value: "${env.ENVIRONMENT ?? '(undefined)'}". Expected 'production', 'staging', or 'sandbox'.`);
 }
 
 export function isOriginAllowed(request, env) {

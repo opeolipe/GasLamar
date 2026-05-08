@@ -47,8 +47,25 @@ function parseDiagnoseJSON(rawText) {
 
 // ── Rekomendasi guard ─────────────────────────────────────────────────────────
 
-// Matches acronyms (SQL, AWS) and CamelCase terms (JavaScript, MongoDB) — tool names.
-const DIAGNOSE_TOOL_RE = /\b([A-Z]{2,}|[A-Z][a-z]+[A-Z]\w*)\b/g;
+// C7 FIX: Narrowed from /\b([A-Z]{2,}|[A-Z][a-z]+[A-Z]\w*)\b/g which was too broad
+// and matched legitimate proper nouns (NASA, McDonald, HR, VP) causing them to be
+// replaced with "skill relevan" if absent from the reference text.
+// New pattern requires at minimum 3 consecutive uppercase chars for pure-acronym
+// matches, and still catches CamelCase tool names (MongoDB, JavaScript, ReactDOM).
+const DIAGNOSE_TOOL_RE = /\b([A-Z]{3,}|[A-Z][a-z]+[A-Z]\w*)\b/g;
+
+// Safelist of non-tech proper nouns and abbreviations that must never be replaced.
+// These match the DIAGNOSE_TOOL_RE pattern but are legitimate in recommendations.
+const DIAGNOSE_TOOL_SAFELIST = new Set([
+  // Job-level titles / org abbreviations
+  'CEO', 'CFO', 'CTO', 'COO', 'CPO', 'CMO', 'CXO', 'SVP', 'EVP',
+  // Region / country codes
+  'USA', 'UK', 'EU', 'APAC', 'EMEA', 'ASEAN',
+  // Common workplace acronyms that are not tech tools
+  'HRD', 'KPI', 'OKR', 'SOP', 'FAQ', 'TBD',
+  // Language-skill level
+  'TOEFL', 'IELTS', 'TOEIC',
+]);
 
 /**
  * Replaces tool/tech terms in rekomendasi items that do not exist in the
@@ -70,6 +87,7 @@ function filterHallucinatedTools(rekomendasi, extractedData) {
   return rekomendasi.map(rec => {
     if (typeof rec !== 'string') return rec;
     return rec.replace(DIAGNOSE_TOOL_RE, term => {
+      if (DIAGNOSE_TOOL_SAFELIST.has(term)) return term;
       if (referenceText.includes(term.toLowerCase())) return term;
       return 'skill relevan';
     });

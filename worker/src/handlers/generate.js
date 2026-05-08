@@ -9,6 +9,7 @@ import { getSessionIdFromCookie } from '../cookies.js';
 import { getRoleProfile } from '../roleProfiles.js';
 import { isJDQualityHigh } from '../pipeline/roleInference.js';
 import { generateInterviewKit } from './interviewKit.js';
+import { hasPromptInjection, sanitizeForLLM } from '../sanitize.js';
 
 export async function handleGenerate(request, env, ctx) {
   const ip = clientIp(request);
@@ -41,8 +42,23 @@ export async function handleGenerate(request, env, ctx) {
 
   const VALID_ISSUES = new Set(['portfolio', 'recruiter_signal', 'north_star', 'effort', 'risk']);
   const primaryIssue  = typeof rawPrimaryIssue  === 'string' && VALID_ISSUES.has(rawPrimaryIssue)  ? rawPrimaryIssue  : null;
-  const previewSample = typeof rawPreviewSample === 'string' && rawPreviewSample.length  <= 500     ? rawPreviewSample : null;
-  const previewAfter  = typeof rawPreviewAfter  === 'string' && rawPreviewAfter.length   <= 500     ? rawPreviewAfter  : null;
+
+  // H4 FIX: previewSample and previewAfter are user-controlled strings injected
+  // into LLM prompts. Validate for prompt injection before accepting.
+  let previewSample = null;
+  if (typeof rawPreviewSample === 'string' && rawPreviewSample.length <= 500) {
+    if (hasPromptInjection(rawPreviewSample)) {
+      return jsonResponse({ message: 'Konten tidak valid' }, 400, request, env);
+    }
+    previewSample = sanitizeForLLM(rawPreviewSample);
+  }
+  let previewAfter = null;
+  if (typeof rawPreviewAfter === 'string' && rawPreviewAfter.length <= 500) {
+    if (hasPromptInjection(rawPreviewAfter)) {
+      return jsonResponse({ message: 'Konten tidak valid' }, 400, request, env);
+    }
+    previewAfter = sanitizeForLLM(rawPreviewAfter);
+  }
 
   // Optional entitas_klaim whitelist — claims already present in user's own CV
   const rawKlaim = body.entitas_klaim;
@@ -63,7 +79,11 @@ export async function handleGenerate(request, env, ctx) {
     if (typeof rawAngkaDiCv !== 'string' || rawAngkaDiCv.length > 400) {
       return jsonResponse({ message: 'angka_di_cv tidak valid' }, 400, request, env);
     }
-    angkaDiCv = rawAngkaDiCv.trim() || null;
+    // H4 FIX: angka_di_cv is a user-controlled string injected into the tailor prompt.
+    if (hasPromptInjection(rawAngkaDiCv)) {
+      return jsonResponse({ message: 'Konten tidak valid' }, 400, request, env);
+    }
+    angkaDiCv = sanitizeForLLM(rawAngkaDiCv.trim()) || null;
   }
 
   // score and gaps are optional analytics fields forwarded to the CV-ready email.
@@ -138,7 +158,11 @@ export async function handleGenerate(request, env, ctx) {
   if (existingLock) {
     return jsonResponse({ message: 'Sedang diproses, coba lagi sebentar.' }, 409, request, env);
   }
-  await env.GASLAMAR_SESSIONS.put(lockKey, 'locked', { expirationTtl: 120 });
+  // H5 FIX: Reduced from 120s to 60s (KV minimum). The Cloudflare Worker wall-clock
+  // limit is 30s, so a 120s lock would block retries for 90 extra seconds after a
+  // Worker timeout. 60s reduces that window to 30 extra seconds and satisfies the
+  // KV minimum TTL requirement.
+  await env.GASLAMAR_SESSIONS.put(lockKey, 'locked', { expirationTtl: 60 });
 
   try {
     // Generate from KV data only — never from request body (except allowed job_desc override).
