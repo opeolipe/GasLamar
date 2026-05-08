@@ -555,9 +555,9 @@ test.describe('GasLamar CV Flow', () => {
     // Clear it
     await page.locator('[aria-label="Hapus kode promo"]').click();
 
-    // Pay button reverts to full price
+    // Pay button reverts to full price — setupHasilWithCouponMock selects the 'single' tier (59k)
     const payBtn = page.locator('[data-testid="generate-cv-button"]');
-    await expect(payBtn).not.toContainText('0');
+    await expect(payBtn).toContainText('59.000');
   });
 
   test('switching tier after coupon applied resets the coupon', async ({ page }) => {

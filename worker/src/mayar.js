@@ -26,7 +26,11 @@ export function logMayarEnvironment(env) {
   }));
 }
 
-export async function createMayarInvoice(sessionId, tier, env, redirectUrl, customerEmail = null, couponCode = null) {
+export async function createMayarInvoice(sessionId, tier, env, redirectUrl, customerEmail = null, _couponCode = null) {
+  // _couponCode is accepted for callers that pass it, but not forwarded to Mayar.
+  // couponCode is not a documented invoice/payment creation field — passing unknown
+  // fields risks a 400 from Mayar that would break payment for all coupon users.
+  // The coupon is applied by the user on Mayar's own checkout page.
   const tierConfig = TIER_PRICES[tier];
   if (!tierConfig) throw new Error('Tier tidak valid');
 
@@ -56,7 +60,6 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
       rate: tierConfig.amount,
       description: tierConfig.label,
     }],
-    ...(couponCode ? { couponCode } : {}),
   };
 
   const paymentBody = {
@@ -66,7 +69,6 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
     amount: tierConfig.amount,
     description: `${tierConfig.label} — GasLamar.com`,
     redirectUrl,
-    ...(couponCode ? { couponCode } : {}),
   };
 
   for (const [endpoint, body] of [
