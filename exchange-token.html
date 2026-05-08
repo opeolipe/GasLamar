@@ -6,19 +6,9 @@
   <meta name="robots" content="noindex, nofollow" />
   <title>Link Download · GasLamar</title>
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
-  <!-- If a ?token= param is present, redirect immediately to download.html so the
-       normal token-exchange flow handles it. This page is only reached when a user
-       navigates directly to /exchange-token (e.g. by editing a URL) instead of
-       following the email link which points to /download.html?token=... -->
-  <script>
-    (function () {
-      var token = new URLSearchParams(location.search).get('token');
-      // Only redirect for hex tokens (same format as email_token)
-      if (token && /^[0-9a-f]{1,128}$/.test(token)) {
-        window.location.replace('download.html?token=' + encodeURIComponent(token));
-      }
-    })();
-  </script>
+  <!-- Redirect logic + error-card display. External file required — inline scripts
+       are blocked by the site's Content-Security-Policy. -->
+  <script src="js/exchange-token.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -149,20 +139,5 @@
     <a href="terms.html">Syarat Layanan</a>
   </footer>
 
-  <script>
-    // Show the correct card based on whether a token was present but invalid,
-    // or no token at all. The redirect at the top of the page already handles
-    // valid-format tokens, so we only reach here when no redirect fired.
-    (function () {
-      var token = new URLSearchParams(location.search).get('token');
-      if (token) {
-        // Token was present but not a valid hex format — treat as expired/invalid
-        document.getElementById('card-expired').style.display = '';
-      } else {
-        // No token at all — direct URL access
-        document.getElementById('card-invalid').style.display = '';
-      }
-    })();
-  </script>
 </body>
 </html>
