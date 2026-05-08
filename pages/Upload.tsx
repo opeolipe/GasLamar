@@ -12,7 +12,8 @@ import {
   escapeHtml,
   unescapeHtml,
 } from '@/lib/uploadValidation';
-import { evaluateJDQuality } from '@/utils/evaluateJDQuality';
+import { evaluateJDQuality }          from '@/utils/evaluateJDQuality';
+import { WORKER_URL, clearClientSessionData } from '@/lib/downloadUtils';
 
 const SHADOW = '0 18px 44px rgba(15, 23, 42, 0.08)';
 
@@ -152,6 +153,25 @@ export default function Upload() {
       } catch (_) {}
     }
   }, []);
+
+  // Validate any stored paid session — dismiss banner if session is expired/deleted
+  useEffect(() => {
+    const sId = sessionStorage.getItem('gaslamar_session') ?? localStorage.getItem('gaslamar_session') ?? '';
+    if (!sId.startsWith('sess_')) return;
+
+    (async () => {
+      try {
+        const res = await fetch(`${WORKER_URL}/check-session?session=${encodeURIComponent(sId)}`, { credentials: 'include' });
+        const isTerminal = !res.ok || (res.ok && (await res.json() as { status?: string }).status === 'deleted');
+        if (isTerminal) {
+          clearClientSessionData(sId);
+          setNotices(prev => prev.filter(n => !n.link?.href.includes('download.html')));
+        }
+      } catch (_) {
+        // Network error — leave banner; download.html will handle the expired state
+      }
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sync back-navigation (BFcache restore)
   useEffect(() => {

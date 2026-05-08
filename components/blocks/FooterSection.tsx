@@ -1,11 +1,11 @@
 export default function FooterSection() {
   return (
-    <footer className="border-t border-slate-100 py-8 text-center text-sm text-slate-500">
+    <footer className="border-t border-slate-100 py-12 text-center text-sm text-slate-500">
       <p>© 2026 GasLamar — bantu kamu tahu peluang interview sebelum apply.</p>
-      <p className="mt-2">
+      <p className="mt-3 leading-relaxed text-slate-400">
         Privasi utama: CV tidak disimpan permanen, tanpa registrasi, diproses otomatis dan dihapus sesuai masa aktif.
       </p>
-      <p className="mt-2 space-x-2">
+      <p className="mt-4 space-x-2">
         <a
           href="access.html"
           className="text-slate-500 hover:text-slate-800 underline-offset-2 hover:underline font-medium"
