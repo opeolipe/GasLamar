@@ -74,7 +74,8 @@ function finishAnimation() {
 }
 
 // Step animation — track IDs so retryAnalysis() can cancel pending timers
-const stepInterval = Math.floor(estimatedMs / (totalSteps + 1));
+// M19: Guard against 0 interval if estimatedMs is very small.
+const stepInterval = Math.max(100, Math.floor(estimatedMs / (totalSteps + 1)));
 let stepTimeouts = [];
 
 function scheduleSteps() {

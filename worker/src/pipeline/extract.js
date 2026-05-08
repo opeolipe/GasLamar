@@ -23,12 +23,22 @@ function parseExtractJSON(rawText) {
     return JSON.parse(cleaned);
   } catch (_) {}
 
-  // 3. Fallback: extract first {...} block in case Claude added preamble/postamble
-  const match = cleaned.match(/\{[\s\S]*\}/);
-  if (match) {
-    try {
-      return JSON.parse(match[0]);
-    } catch (_) {}
+  // 3. Fallback: extract first balanced {...} block in case Claude added preamble/postamble.
+  // M15: Greedy /\{[\s\S]*\}/ matched from first { to last }, merging multiple
+  // separate JSON objects into one malformed block that always failed JSON.parse.
+  // A depth-counting scan finds the first properly balanced { ... } instead.
+  const firstBrace = cleaned.indexOf('{');
+  if (firstBrace >= 0) {
+    let depth = 0, end = -1;
+    for (let i = firstBrace; i < cleaned.length; i++) {
+      if (cleaned[i] === '{') depth++;
+      else if (cleaned[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
+    }
+    if (end >= 0) {
+      try {
+        return JSON.parse(cleaned.slice(firstBrace, end + 1));
+      } catch (_) {}
+    }
   }
 
   throw new Error('INVALID_JSON');

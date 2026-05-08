@@ -217,9 +217,10 @@ async function extractFromTXT(file) {
 function arrayBufferToBase64(buffer) {
   const bytes = new Uint8Array(buffer);
   let binary = '';
-  const chunkSize = 8192;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+  // M24: Use a for loop instead of String.fromCharCode.apply to avoid stack
+  // overflow on large last-chunk sizes even though chunks are already capped at 8192.
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
   }
   return btoa(binary);
 }
@@ -468,7 +469,8 @@ function hideError(id) {
 
   if (tierParam && !VALID_TIERS.includes(tierParam)) {
     // Invalid tier — warn the user, fall back to 'single', and clean the URL
-    console.warn(`[GasLamar] Invalid tier param: "${tierParam}". Falling back to "single".`);
+    // M23: Use JSON.stringify so control characters / newlines in tierParam can't inject log entries.
+    console.warn('[GasLamar] Invalid tier param: ' + JSON.stringify(tierParam) + '. Falling back to "single".');
     const warningEl = document.getElementById('tier-warning');
     if (warningEl) {
       warningEl.textContent = 'Paket tidak dikenal. Menggunakan paket Single sebagai default.';

@@ -185,9 +185,11 @@ document.querySelectorAll('.btn-download[data-lang]').forEach(function(btn) {
 });
 
 // Interview feedback buttons
-document.querySelector('[data-feedback="ya"]').addEventListener('click',     () => submitInterviewFeedback('ya'));
-document.querySelector('[data-feedback="proses"]').addEventListener('click', () => submitInterviewFeedback('proses'));
-document.querySelector('[data-feedback="tidak"]').addEventListener('click',  () => submitInterviewFeedback('tidak'));
+// M21: Null-check each element before binding — throws at runtime if HTML changes.
+['ya', 'proses', 'tidak'].forEach(function(answer) {
+  var el = document.querySelector('[data-feedback="' + answer + '"]');
+  if (el) el.addEventListener('click', function() { submitInterviewFeedback(answer); });
+});
 
 // Copy plain-text fallback buttons
 document.getElementById('copy-id-btn').addEventListener('click', () => copyText('cv-text-id'));

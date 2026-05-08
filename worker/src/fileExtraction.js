@@ -209,9 +209,12 @@ export async function extractTextFromDOCX(base64Data) {
     }
 
     const xmlText = new TextDecoder('utf-8').decode(xmlBytes);
-    // Extract text from <w:t> elements, preserving space runs
+    // Extract text from <w:t> elements, preserving space runs.
+    // M27: Simplified from /<w:t(?:\s[^>]*)?>/ — the (?:\s[^>]*)? group with optional
+    // quantifier could catastrophically backtrack on malformed XML like <w:t >>>>>>>.
+    // [^>]* alone is equivalent (matches all attribute text without > chars) and safe.
     const parts = [];
-    const re = /<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g;
+    const re = /<w:t[^>]*>([^<]*)<\/w:t>/g;
     let m;
     while ((m = re.exec(xmlText)) !== null) parts.push(m[1]);
     return parts.join(' ').replace(/\s+/g, ' ').trim();

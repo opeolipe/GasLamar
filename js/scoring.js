@@ -29,7 +29,12 @@
   const cvKey = sessionStorage.getItem('gaslamar_cv_key');
   if (cvKey && cvKey.startsWith('cvtext_')) {
     try {
-      const res = await fetch(`${WORKER_URL}/validate-session?cvKey=${encodeURIComponent(cvKey)}`);
+      // M16: Add AbortController timeout so a hung /validate-session call doesn't
+      // stall the scoring page indefinitely.
+      const _vc = new AbortController();
+      const _vt = setTimeout(() => _vc.abort(), 5000);
+      const res = await fetch(`${WORKER_URL}/validate-session?cvKey=${encodeURIComponent(cvKey)}`, { signal: _vc.signal });
+      clearTimeout(_vt);
       if (res.ok) {
         const data = await res.json();
         if (!data.valid) {
@@ -43,15 +48,11 @@
       }
       // Network/server error → fail open, continue rendering
     } catch (_) {
-      // Network unavailable — fail open
+      // Network unavailable or timeout — fail open
     }
   }
 
   const raw = sessionStorage.getItem('gaslamar_scoring');
-  // Remove immediately — scoring lives in JS memory only, not in sessionStorage.
-  // This prevents browser extensions and devtools from reading the analysis data
-  // at rest. hasil-guard.js already validated it exists before we get here.
-  sessionStorage.removeItem('gaslamar_scoring');
 
   if (!raw) {
     // No data — redirect back
@@ -68,6 +69,12 @@
     setTimeout(() => window.location.href = 'upload.html', 3000);
     return;
   }
+
+  // M17: Remove from sessionStorage only after successful parse.
+  // The previous code removed before JSON.parse — if parsing threw, the data was
+  // gone and the user couldn't recover. Now removal is safe: parse succeeded.
+  // Scoring lives in JS memory only; sessionStorage was just the transport.
+  sessionStorage.removeItem('gaslamar_scoring');
 
   // Store a non-sensitive summary so the download page can forward score/gaps/primary_issue
   // to the post-generate email. The full scoring blob has already been deleted above.
