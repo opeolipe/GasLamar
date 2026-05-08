@@ -2,7 +2,7 @@
 
 **Stack:** Cloudflare Workers (API) + Cloudflare Pages (frontend) + `claude-sonnet-4-6` (prod analyze) / `claude-haiku-4-5-20251001` (staging analyze + all tailoring) + Mayar (payment) + Cloudflare KV  
 **Pages flow:** `index.html` → `upload.html` → `analyzing.html` → `hasil.html` → `download.html` (session expired/lost → `access.html`)  
-**URLs:** prod `gaslamar.com` / worker `gaslamar-worker.carolineratuolivia.workers.dev` / staging `gaslamar-worker-staging.carolineratuolivia.workers.dev`
+**URLs:** prod `gaslamar.com` / staging `api-staging.gaslamar.com` / direct worker (health check) `gaslamar-worker.carolineratuolivia.workers.dev` — client-facing URL set in `js/config.js` by hostname
 
 ---
 
@@ -57,6 +57,7 @@ Routes → `router.js`. Handlers → `worker/src/handlers/<endpoint>.js`. Pipeli
 | `worker/src/handlers/bypassPayment.js` | Sandbox/E2E only — returns 404 if `ENVIRONMENT === 'production'`. Creates a paid session without going through Mayar. Used for automated tests. |
 | `js/download-guard.js` | Blocking external `<script>` loaded in download.html `<head>` (not inline). Three valid entry paths: `?token=` (email link), localStorage `gaslamar_session` (post-payment), localStorage `gaslamar_delivery` (email-delivery flow). All others → `window.location.replace('/')`. |
 | `worker/src/handlers/validateCoupon.js` | `POST /validate-coupon` — pre-payment coupon validation. Calls Mayar `GET /coupon/validate` as a query-string request (GET with body is forbidden by Fetch spec). Rate-limited 10 req/min per IP to block enumeration. Returns discount amount so the frontend can show a live discounted price before redirecting to Mayar. |
+| `worker/src/handlers/resendAccess.js` | `POST /resend-access` — re-sends a download link to a registered email. Dual-layer rate limiting: 2 req/hour per email + 10 req/hour per IP (prevents enumeration and credential stuffing). Always returns a generic success message regardless of whether the email exists. |
 
 ---
 
@@ -161,8 +162,8 @@ npm start                       # serve frontend locally on :3000
 - **`gaslamar_scoring` deleted after render** — `scoring.js` deletes it from sessionStorage immediately after reading. This is intentional security hardening, not a bug.
 - **`konfidensitas` discarded from LLM** — `diagnose.js` returns a `konfidensitas` field but the orchestrator (`analysis.js`) ignores it. Stage 2 (pure JS) is always authoritative for confidence level.
 - **`opportunity_cost` is derived, not scored** — always 5 or 10, computed from `effort`. It is never independently scored. Don't add scoring logic here.
-- **`skor_sesudah` is deterministic JS** — not LLM-generated. Formula: `skor + improvement`, rounded to nearest 5, clamped to [skor+10, 95]. Improvement = min(20, missing_skills × 3) + 5 if no numbers.
-- **Red-flag penalty is absolute** — -15 (1 flag), -20 (2 flags), -25 max. Applied to `skor` and `skor_sesudah` only — never to `skor_6d`.
+- **`skor_sesudah` is deterministic JS** — not LLM-generated. Formula: `skor + 10 + improvement`, rounded to nearest 5, clamped to [skor+10, 95]. Improvement = min(25, min(20, missing_skills × 3) + 5 if no numbers). The +10 minimum headroom is always added before improvement.
+- **Red-flag penalty is absolute** — -15 (1 flag), -20 (2 flags), -25 (3+ flags). Plus an extra -10 if any flag matches `format|karakter|parsing|ATS` keywords — total can reach -35. Applied to `skor` and `skor_sesudah` only — never to `skor_6d`.
 - **CV silently truncated in tailoring** — `tailoring.js` truncates CVs at 4000 chars. Old experience entries are dropped without error or warning.
 - **Coupon GET with body forbidden** — Mayar's docs show `GET /coupon/validate` with a JSON body (curl `--data`), but the Fetch API spec forbids GET bodies (throws TypeError). Always use query string params for this endpoint. Using `method:'GET'` + `body:` will silently return `valid:false` in production.
 - **Coupon discount is UX-only** — GasLamar shows a projected discounted price but Mayar is authoritative. The actual discount is applied on Mayar's checkout page when the user enters the code. A coupon that passes our validation may still be rejected at Mayar checkout if it expires between validation and payment.

@@ -433,7 +433,7 @@ fetchMock.reply(200, MOCK_DIAGNOSE_JSON)
 - [x] Session secret hashed SHA-256, verified in constant time (timing-safe comparison)
 - [x] Session UUID: `crypto.randomUUID()` + 256-bit hex token untuk `cv_text_key`
 - [x] `/get-session` tolak status selain `paid` (harus bayar dulu)
-- [x] Session lock (`lock_<session_id>`, TTL 30s) — cegah double-generation race condition
+- [x] Session lock (`lock_<session_id>`, TTL 120s) — cegah double-generation race condition
 - [x] Session one-time use: hapus setelah kredit habis
 - [x] Session TTL: 7 hari (single) atau 30 hari (multi-credit), bukan 30 menit
 - [x] CV text minimum check (< 100 karakter = error)

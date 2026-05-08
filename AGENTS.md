@@ -3,7 +3,8 @@
 GasLamar is an AI-powered CV tailoring web app for Indonesian job seekers. Users upload a CV (PDF/DOCX/TXT) and paste a job description; the backend scores the fit, explains gaps, and generates a tailored CV in Bahasa Indonesia and English for download.
 
 **Live URL:** https://gaslamar.com  
-**Worker URL:** https://gaslamar-worker.carolineratuolivia.workers.dev  
+**Worker URL (client-facing):** `https://gaslamar.com` (prod) / `https://api-staging.gaslamar.com` (staging) — routed via Cloudflare, configured in `js/config.js`  
+**Worker URL (direct / health check):** `https://gaslamar-worker.carolineratuolivia.workers.dev`  
 **Stack:** Cloudflare Workers + Cloudflare Pages + Anthropic Claude (`claude-sonnet-4-6` prod / `claude-haiku-4-5-20251001` staging + all tailoring) + Mayar (payment) + Cloudflare KV
 
 ---
