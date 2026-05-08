@@ -26,7 +26,7 @@ export function logMayarEnvironment(env) {
   }));
 }
 
-export async function createMayarInvoice(sessionId, tier, env, redirectUrl, customerEmail = null) {
+export async function createMayarInvoice(sessionId, tier, env, redirectUrl, customerEmail = null, couponCode = null) {
   const tierConfig = TIER_PRICES[tier];
   if (!tierConfig) throw new Error('Tier tidak valid');
 
@@ -56,6 +56,7 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
       rate: tierConfig.amount,
       description: tierConfig.label,
     }],
+    ...(couponCode ? { couponCode } : {}),
   };
 
   const paymentBody = {
@@ -65,6 +66,7 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
     amount: tierConfig.amount,
     description: `${tierConfig.label} — GasLamar.com`,
     redirectUrl,
+    ...(couponCode ? { couponCode } : {}),
   };
 
   for (const [endpoint, body] of [
@@ -123,6 +125,40 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
   }
 
   throw new Error('Pembayaran belum tersedia. Hubungi support@gaslamar.com');
+}
+
+// Validate a coupon code against a tier's price.
+// paymentLinkId is optional — Mayar may still validate the coupon as a general code.
+export async function validateCoupon(env, couponCode, finalAmount, customerEmail) {
+  const apiUrl = getMayarApiUrl(env);
+  const apiKey = getMayarApiKey(env);
+  if (!apiKey) throw new Error('Mayar API key tidak tersedia');
+
+  const body = { couponCode, finalAmount };
+  if (customerEmail) body.customerEmail = customerEmail;
+
+  const res = await fetch(`${apiUrl}/coupon/validate`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    let errMsg;
+    try {
+      const errJson = JSON.parse(errText);
+      errMsg = (typeof errJson.messages === 'string' ? errJson.messages : errJson.messages?.[0]) || errJson.message || `Coupon error: ${res.status}`;
+    } catch {
+      errMsg = `Coupon error: ${res.status}`;
+    }
+    throw new Error(errMsg);
+  }
+
+  return res.json();
 }
 
 export async function verifyMayarWebhook(request, env) {
