@@ -170,7 +170,7 @@ export default function Home() {
           <a
             href="upload.html"
             className="flex-1 max-w-sm mx-auto"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 48, borderRadius: 16, background: 'linear-gradient(180deg,#2563eb,#1d4ed8)', color: 'white', fontWeight: 700, fontSize: '0.95rem', textDecoration: 'none', boxShadow: SHADOW }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 48, borderRadius: 16, background: '#1B4FE8', color: 'white', fontWeight: 700, fontSize: '0.95rem', textDecoration: 'none', boxShadow: SHADOW }}
           >
             Cek Peluang Kamu — Gratis →
           </a>
