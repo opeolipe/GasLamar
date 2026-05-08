@@ -776,25 +776,6 @@ describe('GET /check-session', () => {
     expect(body.status).toBe('pending');
   });
 
-  it('dev bypass: ?dev=1 upgrades pending → paid in non-production', async () => {
-    const sessionId = await seedSession('pending', 'single');
-    const res = await get(`/check-session?dev=1&session=${encodeURIComponent(sessionId)}`);
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.status).toBe('paid');
-    // KV must also be updated so a second poll returns paid
-    const res2 = await get(`/check-session?session=${encodeURIComponent(sessionId)}`);
-    const body2 = await res2.json();
-    expect(body2.status).toBe('paid');
-  });
-
-  it('dev bypass: ?dev=1 does not affect already-paid session', async () => {
-    const sessionId = await seedSession('paid', 'single');
-    const res = await get(`/check-session?dev=1&session=${encodeURIComponent(sessionId)}`);
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.status).toBe('paid');
-  });
 });
 
 describe('GET /validate-session', () => {

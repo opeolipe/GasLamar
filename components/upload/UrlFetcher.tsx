@@ -21,7 +21,7 @@ export default function UrlFetcher({ onFetchSuccess, onClose }: Props) {
   }, [onClose]);
 
   async function handleFetch() {
-    if (!url.trim()) { inputRef.current?.focus(); return; }
+    if (!url.trim()) { setError('Masukkan URL loker terlebih dahulu'); inputRef.current?.focus(); return; }
     setLoading(true);
     setError('');
     try {

@@ -113,7 +113,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
       )}
 
       {trimmed && !quality.message && (
-        <p className="text-sm text-emerald-600 mt-2">✓ Siap dianalisis</p>
+        <p className="text-sm text-emerald-600 mt-2">✓ Job description siap</p>
       )}
     </div>
   );
