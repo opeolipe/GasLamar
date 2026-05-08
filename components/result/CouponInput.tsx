@@ -101,7 +101,7 @@ export default function CouponInput({ tier, email, onApplied, onCleared, applied
             <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#15803D' }}>✓ {applied.coupon_code}</span>
             <span style={{ fontSize: '0.75rem', background: '#DCFCE7', color: '#166534', padding: '0.1rem 0.5rem', borderRadius: 60, fontWeight: 600 }}>{discLabel}</span>
           </div>
-          <div style={{ fontSize: '0.8rem', color: '#166534', marginTop: '0.2rem' }}>
+          <div data-testid="discount-badge" style={{ fontSize: '0.8rem', color: '#166534', marginTop: '0.2rem' }}>
             Hemat Rp {savingsStr} — berlaku di halaman pembayaran
           </div>
         </div>

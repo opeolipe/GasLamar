@@ -514,8 +514,9 @@ test.describe('GasLamar CV Flow', () => {
 
     // Green badge with the code
     await expect(page.locator('text=HEMAT50')).toBeVisible({ timeout: 5000 });
-    // Savings shown
-    await expect(page.locator('text=/Hemat Rp/i')).toBeVisible();
+    // Savings shown — data-testid scopes to the badge, avoids matching tier button text
+    await expect(page.locator('[data-testid="discount-badge"]')).toBeVisible();
+    await expect(page.locator('[data-testid="discount-badge"]')).toContainText(/Hemat Rp/i);
     // Pay button shows discounted price
     const payBtn = page.locator('[data-testid="generate-cv-button"]');
     await expect(payBtn).toContainText('29.500');
