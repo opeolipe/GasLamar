@@ -388,7 +388,6 @@ export default function Download() {
             <WaitingPayment
               statusText={session.statusText}
               showCheckButton={session.showCheckButton}
-              onCheckNow={session.onCheckNow}
               onStartFresh={handleStartFresh}
             />
           </div>

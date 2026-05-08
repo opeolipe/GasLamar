@@ -5,11 +5,10 @@ const SHADOW = '0 18px 44px rgba(15, 23, 42, 0.08)';
 interface Props {
   statusText:      string;
   showCheckButton: boolean;
-  onCheckNow:      () => void;
   onStartFresh?:   () => void;
 }
 
-export default function WaitingPayment({ statusText, showCheckButton, onCheckNow, onStartFresh }: Props) {
+export default function WaitingPayment({ statusText, showCheckButton, onStartFresh }: Props) {
   const [showContact,    setShowContact]    = useState(false);
   const [showSlowHint,   setShowSlowHint]   = useState(false);
   const [showStartFresh, setShowStartFresh] = useState(false);
@@ -63,19 +62,12 @@ export default function WaitingPayment({ statusText, showCheckButton, onCheckNow
       {showCheckButton && (
         <div className="flex flex-col items-center gap-3 mt-4">
           <button
-            onClick={onCheckNow}
-            aria-label="Cek ulang status pembayaran ke server"
+            onClick={() => window.location.reload()}
+            aria-label="Cek ulang status pembayaran dengan memuat ulang halaman"
             className="min-h-[48px] px-6 rounded-full font-bold text-white text-sm transition-all hover:-translate-y-[1px]"
             style={{ background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', boxShadow: '0 8px 24px rgba(37,99,235,0.30)' }}
           >
             Cek Ulang Status Pembayaran
-          </button>
-          <button
-            onClick={() => window.location.reload()}
-            aria-label="Muat ulang halaman ini"
-            className="text-sm text-slate-500 hover:text-slate-700 transition-colors underline"
-          >
-            Muat Ulang Halaman
           </button>
           {showContact && (
             <a
