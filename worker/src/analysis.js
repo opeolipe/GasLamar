@@ -38,7 +38,7 @@ import { sha256Hex }     from './utils.js';
 //                   Bump EXTRACT_CACHE_VERSION when changing pipeline/extract.js or prompts/extract.js.
 // Stale KV entries with old version prefixes are ignored automatically.
 const EXTRACT_CACHE_VERSION  = 'v2'; // current key: extract_v2_<hash>
-const ANALYSIS_CACHE_VERSION = 'v6'; // current key: analysis_v6_<hash> (bumped: role-weighted 6D scores)
+const ANALYSIS_CACHE_VERSION = 'v7'; // current key: analysis_v7_<hash> (bumped: red-flag penalty always stored in cache)
 
 // ---- Orchestrator ----
 
@@ -48,15 +48,9 @@ export async function analyzeCV(cvText, jobDesc, env) {
   const cacheKey = `analysis_${ANALYSIS_CACHE_VERSION}_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
   const cached = await env.GASLAMAR_SESSIONS.get(cacheKey, { type: 'json' });
   if (cached) {
-    // H8 FIX: Re-apply red-flag penalty unconditionally for any cached entry that has
-    // red flags. The previous gate `cached.skor > 85` meant entries with skor ≤ 85
-    // and red flags were served without the penalty, inflating their scores.
-    // Unconditional re-application is idempotent for entries already correctly penalised
-    // (they would fail the `cached.red_flags.length > 0` check if penalty was already
-    // applied and flags were cleared, which they are not — so we re-compute safely).
-    if (Array.isArray(cached.red_flags) && cached.red_flags.length > 0) {
-      applyRedFlagPenalty(cached);
-    }
+    // Cache entries written by this version always have the penalty pre-applied
+    // (applyRedFlagPenalty is called before the KV write at line ~161).
+    // No post-read patching is needed; bumping to v7 evicts pre-fix v6 entries.
     return cached;
   }
 
@@ -173,7 +167,7 @@ export async function analyzeCV(cvText, jobDesc, env) {
   return scoring;
 }
 
-// ---- Red-flag penalty (exported for cache-hit patch path) ----
+// ---- Red-flag penalty ----
 
 /**
  * Applies a deterministic score penalty for detected red flags.
