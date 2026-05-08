@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import { MIN_CV_TEXT_LENGTH, MAX_CV_PASTE_CHARS } from '@/lib/uploadValidation';
 
 interface Props {
@@ -14,7 +14,25 @@ interface Props {
 }
 
 export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWarning, manualCvText, onManualCvChange, onFileSelect, onRemove }: Props) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef   = useRef<HTMLInputElement>(null);
+  const pasteRef   = useRef<HTMLTextAreaElement>(null);
+  const onChangeRef = useRef(onManualCvChange);
+  onChangeRef.current = onManualCvChange;
+
+  // Catch programmatic `.value` assignments (e.g. dev-tools injection) that bypass
+  // React's synthetic onChange. Without this listener the character counter stays
+  // stale and the 60 000-char hard cap isn't enforced via React state.
+  useEffect(() => {
+    const el = pasteRef.current;
+    if (!el) return;
+    function onNativeInput() {
+      const capped = el!.value.length > MAX_CV_PASTE_CHARS ? el!.value.slice(0, MAX_CV_PASTE_CHARS) : el!.value;
+      if (el!.value !== capped) el!.value = capped; // enforce cap in DOM too
+      onChangeRef.current(capped);
+    }
+    el.addEventListener('input', onNativeInput);
+    return () => el.removeEventListener('input', onNativeInput);
+  }, []);
 
   function onDragOver(e: React.DragEvent) {
     e.preventDefault();
@@ -103,6 +121,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
         </label>
         <p className="text-xs text-slate-400 mb-2">Min. {MIN_CV_TEXT_LENGTH} karakter untuk analisis yang akurat (pengalaman, pendidikan, skill).</p>
         <textarea
+          ref={pasteRef}
           id="cv-paste"
           value={manualCvText}
           onChange={(e) => onManualCvChange(e.target.value)}

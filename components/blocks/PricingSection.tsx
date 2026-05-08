@@ -1,40 +1,50 @@
 import { Check } from "lucide-react";
 
 interface Tier {
+  key: string;
   name: string;
   price: string;
   desc: string;
   features: string[];
   featured?: boolean;
   badge?: string;
+  ctaLabel: string;
 }
 
 const TIERS: Tier[] = [
   {
+    key: "coba",
     name: "Coba Dulu",
     price: "Rp 29k",
     desc: "Rewrite 1 posisi dalam Bahasa Indonesia. Hasil aktif 7 hari.",
     features: ["Gap analysis utama", "Rewrite 1 CV (Bahasa Indonesia)", "Hasil aktif 7 hari"],
+    ctaLabel: "Mulai Coba Dulu",
   },
   {
+    key: "single",
     name: "Single",
     price: "Rp 59k",
     desc: "Rewrite 1 posisi, versi ID + EN. Hasil aktif 7 hari.",
     features: ["Perbaikan 8 bagian utama CV", "Rewrite langsung dari CV kamu (bukan template)", "Versi ID + EN", "Siap kirim ke HR (ATS-friendly)"],
+    ctaLabel: "Mulai Single",
   },
   {
+    key: "3pack",
     name: "3-Pack",
     price: "Rp 149k",
     desc: "Untuk 3 posisi berbeda, dengan hasil rewrite aktif 30 hari.",
     badge: "Paling dipilih",
     featured: true,
     features: ["3 CV tailored ID + EN", "Rewrite langsung dari CV kamu (bukan template)", "Siap kirim ke HR (ATS-friendly)"],
+    ctaLabel: "Mulai 3-Pack",
   },
   {
+    key: "jobhunt",
     name: "Job Hunt Pack",
     price: "Rp 299k",
     desc: "Untuk job hunt intensif, dengan hasil rewrite aktif 30 hari.",
     features: ["10 CV tailored ID + EN", "Rewrite langsung dari CV kamu (bukan template)", "Siap kirim ke HR (ATS-friendly)"],
+    ctaLabel: "Mulai Job Hunt Pack",
   },
 ];
 
@@ -108,7 +118,7 @@ export default function PricingSection() {
             </ul>
 
             <a
-              href="upload.html"
+              href={`upload.html?tier=${tier.key}`}
               className={`w-full rounded-[14px] min-h-[44px] py-2.5 font-bold text-sm no-underline flex items-center justify-center transition-all hover:-translate-y-[1px] ${
                 tier.featured
                   ? "text-white border-0"
@@ -116,7 +126,7 @@ export default function PricingSection() {
               }`}
               style={tier.featured ? { background: "#1B4FE8" } : {}}
             >
-              {tier.featured ? "Mulai 3-Pack" : "Coba gratis dulu"}
+              {tier.ctaLabel}
             </a>
           </div>
         ))}
