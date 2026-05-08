@@ -384,7 +384,7 @@ export default function Upload() {
           <p className="text-sm text-slate-500 max-w-[48ch] mx-auto mb-1.5">
             Upload CV + job description → tahu peluang kamu dalam 30 detik
           </p>
-          <p className="text-sm text-slate-400">Tanpa daftar&nbsp;•&nbsp;hasil dalam ±30 detik</p>
+          <p className="text-sm text-slate-400">Tanpa daftar&nbsp;•&nbsp;analisis dalam ±30 detik</p>
         </div>
 
         {/* ZONE 2: Form panel (soft panel) */}
