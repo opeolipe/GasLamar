@@ -30,12 +30,15 @@ export async function handleCreatePayment(request, env) {
     ? rawEmail.toLowerCase().trim()
     : null;
 
-  if (!tier || !cv_text_key) {
-    return jsonResponse({ message: 'Data tidak lengkap' }, 400, request, env);
+  // Validate tier first — gives a specific rejection for unknown tiers regardless of
+  // whether cv_text_key is also missing, preventing the ambiguous "Data tidak lengkap"
+  // response that would otherwise mask an invalid tier name.
+  if (!tier || !['coba', 'single', '3pack', 'jobhunt'].includes(tier)) {
+    return jsonResponse({ message: 'Tier tidak valid' }, 400, request, env);
   }
 
-  if (!['coba', 'single', '3pack', 'jobhunt'].includes(tier)) {
-    return jsonResponse({ message: 'Tier tidak valid' }, 400, request, env);
+  if (!cv_text_key) {
+    return jsonResponse({ message: 'Data tidak lengkap' }, 400, request, env);
   }
 
   // Look up extracted CV text from KV (set by /analyze) — never re-extract
