@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import HeroUpload    from "@/components/blocks/HeroUpload";
 import ResultPreview from "@/components/blocks/ResultPreview";
 import PricingSection from "@/components/blocks/PricingSection";
@@ -21,27 +21,36 @@ const BENEFITS = [
 ];
 
 export default function Home() {
-  const [showStickyBar, setShowStickyBar]       = useState(false);
-  const [stickyDismissed, setStickyDismissed]   = useState(false);
-  const footerRef = useRef<HTMLElement | null>(null);
+  const [showStickyBar, setShowStickyBar]     = useState(false);
+  const [stickyDismissed, setStickyDismissed] = useState(false);
+  const footerRef    = useRef<HTMLElement | null>(null);
+  // Tracks whether the scroll threshold was reached — prevents the observer
+  // from prematurely re-showing the bar before the scroll handler fires.
+  const barEnabledRef = useRef(false);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
-    let triggered = false;
     function onScroll() {
-      if (triggered || window.scrollY <= 200) return;
-      triggered = true;
+      if (barEnabledRef.current || window.scrollY <= 200) return;
+      barEnabledRef.current = true;
       timer = setTimeout(() => setShowStickyBar(true), 2000);
     }
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => { window.removeEventListener('scroll', onScroll); clearTimeout(timer); };
   }, []);
 
-  // Hide sticky bar when footer scrolls into view so it never blocks footer links
+  // Hide sticky bar when footer scrolls into view; re-show when it leaves.
+  // barEnabledRef guards against showing the bar before the scroll threshold fires.
   useEffect(() => {
     if (!footerRef.current) return;
     const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setShowStickyBar(false); else if (!stickyDismissed) setShowStickyBar(prev => prev); },
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setShowStickyBar(false);
+        } else if (barEnabledRef.current && !stickyDismissed) {
+          setShowStickyBar(true);
+        }
+      },
       { threshold: 0.1 },
     );
     obs.observe(footerRef.current);

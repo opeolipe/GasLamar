@@ -1,6 +1,6 @@
 import { forwardRef } from 'react';
 
-const FooterSection = forwardRef<HTMLElement>(function FooterSection(_, ref) {
+const FooterSection = forwardRef<HTMLElement, Record<string, never>>(function FooterSection(_, ref) {
   return (
     <footer ref={ref} className="border-t border-slate-100 py-12 text-center text-sm text-slate-500">
       <p>© 2026 GasLamar — bantu kamu tahu peluang interview sebelum apply.</p>
