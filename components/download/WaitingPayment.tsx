@@ -6,11 +6,13 @@ interface Props {
   statusText:      string;
   showCheckButton: boolean;
   onCheckNow:      () => void;
+  onStartFresh?:   () => void;
 }
 
-export default function WaitingPayment({ statusText, showCheckButton, onCheckNow }: Props) {
-  const [showContact,  setShowContact]  = useState(false);
-  const [showSlowHint, setShowSlowHint] = useState(false);
+export default function WaitingPayment({ statusText, showCheckButton, onCheckNow, onStartFresh }: Props) {
+  const [showContact,    setShowContact]    = useState(false);
+  const [showSlowHint,   setShowSlowHint]   = useState(false);
+  const [showStartFresh, setShowStartFresh] = useState(false);
 
   // Progressive hint after ~20 s — shows while still auto-polling, before check button
   useEffect(() => {
@@ -18,11 +20,14 @@ export default function WaitingPayment({ statusText, showCheckButton, onCheckNow
     return () => clearTimeout(t);
   }, []);
 
-  // Show contact link 2 minutes after the "check again" button appears
+  // Show contact link 2 minutes after the "check again" button appears.
+  // Show "start fresh" 3 minutes after — gives webhook enough time to arrive
+  // while still offering an exit for cancelled/failed payments.
   useEffect(() => {
     if (!showCheckButton) return;
-    const t = setTimeout(() => setShowContact(true), 120_000);
-    return () => clearTimeout(t);
+    const t1 = setTimeout(() => setShowContact(true),    120_000);
+    const t2 = setTimeout(() => setShowStartFresh(true), 180_000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [showCheckButton]);
 
   return (
@@ -80,6 +85,20 @@ export default function WaitingPayment({ statusText, showCheckButton, onCheckNow
             >
               Sudah lebih dari 5 menit? Hubungi Kami
             </a>
+          )}
+          {showStartFresh && onStartFresh && (
+            <div className="mt-2 pt-4 border-t border-slate-100 text-center w-full">
+              <p className="text-xs text-slate-400 mb-2">
+                Tidak jadi bayar? Kamu bisa mulai ulang dengan CV baru.
+                <br />Jika sudah membayar, link download akan dikirim ke email kamu.
+              </p>
+              <button
+                onClick={onStartFresh}
+                className="text-sm text-slate-500 hover:text-blue-600 transition-colors underline"
+              >
+                Upload CV Baru &rarr;
+              </button>
+            </div>
           )}
         </div>
       )}

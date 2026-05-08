@@ -256,6 +256,17 @@ export default function Download() {
     }
   }, [session.sessionData]);
 
+  // Called when the user gives up waiting for payment confirmation and wants to
+  // start fresh. Clears local session pointers (localStorage, pending invoice)
+  // so the stale session doesn't block the next upload/payment flow.
+  // The KV session remains on the server and expires on its own TTL; if the user
+  // did actually pay, the confirmation email carries their download link.
+  const handleStartFresh = useCallback(() => {
+    try { sessionStorage.removeItem('gaslamar_pending_invoice'); } catch (_) {}
+    clearClientSessionData(session.sessionId);
+    window.location.href = 'upload.html';
+  }, [session.sessionId]);
+
   // ── Derived values ────────────────────────────────────────────────────────
 
   const content    = generate.content;
@@ -378,6 +389,7 @@ export default function Download() {
               statusText={session.statusText}
               showCheckButton={session.showCheckButton}
               onCheckNow={session.onCheckNow}
+              onStartFresh={handleStartFresh}
             />
           </div>
         )}
