@@ -21,7 +21,9 @@ const BENEFITS = [
 ];
 
 export default function Home() {
-  const [showStickyBar, setShowStickyBar] = useState(false);
+  const [showStickyBar, setShowStickyBar]       = useState(false);
+  const [stickyDismissed, setStickyDismissed]   = useState(false);
+  const footerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
@@ -34,6 +36,17 @@ export default function Home() {
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => { window.removeEventListener('scroll', onScroll); clearTimeout(timer); };
   }, []);
+
+  // Hide sticky bar when footer scrolls into view so it never blocks footer links
+  useEffect(() => {
+    if (!footerRef.current) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setShowStickyBar(false); else if (!stickyDismissed) setShowStickyBar(prev => prev); },
+      { threshold: 0.1 },
+    );
+    obs.observe(footerRef.current);
+    return () => obs.disconnect();
+  }, [stickyDismissed]);
 
   return (
     <div
@@ -135,21 +148,31 @@ export default function Home() {
         <FaqSection />
       </main>
 
-      <FooterSection />
+      <FooterSection ref={footerRef} />
 
-      {/* Sticky mobile CTA — only on small screens, appears after scroll */}
-      {showStickyBar && (
+      {/* Sticky mobile CTA — only on small screens, appears after scroll.
+          Auto-hides when footer is visible (IntersectionObserver above) so footer
+          links (Privacy Policy, Terms, Accessibility) are never blocked. */}
+      {showStickyBar && !stickyDismissed && (
         <div
           className="md:hidden"
-          style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100, background: 'rgba(255,255,255,0.96)', borderTop: '1px solid rgba(148,163,184,0.18)', backdropFilter: 'blur(14px)', padding: '0.75rem 1rem', display: 'flex', justifyContent: 'center' }}
+          style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100, background: 'rgba(255,255,255,0.96)', borderTop: '1px solid rgba(148,163,184,0.18)', backdropFilter: 'blur(14px)', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
         >
           <a
             href="upload.html"
-            className="w-full max-w-sm"
+            className="flex-1 max-w-sm mx-auto"
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 48, borderRadius: 16, background: 'linear-gradient(180deg,#2563eb,#1d4ed8)', color: 'white', fontWeight: 700, fontSize: '0.95rem', textDecoration: 'none', boxShadow: SHADOW }}
           >
             Cek Peluang Kamu — Gratis →
           </a>
+          <button
+            type="button"
+            aria-label="Tutup banner"
+            onClick={() => { setShowStickyBar(false); setStickyDismissed(true); }}
+            style={{ flexShrink: 0, minWidth: 36, minHeight: 36, borderRadius: '50%', border: 'none', background: 'rgba(148,163,184,0.15)', color: '#64748b', fontSize: '1.1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            ×
+          </button>
         </div>
       )}
     </div>

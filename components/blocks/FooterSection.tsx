@@ -1,6 +1,8 @@
-export default function FooterSection() {
+import { forwardRef } from 'react';
+
+const FooterSection = forwardRef<HTMLElement>(function FooterSection(_, ref) {
   return (
-    <footer className="border-t border-slate-100 py-12 text-center text-sm text-slate-500">
+    <footer ref={ref} className="border-t border-slate-100 py-12 text-center text-sm text-slate-500">
       <p>© 2026 GasLamar — bantu kamu tahu peluang interview sebelum apply.</p>
       <p className="mt-3 leading-relaxed text-slate-400">
         Privasi utama: CV tidak disimpan permanen, tanpa registrasi, diproses otomatis dan dihapus sesuai masa aktif.
@@ -36,4 +38,6 @@ export default function FooterSection() {
       </p>
     </footer>
   );
-}
+});
+
+export default FooterSection;

@@ -98,9 +98,10 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
       <p className="text-sm text-slate-400 mt-2">Pastikan CV kamu berisi teks yang bisa di-copy (bukan hasil scan/foto) untuk hasil analisis terbaik.</p>
 
       <div className="mt-4 w-full max-w-full">
-        <label htmlFor="cv-paste" className="block text-sm font-semibold text-slate-700 mb-2">
+        <label htmlFor="cv-paste" className="block text-sm font-semibold text-slate-700 mb-1">
           Atau copy-paste langsung isi CV Anda di sini
         </label>
+        <p className="text-xs text-slate-400 mb-2">Min. {MIN_CV_TEXT_LENGTH} karakter untuk analisis yang akurat (pengalaman, pendidikan, skill).</p>
         <textarea
           id="cv-paste"
           value={manualCvText}
@@ -134,7 +135,9 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
       )}
 
       {error && (
-        <p className="text-sm text-red-600 mt-2">{error}</p>
+        <div role="alert" className="mt-3 rounded-[10px] px-3 py-2.5 text-sm font-medium bg-red-50 border border-red-200 text-red-700">
+          ⚠️ {error}
+        </div>
       )}
 
       {!error && !scanWarning && fileName && cvReady && (
