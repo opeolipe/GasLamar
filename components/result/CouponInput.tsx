@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { WORKER_URL } from '@/lib/resultUtils';
 
 export interface CouponResult {
   valid:             boolean;
@@ -16,8 +17,6 @@ interface Props {
   onCleared:    () => void;
   applied:      CouponResult | null;
 }
-
-declare const WORKER_URL: string;
 
 export default function CouponInput({ tier, email, onApplied, onCleared, applied }: Props) {
   const [code,    setCode]    = useState('');

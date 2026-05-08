@@ -453,6 +453,137 @@ test.describe('GasLamar CV Flow', () => {
     await expect(page.locator('text=Sesi tidak ditemukan')).not.toBeVisible();
   });
 
+  // ── COUPON INPUT ─────────────────────────────────────────────────────────
+
+  /** Seed hasil page with scoring data and intercept /validate-coupon. */
+  async function setupHasilWithCouponMock(
+    page: Page,
+    couponResponse: Record<string, unknown>,
+  ) {
+    await page.addInitScript((scoring) => {
+      sessionStorage.setItem('gaslamar_scoring', JSON.stringify(scoring));
+      sessionStorage.setItem('gaslamar_cv_key', 'cvtext_test-coupon');
+      sessionStorage.setItem('gaslamar_analyze_time', String(Date.now()));
+    }, MOCK_ANALYZE_RESPONSE);
+
+    await page.route('**/validate-coupon**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(couponResponse),
+      }),
+    );
+
+    await page.goto('/hasil');
+    await expect(page.locator('[data-testid="generate-cv-button"]')).toBeVisible({ timeout: 10000 });
+
+    // Select a tier so the coupon input is active
+    const tierBtn = page.locator('button').filter({ hasText: /single|59/i }).first();
+    await tierBtn.click();
+  }
+
+  test('coupon input is visible after tier selection', async ({ page }) => {
+    await page.addInitScript((scoring) => {
+      sessionStorage.setItem('gaslamar_scoring', JSON.stringify(scoring));
+      sessionStorage.setItem('gaslamar_cv_key', 'cvtext_test-coupon-visible');
+      sessionStorage.setItem('gaslamar_analyze_time', String(Date.now()));
+    }, MOCK_ANALYZE_RESPONSE);
+
+    await page.goto('/hasil');
+    await expect(page.locator('[data-testid="generate-cv-button"]')).toBeVisible({ timeout: 10000 });
+
+    const tierBtn = page.locator('button').filter({ hasText: /single|59/i }).first();
+    await tierBtn.click();
+
+    await expect(page.locator('[aria-label="Kode promo"]')).toBeVisible({ timeout: 5000 });
+  });
+
+  test('valid coupon shows green discount badge and updated pay button price', async ({ page }) => {
+    await setupHasilWithCouponMock(page, {
+      valid:             true,
+      coupon_code:       'HEMAT50',
+      discount_type:     'percentage',
+      discount_value:    50,
+      original_amount:   59000,
+      discounted_amount: 29500,
+    });
+
+    const couponInput = page.locator('[aria-label="Kode promo"]');
+    await couponInput.fill('HEMAT50');
+    await page.locator('button', { hasText: 'Pakai' }).click();
+
+    // Green badge with the code
+    await expect(page.locator('text=HEMAT50')).toBeVisible({ timeout: 5000 });
+    // Savings shown
+    await expect(page.locator('text=/Hemat Rp/i')).toBeVisible();
+    // Pay button shows discounted price
+    const payBtn = page.locator('[data-testid="generate-cv-button"]');
+    await expect(payBtn).toContainText('29.500');
+  });
+
+  test('invalid coupon shows error message', async ({ page }) => {
+    await setupHasilWithCouponMock(page, {
+      valid:   false,
+      message: 'Kode promo tidak valid atau sudah habis',
+    });
+
+    const couponInput = page.locator('[aria-label="Kode promo"]');
+    await couponInput.fill('BADCODE');
+    await page.locator('button', { hasText: 'Pakai' }).click();
+
+    await expect(page.locator('text=/tidak valid/i')).toBeVisible({ timeout: 5000 });
+    // Pay button must still show full price (coupon not applied)
+    await expect(page.locator('[data-testid="generate-cv-button"]')).toContainText('59.000');
+  });
+
+  test('clearing applied coupon restores original pay button price', async ({ page }) => {
+    await setupHasilWithCouponMock(page, {
+      valid:             true,
+      coupon_code:       'LAUNCH',
+      discount_type:     'percentage',
+      discount_value:    100,
+      original_amount:   29000,
+      discounted_amount: 0,
+    });
+
+    // Apply a 100% coupon
+    const couponInput = page.locator('[aria-label="Kode promo"]');
+    await couponInput.fill('LAUNCH');
+    await page.locator('button', { hasText: 'Pakai' }).click();
+    await expect(page.locator('text=LAUNCH')).toBeVisible({ timeout: 5000 });
+
+    // Clear it
+    await page.locator('[aria-label="Hapus kode promo"]').click();
+
+    // Pay button reverts to full price
+    const payBtn = page.locator('[data-testid="generate-cv-button"]');
+    await expect(payBtn).not.toContainText('0');
+  });
+
+  test('switching tier after coupon applied resets the coupon', async ({ page }) => {
+    await setupHasilWithCouponMock(page, {
+      valid:             true,
+      coupon_code:       'PROMO',
+      discount_type:     'percentage',
+      discount_value:    50,
+      original_amount:   59000,
+      discounted_amount: 29500,
+    });
+
+    const couponInput = page.locator('[aria-label="Kode promo"]');
+    await couponInput.fill('PROMO');
+    await page.locator('button', { hasText: 'Pakai' }).click();
+    await expect(page.locator('text=PROMO')).toBeVisible({ timeout: 5000 });
+
+    // Switch to a different tier — coupon banner should disappear
+    const otherTier = page.locator('button').filter({ hasText: /3-Pack|149/i }).first();
+    await otherTier.click();
+
+    // Coupon banner must be gone and input visible again
+    await expect(page.locator('text=PROMO')).not.toBeVisible();
+    await expect(page.locator('[aria-label="Kode promo"]')).toBeVisible();
+  });
+
   // ── MOBILE VIEWPORT ───────────────────────────────────────────────────────
 
   test('mobile viewport: submit button meets 44px touch target, dropzone visible', async ({ page }) => {

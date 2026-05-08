@@ -44,12 +44,19 @@ export async function handleValidateCoupon(request, env) {
   try {
     const result = await validateCoupon(env, couponCode, tierConfig.amount, customerEmail);
 
+    // Mayar returns { statusCode:200, data:{ valid:true, coupon:{...} } } for valid codes.
+    // An HTTP-200 response with data.valid !== true means the code is invalid or expired.
+    const isValid = result?.data?.valid === true;
     const couponData = result?.data?.coupon ?? result?.data ?? result?.coupon;
-    const isValid = result?.data?.valid === true || result?.statusCode === 200;
 
     if (!isValid) {
-      const msg = result?.messages?.[0] || result?.message || 'Kode promo tidak valid atau sudah habis';
+      const msg = result?.data?.messages?.[0] || result?.messages?.[0] || result?.message || 'Kode promo tidak valid atau sudah habis';
       return jsonResponse({ valid: false, message: msg }, 200, request, env);
+    }
+
+    if (!couponData) {
+      console.error(JSON.stringify({ event: 'coupon_no_data', couponCode }));
+      return jsonResponse({ valid: false, message: 'Kode promo tidak dapat diverifikasi' }, 200, request, env);
     }
 
     const discountType  = couponData?.discountType  ?? couponData?.discount_type  ?? 'percentage';

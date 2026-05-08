@@ -128,22 +128,19 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
 }
 
 // Validate a coupon code against a tier's price.
-// paymentLinkId is optional — Mayar may still validate the coupon as a general code.
+// Mayar documents this as GET /coupon/validate — params go in the query string because
+// the Fetch API spec forbids bodies on GET requests (throws TypeError).
 export async function validateCoupon(env, couponCode, finalAmount, customerEmail) {
   const apiUrl = getMayarApiUrl(env);
   const apiKey = getMayarApiKey(env);
   if (!apiKey) throw new Error('Mayar API key tidak tersedia');
 
-  const body = { couponCode, finalAmount };
-  if (customerEmail) body.customerEmail = customerEmail;
+  const params = new URLSearchParams({ couponCode, finalAmount: String(finalAmount) });
+  if (customerEmail) params.set('customerEmail', customerEmail);
 
-  const res = await fetch(`${apiUrl}/coupon/validate`, {
+  const res = await fetch(`${apiUrl}/coupon/validate?${params}`, {
     method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
+    headers: { 'Authorization': `Bearer ${apiKey}` },
   });
 
   if (!res.ok) {
