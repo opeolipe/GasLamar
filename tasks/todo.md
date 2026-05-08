@@ -1,0 +1,110 @@
+# GasLamar — Full QA Audit Bug List
+> Senior QA review · 2026-05-08 · Production-grade audit across security, logic, UX, and edge cases
+
+---
+
+## CRITICAL — Fix Before Next Deploy
+
+- [ ] **cors.js:6** — Unknown/misconfigured `ENVIRONMENT` silently falls back to production CORS allowlist. Should fail-closed (`throw`) on unknown values, not mirror production.
+- [ ] **fetchJobUrl.js:175–210** — Open redirect via chained redirect: attacker crafts `linkedin.com → allowlisted-domain → attacker.com` to bypass the domain allowlist. Cap redirect depth to 1–2 and re-validate the final destination, not just each hop.
+- [ ] **sessions.js:47–51** — Legacy sessions that lack `session_secret_hash` are permanently accepted with no expiry or migration path. Anyone with a pre-secret session token has indefinite auth bypass. Add a grace-period expiry or force re-auth.
+- [ ] **mayarWebhook.js:41–43** — Webhook payload with neither `invoiceId` nor `redirectUrl` returns silent 200 instead of 400. Payment notifications are silently dropped with no telemetry. Return 400 and log the payload.
+- [ ] **upload.js:358** — JD HTML-tag stripping uses `replace(/<[^>]*>/g, ' ')`. This does NOT strip event handlers (e.g. `<img onerror=...>`). If the JD is ever rendered via `innerHTML`, this is XSS. Use `escapeHtml()` (already defined) instead of stripping.
+- [ ] **download-generation.js:149** — `await res.json()` called without checking `Content-Type: application/json`. If the server returns an HTML error page or redirect, this throws an unhandled parse error. Validate content-type or wrap in try-catch with a user-facing error message.
+- [ ] **rewriteGuard.js:51 / diagnose.js:51** — `DIAGNOSE_TOOL_RE` regex `\b([A-Z]{2,}|[A-Z][a-z]+[A-Z]\w*)\b` is too broad. It matches legitimate tool names (MongoDB, React, NASA) and replaces them with `"skill relevan"` if they don't appear verbatim in reference text. This strips correct content from user CVs. Narrow the pattern or add an explicit safelist.
+- [ ] **tailoring.js:152** — `buildGroundTruthBlock(extractedCV)` returns empty string silently when `extractedCV` is null/undefined. The hallucination guard is completely disabled without error or warning. Add null-guard and throw or log clearly.
+
+---
+
+## HIGH — Fix This Sprint
+
+- [ ] **rateLimit.js:46** — `Math.max(60, remaining)` resets the TTL on every increment, extending the rate-limit window instead of using the original window. Should be `Math.max(1, remaining)` (use time remaining in current window).
+- [ ] **fileExtraction.js:22, 79** — `atob()` called on untrusted base64 without format validation. Malformed base64 can produce arbitrary bytes that bypass magic-byte validation. Add `/^[A-Za-z0-9+/]*={0,2}$/` guard before calling `atob()`.
+- [ ] **fileExtraction.js:143–204** — ZIP entry scanning loop has no byte-count ceiling: scans up to `dataStart + 10 MB` per file entry. A malicious DOCX can exhaust the Cloudflare Worker CPU budget. Add hard byte limit.
+- [ ] **generate.js:137–141** — Session lock TTL is 120 s. If the Worker times out after acquiring the lock, the user is blocked for 2 full minutes. Reduce TTL to 10–15 s.
+- [ ] **generate.js:182–196** — `extractJobMetadata(effectiveJobDesc)` persists job_title and company to KV with no validation on length or characters. If these values reach email templates without escaping, XSS is possible. Validate max length ≤ 100 chars, safe charset.
+- [ ] **generate.js:44–45, 51–56, 60–67** — `previewSample`, `previewAfter`, `entitasKlaim` items, and `angkaDiCv` are passed to LLM prompts without calling `sanitizeForLLM()` / `hasPromptInjection()`. These are user-controlled vectors for prompt injection. Sanitize all of them.
+- [ ] **exchangeToken.js:48–55** — Token validator accepts any hex string 1–64 chars. Tokens are 32 chars (128-bit). The minimum length of 1 means 1–4 char tokens are brute-forceable. Require exact length: `/^[0-9a-f]{32}$/`.
+- [ ] **validateSession.js:8–9** — `cvKey` is validated only on prefix (`cvtext_`), no length limit. Attacker can pass `cvtext_` + 1 MB to trigger a large KV lookup. Add max length: `cvKey.length > 256 → reject`.
+- [ ] **createPayment.js:156–158** — Email→session_id index grows unbounded. Many payments from one email bloat KV indefinitely. Cap array at 100 entries or drop entries older than 90 days.
+- [ ] **payment.js:243–251** — Invoice URL validation is skipped for non-`gaslamar.com` hostnames (covers staging/QA). Attacker on `staging.gaslamar.com` can inject a malicious invoice_url. Whitelist specific allowed Mayar domains rather than relying on hostname detection.
+- [ ] **download-guard.js:32–35** — Empty catch block around `localStorage.getItem()`. If localStorage throws (private-browsing permission denied, quota error), the guard silently proceeds instead of redirecting. Fail-closed: redirect to `/` on any storage access error.
+- [ ] **download-generation.js:169–173** — `localStorage.removeItem('gaslamar_session')` fires after last credit, but `sessionIdCache` may still be referenced if user interaction races with this line. Disable the multi-credit UI before clearing storage.
+- [ ] **analysis.js:52–56** — Old cached entries (before red-flag penalty was introduced) only get penalty re-applied if `skor > 85`. A cached entry with `skor=50` and red flags will be served without the penalty. Bump `ANALYSIS_CACHE_VERSION` or unconditionally re-apply the penalty on cache hits.
+- [ ] **score.js:85–89** — `fundamentalSkills` is a static English list; `jd.skills_diminta` often contains Indonesian terms. The industry risk bonus covers only 3 industries. Risk score logic produces incomplete/incorrect results for non-English JDs and non-listed industries.
+- [ ] **upload.js:166–175** — Client-side magic-byte PDF validation can be trivially bypassed. It is correctly treated as UX-only but is also the only client-side type gate. Consider adding file size > 4 bytes check to avoid zero-byte file crashes.
+
+---
+
+## MEDIUM — Fix This Month
+
+### Security / Injection
+- [ ] **sanitize.js:35–57** — Several prompt-injection regexes use nested quantifiers with alternation (potential ReDoS). Add input length cap or split into simpler patterns.
+- [ ] **sanitize.js:104** — `hasPromptInjection(text)` returns `false` (safe) if input is not a string (null, object). Callers must pass strings; add type guard and throw.
+- [ ] **cookies.js:35–46** — `parseCookies()` splits on `;` with no limit. A `Cookie` header with 10,000 semicolons causes O(n) allocation per request. Cap at 100 cookies.
+- [ ] **cookies.js:52–57** — Session ID validated only for `sess_` prefix, no length cap. Add `id.length <= 64` guard.
+- [ ] **fetchJobUrl.js:60–71** — IPv6 loopback (`::1`, `::`) and all-zeros not covered by `isPrivateIPv6()`. An attacker could pass `::1` to reach localhost. Add missing ranges.
+- [ ] **fetchJobUrl.js:244–247** — `Content-Length` header trusted to decide 2 MB limit, but a malicious server can lie. Enforce byte limit during streaming, not just on the header.
+- [ ] **validateSession.js:18–21** — IP mismatch is logged but not enforced ("log only"). This check creates a false sense of security. Either enforce it or remove it.
+- [ ] **sessions.js:55–59** — Length mismatch in `verifySessionSecret` short-circuits comparison, leaking hash length via timing. Use constant-time comparison for all paths.
+
+### Logic / Scoring
+- [ ] **rewriteGuard.js:148** — Entities with length ≤ 2 chars (`C#`, `Go`, `R`) are silently dropped from validation. These are legitimate language names. Lower threshold or handle single/double-char tokens explicitly.
+- [ ] **rewriteGuard.js:325–326** — `wordOverlap()` ignores words ≤ 3 chars. Short action verbs (`led`, `ran`, `own`) are excluded from fuzzy matching, causing valid rewrites to fail the similarity check. Lower threshold to ≥ 2 chars.
+- [ ] **analyze.js:31–35** — Experience year extraction regex doesn't handle comma-decimals (`10,5 tahun`, common in Indonesian text). Returns `10` instead of `10.5`.
+- [ ] **diagnose.js:38** — `SyntaxError` from `JSON.parse` doesn't reliably contain `"position X"` across all JS runtimes. Fallback logging silently returns `-1` and slices from the wrong offset.
+- [ ] **diagnose.js:100–107** — Unescaped newlines from `roleInferenceResult` fields injected directly into LLM template string. Malformed `seniority` or `industry` values can corrupt the prompt JSON structure.
+- [ ] **tailoring.js:130** — English CV generation forces `issue: null`, disabling issue-aware fallbacks even when an issue is provided. The comment claims the opposite. Fix the logic or fix the comment.
+- [ ] **analysis.js:160–163** — Legacy `skor_relevansi`, `skor_requirements`, `skor_kualitas`, `skor_keywords` are back-computed from 6D scores using arbitrary multipliers. Clients reading these as independent scores get misleading data. Document or remove.
+- [ ] **extract.js:26–33** — Greedy `/\{[\s\S]*\}/` regex extracts from first `{` to last `}`. If the LLM response contains multiple JSON objects, they are merged into one malformed object that fails validation.
+
+### UX / Frontend
+- [ ] **scoring.js:357** — Field accessed as `scoring.veredict` (typo) matching a backend field. If ever normalized to `verdict`, this silently breaks verdict rendering. Pin to a constant or add a migration note.
+- [ ] **scoring.js:32, 38–39** — Validation fetch has no `AbortController` timeout. If the `validate-session` endpoint hangs, the scoring page stalls indefinitely with no timeout or user feedback.
+- [ ] **scoring.js:52–54** — `sessionStorage.removeItem('gaslamar_scoring')` fires before `JSON.parse()`. If parsing throws, the data is already gone. User sees an error and can't recover. Move removal to after successful parse.
+- [ ] **analyzing-page.js:78–87** — `stepInterval = Math.floor(estimatedMs / (totalSteps + 1))` can produce 0 if `estimatedMs` is very small. Add guard: `stepInterval = Math.max(100, stepInterval)`.
+- [ ] **analyzing-page.js:12–17** — `7200000 ms` (2 h freshness window) is hardcoded here and also in `hasil-guard.js`. If they drift, users get unexpected redirects. Define as a shared constant.
+- [ ] **download-page.js:160–168** — `submitInterviewFeedback` uses fire-and-forget fetch with empty catch. User sees "Thanks" even if the request fails or times out. Either await response or show thanks optimistically with retry.
+- [ ] **download-page.js:188–190** — `document.querySelector('[data-feedback="ya"]')` not null-checked before `.addEventListener()`. Throws at runtime if element is missing from HTML.
+- [ ] **payment.js:180–182** — Safari < 15.4 UUID fallback generates a raw hex string without the `cvtext_` prefix. Server rejects it. Add prefix or document that legacy Safari is unsupported.
+- [ ] **payment.js:207–210** — Error handling checks `err.message.includes('kedaluwarsa')` (substring match). If server changes error wording, silent failure. Use a structured error code field instead.
+- [ ] **upload.js:467–480** — `console.warn` interpolates unvalidated `tierParam` directly: `` console.warn(`Invalid tier param: "${tierParam}"`) ``. Use `JSON.stringify(tierParam)` to prevent log injection.
+- [ ] **upload.js:217–224** — `String.fromCharCode.apply(null, chunk)` inside `arrayBufferToBase64` is already chunked (8192 bytes) but the `apply` call could still fail for very large last chunks. Use a `for` loop for safety.
+- [ ] **hasil-page.js:21–27** — When `remaining <= 0`, payment button is still enabled. User attempts payment, gets a server 404, and sees no explanation. Disable payment button when session is expired.
+- [ ] **email.js:99–104** — Fallback heading in email template is not passed through `escapeHtml()`. Should always escape all interpolated values consistently.
+- [ ] **fileExtraction.js:200** — `/<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g` uses `(?:\s[^>]*)?` which can catastrophically backtrack on malformed XML like `<w:t >>>>>>>`. Use a simpler non-backtracking pattern.
+
+---
+
+## LOW — Backlog / Tech Debt
+
+- [ ] **bypassPayment.js:21** — No rate limiting on `/bypass-payment`. While the 404 production guard is correct, adding rate limiting provides defense-in-depth if `ENVIRONMENT` is misconfigured.
+- [ ] **createPayment.js:41** — Tier allowlist `['coba','single','3pack','jobhunt']` is hardcoded in 3 separate files. Export `Object.keys(TIER_CREDITS)` from `constants.js` and import everywhere.
+- [ ] **cors.js:23–26** — If `origin` is null and somehow passes the boolean guard, `Access-Control-Allow-Origin: null` is set, which browsers may interpret permissively. Add explicit null check.
+- [ ] **resendAccess.js:27, 32** — Rate limit KV lookups may have slightly different latencies depending on whether an email exists. Timing side-channel. Consider normalizing with a constant-delay response.
+- [ ] **mayarWebhook.js:49–57** — Session ID validated only on `sess_` prefix, not full UUID format. Add regex: `/^sess_[0-9a-f-]{36}$/` for full format check.
+- [ ] **router.js:118–135 (`POST /api/log`)** — Oversized payloads (> 8192 bytes) return 200 silently without storing or logging. Return 413 or at least log the drop event.
+- [ ] **router.js:156–157** — Pages proxy destination (`gaslamar.pages.dev`) should be hardcoded or validated against an allowlist, not constructed from environment variables.
+- [ ] **createPayment.js:173** — Raw `e.message` returned to client on 500. Internal Mayar API error details may leak. Map to a safe user-facing message.
+- [ ] **cookies.js:65–74** — `SameSite=None; Secure` set without verifying the request is HTTPS. Cloudflare enforces HTTPS, but add explicit check for defense-in-depth.
+- [ ] **exchange-token.js:4** — Token regex accepts 1–128 chars. Server generates 32-char tokens. The {1,128} range is misleading. Tighten to `{32,64}` minimum.
+- [ ] **rewriteGuard.js:479** — Banned phrases are regex-escaped inside a loop on every call. Pre-escape at module load time.
+- [ ] **analyze.js:46** — 30-word minimum for `Tinggi` confidence is arbitrary. A valid 25-word CV gets penalized. Document the threshold or make it configurable.
+- [ ] **upload.js:509–513** — JD draft restored from sessionStorage via `unescapeHtml` with no validation. Wrap in try-catch in case the stored value is corrupted.
+- [ ] **upload.js:74, 126** — `validExts` is hardcoded lowercase; works now but brittle if ever modified. Apply `.map(e => e.toLowerCase())` defensively.
+
+---
+
+## Audit Coverage
+| Area | Files Reviewed |
+|---|---|
+| Auth / Session | sessions.js, cookies.js, handlers/validateSession.js, handlers/getSession.js, handlers/exchangeToken.js |
+| Payment | handlers/createPayment.js, handlers/mayarWebhook.js, handlers/validateCoupon.js, handlers/bypassPayment.js, js/payment.js |
+| Pipeline | pipeline/extract.js, pipeline/analyze.js, pipeline/score.js, pipeline/diagnose.js, analysis.js |
+| Rewrite / Guard | tailoring.js, rewriteGuard.js |
+| Security primitives | cors.js, sanitize.js, rateLimit.js, cookies.js |
+| File handling | fileExtraction.js, handlers/fetchJobUrl.js |
+| Communication | email.js, handlers/resendAccess.js, handlers/generate.js |
+| Frontend guards | js/hasil-guard.js, js/download-guard.js, js/scoring.js |
+| Frontend flows | js/analyzing-page.js, js/upload.js, js/payment.js, js/download-generation.js, js/download-page.js, js/hasil-page.js, js/exchange-token.js |
+| Router | router.js |
