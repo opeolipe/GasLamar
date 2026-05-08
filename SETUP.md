@@ -29,6 +29,9 @@ gaslamar/
 ├── hasil.html              # Scoring + gap analysis results
 ├── download.html           # Download generated CV
 ├── analyzing.html          # Loading/processing page
+├── access.html             # Session-expired / resend-access page
+├── exchange-token.html     # Handles email download-link token exchange
+├── accessibility.html / privacy.html / terms.html / 404.html
 │
 ├── css/
 │   ├── main.css            # Merged: Tailwind utilities + custom styles (generated)
@@ -70,10 +73,17 @@ gaslamar/
 │   │   ├── mayar.js        # createMayarInvoice, verifyMayarWebhook
 │   │   ├── sessions.js     # createSession, getSession, updateSession, dll
 │   │   ├── email.js        # sendPaymentConfirmationEmail, sendCVReadyEmail
+│   │   ├── cookies.js      # Cookie set/clear utilities
+│   │   ├── sanitize.js     # Input sanitization (XSS, control chars, Latin-1)
+│   │   ├── rewriteGuard.js # Hallucination guard for CV rewrites
+│   │   ├── roleProfiles.js # Role-weighted scoring inputs
+│   │   ├── interviewKitPdf.js # pdf-lib PDF generation for interview kit
 │   │   ├── router.js       # Route dispatch (semua path/method)
 │   │   ├── prompts/
 │   │   │   ├── extract.js  # SKILL_EXTRACT — verbatim extraction prompt
+│   │   │   ├── analyze.js  # SKILL_ANALYZE — diagnose prompt (ID, HRD persona)
 │   │   │   ├── diagnose.js # SKILL_DIAGNOSE — human-readable explanation prompt
+│   │   │   ├── interviewKit.js # Interview kit generation prompt
 │   │   │   ├── tailorId.js # SKILL_TAILOR_ID — CV rewrite (Bahasa Indonesia)
 │   │   │   └── tailorEn.js # SKILL_TAILOR_EN — CV rewrite (English)
 │   │   ├── pipeline/
@@ -92,10 +102,20 @@ gaslamar/
 │   │       ├── validateSession.js # GET /validate-session
 │   │       ├── getSession.js     # POST /get-session
 │   │       ├── generate.js       # POST /generate
+│   │       ├── getResult.js      # POST /get-result
 │   │       ├── submitEmail.js    # POST /submit-email
-│   │       └── fetchJobUrl.js    # POST /fetch-job-url
+│   │       ├── fetchJobUrl.js    # POST /fetch-job-url
+│   │       ├── exchangeToken.js  # POST /exchange-token
+│   │       ├── resendEmail.js    # POST /resend-email
+│   │       ├── resendAccess.js   # POST /resend-access
+│   │       ├── interviewKit.js   # POST /interview-kit
+│   │       ├── validateCoupon.js # POST /validate-coupon
+│   │       └── bypassPayment.js  # POST /bypass-payment (sandbox only, 404 in prod)
 │   ├── test/
-│   │   └── worker.test.js  # 83 tests (74 passing, 9 skipped)
+│   │   ├── worker.test.js     # Integration tests
+│   │   ├── pipeline.test.js   # Pipeline stage unit tests
+│   │   ├── sanitize.test.js   # Input sanitization tests
+│   │   └── boundary.test.js   # Edge case / boundary tests
 │   ├── package.json
 │   └── vitest.config.js
 │
@@ -170,9 +190,10 @@ POST /analyze
 **Hasil:** LLM sekarang hanya bertanggung jawab untuk (1) menyalin data verbatim dan (2) memformat teks penjelasan. Semua keputusan scoring dan verdict dilakukan oleh kode deterministik.
 
 **Caching strategy:**
-- `extract_v1_<hash>` — hasil Stage 1 (TTL 24 jam); bump ke `extract_v2_` jika SKILL_EXTRACT berubah signifikan
-- `analysis_v4_<hash>` — hasil final lengkap (TTL 48 jam); bump ke `analysis_v5_` jika scoring formula berubah
-- `gen_id_<hash>` / `gen_en_<hash>` — hasil tailoring CV (TTL 48 jam)
+- `extract_v2_<hash>` — hasil Stage 1 (TTL 24 jam); bump versi di `analysis.js` jika SKILL_EXTRACT berubah
+- `analysis_v6_<hash>` — hasil final lengkap (TTL 48 jam); bump versi di `analysis.js` jika scoring berubah
+- `gen_id_v3_<hash>` / `gen_en_v3_<hash>` — hasil tailoring CV (TTL 48 jam); bump prefix di `tailoring.js`
+- `kit_<session_id>_<language>` — interview kit (TTL 24 jam)
 
 ---
 
@@ -386,11 +407,7 @@ npm test           # Run once (vitest run)
 npm run test:watch # Watch mode — re-run on file changes
 ```
 
-Test suite menggunakan `@cloudflare/vitest-pool-workers` — berjalan di real workerd runtime, bukan Node.js mock. Semua 83 tests, termasuk rate limiting, CORS, session flow, dan webhook HMAC verification.
-
-```
-Tests  74 passed | 9 skipped (83)
-```
+Test suite menggunakan `@cloudflare/vitest-pool-workers` — berjalan di real workerd runtime, bukan Node.js mock. Empat test file: `worker.test.js` (integration), `pipeline.test.js` (pipeline stages), `sanitize.test.js` (input sanitization), `boundary.test.js` (edge cases). Covers rate limiting, CORS, session flow, webhook HMAC verification, dan input sanitization.
 
 Tests yang di-skip membutuhkan outbound API access (Claude + Mayar) — un-skip di CI dengan akses internet langsung atau tambahkan mock sequences:
 

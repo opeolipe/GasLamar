@@ -4,7 +4,7 @@ GasLamar is an AI-powered CV tailoring web app for Indonesian job seekers. Users
 
 **Live URL:** https://gaslamar.com  
 **Worker URL:** https://gaslamar-worker.carolineratuolivia.workers.dev  
-**Stack:** Cloudflare Workers + Cloudflare Pages + Anthropic Claude (claude-haiku-3-5) + Mayar (payment) + Cloudflare KV
+**Stack:** Cloudflare Workers + Cloudflare Pages + Anthropic Claude (`claude-sonnet-4-6` prod / `claude-haiku-4-5-20251001` staging + all tailoring) + Mayar (payment) + Cloudflare KV
 
 ---
 
@@ -13,6 +13,9 @@ GasLamar is an AI-powered CV tailoring web app for Indonesian job seekers. Users
 ```
 /
 ├── index.html / upload.html / analyzing.html / hasil.html / download.html
+├── access.html             # Session-expired / access-link page
+├── exchange-token.html     # Handles email download-link token exchange
+├── accessibility.html / privacy.html / terms.html / 404.html
 ├── css/                    # main.css (Tailwind + custom, generated)
 ├── js/
 │   ├── config.js           # WORKER_URL — single place to change the API URL
@@ -25,9 +28,12 @@ GasLamar is an AI-powered CV tailoring web app for Indonesian job seekers. Users
 │       ├── constants.js    # TIER_PRICES, SESSION_TTL, ALLOWED_ORIGINS
 │       ├── claude.js       # callClaude() — Anthropic API wrapper, 40s timeout
 │       ├── sessions.js     # KV session CRUD
+│       ├── cookies.js      # Cookie set/clear utilities for session management
+│       ├── sanitize.js     # Input sanitization (XSS, control chars, Latin-1)
+│       ├── interviewKitPdf.js # pdf-lib PDF generation for interview kit
 │       ├── handlers/       # One file per API endpoint
 │       ├── pipeline/       # extract.js, analyze.js, score.js, diagnose.js, validate.js
-│       └── prompts/        # LLM prompts: extract.js, diagnose.js, tailorId.js, tailorEn.js
+│       └── prompts/        # LLM prompts: extract.js, analyze.js, diagnose.js, interviewKit.js, tailorId.js, tailorEn.js
 ├── scripts/                # build.js (esbuild), vendor.js (Tailwind + lib copy)
 ├── package.json            # Root — frontend build scripts
 └── wrangler.toml           # Cloudflare Worker config + KV + rate limiter bindings
@@ -42,7 +48,7 @@ GasLamar is an AI-powered CV tailoring web app for Indonesian job seekers. Users
 ```
 POST /analyze
   │
-  ├─ Stage 1: EXTRACT (LLM — claude-haiku)
+  ├─ Stage 1: EXTRACT (LLM — claude-haiku-4-5)
   │    Verbatim copy of data from CV and JD into structured schema.
   │    Validated by validate.js; retried once on schema failure.
   │    Cached: extract_v2_<hash> — 24h TTL
@@ -56,7 +62,7 @@ POST /analyze
   │    Outputs: total score, verdict (DO / TIMED / DO NOT), timebox_weeks.
   │    Cached: analysis_v6_<hash> — 48h TTL
   │
-  ├─ Stage 4: DIAGNOSE (LLM — claude-haiku)
+  ├─ Stage 4: DIAGNOSE (LLM — claude-haiku-4-5)
   │    Receives gap list + scores from Stages 2/3. Writes human-readable
   │    explanations ONLY — cannot change scores or add new gaps.
   │    Validated + retried on failure.
@@ -70,7 +76,7 @@ POST /analyze
        validateExtractOutput(), validateDiagnoseOutput().
 ```
 
-**Cache key versioning:** Bump the version suffix (`v2_`, `v6_`, `v3_`, etc.) whenever a prompt or scoring formula changes significantly to avoid stale cache hits.
+**Cache key versioning:** Bump the version suffix (`v2_`, `v6_`, `v3_`, etc.) whenever a prompt or scoring formula changes significantly to avoid stale cache hits. Versions live in `analysis.js` (extract/analyze) and `tailoring.js` (gen). Do not bump in the pipeline files themselves.
 
 ---
 
@@ -90,19 +96,22 @@ POST /analyze
 | POST | /get-result | handlers/getResult.js | |
 | POST | /submit-email | handlers/submitEmail.js | |
 | POST | /fetch-job-url | handlers/fetchJobUrl.js | Rate: 5/min |
-| POST | /exchange-token | handlers/exchangeToken.js | |
+| POST | /exchange-token | handlers/exchangeToken.js | Single-use email token → session cookie |
 | POST | /resend-email | handlers/resendEmail.js | |
+| POST | /resend-access | handlers/resendAccess.js | Rate: 10/min per IP |
 | POST | /interview-kit (alias: /api/interview-kit) | handlers/interviewKit.js | |
-| POST | /api/log | inline in router.js | |
-| POST | /feedback | inline in router.js | |
+| POST | /bypass-payment | handlers/bypassPayment.js | 404 in production — sandbox/E2E only |
+| POST | /validate-coupon | handlers/validateCoupon.js | Rate: 10/min per IP |
+| POST | /api/log | inline in router.js | Client error logging |
+| POST | /feedback | inline in router.js | User survey, fire-and-forget |
 
 ---
 
 ## Dev Commands
 
 ```bash
-# Worker tests
-cd worker && npm test            # vitest run (130 tests, all passing)
+# Worker tests (4 test files: worker.test.js, pipeline.test.js, sanitize.test.js, boundary.test.js)
+cd worker && npm test            # vitest run — all tests must pass
 cd worker && npm run test:watch  # watch mode
 cd worker && npm run dev         # local dev via wrangler
 cd worker && npm run tail        # stream live production logs
@@ -151,6 +160,8 @@ Do not break these:
 - `/get-session` rejects sessions without `paid` status
 - Session lock (`lock_<session_id>`, TTL 120s) prevents double-generation races
 - Sessions are one-time use — deleted after credits exhausted
+- `bypassPayment.js` must return 404 in production — `ENVIRONMENT === 'production'` guard must never be removed
+- Webhook idempotency sentinel `payment_processed_<session_id>` (48h TTL) written BEFORE session update
 
 ---
 
