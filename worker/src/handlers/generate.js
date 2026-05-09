@@ -68,8 +68,10 @@ export async function handleGenerate(request, env, ctx) {
         rawKlaim.some(k => typeof k !== 'string' || k.length > 100)) {
       return jsonResponse({ message: 'Entitas klaim tidak valid' }, 400, request, env);
     }
-    // Normalize: deduplicate, lowercase, trim, drop very short tokens
-    entitasKlaim = [...new Set(rawKlaim.map(k => k.trim().toLowerCase()).filter(k => k.length > 2))];
+    // Normalize: deduplicate, lowercase, trim, drop empty strings.
+    // M9 FIX: Threshold lowered from > 2 to >= 1 to match rewriteGuard.js allowedTerms —
+    // short language names like R, Go, C# are legitimate and must survive to the guard.
+    entitasKlaim = [...new Set(rawKlaim.map(k => k.trim().toLowerCase()).filter(k => k.length >= 1))];
   }
   // Optional angka_di_cv — numbers found in CV (forwarded from /analyze response)
   // Used to anchor the ground-truth block in the tailor prompt.
