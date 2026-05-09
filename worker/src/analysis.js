@@ -176,7 +176,7 @@ export async function analyzeCV(cvText, jobDesc, env) {
   return scoring;
 }
 
-// ---- Red-flag penalty (exported for cache-hit patch path) ----
+// ---- Red-flag penalty ----
 
 /**
  * Applies a deterministic score penalty for detected red flags.
