@@ -3,7 +3,7 @@ import React from 'react';
 export default function FooterSection({ ref }: { ref?: React.Ref<HTMLElement> }) {
   return (
     <footer ref={ref} className="border-t border-slate-100 py-12 text-center text-sm text-slate-500">
-      <p>GasLamar · Gas apply aja dulu</p>
+      <p>© 2026 GasLamar · Gas apply aja dulu</p>
       <p className="mt-3 leading-relaxed text-slate-400">
         Privasi utama: CV tidak disimpan permanen, tanpa registrasi, diproses otomatis dan dihapus sesuai masa aktif.
       </p>
