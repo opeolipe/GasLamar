@@ -116,6 +116,11 @@ const BANNED_OUTPUT_PHRASES = [
   'add specific tools',
 ];
 
+// Pre-escaped at module load — avoids re-escaping on every postProcessCV() call.
+const BANNED_OUTPUT_REGEXES = BANNED_OUTPUT_PHRASES.map(
+  phrase => new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')
+);
+
 // ── Metric helpers ────────────────────────────────────────────────────────────
 
 function extractMetrics(text) {
@@ -144,8 +149,10 @@ function extractToolTerms(text) {
  */
 export function addsNewClaims(before, after, entitasKlaim = null) {
   // Normalize whitelist once: lowercase, trim, drop single-char tokens
+  // M9: Keep short tokens (C#, Go, R) in the whitelist — drop only empty strings.
+  // The previous > 2 filter silently excluded legitimate 1-2 char language names.
   const allowedTerms = entitasKlaim
-    ? new Set(entitasKlaim.map(k => k.trim().toLowerCase()).filter(k => k.length > 2))
+    ? new Set(entitasKlaim.map(k => k.trim().toLowerCase()).filter(k => k.length >= 1))
     : null;
 
   const beforeTools = extractToolTerms(before);
@@ -188,8 +195,9 @@ function hasInflatedClaims(before, after) {
 
 // Checks only new tool terms (not inflated claims) — medium severity
 function hasNewToolTerms(before, after, entitasKlaim) {
+  // M9: Same fix as addsNewClaims — keep short tokens in the whitelist.
   const allowedTerms = entitasKlaim
-    ? new Set(entitasKlaim.map(k => k.trim().toLowerCase()).filter(k => k.length > 2))
+    ? new Set(entitasKlaim.map(k => k.trim().toLowerCase()).filter(k => k.length >= 1))
     : null;
   const beforeTools = extractToolTerms(before);
   for (const term of extractToolTerms(after)) {
@@ -308,8 +316,11 @@ function findExpandedShortLine(llmClean, shortOriginals) {
 // ── Fuzzy matching ────────────────────────────────────────────────────────────
 
 function wordOverlap(a, b) {
-  const wordsA = new Set(a.toLowerCase().split(/\W+/).filter(w => w.length > 3));
-  const wordsB = new Set(b.toLowerCase().split(/\W+/).filter(w => w.length > 3));
+  // M10: Lower threshold from > 3 to >= 2 so short action verbs (led, ran, own)
+  // are included in fuzzy matching. The previous > 3 threshold excluded 3-char
+  // words, causing valid rewrites to fail the similarity check.
+  const wordsA = new Set(a.toLowerCase().split(/\W+/).filter(w => w.length >= 2));
+  const wordsB = new Set(b.toLowerCase().split(/\W+/).filter(w => w.length >= 2));
   if (wordsA.size === 0) return 0;
   let count = 0;
   for (const w of wordsA) if (wordsB.has(w)) count++;
@@ -474,10 +485,9 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
   // Step 1b: strip any remaining LLM placeholder brackets from ALL lines
   result = result.replace(/\[[^\]]{1,60}\]/g, '').replace(/[ \t]{2,}/g, ' ');
 
-  // Step 1c: strip banned output phrases (AI artifacts)
-  for (const phrase of BANNED_OUTPUT_PHRASES) {
-    const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    result = result.replace(new RegExp(escaped, 'gi'), '');
+  // Step 1c: strip banned output phrases (AI artifacts) — regexes pre-compiled at module load
+  for (const re of BANNED_OUTPUT_REGEXES) {
+    result = result.replace(re, '');
   }
   result = result.replace(/[ \t]{2,}/g, ' ');
 

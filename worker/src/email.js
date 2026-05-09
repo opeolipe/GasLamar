@@ -97,7 +97,9 @@ export async function sendPaymentConfirmationEmail(sessionId, env, options = {})
       </div>
 
       ${options.heading
+        // options.heading is user-supplied — must always be escaped.
         ? `<h1 style="font-size:22px;font-weight:700;margin-bottom:20px">${escapeHtml(options.heading)}</h1>`
+        // Fallback is a fully static string — no user input, no escaping needed.
         : `<h1 style="font-size:22px;font-weight:700;margin-bottom:6px">CV kamu sudah aktif 🚀</h1>
       <p style="color:#6B7280;margin-bottom:6px;font-size:15px">Pembayaran kamu berhasil.</p>
       <p style="color:#6B7280;margin-bottom:20px;font-size:14px">Sekarang kamu sudah bisa mulai lihat dan perbaiki CV kamu — prosesnya cepat dan langsung kelihatan hasilnya.</p>`

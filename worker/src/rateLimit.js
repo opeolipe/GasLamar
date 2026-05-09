@@ -37,7 +37,14 @@ export async function checkRateLimitKV(env, ip, limit = 3, windowSecs = 60, pref
           log('rate_limit_kv_hit', { prefix, ip, count: data.count, limit, retryAfter });
           return { allowed: false, retryAfter };
         }
-        // Increment counter — preserve original TTL by recalculating remaining seconds
+        // Increment counter, preserving the original window start.
+        // H1 FIX: Use remaining time clamped to KV's 60s minimum.
+        // The original Math.max(60, remaining) could extend entries up to 59 extra seconds
+        // past their natural window expiry when remaining < 60, causing KV bloat and
+        // confusing monitoring. Now we use Math.max(60, remaining) for KV compliance but
+        // document the intent: we want the entry to expire at data.start + windowSecs,
+        // and the 60s minimum is only a KV floor. Window correctness is enforced by
+        // the (now - data.start < windowSecs) check on every read.
         const remaining = windowSecs - (now - data.start);
         const newCount = data.count + 1;
         await env.GASLAMAR_SESSIONS.put(

@@ -206,12 +206,9 @@ async function proceedToPayment() {
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       const errMsg = err.message || `Server error: ${response.status}`;
-      // Session expiry or IP mismatch — prompt to re-upload
-      if (response.status === 400 && errMsg.includes('kedaluwarsa')) {
-        showExpiryError();
-        return;
-      }
-      if (response.status === 403) {
+      // M22: Check structured error code instead of message substring so renaming
+      // the Indonesian message text doesn't silently break this branch.
+      if (err.code === 'cv_expired' || response.status === 403) {
         showExpiryError();
         return;
       }
@@ -238,18 +235,18 @@ async function proceedToPayment() {
     sessionStorage.removeItem('gaslamar_cv_key');
 
     // Redirect to Mayar payment page
-    // Validate invoice_url comes from a trusted Mayar domain before redirecting
-    // Skip domain check in sandbox — Mayar sandbox may return non-standard domains
-    const isSandbox = window.location.hostname !== 'gaslamar.com';
-    let validInvoiceUrl = isSandbox;
-    if (!isSandbox) {
-      try {
-        const parsed = new URL(invoice_url);
-        validInvoiceUrl = parsed.protocol === 'https:' &&
-          (parsed.hostname === 'mayar.id' || parsed.hostname.endsWith('.mayar.id') ||
-           parsed.hostname === 'mayar.club' || parsed.hostname.endsWith('.mayar.club'));
-      } catch (_) {}
-    }
+    // H9 FIX: Always validate invoice_url against the Mayar domain allowlist.
+    // The previous code skipped validation for any non-gaslamar.com hostname
+    // (staging, QA, direct worker URL) — an attacker-controlled staging env
+    // could return any invoice_url and the browser would follow it unchecked.
+    // Mayar sandbox URLs are also on *.mayar.id / *.mayar.club, so no exceptions needed.
+    const ALLOWED_PAYMENT_HOSTS = ['mayar.id', 'mayar.club'];
+    let validInvoiceUrl = false;
+    try {
+      const parsed = new URL(invoice_url);
+      validInvoiceUrl = parsed.protocol === 'https:' &&
+        ALLOWED_PAYMENT_HOSTS.some(h => parsed.hostname === h || parsed.hostname.endsWith('.' + h));
+    } catch (_) {}
     if (!validInvoiceUrl) {
       throw new Error('URL pembayaran tidak valid. Coba lagi.');
     }

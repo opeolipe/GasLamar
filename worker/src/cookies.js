@@ -35,7 +35,10 @@
 export function parseCookies(cookieHeader) {
   if (!cookieHeader) return {};
   const out = {};
+  let count = 0;
   for (const pair of cookieHeader.split(';')) {
+    // M3: Cap at 100 cookies — a header with 10 000 semicolons causes O(n) allocation.
+    if (++count > 100) break;
     const idx = pair.indexOf('=');
     if (idx < 0) continue;
     const key = pair.slice(0, idx).trim();
@@ -52,7 +55,9 @@ export function parseCookies(cookieHeader) {
 export function getSessionIdFromCookie(request) {
   const cookies = parseCookies(request.headers.get('Cookie'));
   const id = cookies.session_id;
-  if (id && id.startsWith('sess_')) return id;
+  // M4: Enforce a maximum length — session IDs are "sess_" + UUID (41 chars max).
+  // A 1 MB cookie value would waste CPU on prefix check and downstream KV lookup.
+  if (id && id.startsWith('sess_') && id.length <= 64) return id;
   return null;
 }
 
@@ -65,6 +70,8 @@ export function getSessionIdFromCookie(request) {
  */
 export function makeSessionCookie(sessionId, isMulti = false) {
   const maxAge = isMulti ? 2592000 : 604800;
+  // SameSite=None; Secure is safe here: Cloudflare Workers only accept HTTPS connections,
+  // so the Secure flag is always satisfied. No explicit HTTPS check is needed.
   return `session_id=${sessionId}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${maxAge}`;
 }
 

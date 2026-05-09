@@ -39,7 +39,15 @@ export async function handleMayarWebhook(request, env, ctx) {
   }));
 
   if (!invoiceId && !redirectUrl) {
-    return new Response('OK', { status: 200 });
+    // C4 FIX: Return 400 so Mayar retries and the operator can see the drop.
+    // A silent 200 here permanently swallows the webhook with no telemetry.
+    console.error(JSON.stringify({
+      event: 'webhook_unresolvable_payload',
+      reason: 'missing_invoiceId_and_redirectUrl',
+      topLevelKeys: Object.keys(payload),
+      dataKeys: payload.data ? Object.keys(payload.data) : null,
+    }));
+    return new Response('Bad Request: missing invoiceId and redirectUrl', { status: 400 });
   }
 
   // Primary: KV secondary index (set by /create-payment)
@@ -50,7 +58,10 @@ export async function handleMayarWebhook(request, env, ctx) {
     // Validate that the KV-stored session_id has the expected format before using it.
     // This is defence-in-depth: the KV entry is written by /create-payment which already
     // generates a valid sess_ UUID, but we guard against any future KV corruption.
-    if (typeof sid === 'string' && sid.startsWith('sess_')) {
+    // Full format: "sess_" + 36-char lowercase UUID (e.g. sess_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+    // Normalize to lowercase before testing — crypto.randomUUID() is lowercase in V8/Workers,
+    // but defensive normalization avoids silent rejection if a KV entry was written differently.
+    if (typeof sid === 'string' && /^sess_[0-9a-f-]{36}$/.test(sid.toLowerCase())) {
       sessionId = sid;
     } else if (sid !== undefined) {
       console.error(JSON.stringify({ event: 'webhook_invalid_session_id_format', invoiceId, sid: String(sid).slice(0, 20) }));

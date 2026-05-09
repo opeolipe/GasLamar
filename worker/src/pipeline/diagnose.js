@@ -25,30 +25,54 @@ function parseDiagnoseJSON(rawText) {
     return JSON.parse(cleaned);
   } catch (_) {}
 
-  // 3. Fallback: extract first {...} block in case Claude added preamble/postamble
-  const match = cleaned.match(/\{[\s\S]*\}/);
-  if (match) {
-    try {
-      return JSON.parse(match[0]);
-    } catch (_) {}
+  // 3. Fallback: extract first balanced {...} block (M15 fix — same as extract.js).
+  const firstBrace = cleaned.indexOf('{');
+  if (firstBrace >= 0) {
+    let depth = 0, end = -1;
+    for (let i = firstBrace; i < cleaned.length; i++) {
+      if (cleaned[i] === '{') depth++;
+      else if (cleaned[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
+    }
+    if (end >= 0) {
+      try {
+        return JSON.parse(cleaned.slice(firstBrace, end + 1));
+      } catch (_) {}
+    }
   }
 
-  // 4. Nothing worked — log diagnostic snippet and throw retryable error
-  const e = new SyntaxError('no valid JSON object found');
-  const pos = Number(e.message.match(/position (\d+)/)?.[1] ?? -1);
+  // 4. Nothing worked — log diagnostic snippet and throw retryable error.
+  // M12: The error is always 'no valid JSON object found' (no position X in the message)
+  // so the pos >= 0 branch was dead code. Always show last 80 chars for the snippet.
   console.error(JSON.stringify({
     event: 'diagnose_json_parse_error',
-    error: e.message,
+    error: 'no valid JSON object found',
     raw_length: cleaned.length,
-    snippet: pos >= 0 ? cleaned.slice(Math.max(0, pos - 40), pos + 40) : cleaned.slice(-80),
+    snippet: cleaned.slice(-80),
   }));
   throw new Error('INVALID_JSON');
 }
 
 // ── Rekomendasi guard ─────────────────────────────────────────────────────────
 
-// Matches acronyms (SQL, AWS) and CamelCase terms (JavaScript, MongoDB) — tool names.
-const DIAGNOSE_TOOL_RE = /\b([A-Z]{2,}|[A-Z][a-z]+[A-Z]\w*)\b/g;
+// C7 FIX: Narrowed from /\b([A-Z]{2,}|[A-Z][a-z]+[A-Z]\w*)\b/g which was too broad
+// and matched legitimate proper nouns (NASA, McDonald, HR, VP) causing them to be
+// replaced with "skill relevan" if absent from the reference text.
+// New pattern requires at minimum 3 consecutive uppercase chars for pure-acronym
+// matches, and still catches CamelCase tool names (MongoDB, JavaScript, ReactDOM).
+const DIAGNOSE_TOOL_RE = /\b([A-Z]{3,}|[A-Z][a-z]+[A-Z]\w*)\b/g;
+
+// Safelist of non-tech proper nouns and abbreviations that must never be replaced.
+// These match the DIAGNOSE_TOOL_RE pattern but are legitimate in recommendations.
+const DIAGNOSE_TOOL_SAFELIST = new Set([
+  // Job-level titles / org abbreviations
+  'CEO', 'CFO', 'CTO', 'COO', 'CPO', 'CMO', 'CXO', 'SVP', 'EVP',
+  // Region / country codes
+  'USA', 'UK', 'EU', 'APAC', 'EMEA', 'ASEAN',
+  // Common workplace acronyms that are not tech tools
+  'HRD', 'KPI', 'OKR', 'SOP', 'FAQ', 'TBD',
+  // Language-skill level
+  'TOEFL', 'IELTS', 'TOEIC',
+]);
 
 /**
  * Replaces tool/tech terms in rekomendasi items that do not exist in the
@@ -70,6 +94,7 @@ function filterHallucinatedTools(rekomendasi, extractedData) {
   return rekomendasi.map(rec => {
     if (typeof rec !== 'string') return rec;
     return rec.replace(DIAGNOSE_TOOL_RE, term => {
+      if (DIAGNOSE_TOOL_SAFELIST.has(term)) return term;
       if (referenceText.includes(term.toLowerCase())) return term;
       return 'skill relevan';
     });
@@ -97,12 +122,15 @@ function buildUserMessage(extractedData, analysisResult, scoreResult, roleInfere
   // Optional role context block — injected when role inference has run.
   // The LLM uses this to phrase recommendations that fit the candidate's actual role
   // rather than generic advice.  Confidence < 0.6 is still shown but flagged as low.
+  // M13: Strip newlines from role inference fields before injecting into LLM template.
+  // Malformed seniority / industry values containing \n could corrupt the prompt structure.
+  const sanitizeField = v => (typeof v === 'string' ? v.replace(/[\r\n]+/g, ' ').trim() : String(v ?? ''));
   const roleBlock = roleInferenceResult
     ? `\nrole_context:
-inferred_role: ${roleInferenceResult.role}
-confidence: ${roleInferenceResult.confidence}
-seniority: ${roleInferenceResult.seniority}
-industry: ${roleInferenceResult.industry}
+inferred_role: ${sanitizeField(roleInferenceResult.role)}
+confidence: ${sanitizeField(roleInferenceResult.confidence)}
+seniority: ${sanitizeField(roleInferenceResult.seniority)}
+industry: ${sanitizeField(roleInferenceResult.industry)}
 `
     : '';
 

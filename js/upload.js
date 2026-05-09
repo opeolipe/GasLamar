@@ -70,7 +70,7 @@ function processFile(file) {
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'text/plain',
   ];
-  const validExts = ['.pdf', '.docx', '.txt'];
+  const validExts = ['.pdf', '.docx', '.txt'].map(e => e.toLowerCase());
   const ext = '.' + file.name.split('.').pop().toLowerCase();
 
   if (!validExts.includes(ext) && !validTypes.includes(file.type)) {
@@ -217,9 +217,10 @@ async function extractFromTXT(file) {
 function arrayBufferToBase64(buffer) {
   const bytes = new Uint8Array(buffer);
   let binary = '';
-  const chunkSize = 8192;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+  // M24: Use a for loop instead of String.fromCharCode.apply to avoid stack
+  // overflow on large last-chunk sizes even though chunks are already capped at 8192.
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
   }
   return btoa(binary);
 }
@@ -353,13 +354,15 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
   submitBtn.disabled = true;
 
   try {
-    // Strip HTML tags and escape before storing — defense-in-depth against XSS payloads
-    // reaching KV or being echoed in API responses or emails.
-    const safeJd = jobDesc.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    // C5 FIX: Removed the unreliable /<[^>]*>/g tag-stripping step.
+    // That regex doesn't neutralise event handlers inside malformed/unclosed tags
+    // (e.g. <img onerror="..." with no closing >). escapeHtml() is the correct and
+    // sufficient XSS defense — it encodes <, >, &, ", ' making raw HTML inert.
+    const normalised = jobDesc.replace(/\s+/g, ' ').trim();
     sessionStorage.setItem('gaslamar_cv_pending', cvText);
-    sessionStorage.setItem('gaslamar_jd_pending', escapeHtml(safeJd));
+    sessionStorage.setItem('gaslamar_jd_pending', escapeHtml(normalised));
     sessionStorage.setItem('gaslamar_filename', selectedFile ? selectedFile.name : 'CV');
-    sessionStorage.setItem('gaslamar_had_jd', safeJd.length >= 50 ? '1' : '0');
+    sessionStorage.setItem('gaslamar_had_jd', normalised.length >= 50 ? '1' : '0');
   } catch (_) {
     // Safari private mode blocks sessionStorage writes — inform user
     showError('file-error', 'Browser kamu memblokir penyimpanan sementara (mode pribadi?). Coba gunakan mode normal.');
@@ -466,7 +469,8 @@ function hideError(id) {
 
   if (tierParam && !VALID_TIERS.includes(tierParam)) {
     // Invalid tier — warn the user, fall back to 'single', and clean the URL
-    console.warn(`[GasLamar] Invalid tier param: "${tierParam}". Falling back to "single".`);
+    // M23: Use JSON.stringify so control characters / newlines in tierParam can't inject log entries.
+    console.warn('[GasLamar] Invalid tier param: ' + JSON.stringify(tierParam) + '. Falling back to "single".');
     const warningEl = document.getElementById('tier-warning');
     if (warningEl) {
       warningEl.textContent = 'Paket tidak dikenal. Menggunakan paket Single sebagai default.';
@@ -505,11 +509,16 @@ function hideError(id) {
     }
   }
 
-  // Restore JD draft — unescape from storage format back to raw text for display
-  const savedJd = sessionStorage.getItem('gaslamar_jd_draft');
-  if (savedJd) {
-    document.getElementById('job-desc').value = unescapeHtml(savedJd);
-    updateCharCount();
+  // Restore JD draft — unescape from storage format back to raw text for display.
+  // Try-catch: sessionStorage value may be corrupted (truncated write, encoding error).
+  try {
+    const savedJd = sessionStorage.getItem('gaslamar_jd_draft');
+    if (savedJd) {
+      document.getElementById('job-desc').value = unescapeHtml(savedJd);
+      updateCharCount();
+    }
+  } catch (_) {
+    sessionStorage.removeItem('gaslamar_jd_draft');
   }
 
   // Restore CV state: prefer post-analysis data (gaslamar_cv_pending), fall back to
