@@ -806,7 +806,7 @@ export default function Result() {
 
             {/* Trust line */}
             <div style={{ textAlign: 'center', padding: '0.5rem 0 0.5rem', fontSize: '0.8rem', color: '#94A3B8', lineHeight: 1.7 }}>
-              🔒 7-hari refund jika tidak puas &nbsp;·&nbsp; Data kamu aman &nbsp;·&nbsp; Bayar via QRIS, VA, e-wallet
+              🔒 Data kamu aman &nbsp;·&nbsp; Bayar via QRIS, VA, e-wallet
             </div>
 
             {/* Back link */}
