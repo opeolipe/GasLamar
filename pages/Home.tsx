@@ -51,7 +51,7 @@ export default function Home() {
           setShowStickyBar(true);
         }
       },
-      { threshold: 0.1 },
+      { threshold: 0, rootMargin: '0px 0px 80px 0px' },
     );
     obs.observe(footerRef.current);
     return () => obs.disconnect();
