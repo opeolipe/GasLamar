@@ -28,6 +28,9 @@ export async function handleValidateCoupon(request, env) {
   if (couponCode.length < 3 || couponCode.length > 64) {
     return jsonResponse({ valid: false, message: 'Kode promo tidak valid' }, 400, request, env);
   }
+  if (!/^[A-Z0-9_\-]+$/.test(couponCode)) {
+    return jsonResponse({ valid: false, message: 'Kode promo tidak valid' }, 400, request, env);
+  }
 
   const tierConfig = TIER_PRICES[tier];
   if (!VALID_TIERS.includes(tier) || !tierConfig) {
