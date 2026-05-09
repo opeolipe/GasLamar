@@ -42,8 +42,12 @@ export default function EmailCapture({
   const showConfirmSuccess = !error && !suggestion && !!isConfirmed && !!emailsMatch && !!confirmTouched;
   const confirmBorderColor = showConfirmError ? '#DC2626' : showConfirmSuccess ? '#16A34A' : '#CBD5E1';
 
-  // Confirm field only reveals once the primary email is valid (no error, no suggestion)
-  const showConfirmField = !!isConfirmed && !error && !suggestion;
+  // Confirm field reveals as soon as the email passes basic format validation,
+  // regardless of whether the blur event has fired yet. This avoids the case
+  // where the confirm field never appears when the user fills the email and
+  // immediately clicks the (disabled) pay button without blurring first.
+  const emailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const showConfirmField = emailLooksValid && !error && !suggestion;
 
   const inputStyle: React.CSSProperties = {
     width:        '100%',
