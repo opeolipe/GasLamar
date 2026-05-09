@@ -91,7 +91,7 @@ export async function extractCVText(cvData, env) {
       if (hasPromptInjection(rawText)) {
         return { success: false, error: INJECTION_ERROR };
       }
-      return { success: true, text: sanitizeForLLM(rawText) };
+      return { success: true, text: sanitizeForLLM(rawText).slice(0, 60000) };
     }
 
     // PDF: use Claude document API
@@ -127,7 +127,7 @@ export async function extractCVText(cvData, env) {
       return { success: false, error: INJECTION_ERROR };
     }
 
-    return { success: true, text: sanitizeForLLM(rawText) };
+    return { success: true, text: sanitizeForLLM(rawText).slice(0, 60000) };
   } catch (e) {
     console.error('[extractCVText]', e.message);
     return { success: false, error: 'Gagal memproses file CV. Pastikan file tidak rusak atau terproteksi, lalu coba lagi.' };

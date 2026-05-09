@@ -15,7 +15,7 @@ interface Props {
   onConfirmBlur?:      () => void;
   onConfirmPaste?:     () => void;
   confirmError?:       string;
-  confirmRef?:         React.RefObject<HTMLInputElement>;
+  confirmRef?:         React.RefObject<HTMLInputElement | null>;
   emailsMatch?:        boolean;
   confirmTouched?:     boolean;
 }
