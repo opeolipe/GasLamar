@@ -256,15 +256,44 @@ export default function Result() {
 
     // If the user returned via browser back button after being redirected to Mayar,
     // the cv_text_key was already consumed server-side and removed from sessionStorage.
-    // Resume the existing invoice instead of failing with "data not found".
+    // Resume the existing invoice — but only when the tier hasn't changed and the user
+    // hasn't re-uploaded their CV (which would produce a new cv_text_key).
+    const currentCvKey = sessionStorage.getItem('gaslamar_cv_key');
     const pendingRaw = sessionStorage.getItem('gaslamar_pending_invoice');
     if (pendingRaw) {
       try {
-        const pending = JSON.parse(pendingRaw) as { invoice_url: string; created_at: number };
-        if (pending.invoice_url && (Date.now() - (pending.created_at || 0)) < 7200000) {
-          setPayBtnOverride('Mengalihkan ke halaman pembayaran...');
-          window.location.href = pending.invoice_url;
-          return;
+        const pending = JSON.parse(pendingRaw) as {
+          invoice_url: string;
+          created_at:  number;
+          tier?:       string;
+          cv_key?:     string;
+        };
+        const notExpired  = (Date.now() - (pending.created_at || 0)) < 7200000;
+        // Old invoices (no tier field) are treated as matching for backwards compat.
+        const tierMatches = !pending.tier || pending.tier === selectedTier;
+        // A new cv_key in sessionStorage means the user re-uploaded — don't resume old invoice.
+        const noNewUpload = !currentCvKey || !pending.cv_key || pending.cv_key === currentCvKey;
+
+        if (pending.invoice_url && notExpired) {
+          if (tierMatches && noNewUpload) {
+            setPayBtnOverride('Mengalihkan ke halaman pembayaran...');
+            window.location.href = pending.invoice_url;
+            return;
+          }
+          if (!tierMatches && !currentCvKey) {
+            // User changed tier but cv_text_key is already consumed — can't create a new invoice.
+            // Keep the pending invoice so they can still pay with the original tier by re-selecting it.
+            const origLabel = pending.tier
+              ? (TIER_CONFIG[pending.tier]?.label ?? pending.tier)
+              : 'paket sebelumnya';
+            setPaymentError(
+              `Invoice sudah dibuat untuk "${origLabel}". Pilih paket itu untuk melanjutkan, ` +
+              `atau klik "Upload CV lain" di bawah untuk memilih paket lain.`
+            );
+            setPaymentInProgress(false);
+            setPayBtnOverride(null);
+            return;
+          }
         }
       } catch (_) {}
       sessionStorage.removeItem('gaslamar_pending_invoice');
@@ -391,10 +420,13 @@ export default function Result() {
 
       // Persist the invoice URL so that if the user clicks browser-back from Mayar
       // they can resume this invoice without needing cv_text_key again.
+      // Store tier + cv_key so we can detect tier changes or re-uploads on resume.
       try {
         sessionStorage.setItem('gaslamar_pending_invoice', JSON.stringify({
           invoice_url,
           created_at: Date.now(),
+          tier:   selectedTier,
+          cv_key: cvTextKey,
         }));
       } catch (_) {}
 
