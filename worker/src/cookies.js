@@ -31,20 +31,19 @@
  *   Traditional double-submit or synchronizer CSRF tokens are not required.
  */
 
-const MAX_COOKIES = 100;
-
 /** Parse a Cookie header string into a key→value plain object. */
 export function parseCookies(cookieHeader) {
   if (!cookieHeader) return {};
   const out = {};
   let count = 0;
   for (const pair of cookieHeader.split(';')) {
-    if (count >= MAX_COOKIES) break; // cap prevents O(n) alloc on headers with 10k+ semicolons
+    // M3: Cap at 100 cookies — a header with 10 000 semicolons causes O(n) allocation.
+    if (++count > 100) break;
     const idx = pair.indexOf('=');
     if (idx < 0) continue;
     const key = pair.slice(0, idx).trim();
     const val = pair.slice(idx + 1).trim();
-    if (key) { out[key] = val; count++; }
+    if (key) out[key] = val;
   }
   return out;
 }
@@ -56,6 +55,8 @@ export function parseCookies(cookieHeader) {
 export function getSessionIdFromCookie(request) {
   const cookies = parseCookies(request.headers.get('Cookie'));
   const id = cookies.session_id;
+  // M4: Enforce a maximum length — session IDs are "sess_" + UUID (41 chars max).
+  // A 1 MB cookie value would waste CPU on prefix check and downstream KV lookup.
   if (id && id.startsWith('sess_') && id.length <= 64) return id;
   return null;
 }
@@ -69,6 +70,8 @@ export function getSessionIdFromCookie(request) {
  */
 export function makeSessionCookie(sessionId, isMulti = false) {
   const maxAge = isMulti ? 2592000 : 604800;
+  // SameSite=None; Secure is safe here: Cloudflare Workers only accept HTTPS connections,
+  // so the Secure flag is always satisfied. No explicit HTTPS check is needed.
   return `session_id=${sessionId}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${maxAge}`;
 }
 

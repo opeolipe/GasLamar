@@ -14,19 +14,6 @@ import { SKILL_EXTRACT } from '../prompts/extract.js';
 import { callClaude } from '../claude.js';
 import { validateExtractOutput } from './validate.js';
 
-function extractFirstJsonObject(text) {
-  let depth = 0, start = -1;
-  for (let i = 0; i < text.length; i++) {
-    if (text[i] === '{') {
-      if (start === -1) start = i;
-      depth++;
-    } else if (text[i] === '}') {
-      if (depth > 0 && --depth === 0) return text.slice(start, i + 1);
-    }
-  }
-  return null;
-}
-
 function parseExtractJSON(rawText) {
   // 1. Strip markdown fences
   let cleaned = rawText.replace(/```json\n?|\n?```/g, '').trim();
@@ -36,15 +23,22 @@ function parseExtractJSON(rawText) {
     return JSON.parse(cleaned);
   } catch (_) {}
 
-  // 3. Fallback: extract first balanced {...} block using brace counting.
-  // The greedy regex /\{[\s\S]*\}/ merges multiple JSON objects into one malformed
-  // blob when Claude emits preamble/postamble JSON. Brace counting returns the
-  // first complete, correctly-nested object instead.
-  const firstObj = extractFirstJsonObject(cleaned);
-  if (firstObj) {
-    try {
-      return JSON.parse(firstObj);
-    } catch (_) {}
+  // 3. Fallback: extract first balanced {...} block in case Claude added preamble/postamble.
+  // M15: Greedy /\{[\s\S]*\}/ matched from first { to last }, merging multiple
+  // separate JSON objects into one malformed block that always failed JSON.parse.
+  // A depth-counting scan finds the first properly balanced { ... } instead.
+  const firstBrace = cleaned.indexOf('{');
+  if (firstBrace >= 0) {
+    let depth = 0, end = -1;
+    for (let i = firstBrace; i < cleaned.length; i++) {
+      if (cleaned[i] === '{') depth++;
+      else if (cleaned[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
+    }
+    if (end >= 0) {
+      try {
+        return JSON.parse(cleaned.slice(firstBrace, end + 1));
+      } catch (_) {}
+    }
   }
 
   throw new Error('INVALID_JSON');

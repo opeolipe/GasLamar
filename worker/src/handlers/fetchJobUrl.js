@@ -64,7 +64,8 @@ function isPrivateIPv6(rawHostname) {
     : rawHostname;
   const lower = addr.toLowerCase();
   if (lower === '::1' || lower === '0:0:0:0:0:0:0:1') return true; // loopback
-  if (lower === '::' || lower === '0:0:0:0:0:0:0:0') return true;  // unspecified address
+  // M5: Also block all-zeros (unspecified address) — same threat class as loopback.
+  if (lower === '::' || lower === '0:0:0:0:0:0:0:0') return true;  // unspecified
   if (lower.startsWith('fe80:')) return true;          // fe80::/10 link-local
   if (lower.startsWith('fc') || lower.startsWith('fd')) return true; // fc00::/7 unique local
   if (lower.startsWith('::ffff:')) return true;        // IPv4-mapped — could map to private IPv4
@@ -253,20 +254,28 @@ export async function handleFetchJobUrl(request, env) {
     return jsonResponse({ message: 'URL bukan halaman web (HTML). Coba copy-paste manual.' }, 422, request, env);
   }
 
-  // Fast-fail on honest servers that declare a large Content-Length.
-  // Note: a malicious server can lie about Content-Length. The secondary defence
-  // is MAX_EXTRACT_BYTES (500 KB) enforced during HTMLRewriter streaming — text
-  // collection stops at that cap regardless of actual body size. HTMLRewriter
-  // cannot abort mid-stream in Cloudflare Workers, so the response body is still
-  // consumed, but at most 500 KB of text is collected.
-  const contentLength = parseInt(pageRes.headers.get('content-length') || '0', 10);
-  if (contentLength > 2 * 1024 * 1024) { // 2 MB
-    return jsonResponse({ message: 'Halaman terlalu besar untuk diproses. Coba copy-paste manual.' }, 422, request, env);
-  }
+  // M6: Enforce byte limit during streaming via TransformStream.
+  // The Content-Length header is advisory — a malicious server can lie and send
+  // more data. We terminate the stream once MAX_STREAM_BYTES have been read,
+  // regardless of what the server claims. The 500KB extraction cap below is a
+  // second, independent layer that limits what we actually store.
+  const MAX_STREAM_BYTES = 2 * 1024 * 1024; // 2 MB hard cap on bytes streamed
+  let streamBytesRead = 0;
+  const { readable: limitedReadable, writable: limitedWritable } = new TransformStream({
+    transform(chunk, controller) {
+      streamBytesRead += chunk.byteLength;
+      if (streamBytesRead > MAX_STREAM_BYTES) {
+        controller.terminate();
+      } else {
+        controller.enqueue(chunk);
+      }
+    },
+  });
+  pageRes.body.pipeTo(limitedWritable).catch(() => {});
+  const limitedRes = new Response(limitedReadable, { headers: pageRes.headers });
 
   // Extract text using HTMLRewriter — drop script/style noise, collect body text.
-  // Cap total extracted bytes at 500KB; further chunks are dropped but the stream
-  // is still consumed (HTMLRewriter doesn't support early termination).
+  // Cap total extracted bytes at 500KB; further chunks are dropped.
   const MAX_EXTRACT_BYTES = 500 * 1024;
   let extractedBytes = 0;
   const chunks = [];
@@ -284,7 +293,7 @@ export async function handleFetchJobUrl(request, env) {
         }
       },
     })
-    .transform(pageRes)
+    .transform(limitedRes)
     .text();
 
   let raw = chunks.join(' ').replace(/\s{3,}/g, '\n\n').trim();

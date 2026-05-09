@@ -24,6 +24,11 @@
 // \t (0x09), \n (0x0A), \r (0x0D) are intentionally kept.
 const CONTROL_CHAR_RE = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g;
 
+// M1: Hard cap before running any regex to prevent ReDoS on adversarial inputs.
+// Legitimate CVs and JDs are never longer than this; anything over is already rejected
+// upstream by the endpoint body-size limits, but we guard here for defence-in-depth.
+const MAX_SANITIZE_INPUT = 100_000;
+
 // ── Tier-1: Hard-reject patterns ──────────────────────────────────────────────
 //
 // High-confidence patterns that would never appear in a legitimate CV or job
@@ -100,14 +105,13 @@ const STRIP_PATTERNS = [
  * @param {string} text
  * @returns {boolean}
  */
-// Hard cap before running regexes — prevents adversarial inputs from triggering
-// worst-case backtracking (O(n) per pattern × 20 patterns × very long string).
-const MAX_INJECTION_CHECK_LEN = 10000;
-
 export function hasPromptInjection(text) {
-  if (typeof text !== 'string') throw new TypeError('hasPromptInjection: expected string, got ' + typeof text);
+  // M2: Throw on non-string so callers discover misuse at call-site rather than
+  // silently receiving 'false' (no injection detected) for a null/object argument.
+  if (typeof text !== 'string') throw new TypeError('hasPromptInjection: text must be a string');
   if (text.length === 0) return false;
-  const sample = text.length > MAX_INJECTION_CHECK_LEN ? text.slice(0, MAX_INJECTION_CHECK_LEN) : text;
+  // M1: Cap input length before running alternation-heavy regexes (ReDoS guard).
+  const sample = text.length > MAX_SANITIZE_INPUT ? text.slice(0, MAX_SANITIZE_INPUT) : text;
   return REJECTION_PATTERNS.some(p => p.test(sample));
 }
 
@@ -133,7 +137,8 @@ export function sanitizeUserText(text) {
  */
 export function stripPromptInjection(text) {
   if (typeof text !== 'string') return text;
-  let s = text;
+  // M1: Cap before running strip patterns to prevent ReDoS on adversarial inputs.
+  let s = text.length > MAX_SANITIZE_INPUT ? text.slice(0, MAX_SANITIZE_INPUT) : text;
   for (const pattern of STRIP_PATTERNS) {
     s = s.replace(pattern, '');
   }

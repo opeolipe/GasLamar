@@ -29,10 +29,12 @@
   const cvKey = sessionStorage.getItem('gaslamar_cv_key');
   if (cvKey && cvKey.startsWith('cvtext_')) {
     try {
-      const _vsCtrl = new AbortController();
-      const _vsTimeout = setTimeout(() => _vsCtrl.abort(), 5000);
-      const res = await fetch(`${WORKER_URL}/validate-session?cvKey=${encodeURIComponent(cvKey)}`, { signal: _vsCtrl.signal });
-      clearTimeout(_vsTimeout);
+      // M16: Add AbortController timeout so a hung /validate-session call doesn't
+      // stall the scoring page indefinitely.
+      const _vc = new AbortController();
+      const _vt = setTimeout(() => _vc.abort(), 5000);
+      const res = await fetch(`${WORKER_URL}/validate-session?cvKey=${encodeURIComponent(cvKey)}`, { signal: _vc.signal });
+      clearTimeout(_vt);
       if (res.ok) {
         const data = await res.json();
         if (!data.valid) {
@@ -46,7 +48,7 @@
       }
       // Network/server error → fail open, continue rendering
     } catch (_) {
-      // Network unavailable — fail open
+      // Network unavailable or timeout — fail open
     }
   }
 
@@ -63,15 +65,15 @@
   try {
     scoring = JSON.parse(raw);
   } catch (e) {
-    // Remove even on parse failure so corrupt data doesn't linger in storage.
-    sessionStorage.removeItem('gaslamar_scoring');
     showError('Data analisis tidak valid. Mohon upload CV kamu kembali.');
     setTimeout(() => window.location.href = 'upload.html', 3000);
     return;
   }
-  // Remove after successful parse — security hardening: data lives in JS memory only.
-  // Deleting here (not before parse) means a parse failure can still show a proper
-  // error message without the data having been wiped prematurely.
+
+  // M17: Remove from sessionStorage only after successful parse.
+  // The previous code removed before JSON.parse — if parsing threw, the data was
+  // gone and the user couldn't recover. Now removal is safe: parse succeeded.
+  // Scoring lives in JS memory only; sessionStorage was just the transport.
   sessionStorage.removeItem('gaslamar_scoring');
 
   // Store a non-sensitive summary so the download page can forward score/gaps/primary_issue
@@ -358,9 +360,9 @@ function renderArchetypeAndVerdict(scoring) {
   }
 
   // Verdict card
+  // NOTE: "veredict" (with one 'd') is intentional — it matches the backend field name.
+  // Do not rename to "verdict" here without a coordinated backend migration.
   const verdictEl = document.getElementById('verdict-card');
-  // 'veredict' is the canonical backend field name (intentional typo in the API).
-  // Do NOT rename to 'verdict' — it would silently break verdict rendering.
   if (!verdictEl || !scoring.veredict) return;
 
   const VERDICT_CONFIG = {

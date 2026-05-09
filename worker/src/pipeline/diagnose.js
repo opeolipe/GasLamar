@@ -16,19 +16,6 @@ import { SKILL_DIAGNOSE } from '../prompts/diagnose.js';
 import { callClaude } from '../claude.js';
 import { validateDiagnoseOutput } from './validate.js';
 
-function extractFirstJsonObject(text) {
-  let depth = 0, start = -1;
-  for (let i = 0; i < text.length; i++) {
-    if (text[i] === '{') {
-      if (start === -1) start = i;
-      depth++;
-    } else if (text[i] === '}') {
-      if (depth > 0 && --depth === 0) return text.slice(start, i + 1);
-    }
-  }
-  return null;
-}
-
 function parseDiagnoseJSON(rawText) {
   // 1. Strip markdown fences
   let cleaned = rawText.replace(/```json\n?|\n?```/g, '').trim();
@@ -38,19 +25,27 @@ function parseDiagnoseJSON(rawText) {
     return JSON.parse(cleaned);
   } catch (_) {}
 
-  // 3. Fallback: extract first balanced {...} block (brace-counting, same as extract.js).
-  const firstObj = extractFirstJsonObject(cleaned);
-  if (firstObj) {
-    try {
-      return JSON.parse(firstObj);
-    } catch (_) {}
+  // 3. Fallback: extract first balanced {...} block (M15 fix — same as extract.js).
+  const firstBrace = cleaned.indexOf('{');
+  if (firstBrace >= 0) {
+    let depth = 0, end = -1;
+    for (let i = firstBrace; i < cleaned.length; i++) {
+      if (cleaned[i] === '{') depth++;
+      else if (cleaned[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
+    }
+    if (end >= 0) {
+      try {
+        return JSON.parse(cleaned.slice(firstBrace, end + 1));
+      } catch (_) {}
+    }
   }
 
-  // 4. Nothing worked — log the tail of the cleaned string and throw retryable error.
-  // Position-from-message is not used: this error is manually constructed and never
-  // contains a "position X" token, so pos would always be -1.
+  // 4. Nothing worked — log diagnostic snippet and throw retryable error.
+  // M12: The error is always 'no valid JSON object found' (no position X in the message)
+  // so the pos >= 0 branch was dead code. Always show last 80 chars for the snippet.
   console.error(JSON.stringify({
     event: 'diagnose_json_parse_error',
+    error: 'no valid JSON object found',
     raw_length: cleaned.length,
     snippet: cleaned.slice(-80),
   }));
@@ -127,15 +122,15 @@ function buildUserMessage(extractedData, analysisResult, scoreResult, roleInfere
   // Optional role context block — injected when role inference has run.
   // The LLM uses this to phrase recommendations that fit the candidate's actual role
   // rather than generic advice.  Confidence < 0.6 is still shown but flagged as low.
-  // Sanitize roleInferenceResult string fields: embedded newlines would break the
-  // line-oriented template format and could allow prompt structure corruption.
-  const safeStr = (v) => (v == null ? '' : String(v).replace(/[\r\n]/g, ' '));
+  // M13: Strip newlines from role inference fields before injecting into LLM template.
+  // Malformed seniority / industry values containing \n could corrupt the prompt structure.
+  const sanitizeField = v => (typeof v === 'string' ? v.replace(/[\r\n]+/g, ' ').trim() : String(v ?? ''));
   const roleBlock = roleInferenceResult
     ? `\nrole_context:
-inferred_role: ${safeStr(roleInferenceResult.role)}
-confidence: ${roleInferenceResult.confidence}
-seniority: ${safeStr(roleInferenceResult.seniority)}
-industry: ${safeStr(roleInferenceResult.industry)}
+inferred_role: ${sanitizeField(roleInferenceResult.role)}
+confidence: ${sanitizeField(roleInferenceResult.confidence)}
+seniority: ${sanitizeField(roleInferenceResult.seniority)}
+industry: ${sanitizeField(roleInferenceResult.industry)}
 `
     : '';
 

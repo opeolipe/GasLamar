@@ -1,6 +1,7 @@
 import { jsonResponse, jsonResponseWithCookie } from '../cors.js';
 import { clientIp, log } from '../utils.js';
-import { TIER_CREDITS } from '../constants.js';
+import { TIER_CREDITS, VALID_TIERS } from '../constants.js';
+import { checkRateLimitKV } from '../rateLimit.js';
 import { createSession } from '../sessions.js';
 import { makeSessionCookie } from '../cookies.js';
 
@@ -23,6 +24,15 @@ export async function handleBypassPayment(request, env) {
     return jsonResponse({ message: 'Not found' }, 404, request, env);
   }
 
+  // Defense-in-depth rate limit — protects against accidental misconfiguration where
+  // ENVIRONMENT is not 'production' on a live environment. 20 req/min is generous
+  // enough for automated E2E suites but limits any unintended exposure.
+  const ip = clientIp(request);
+  const rl = await checkRateLimitKV(env, ip, 20, 60, 'bypass_payment');
+  if (!rl.allowed) {
+    return jsonResponse({ message: 'Terlalu banyak permintaan. Coba lagi sebentar.' }, 429, request, env);
+  }
+
   let body;
   try {
     body = await request.json();
@@ -36,7 +46,7 @@ export async function handleBypassPayment(request, env) {
     return jsonResponse({ message: 'Data tidak lengkap' }, 400, request, env);
   }
 
-  if (!['coba', 'single', '3pack', 'jobhunt'].includes(tier)) {
+  if (!VALID_TIERS.includes(tier)) {
     return jsonResponse({ message: 'Tier tidak valid' }, 400, request, env);
   }
 
@@ -49,7 +59,6 @@ export async function handleBypassPayment(request, env) {
     return jsonResponse({ message: 'Sesi analisis kedaluwarsa. Ulangi upload CV.' }, 400, request, env);
   }
 
-  const ip = clientIp(request);
   const sessionId = `sess_${crypto.randomUUID()}`;
   const credits = TIER_CREDITS[tier] ?? 1;
 

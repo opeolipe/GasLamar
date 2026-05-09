@@ -250,7 +250,11 @@ VERIFIKASI WAJIB sebelum output (cek setiap poin):
  * @returns {Promise<{ text: string, docxText: string, isTrusted: boolean }>}
  */
 export async function tailorCVEN(cvText, jobDesc, env, mode = 'pdf', options = {}) {
-  const { issue, previewSample, previewAfter, entitasKlaim = null, roleProfile = null, jdMode = 'targeted', extractedCV = null } = options;
+  // M14: Destructure `issue` so it can be forwarded to postProcessCV.
+  // The previous code hard-coded null, disabling ISSUE_FALLBACK_EN even when an issue
+  // was provided. ISSUE_FALLBACK_EN contains English fallback suffixes, so the guard
+  // works correctly for English CVs — the comment claiming otherwise was wrong.
+  const { issue = null, previewSample, previewAfter, entitasKlaim = null, roleProfile = null, jdMode = 'targeted', extractedCV = null } = options;
   const effectiveCVText = truncateCV(cvText);
 
   const genKey   = `${GEN_KEY_PREFIX_EN}${await sha256Hex(effectiveCVText + '||' + jobDesc)}`;
@@ -342,12 +346,11 @@ MANDATORY VERIFICATION before output (check every point):
     await env.GASLAMAR_SESSIONS.put(genKey, baseText, { expirationTtl: 172800 });
   }
 
-  // English fallback phrases live in ISSUE_FALLBACK_EN in rewriteGuard.js —
-  // pass issue through so callers get issue-aware fallback suffixes in English.
+  // For English CV: pass issue so ISSUE_FALLBACK_EN is used for medium-severity rewrites.
   const postOpts = { previewSample, previewAfter, entitasKlaim, language: 'en' };
 
-  const { text: pdfText, isTrusted } = postProcessCV(baseText, effectiveCVText, issue ?? null, 'pdf',  postOpts);
-  const { text: docxText }           = postProcessCV(baseText, effectiveCVText, issue ?? null, 'docx', postOpts);
+  const { text: pdfText, isTrusted } = postProcessCV(baseText, effectiveCVText, issue, 'pdf',  postOpts);
+  const { text: docxText }           = postProcessCV(baseText, effectiveCVText, issue, 'docx', postOpts);
 
   return { text: pdfText, docxText, isTrusted };
 }

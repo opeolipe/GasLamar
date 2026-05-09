@@ -30,7 +30,7 @@ function matchSkills(cvSkillsStr, jdSkills) {
  */
 function extractExperienceYears(angkaDiCv) {
   if (!angkaDiCv || angkaDiCv === 'NOL ANGKA') return null;
-  // Accept both dot-decimal (10.5) and comma-decimal (10,5 — common in Indonesian text).
+  // M11: Accept comma-decimal format ("10,5 tahun") common in Indonesian text.
   const m = angkaDiCv.match(/(\d+(?:[.,]\d+)?)\s*\+?\s*tahun/i);
   if (!m) return null;
   return parseFloat(m[1].replace(',', '.'));
@@ -45,6 +45,8 @@ function computeKonfidensitas(extractedData) {
   const totalWords = (cv.pengalaman_mentah + ' ' + cv.skills_mentah)
     .split(/\s+/).filter(Boolean).length;
 
+  // 30-word floor: below this the LLM extraction has too little text to be reliable.
+  // Threshold is intentionally conservative — a 25-word CV is still insufficient.
   if (totalWords < 30 || jd.industri === 'UMUM') return 'Rendah';
   if (totalWords >= 100 && jd.skills_diminta.length >= 3) return 'Tinggi';
   return 'Sedang';

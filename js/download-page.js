@@ -158,6 +158,9 @@ function handleTailoringCta() {
 }
 
 function submitInterviewFeedback(answer) {
+  // Optimistic UX: show "Thanks" immediately regardless of network outcome.
+  // Feedback is non-critical survey data — a failed send is acceptable and
+  // showing an error here would confuse users after they've already answered.
   document.getElementById('feedback-buttons').classList.add('hidden');
   document.getElementById('feedback-thanks').classList.remove('hidden');
   fetch(`${WORKER_URL}/feedback`, {
@@ -185,11 +188,10 @@ document.querySelectorAll('.btn-download[data-lang]').forEach(function(btn) {
 });
 
 // Interview feedback buttons
-// Null-check before binding: the feedback block may be absent if the HTML is
-// conditionally rendered (e.g. during A/B tests or template changes).
-['ya', 'proses', 'tidak'].forEach(answer => {
-  const btn = document.querySelector(`[data-feedback="${answer}"]`);
-  if (btn) btn.addEventListener('click', () => submitInterviewFeedback(answer));
+// M21: Null-check each element before binding — throws at runtime if HTML changes.
+['ya', 'proses', 'tidak'].forEach(function(answer) {
+  var el = document.querySelector('[data-feedback="' + answer + '"]');
+  if (el) el.addEventListener('click', function() { submitInterviewFeedback(answer); });
 });
 
 // Copy plain-text fallback buttons

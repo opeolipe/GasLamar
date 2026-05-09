@@ -297,7 +297,7 @@ describe('hasPromptInjection', () => {
     expect(hasPromptInjection('')).toBe(false);
   });
 
-  it('throws TypeError for non-string input', () => {
+  it('throws TypeError for non-string input (M2: callers must pass strings)', () => {
     expect(() => hasPromptInjection(null)).toThrow(TypeError);
     expect(() => hasPromptInjection(undefined)).toThrow(TypeError);
     expect(() => hasPromptInjection(42)).toThrow(TypeError);

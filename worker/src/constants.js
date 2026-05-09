@@ -28,6 +28,10 @@ export const TIER_CREDITS = {
   jobhunt: 10,
 };
 
+// Authoritative tier allowlist — derived from TIER_CREDITS so the two never drift.
+// Import this instead of hardcoding ['coba','single','3pack','jobhunt'] in handlers.
+export const VALID_TIERS = Object.keys(TIER_CREDITS);
+
 // ---- Session TTL ----
 
 export const SESSION_TTL       = 604800;   // 7 days — single-credit paid sessions (single / coba dulu)

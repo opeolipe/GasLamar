@@ -176,10 +176,7 @@ async function proceedToPayment() {
   // to bind subsequent requests (get-session, generate) to this browser session.
   // The worker stores only SHA-256(secret), so possession of the session ID
   // alone is insufficient to access CV data.
-  // crypto.randomUUID() is Safari 15.4+; fall back to getRandomValues for older Safari.
-  // The fallback produces a 32-char lowercase hex string (no hyphens). The worker
-  // treats session_secret as an opaque string and only stores SHA-256(secret),
-  // so hyphen format is irrelevant — both paths produce a cryptographically strong secret.
+  // crypto.randomUUID() is Safari 15.4+; fall back to getRandomValues for older Safari
   const sessionSecret = crypto.randomUUID
     ? crypto.randomUUID()
     : Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
@@ -209,15 +206,9 @@ async function proceedToPayment() {
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       const errMsg = err.message || `Server error: ${response.status}`;
-      // Session expiry — prompt to re-upload.
-      // The substring match on 'kedaluwarsa' is intentional: the server currently returns
-      // a plain message string without a structured error code. If the server-side message
-      // wording ever changes, add `err.code === 'session_expired'` as an alternative check.
-      if (response.status === 400 && errMsg.includes('kedaluwarsa')) {
-        showExpiryError();
-        return;
-      }
-      if (response.status === 403) {
+      // M22: Check structured error code instead of message substring so renaming
+      // the Indonesian message text doesn't silently break this branch.
+      if (err.code === 'cv_expired' || response.status === 403) {
         showExpiryError();
         return;
       }

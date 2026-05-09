@@ -24,9 +24,10 @@
       el.style.background = '#FEF2F2';
       el.style.borderColor = '#FECACA';
       el.style.color = '#B91C1C';
-      // Disable pay button so an expired user cannot attempt payment (server would reject it).
-      const payBtn = document.getElementById('pay-btn');
-      if (payBtn) { payBtn.disabled = true; payBtn.textContent = 'Sesi kedaluwarsa'; }
+      // M25: Disable pay button when session expires so user doesn't attempt payment
+      // that will return a server 404 with no helpful explanation.
+      var payBtn = document.getElementById('pay-btn');
+      if (payBtn) { payBtn.disabled = true; payBtn.title = 'Sesi sudah berakhir — upload ulang CV kamu untuk lanjut bayar.'; }
       return;
     }
     const h = Math.floor(remaining / 3600);

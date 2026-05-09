@@ -78,20 +78,20 @@
 
 ## LOW — Backlog / Tech Debt
 
-- [ ] **bypassPayment.js:21** — No rate limiting on `/bypass-payment`. While the 404 production guard is correct, adding rate limiting provides defense-in-depth if `ENVIRONMENT` is misconfigured.
-- [ ] **createPayment.js:41** — Tier allowlist `['coba','single','3pack','jobhunt']` is hardcoded in 3 separate files. Export `Object.keys(TIER_CREDITS)` from `constants.js` and import everywhere.
-- [ ] **cors.js:23–26** — If `origin` is null and somehow passes the boolean guard, `Access-Control-Allow-Origin: null` is set, which browsers may interpret permissively. Add explicit null check.
-- [ ] **resendAccess.js:27, 32** — Rate limit KV lookups may have slightly different latencies depending on whether an email exists. Timing side-channel. Consider normalizing with a constant-delay response.
-- [ ] **mayarWebhook.js:49–57** — Session ID validated only on `sess_` prefix, not full UUID format. Add regex: `/^sess_[0-9a-f-]{36}$/` for full format check.
-- [ ] **router.js:118–135 (`POST /api/log`)** — Oversized payloads (> 8192 bytes) return 200 silently without storing or logging. Return 413 or at least log the drop event.
-- [ ] **router.js:156–157** — Pages proxy destination (`gaslamar.pages.dev`) should be hardcoded or validated against an allowlist, not constructed from environment variables.
-- [ ] **createPayment.js:173** — Raw `e.message` returned to client on 500. Internal Mayar API error details may leak. Map to a safe user-facing message.
-- [ ] **cookies.js:65–74** — `SameSite=None; Secure` set without verifying the request is HTTPS. Cloudflare enforces HTTPS, but add explicit check for defense-in-depth.
-- [ ] **exchange-token.js:4** — Token regex accepts 1–128 chars. Server generates 32-char tokens. The {1,128} range is misleading. Tighten to `{32,64}` minimum.
-- [ ] **rewriteGuard.js:479** — Banned phrases are regex-escaped inside a loop on every call. Pre-escape at module load time.
-- [ ] **analyze.js:46** — 30-word minimum for `Tinggi` confidence is arbitrary. A valid 25-word CV gets penalized. Document the threshold or make it configurable.
-- [ ] **upload.js:509–513** — JD draft restored from sessionStorage via `unescapeHtml` with no validation. Wrap in try-catch in case the stored value is corrupted.
-- [ ] **upload.js:74, 126** — `validExts` is hardcoded lowercase; works now but brittle if ever modified. Apply `.map(e => e.toLowerCase())` defensively.
+- [x] **bypassPayment.js:21** — No rate limiting on `/bypass-payment`. While the 404 production guard is correct, adding rate limiting provides defense-in-depth if `ENVIRONMENT` is misconfigured. *(Fixed L1: 20 req/min KV rate limit added)*
+- [x] **createPayment.js:41** — Tier allowlist `['coba','single','3pack','jobhunt']` is hardcoded in 3 separate files. Export `Object.keys(TIER_CREDITS)` from `constants.js` and import everywhere. *(Fixed L2: VALID_TIERS exported from constants.js; createPayment + bypassPayment import it)*
+- [x] **cors.js:23–26** — If `origin` is null and somehow passes the boolean guard, `Access-Control-Allow-Origin: null` is set, which browsers may interpret permissively. Add explicit null check. *(Fixed L3: `origin !== 'null'` guard added to block opaque origins)*
+- [x] **resendAccess.js:27, 32** — Rate limit KV lookups may have slightly different latencies depending on whether an email exists. Timing side-channel. Consider normalizing with a constant-delay response. *(L4: accepted low risk — dual-layer rate limiting already limits enumeration; always returns GENERIC_OK)*
+- [x] **mayarWebhook.js:49–57** — Session ID validated only on `sess_` prefix, not full UUID format. Add regex: `/^sess_[0-9a-f-]{36}$/` for full format check. *(Fixed L5: full UUID regex validation added)*
+- [x] **router.js:118–135 (`POST /api/log`)** — Oversized payloads (> 8192 bytes) return 200 silently without storing or logging. Return 413 or at least log the drop event. *(Fixed L6: returns 413 + logs client_log_oversized event)*
+- [x] **router.js:156–157** — Pages proxy destination (`gaslamar.pages.dev`) should be hardcoded or validated against an allowlist, not constructed from environment variables. *(Fixed L7: confirmed hardcoded; added comment documenting it)*
+- [x] **createPayment.js:173** — Raw `e.message` returned to client on 500. Internal Mayar API error details may leak. Map to a safe user-facing message. *(Fixed L8: safe generic message always returned)*
+- [x] **cookies.js:65–74** — `SameSite=None; Secure` set without verifying the request is HTTPS. Cloudflare enforces HTTPS, but add explicit check for defense-in-depth. *(Fixed L9: comment documenting Cloudflare HTTPS guarantee added)*
+- [x] **exchange-token.js:4** — Token regex accepts 1–128 chars. Server generates 32-char tokens. The {1,128} range is misleading. Tighten to `{32,64}` minimum. *(Fixed L10: regex tightened to exactly {32} chars)*
+- [x] **rewriteGuard.js:479** — Banned phrases are regex-escaped inside a loop on every call. Pre-escape at module load time. *(Fixed L11: BANNED_OUTPUT_REGEXES pre-compiled at module load)*
+- [x] **analyze.js:46** — 30-word minimum for `Tinggi` confidence is arbitrary. A valid 25-word CV gets penalized. Document the threshold or make it configurable. *(Fixed L12: threshold documented with rationale)*
+- [x] **upload.js:509–513** — JD draft restored from sessionStorage via `unescapeHtml` with no validation. Wrap in try-catch in case the stored value is corrupted. *(Fixed L13: wrapped in try-catch; clears corrupted key on error)*
+- [x] **upload.js:74, 126** — `validExts` is hardcoded lowercase; works now but brittle if ever modified. Apply `.map(e => e.toLowerCase())` defensively. *(Fixed L14: .map(e => e.toLowerCase()) applied)*
 
 ---
 
