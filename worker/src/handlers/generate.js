@@ -259,7 +259,13 @@ export async function handleGenerate(request, env, ctx) {
     await updateSession(env, session_id, { status: 'paid' }).catch((e2) => {
       logError('generate_recovery_failed', { session_id, error: e2.message });
     });
-    return jsonResponse({ message: e.message || 'Generate CV gagal. Coba lagi.' }, 500, request, env);
+    // Only pass through known user-facing messages from tailoring.js (size/content issues).
+    // All other errors (Claude auth, quota, network) get a generic fallback to avoid leaking internals.
+    const USER_FACING = /terlalu besar|terpotong|kosong|too large|truncated|empty/i;
+    const userMsg = (typeof e.message === 'string' && USER_FACING.test(e.message))
+      ? e.message
+      : 'Generate CV gagal. Coba lagi.';
+    return jsonResponse({ message: userMsg }, 500, request, env);
   } finally {
     await env.GASLAMAR_SESSIONS.delete(lockKey).catch(() => {});
   }

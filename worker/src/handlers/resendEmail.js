@@ -57,7 +57,7 @@ export async function handleResendEmail(request, env) {
 
   // Rate limit: 5 resend attempts per IP per minute.
   const ip = clientIp(request);
-  const rl = await checkRateLimitKV(env, ip, 5, 60, `resend_${sessionId.slice(0, 16)}`);
+  const rl = await checkRateLimitKV(env, ip, 5, 60, 'resend_email');
   if (!rl.allowed) {
     return rateLimitResponse(request, env, rl.retryAfter ?? 60);
   }

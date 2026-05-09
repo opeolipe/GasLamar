@@ -21,13 +21,15 @@ export async function handleGetResult(request, env) {
     if (!providedSecret) {
       return jsonResponse({ message: 'Akses ditolak: token sesi tidak valid' }, 403, request, env);
     }
-    const hash = await sha256Full(providedSecret);
-    if (hash.length !== stored.session_secret_hash.length) {
-      return jsonResponse({ message: 'Akses ditolak: token sesi tidak valid' }, 403, request, env);
-    }
-    let diff = 0;
-    for (let i = 0; i < hash.length; i++) {
-      diff |= hash.charCodeAt(i) ^ stored.session_secret_hash.charCodeAt(i);
+    const hash    = await sha256Full(providedSecret);
+    const refHash = stored.session_secret_hash;
+    // Constant-time comparison — same pattern as sessions.js:verifySessionSecret.
+    // Never short-circuit on length: XOR length difference into diff first so
+    // mismatched lengths always produce diff !== 0 without an early return.
+    const len = Math.max(hash.length, refHash.length);
+    let diff = hash.length ^ refHash.length;
+    for (let i = 0; i < len; i++) {
+      diff |= (hash.charCodeAt(i) || 0) ^ (refHash.charCodeAt(i) || 0);
     }
     if (diff !== 0) {
       return jsonResponse({ message: 'Akses ditolak: token sesi tidak valid' }, 403, request, env);

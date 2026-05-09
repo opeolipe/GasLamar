@@ -112,6 +112,6 @@ export async function handleAnalyze(request, env) {
     if (schemaFailure) {
       return jsonResponse({ message: 'CV format tidak didukung. Gunakan PDF berbasis teks, bukan hasil scan.' }, 422, request, env);
     }
-    return jsonResponse({ message: e.message || 'Analisis gagal. Coba lagi.' }, 500, request, env);
+    return jsonResponse({ message: 'Analisis gagal. Coba lagi.' }, 500, request, env);
   }
 }

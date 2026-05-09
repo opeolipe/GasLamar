@@ -1,10 +1,8 @@
 import { jsonResponse } from '../cors.js';
 import { clientIp } from '../utils.js';
 import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
-import { TIER_PRICES } from '../constants.js';
+import { TIER_PRICES, VALID_TIERS } from '../constants.js';
 import { validateCoupon } from '../mayar.js';
-
-const VALID_TIERS = new Set(['coba', 'single', '3pack', 'jobhunt']);
 
 export async function handleValidateCoupon(request, env) {
   const ip = clientIp(request);
@@ -32,7 +30,7 @@ export async function handleValidateCoupon(request, env) {
   }
 
   const tierConfig = TIER_PRICES[tier];
-  if (!VALID_TIERS.has(tier) || !tierConfig) {
+  if (!VALID_TIERS.includes(tier) || !tierConfig) {
     return jsonResponse({ valid: false, message: 'Pilih paket terlebih dahulu' }, 400, request, env);
   }
 

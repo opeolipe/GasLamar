@@ -42,6 +42,8 @@ const SECURITY_HEADERS = {
   'X-Frame-Options': 'DENY',
   // Restrict browser feature access — API worker has no need for any of these
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+  // Prevent proxies and browsers from caching API responses that contain session data
+  'Cache-Control': 'no-store',
 };
 
 export function corsResponse(body, status, headers, request, env) {
