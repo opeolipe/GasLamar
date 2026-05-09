@@ -108,3 +108,40 @@
 | Frontend guards | js/hasil-guard.js, js/download-guard.js, js/scoring.js |
 | Frontend flows | js/analyzing-page.js, js/upload.js, js/payment.js, js/download-generation.js, js/download-page.js, js/hasil-page.js, js/exchange-token.js |
 | Router | router.js |
+
+---
+
+# QA Audit Round 2 — 2026-05-09
+> Re-audit of all production code post-Round 1 fixes. Focus: regression checks, previously-unflagged handlers, and frontend consistency.
+
+---
+
+## MEDIUM — Fix This Sprint (Round 2)
+
+- [ ] **bypassPayment.js:67–76** — `createSession` is called without `session_secret_hash`. All session-protected endpoints (`/get-session`, `/generate`, `/session/ping`, `/interview-kit`) call `verifySessionSecret()`, which returns `false` (legacy-reject) when no hash is present. Any E2E test that calls `/bypass-payment` via HTTP then tries to proceed through the normal download flow will get a 403 immediately at `/get-session`. Fix: generate a known test secret and include `session_secret_hash: await sha256Full(testSecret)` in the session data; return the secret in the response so the test can use it.
+
+- [ ] **router.js:141–153 (`POST /feedback`)** — `request.json()` called directly with no prior body-size check. The `/api/log` endpoint on the same file was fixed (L6) to read raw text first and reject at 8 192 bytes, but `/feedback` was not updated. An attacker can POST a 5 MB JSON object; the Worker reads and parses the full payload before the 10-req/min rate limit is checked. Fix: read `request.text()` first, check `bodyText.length > 4096`, return 413, then parse JSON manually.
+
+- [ ] **exchangeToken.js:64** — Email token is deleted from KV **before** the session existence check (line 67). When a single-credit session is deleted after CV generation, a user who clicks their email link on a new device hits this code path: the token is consumed (gone forever), `getSession` returns null, the endpoint returns 404, and no cookie is set. The user's only re-access mechanism is permanently burned with nothing to show for it. Fix: move `await env.GASLAMAR_SESSIONS.delete(kvKey)` to after `getSession` succeeds — delete on success only.
+
+---
+
+## LOW — Backlog / Tech Debt (Round 2)
+
+- [ ] **validateCoupon.js:7** — Defines its own `const VALID_TIERS = new Set([...])` instead of importing `VALID_TIERS` from `constants.js`. The L2 fix added `VALID_TIERS` to `constants.js` and updated `createPayment.js` and `bypassPayment.js`, but `validateCoupon.js` was missed. If a new tier is added to `constants.js`, coupon validation silently rejects it with "Pilih paket terlebih dahulu". Fix: `import { VALID_TIERS } from '../constants.js'` and replace the local `Set` with `new Set(VALID_TIERS)`.
+
+- [ ] **getResult.js:25–27** — Hash comparison short-circuits with an early return on length mismatch before the constant-time loop runs. SHA-256 always produces 64-char hex strings so there is no practical timing leak here, but the pattern contradicts `sessions.js:verifySessionSecret` which XORs the length difference into `diff` and never exits early. A future change that stores a differently-sized hash would silently introduce a timing oracle. Fix: follow the same `let diff = hash.length ^ refHash.length; for (...)` pattern from `sessions.js`.
+
+- [ ] **cors.js:38–45** — `SECURITY_HEADERS` does not include `Cache-Control: no-store`. API responses containing session data, CV text keys, or analysis results may be cached by intermediate proxies or the browser's HTTP cache. Fix: add `'Cache-Control': 'no-store'` to `SECURITY_HEADERS`.
+
+- [ ] **createPayment.js:83** — `session_secret` is accepted with no minimum length (`rawSecret.length <= 256` only). A 1-character secret is brute-forceable (256 possibilities). While rate limiting on `/generate` limits exploit speed, a minimum of 16 characters costs nothing. Fix: add `&& rawSecret.length >= 16` to the hash condition; if the secret is too short, treat it as absent (`secretHash = null`) and log a warning so the client developer sees the issue.
+
+- [ ] **mayar.js:25** — Logs the first **6** characters of the Mayar API key (`key_prefix: apiKey.substring(0, 6) + '…'`). Production Mayar keys are long enough that 6 chars narrows the key space for an attacker with log access. Fix: reduce to 3 characters — enough for an operator to distinguish keys, not enough to aid brute-force.
+
+- [ ] **download.html** — Missing `<script defer src="js/dist/analytics-init.bundle.js?v=1"></script>`. Every other page (index, upload, analyzing, hasil, access) initialises PostHog through this bundle. `download.html` is missing it, so analytics events on the highest-value conversion page (CV download, credit exhaustion, interview-kit view) are never tracked. Fix: add the analytics-init script tag above the download-react bundle, matching the pattern on all other pages.
+
+- [ ] **download.html and access.html** — React bundle `<script>` tags have no `?v=` cache-buster query parameter (`download-react.bundle.js`, `access-react.bundle.js`). All other pages use `?v=1`. After a deployment, browsers will continue serving the old JS bundle until the cache expires naturally (may be hours or days). Fix: add `?v=1` (or a build hash) to both script tags, then keep it in sync with the other pages on every build bump.
+
+- [ ] **analyze.js:115 / generate.js:262** — Both catch blocks return `e.message` directly in the 500 response: `return jsonResponse({ message: e.message || '...' }, 500)`. If `callClaude` or the Mayar client throws with an internal error string (e.g. `"Claude API error: authentication failed (401)"` or `"Mayar error: 500"`), that detail reaches the browser. Fix: whitelist the specific user-facing error strings that are safe to surface (truncation, CV-too-large), and replace everything else with a generic fallback.
+
+- [ ] **resendEmail.js:60** — Rate limit key is `resend_${sessionId.slice(0, 16)}`, making the 5-req/min window per *(session, IP)* pair rather than per IP globally. A user with two active sessions (e.g. 3-Pack + re-purchased Single) gets two independent 5-req/min buckets from the same IP, effectively doubling the send rate. Fix: use a global per-IP key (`resend_ip`) so the 5-req/min limit applies to all resend attempts from the same IP regardless of session count.
