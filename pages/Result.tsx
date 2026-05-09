@@ -7,7 +7,6 @@ import RecommendationList                      from '@/components/result/Recomme
 import BeforeAfterProjection                   from '@/components/result/BeforeAfterProjection';
 import PricingSelector                         from '@/components/result/PricingSelector';
 import EmailCapture                            from '@/components/result/EmailCapture';
-import CouponInput, { CouponResult }           from '@/components/result/CouponInput';
 import RewritePreview                          from '@/components/result/RewritePreview';
 import DetailAnalysis                          from '@/components/result/DetailAnalysis';
 import RedFlags                                from '@/components/result/RedFlags';
@@ -17,11 +16,10 @@ import PrimaryHighlight                        from '@/components/6d/PrimaryHigh
 import DimRewritePreview                       from '@/components/6d/RewritePreview';
 import { useResultData }                       from '@/hooks/useResultData';
 import { useSessionCountdown }                 from '@/hooks/useSessionCountdown';
-import { WORKER_URL, TIER_CONFIG, EMAIL_REGEX, formatPrice, buildResultData } from '@/lib/resultUtils';
+import { WORKER_URL, TIER_CONFIG, EMAIL_REGEX, buildResultData } from '@/lib/resultUtils';
 import { validateEmail }                                                        from '@/utils/emailValidation';
 import { suggestEmailFix }                                                      from '@/utils/emailTypo';
 
-declare const IS_SANDBOX: boolean;
 
 console.log(
   '%c⚠️ GasLamar — Perhatian',
@@ -98,7 +96,6 @@ export default function Result() {
   const [showExpiryToast,       setShowExpiryToast]       = useState(false);
   const [showDetails,           setShowDetails]           = useState(false);
   const [showAllDimensions,     setShowAllDimensions]     = useState(false);
-  const [appliedCoupon,         setAppliedCoupon]         = useState<CouponResult | null>(null);
 
   const toastShownRef   = useRef(false);
   const blurTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -139,13 +136,11 @@ export default function Result() {
     ? 'Email konfirmasi tidak sama'
     : null;
 
-  const effectivePrice = appliedCoupon && selectedTier
-    ? appliedCoupon.discounted_amount
-    : (selectedTier ? TIER_CONFIG[selectedTier]?.price : null);
+  const tierPrice = selectedTier ? (TIER_CONFIG[selectedTier]?.price ?? null) : null;
 
   const payBtnLabel = payBtnOverride
-    ?? (selectedTier && effectivePrice !== null
-      ? `Bayar Rp ${effectivePrice!.toLocaleString('id-ID')} →`
+    ?? (selectedTier && tierPrice !== null
+      ? `Bayar Rp ${tierPrice.toLocaleString('id-ID')} →`
       : '✨ Lihat CV hasil rewrite lengkap');
 
   const payBtnDisabled = !selectedTier || paymentInProgress || sessionExpiredByPay
@@ -155,7 +150,6 @@ export default function Result() {
   function handleTierSelect(tier: string) {
     setSelectedTier(tier);
     setPaymentError(null);
-    setAppliedCoupon(null);
     sessionStorage.setItem('gaslamar_tier', tier);
     setEmailError('');
     ;(window as any).Analytics?.track?.('tier_selected', { tier, tier_price_idr: TIER_CONFIG[tier].price, tier_label: TIER_CONFIG[tier].label, is_bilingual: TIER_CONFIG[tier].bilingual });
@@ -305,7 +299,6 @@ export default function Result() {
           cv_text_key:    cvTextKey,
           session_secret: sessionSecret,
           email:          capturedEmail,
-          ...(appliedCoupon ? { coupon_code: appliedCoupon.coupon_code } : {}),
         }),
         signal: controller.signal,
       });
@@ -671,14 +664,6 @@ export default function Result() {
                   confirmTouched={confirmTouched}
                 />
 
-                <CouponInput
-                  tier={selectedTier}
-                  email={email.trim()}
-                  applied={appliedCoupon}
-                  onApplied={setAppliedCoupon}
-                  onCleared={() => setAppliedCoupon(null)}
-                />
-
                 {sessionExpiredByPay && (
                   <div style={{ marginBottom: '1rem', padding: '1rem', background: '#FFFBEB', border: '1px solid rgba(252,211,77,0.5)', borderRadius: 16, textAlign: 'center' }}>
                     <p style={{ color: '#92400E', fontWeight: 600, fontSize: '0.88rem', margin: '0 0 0.5rem' }}>
@@ -727,11 +712,6 @@ export default function Result() {
                 {emailIsConfirmed && !payHint && !sessionExpiredByPay && (
                   <p style={{ fontSize: '0.8rem', color: '#374151', textAlign: 'center', marginTop: '0.5rem' }}>
                     📬 CV akan dikirim ke: <strong>{email.trim()}</strong>
-                    {appliedCoupon && selectedTier && (
-                      <span style={{ display: 'block', marginTop: '0.25rem', color: '#15803D', fontWeight: 600 }}>
-                        🎉 Kode <strong>{appliedCoupon.coupon_code}</strong> — masukkan di halaman pembayaran
-                      </span>
-                    )}
                   </p>
                 )}
                 {payHint && !sessionExpiredByPay && (
