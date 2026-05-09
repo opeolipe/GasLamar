@@ -381,7 +381,7 @@ export default function Result() {
   // ── InfoStrip content: merge countdown + role context ────────────────────
   function buildStripText(): React.ReactNode | null {
     const parts: string[] = [];
-    if (countdown.text) parts.push(`⏳ ${countdown.text}`);
+    if (countdown.text) parts.push(countdown.text);
     if (data?.inferred_role) {
       const roleLabel = ROLE_LABELS[data.inferred_role] ?? data.inferred_role;
       const industryLabel = data.inferred_industry && data.inferred_industry !== 'General' ? ` (${data.inferred_industry})` : '';

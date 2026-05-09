@@ -22,13 +22,14 @@ const STYLES: Record<NonNullable<Props['type']>, React.CSSProperties> = {
 };
 
 export default function InfoStrip({ children, type = 'info' }: Props) {
+  const s = STYLES[type];
   return (
     <div
       role="status"
       style={{
-        ...STYLES[type],
-        border:       `1px solid`,
-        borderColor:  STYLES[type].borderColor,
+        background:   s.background,
+        color:        s.color,
+        border:       `1px solid ${s.borderColor as string}`,
         borderRadius: 10,
         padding:      '0.5rem 1rem',
         fontSize:     '0.82rem',
