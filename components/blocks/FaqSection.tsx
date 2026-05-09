@@ -25,6 +25,10 @@ const FAQ_ITEMS: { q: string; a: React.ReactNode }[] = [
     a: "Pembayaran via Virtual Account (semua bank), QRIS, GoPay, OVO, Dana, dan kartu kredit/debit. Diproses melalui Mayar yang terpercaya.",
   },
   {
+    q: "Di mana saya bisa memasukkan kode diskon atau promo?",
+    a: "Kode diskon dimasukkan langsung di halaman pembayaran Mayar — bukan di halaman GasLamar. Setelah kamu klik tombol bayar dan diarahkan ke Mayar, cari kolom \"Kode Voucher\" atau \"Kode Promo\" di halaman checkout mereka, lalu masukkan kode kamu di sana sebelum menyelesaikan pembayaran.",
+  },
+  {
     q: "Apa itu paket 3-Pack dan Job Hunt Pack?",
     a: "Paket multi-CV memungkinkan kamu tailoring CV untuk beberapa posisi berbeda dengan harga lebih hemat. Setiap CV dianalisis dan disesuaikan dengan job description masing-masing loker.",
   },

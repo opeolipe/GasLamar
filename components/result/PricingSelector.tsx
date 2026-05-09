@@ -8,21 +8,27 @@ interface Props {
 
 const TIERS = ['coba', 'single', '3pack', 'jobhunt'] as const;
 
+const TIER_COPY: Record<string, { outcome: string; diff: string }> = {
+  coba:     { outcome: 'CV siap kirim dalam Bahasa Indonesia',  diff: 'Download DOCX & PDF' },
+  single:   { outcome: 'CV bilingual ID + EN siap kirim',        diff: 'Untuk apply lebih luas, termasuk MNC' },
+  '3pack':  { outcome: 'Tailor CV untuk 3 posisi berbeda',       diff: '≈ Rp 50k per lamaran' },
+  jobhunt:  { outcome: 'Tailor CV untuk 10 posisi berbeda',      diff: '≈ Rp 30k per lamaran' },
+};
+
 export default function PricingSelector({ selectedTier, onSelect, score }: Props) {
   const rec = score !== undefined ? tierRecommendation(score) : null;
 
   return (
-    <div style={{ background: 'rgba(255,255,255,0.88)', borderRadius: 24, boxShadow: '0 18px 44px rgba(15,23,42,0.08)', padding: '1.5rem', border: '1px solid rgba(148,163,184,0.14)', backdropFilter: 'blur(14px)', marginBottom: '1.25rem' }}>
-      <h3 style={{ textAlign: 'center', marginBottom: '0.5rem', fontSize: '1.3rem', fontWeight: 700, margin: '0 0 0.5rem' }}>
+    <div style={{ marginBottom: '1.25rem' }}>
+      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: '0 0 0.25rem', color: '#0F172A' }}>
         Pilih versi CV yang ingin kamu gunakan
       </h3>
-      <p style={{ textAlign: 'center', fontSize: '0.9rem', color: '#4B5563', margin: '0 0 1rem' }}>
+      <p style={{ fontSize: '0.85rem', color: '#64748B', margin: '0 0 0.75rem' }}>
         Sekali bayar — langsung download CV yang sudah diperbaiki
       </p>
 
-      {/* Tier recommendation — inline, no black banner */}
       {rec && (
-        <p style={{ textAlign: 'center', fontSize: '0.875rem', color: '#2563EB', margin: '0.25rem 0 0.25rem', fontWeight: 500 }}>
+        <p style={{ fontSize: '0.8rem', color: '#2563EB', margin: '0 0 1rem', fontWeight: 500 }}>
           💡 Kami rekomendasikan{' '}
           <button
             onClick={() => onSelect(rec.tier)}
@@ -30,21 +36,16 @@ export default function PricingSelector({ selectedTier, onSelect, score }: Props
           >
             {TIER_CONFIG[rec.tier].label}
           </button>
-          {' '}untuk skor kamu
+          {' '}untuk kamu. Fokus 1 posisi → Single. Apply banyak → 3‑Pack.
         </p>
       )}
 
-      {/* Guided decision copy */}
-      <p style={{ textAlign: 'center', fontSize: '0.875rem', color: '#475569', margin: '0.5rem 0 0', lineHeight: 1.5 }}>
-        Fokus 1 posisi → Single. Apply ke banyak loker → 3‑Pack.
-      </p>
-
-      {/* Pricing grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', margin: '1.5rem 0 0' }}>
+      {/* paddingTop gives room for the -11px badge pill on top-row cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem', paddingTop: '0.75rem' }}>
         {TIERS.map(tier => {
           const info     = TIER_CONFIG[tier];
+          const copy     = TIER_COPY[tier];
           const selected = selectedTier === tier;
-          const popular  = tier === '3pack';
           const isRec    = rec?.tier === tier;
 
           return (
@@ -54,67 +55,43 @@ export default function PricingSelector({ selectedTier, onSelect, score }: Props
               onClick={() => onSelect(tier)}
               style={{
                 background:   selected ? '#EFF6FF' : 'white',
-                borderRadius: 20,
-                padding:      '1.1rem 1rem',
+                borderRadius: 16,
+                padding:      '1rem',
                 textAlign:    'left',
                 border:       selected
                   ? '2px solid #2563eb'
                   : isRec
                   ? '1.5px solid #93C5FD'
-                  : '1px solid rgba(148,163,184,0.20)',
+                  : '1px solid #E2E8F0',
                 cursor:       'pointer',
                 position:     'relative',
-                transition:   '0.2s',
-                boxShadow:    selected ? '0 0 0 3px rgba(37,99,235,0.12)' : 'none',
+                overflow:     'visible',
+                transition:   'border-color 0.15s, box-shadow 0.15s',
+                boxShadow:    selected ? '0 0 0 3px rgba(37,99,235,0.10)' : 'none',
                 fontFamily:   'inherit',
                 width:        '100%',
+                minHeight:    44,
               }}
             >
-              {/* Badge */}
-              {isRec && !selected && (
-                <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: '#2563EB', color: 'white', fontSize: '0.65rem', padding: '0.2rem 0.8rem', borderRadius: 60, fontWeight: 600, whiteSpace: 'nowrap' }}>
-                  ✦ REKOMENDASI
-                </div>
-              )}
-              {selected && (
-                <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: '#2563EB', color: 'white', fontSize: '0.65rem', padding: '0.2rem 0.8rem', borderRadius: 60, fontWeight: 600, whiteSpace: 'nowrap' }}>
-                  ✦ DIPILIH
-                </div>
-              )}
-              {popular && !selected && !isRec && (
-                <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: '#DBEAFE', color: '#1E40AF', fontSize: '0.65rem', padding: '0.2rem 0.8rem', borderRadius: 60, fontWeight: 600, whiteSpace: 'nowrap' }}>
-                  Paling dipilih
+              {(isRec || selected) && (
+                <div style={{ position: 'absolute', top: -11, left: '50%', transform: 'translateX(-50%)', background: '#2563EB', color: 'white', fontSize: '0.62rem', padding: '0.18rem 0.75rem', borderRadius: 60, fontWeight: 700, whiteSpace: 'nowrap', letterSpacing: '0.03em' }}>
+                  {selected ? '✦ DIPILIH' : '✦ REKOMENDASI'}
                 </div>
               )}
 
-              {/* Label + price row */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.35rem' }}>
-                <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#111827' }}>{info.label}</span>
-                <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#111827', whiteSpace: 'nowrap', marginLeft: 6 }}>{info.priceStr}</span>
+              {/* Stack label + price vertically so they never overflow on narrow cards */}
+              <div style={{ marginBottom: '0.35rem' }}>
+                <span style={{ display: 'block', fontWeight: 700, fontSize: '0.9rem', color: '#111827' }}>{info.label}</span>
+                <span style={{ display: 'block', fontSize: '1rem', fontWeight: 800, color: selected ? '#1D4ED8' : '#111827', marginTop: '0.1rem' }}>{info.priceStr}</span>
               </div>
 
-              {/* Per-CV price for multi-credit tiers */}
-              {info.perCvStr && (
-                <div style={{ fontSize: '0.72rem', color: '#059669', fontWeight: 600, marginBottom: '0.55rem' }}>
-                  {info.perCvStr}
-                </div>
-              )}
-              {!info.perCvStr && <div style={{ marginBottom: '0.55rem' }} />}
+              <p style={{ fontSize: '0.75rem', color: selected ? '#1E40AF' : '#374151', margin: '0 0 0.3rem', lineHeight: 1.4, fontWeight: 500 }}>
+                {copy.outcome}
+              </p>
 
-              {/* Feature list */}
-              <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 0.6rem', display: 'flex', flexDirection: 'column', gap: '0.28rem' }}>
-                {info.features.map((f, i) => (
-                  <li key={i} style={{ fontSize: '0.75rem', color: selected ? '#1E40AF' : '#374151', display: 'flex', gap: '0.4rem', alignItems: 'flex-start', lineHeight: 1.4 }}>
-                    <span style={{ color: selected ? '#2563EB' : '#10B981', flexShrink: 0, fontWeight: 700 }}>✓</span>
-                    {f}
-                  </li>
-                ))}
-              </ul>
-
-              {/* TTL */}
-              <div style={{ fontSize: '0.7rem', color: '#94A3B8' }}>
-                🗓 {info.ttl}
-              </div>
+              <p style={{ fontSize: '0.72rem', color: selected ? '#3B82F6' : '#94A3B8', margin: 0, fontWeight: 500 }}>
+                {copy.diff}
+              </p>
             </button>
           );
         })}
