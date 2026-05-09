@@ -208,7 +208,7 @@ export default function Result() {
       ;(window as any).Analytics?.track?.('email_mismatch_detected');
     } else {
       setConfirmError('');
-      if (emailIsConfirmed) ;(window as any).Analytics?.track?.('email_confirm_success');
+      if (emailIsConfirmed) { (window as any).Analytics?.track?.('email_confirm_success'); }
     }
   }
 
