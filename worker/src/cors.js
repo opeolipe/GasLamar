@@ -26,7 +26,9 @@ export function getCorsHeaders(request, env) {
   };
 
   const origin = request.headers.get('Origin');
-  if (origin && getAllowedOrigins(env).includes(origin)) {
+  // Explicitly exclude the string "null" (sent by opaque origins / sandboxed iframes).
+  // Setting Access-Control-Allow-Origin: null can be interpreted permissively by some browsers.
+  if (origin && origin !== 'null' && getAllowedOrigins(env).includes(origin)) {
     headers['Access-Control-Allow-Origin'] = origin;
   }
 

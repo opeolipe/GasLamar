@@ -1,7 +1,9 @@
 (function () {
   var token = new URLSearchParams(location.search).get('token');
   // Redirect valid-format tokens to download.html where the normal exchange flow handles them
-  if (token && /^[0-9a-f]{1,128}$/.test(token)) {
+  // Require exactly 32 hex chars — matches the server-side hexToken() output (128-bit).
+  // A shorter accepted range would allow near-brute-forceable tokens to reach the server.
+  if (token && /^[0-9a-f]{32}$/.test(token)) {
     window.location.replace('download.html?token=' + encodeURIComponent(token));
     return;
   }

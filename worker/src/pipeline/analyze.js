@@ -45,6 +45,8 @@ function computeKonfidensitas(extractedData) {
   const totalWords = (cv.pengalaman_mentah + ' ' + cv.skills_mentah)
     .split(/\s+/).filter(Boolean).length;
 
+  // 30-word floor: below this the LLM extraction has too little text to be reliable.
+  // Threshold is intentionally conservative — a 25-word CV is still insufficient.
   if (totalWords < 30 || jd.industri === 'UMUM') return 'Rendah';
   if (totalWords >= 100 && jd.skills_diminta.length >= 3) return 'Tinggi';
   return 'Sedang';

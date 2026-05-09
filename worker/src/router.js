@@ -120,9 +120,13 @@ export async function route(request, env, ctx) {
     const kvResult = await checkRateLimitKV(env, ip, 30, 60, 'client_log');
     if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60);
     const contentType = request.headers.get('Content-Type') || '';
-    // Reject oversized log bodies before parsing (prevents memory exhaustion)
+    // Reject oversized log bodies before parsing (prevents memory exhaustion).
+    // Return 413 (not silent 200) so the client knows the payload was rejected.
     const contentLength = parseInt(request.headers.get('Content-Length') || '0', 10);
-    if (contentLength > 8192) return jsonResponse({ ok: true }, 200, request, env);
+    if (contentLength > 8192) {
+      console.warn(JSON.stringify({ event: 'client_log_oversized', contentLength, ip }));
+      return jsonResponse({ ok: false, message: 'Payload terlalu besar' }, 413, request, env);
+    }
     const rawBody = contentType.includes('application/json')
       ? await request.json().catch(() => ({}))
       : { raw: await request.text().catch(() => '') };
@@ -153,6 +157,8 @@ export async function route(request, env, ctx) {
   // redirect:'manual' prevents an infinite loop if Pages ever redirects pages.dev
   // back to gaslamar.com (the Worker would follow that redirect into itself).
   if ((method === 'GET' || method === 'HEAD') && env.ENVIRONMENT === 'production') {
+    // Hardcoded — never sourced from env vars to prevent open proxy misconfiguration.
+    // pathname and url.search come from the request but only form path/query, not hostname.
     const pagesUrl = 'https://gaslamar.pages.dev' + pathname + url.search;
     const proxyHeaders = new Headers(request.headers);
     proxyHeaders.delete('host');
