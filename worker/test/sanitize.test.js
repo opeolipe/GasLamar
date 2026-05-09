@@ -297,9 +297,9 @@ describe('hasPromptInjection', () => {
     expect(hasPromptInjection('')).toBe(false);
   });
 
-  it('returns false for non-string input', () => {
-    expect(hasPromptInjection(null)).toBe(false);
-    expect(hasPromptInjection(undefined)).toBe(false);
-    expect(hasPromptInjection(42)).toBe(false);
+  it('throws TypeError for non-string input', () => {
+    expect(() => hasPromptInjection(null)).toThrow(TypeError);
+    expect(() => hasPromptInjection(undefined)).toThrow(TypeError);
+    expect(() => hasPromptInjection(42)).toThrow(TypeError);
   });
 });

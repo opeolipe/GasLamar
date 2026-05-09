@@ -1,5 +1,4 @@
 import { jsonResponse } from '../cors.js';
-import { clientIp, log } from '../utils.js';
 
 export async function handleValidateSession(request, env) {
   const url = new URL(request.url);
@@ -17,11 +16,9 @@ export async function handleValidateSession(request, env) {
     return jsonResponse({ valid: false, reason: 'not_found' }, 200, request, env);
   }
 
-  const ip = clientIp(request);
-  if (stored.ip && stored.ip !== ip) {
-    log('validate_session_ip_mismatch', { ip, stored_ip: stored.ip });
-    // Soft check — log only, don't reject display-only validation
-  }
-
+  // IP check removed: this endpoint is display-only and IPs legitimately change
+  // (mobile networks, VPNs). A log-only check creates false security confidence
+  // without blocking anything. Actual access control is enforced by session_secret
+  // on the /generate and /get-session endpoints.
   return jsonResponse({ valid: true }, 200, request, env);
 }

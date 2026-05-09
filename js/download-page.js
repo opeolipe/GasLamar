@@ -185,9 +185,12 @@ document.querySelectorAll('.btn-download[data-lang]').forEach(function(btn) {
 });
 
 // Interview feedback buttons
-document.querySelector('[data-feedback="ya"]').addEventListener('click',     () => submitInterviewFeedback('ya'));
-document.querySelector('[data-feedback="proses"]').addEventListener('click', () => submitInterviewFeedback('proses'));
-document.querySelector('[data-feedback="tidak"]').addEventListener('click',  () => submitInterviewFeedback('tidak'));
+// Null-check before binding: the feedback block may be absent if the HTML is
+// conditionally rendered (e.g. during A/B tests or template changes).
+['ya', 'proses', 'tidak'].forEach(answer => {
+  const btn = document.querySelector(`[data-feedback="${answer}"]`);
+  if (btn) btn.addEventListener('click', () => submitInterviewFeedback(answer));
+});
 
 // Copy plain-text fallback buttons
 document.getElementById('copy-id-btn').addEventListener('click', () => copyText('cv-text-id'));

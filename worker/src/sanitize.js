@@ -100,9 +100,15 @@ const STRIP_PATTERNS = [
  * @param {string} text
  * @returns {boolean}
  */
+// Hard cap before running regexes — prevents adversarial inputs from triggering
+// worst-case backtracking (O(n) per pattern × 20 patterns × very long string).
+const MAX_INJECTION_CHECK_LEN = 10000;
+
 export function hasPromptInjection(text) {
-  if (typeof text !== 'string' || text.length === 0) return false;
-  return REJECTION_PATTERNS.some(p => p.test(text));
+  if (typeof text !== 'string') throw new TypeError('hasPromptInjection: expected string, got ' + typeof text);
+  if (text.length === 0) return false;
+  const sample = text.length > MAX_INJECTION_CHECK_LEN ? text.slice(0, MAX_INJECTION_CHECK_LEN) : text;
+  return REJECTION_PATTERNS.some(p => p.test(sample));
 }
 
 /**

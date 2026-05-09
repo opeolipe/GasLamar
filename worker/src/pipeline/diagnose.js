@@ -16,6 +16,19 @@ import { SKILL_DIAGNOSE } from '../prompts/diagnose.js';
 import { callClaude } from '../claude.js';
 import { validateDiagnoseOutput } from './validate.js';
 
+function extractFirstJsonObject(text) {
+  let depth = 0, start = -1;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '{') {
+      if (start === -1) start = i;
+      depth++;
+    } else if (text[i] === '}') {
+      if (depth > 0 && --depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
 function parseDiagnoseJSON(rawText) {
   // 1. Strip markdown fences
   let cleaned = rawText.replace(/```json\n?|\n?```/g, '').trim();
@@ -25,22 +38,21 @@ function parseDiagnoseJSON(rawText) {
     return JSON.parse(cleaned);
   } catch (_) {}
 
-  // 3. Fallback: extract first {...} block in case Claude added preamble/postamble
-  const match = cleaned.match(/\{[\s\S]*\}/);
-  if (match) {
+  // 3. Fallback: extract first balanced {...} block (brace-counting, same as extract.js).
+  const firstObj = extractFirstJsonObject(cleaned);
+  if (firstObj) {
     try {
-      return JSON.parse(match[0]);
+      return JSON.parse(firstObj);
     } catch (_) {}
   }
 
-  // 4. Nothing worked — log diagnostic snippet and throw retryable error
-  const e = new SyntaxError('no valid JSON object found');
-  const pos = Number(e.message.match(/position (\d+)/)?.[1] ?? -1);
+  // 4. Nothing worked — log the tail of the cleaned string and throw retryable error.
+  // Position-from-message is not used: this error is manually constructed and never
+  // contains a "position X" token, so pos would always be -1.
   console.error(JSON.stringify({
     event: 'diagnose_json_parse_error',
-    error: e.message,
     raw_length: cleaned.length,
-    snippet: pos >= 0 ? cleaned.slice(Math.max(0, pos - 40), pos + 40) : cleaned.slice(-80),
+    snippet: cleaned.slice(-80),
   }));
   throw new Error('INVALID_JSON');
 }
@@ -115,12 +127,15 @@ function buildUserMessage(extractedData, analysisResult, scoreResult, roleInfere
   // Optional role context block — injected when role inference has run.
   // The LLM uses this to phrase recommendations that fit the candidate's actual role
   // rather than generic advice.  Confidence < 0.6 is still shown but flagged as low.
+  // Sanitize roleInferenceResult string fields: embedded newlines would break the
+  // line-oriented template format and could allow prompt structure corruption.
+  const safeStr = (v) => (v == null ? '' : String(v).replace(/[\r\n]/g, ' '));
   const roleBlock = roleInferenceResult
     ? `\nrole_context:
-inferred_role: ${roleInferenceResult.role}
+inferred_role: ${safeStr(roleInferenceResult.role)}
 confidence: ${roleInferenceResult.confidence}
-seniority: ${roleInferenceResult.seniority}
-industry: ${roleInferenceResult.industry}
+seniority: ${safeStr(roleInferenceResult.seniority)}
+industry: ${safeStr(roleInferenceResult.industry)}
 `
     : '';
 

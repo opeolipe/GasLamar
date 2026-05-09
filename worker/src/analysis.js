@@ -155,7 +155,9 @@ export async function analyzeCV(cvText, jobDesc, env) {
     applyRedFlagPenalty(scoring);
   }
 
-  // Legacy backward-compat fields
+  // Legacy backward-compat fields — derived from 6D scores via fixed multipliers.
+  // These are NOT independently scored dimensions; they exist so older clients that
+  // read skor_relevansi/skor_requirements don't break. Do not use them for new logic.
   scoring.skor_relevansi    = skor_6d.north_star * 4;
   scoring.skor_requirements = Math.round(skor_6d.recruiter_signal * 3);
   scoring.skor_kualitas     = Math.round(skor_6d.portfolio * 2);

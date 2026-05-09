@@ -13,7 +13,8 @@ if (!cvData || !jobDesc) {
   // If a fresh analysis result already exists, send them to hasil.html
   const existingScore = sessionStorage.getItem('gaslamar_scoring');
   const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
-  const isFresh = existingScore && analyzeTime && (Date.now() - analyzeTime) < 7200000;
+  const ANALYSIS_FRESHNESS_MS = 7200000; // 2h — matches worker cvtext_ KV TTL
+  const isFresh = existingScore && analyzeTime && (Date.now() - analyzeTime) < ANALYSIS_FRESHNESS_MS;
   window.location.replace(isFresh ? 'hasil.html' : 'upload.html');
 }
 
@@ -74,7 +75,9 @@ function finishAnimation() {
 }
 
 // Step animation — track IDs so retryAnalysis() can cancel pending timers
-const stepInterval = Math.floor(estimatedMs / (totalSteps + 1));
+// Floor at 100ms: if estimatedMs is very small (e.g. test/mock), avoid a 0ms interval
+// that would fire all steps synchronously before the DOM is ready.
+const stepInterval = Math.max(100, Math.floor(estimatedMs / (totalSteps + 1)));
 let stepTimeouts = [];
 
 function scheduleSteps() {

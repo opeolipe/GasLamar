@@ -31,16 +31,20 @@
  *   Traditional double-submit or synchronizer CSRF tokens are not required.
  */
 
+const MAX_COOKIES = 100;
+
 /** Parse a Cookie header string into a key→value plain object. */
 export function parseCookies(cookieHeader) {
   if (!cookieHeader) return {};
   const out = {};
+  let count = 0;
   for (const pair of cookieHeader.split(';')) {
+    if (count >= MAX_COOKIES) break; // cap prevents O(n) alloc on headers with 10k+ semicolons
     const idx = pair.indexOf('=');
     if (idx < 0) continue;
     const key = pair.slice(0, idx).trim();
     const val = pair.slice(idx + 1).trim();
-    if (key) out[key] = val;
+    if (key) { out[key] = val; count++; }
   }
   return out;
 }
@@ -52,7 +56,7 @@ export function parseCookies(cookieHeader) {
 export function getSessionIdFromCookie(request) {
   const cookies = parseCookies(request.headers.get('Cookie'));
   const id = cookies.session_id;
-  if (id && id.startsWith('sess_')) return id;
+  if (id && id.startsWith('sess_') && id.length <= 64) return id;
   return null;
 }
 

@@ -24,6 +24,9 @@
       el.style.background = '#FEF2F2';
       el.style.borderColor = '#FECACA';
       el.style.color = '#B91C1C';
+      // Disable pay button so an expired user cannot attempt payment (server would reject it).
+      const payBtn = document.getElementById('pay-btn');
+      if (payBtn) { payBtn.disabled = true; payBtn.textContent = 'Sesi kedaluwarsa'; }
       return;
     }
     const h = Math.floor(remaining / 3600);

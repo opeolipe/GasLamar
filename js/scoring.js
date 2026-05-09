@@ -29,7 +29,10 @@
   const cvKey = sessionStorage.getItem('gaslamar_cv_key');
   if (cvKey && cvKey.startsWith('cvtext_')) {
     try {
-      const res = await fetch(`${WORKER_URL}/validate-session?cvKey=${encodeURIComponent(cvKey)}`);
+      const _vsCtrl = new AbortController();
+      const _vsTimeout = setTimeout(() => _vsCtrl.abort(), 5000);
+      const res = await fetch(`${WORKER_URL}/validate-session?cvKey=${encodeURIComponent(cvKey)}`, { signal: _vsCtrl.signal });
+      clearTimeout(_vsTimeout);
       if (res.ok) {
         const data = await res.json();
         if (!data.valid) {
@@ -48,10 +51,6 @@
   }
 
   const raw = sessionStorage.getItem('gaslamar_scoring');
-  // Remove immediately — scoring lives in JS memory only, not in sessionStorage.
-  // This prevents browser extensions and devtools from reading the analysis data
-  // at rest. hasil-guard.js already validated it exists before we get here.
-  sessionStorage.removeItem('gaslamar_scoring');
 
   if (!raw) {
     // No data — redirect back
@@ -64,10 +63,16 @@
   try {
     scoring = JSON.parse(raw);
   } catch (e) {
+    // Remove even on parse failure so corrupt data doesn't linger in storage.
+    sessionStorage.removeItem('gaslamar_scoring');
     showError('Data analisis tidak valid. Mohon upload CV kamu kembali.');
     setTimeout(() => window.location.href = 'upload.html', 3000);
     return;
   }
+  // Remove after successful parse — security hardening: data lives in JS memory only.
+  // Deleting here (not before parse) means a parse failure can still show a proper
+  // error message without the data having been wiped prematurely.
+  sessionStorage.removeItem('gaslamar_scoring');
 
   // Store a non-sensitive summary so the download page can forward score/gaps/primary_issue
   // to the post-generate email. The full scoring blob has already been deleted above.
@@ -354,6 +359,8 @@ function renderArchetypeAndVerdict(scoring) {
 
   // Verdict card
   const verdictEl = document.getElementById('verdict-card');
+  // 'veredict' is the canonical backend field name (intentional typo in the API).
+  // Do NOT rename to 'verdict' — it would silently break verdict rendering.
   if (!verdictEl || !scoring.veredict) return;
 
   const VERDICT_CONFIG = {

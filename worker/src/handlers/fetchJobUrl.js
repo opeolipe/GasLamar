@@ -64,6 +64,7 @@ function isPrivateIPv6(rawHostname) {
     : rawHostname;
   const lower = addr.toLowerCase();
   if (lower === '::1' || lower === '0:0:0:0:0:0:0:1') return true; // loopback
+  if (lower === '::' || lower === '0:0:0:0:0:0:0:0') return true;  // unspecified address
   if (lower.startsWith('fe80:')) return true;          // fe80::/10 link-local
   if (lower.startsWith('fc') || lower.startsWith('fd')) return true; // fc00::/7 unique local
   if (lower.startsWith('::ffff:')) return true;        // IPv4-mapped — could map to private IPv4
@@ -252,8 +253,12 @@ export async function handleFetchJobUrl(request, env) {
     return jsonResponse({ message: 'URL bukan halaman web (HTML). Coba copy-paste manual.' }, 422, request, env);
   }
 
-  // Reject pages that advertise a very large body — streaming 10MB through HTMLRewriter
-  // is wasteful and the useful JD text is always in the first few kilobytes.
+  // Fast-fail on honest servers that declare a large Content-Length.
+  // Note: a malicious server can lie about Content-Length. The secondary defence
+  // is MAX_EXTRACT_BYTES (500 KB) enforced during HTMLRewriter streaming — text
+  // collection stops at that cap regardless of actual body size. HTMLRewriter
+  // cannot abort mid-stream in Cloudflare Workers, so the response body is still
+  // consumed, but at most 500 KB of text is collected.
   const contentLength = parseInt(pageRes.headers.get('content-length') || '0', 10);
   if (contentLength > 2 * 1024 * 1024) { // 2 MB
     return jsonResponse({ message: 'Halaman terlalu besar untuk diproses. Coba copy-paste manual.' }, 422, request, env);

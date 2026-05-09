@@ -14,6 +14,19 @@ import { SKILL_EXTRACT } from '../prompts/extract.js';
 import { callClaude } from '../claude.js';
 import { validateExtractOutput } from './validate.js';
 
+function extractFirstJsonObject(text) {
+  let depth = 0, start = -1;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '{') {
+      if (start === -1) start = i;
+      depth++;
+    } else if (text[i] === '}') {
+      if (depth > 0 && --depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
 function parseExtractJSON(rawText) {
   // 1. Strip markdown fences
   let cleaned = rawText.replace(/```json\n?|\n?```/g, '').trim();
@@ -23,11 +36,14 @@ function parseExtractJSON(rawText) {
     return JSON.parse(cleaned);
   } catch (_) {}
 
-  // 3. Fallback: extract first {...} block in case Claude added preamble/postamble
-  const match = cleaned.match(/\{[\s\S]*\}/);
-  if (match) {
+  // 3. Fallback: extract first balanced {...} block using brace counting.
+  // The greedy regex /\{[\s\S]*\}/ merges multiple JSON objects into one malformed
+  // blob when Claude emits preamble/postamble JSON. Brace counting returns the
+  // first complete, correctly-nested object instead.
+  const firstObj = extractFirstJsonObject(cleaned);
+  if (firstObj) {
     try {
-      return JSON.parse(match[0]);
+      return JSON.parse(firstObj);
     } catch (_) {}
   }
 
