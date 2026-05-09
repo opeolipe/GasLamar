@@ -50,7 +50,7 @@ export default function EmailCapture({
     padding:      '0.75rem 1rem',
     border:       `1.5px solid ${borderColor}`,
     borderRadius: 10,
-    fontSize:     '0.95rem',
+    fontSize:     '1rem',
     boxSizing:    'border-box' as const,
     fontFamily:   'inherit',
     background:   'white',

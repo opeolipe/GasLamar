@@ -492,7 +492,7 @@ export default function Result() {
                   </a>
                   <button
                     onClick={() => setShowDetails(d => !d)}
-                    style={{ background: 'none', border: '1px solid #E2E8F0', borderRadius: 60, padding: '0.4rem 1.1rem', fontSize: '0.8rem', color: '#6B7280', cursor: 'pointer', fontFamily: 'inherit' }}
+                    style={{ background: 'none', border: '1px solid #E2E8F0', borderRadius: 60, padding: '0.6rem 1.25rem', fontSize: '0.8rem', color: '#6B7280', cursor: 'pointer', fontFamily: 'inherit', minHeight: 44 }}
                   >
                     {showDetails ? 'Sembunyikan analisis ↑' : 'Lihat analisis lengkap ↓'}
                   </button>
@@ -594,7 +594,7 @@ export default function Result() {
                 />
                 <button
                   onClick={() => setShowAllDimensions(d => !d)}
-                  style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 500, padding: '0.65rem 0 0', display: 'block', fontFamily: 'inherit', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 }}
+                  style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 500, padding: '0.65rem 0', display: 'block', fontFamily: 'inherit', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3, minHeight: 44 }}
                 >
                   {showAllDimensions ? 'Sembunyikan ↑' : 'Lihat semua dimensi →'}
                 </button>

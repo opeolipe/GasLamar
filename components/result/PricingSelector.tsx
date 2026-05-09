@@ -40,7 +40,8 @@ export default function PricingSelector({ selectedTier, onSelect, score }: Props
         </p>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }}>
+      {/* paddingTop gives room for the -11px badge pill on top-row cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem', paddingTop: '0.75rem' }}>
         {TIERS.map(tier => {
           const info     = TIER_CONFIG[tier];
           const copy     = TIER_COPY[tier];
@@ -64,10 +65,12 @@ export default function PricingSelector({ selectedTier, onSelect, score }: Props
                   : '1px solid #E2E8F0',
                 cursor:       'pointer',
                 position:     'relative',
+                overflow:     'visible',
                 transition:   'border-color 0.15s, box-shadow 0.15s',
                 boxShadow:    selected ? '0 0 0 3px rgba(37,99,235,0.10)' : 'none',
                 fontFamily:   'inherit',
                 width:        '100%',
+                minHeight:    44,
               }}
             >
               {(isRec || selected) && (
@@ -76,9 +79,10 @@ export default function PricingSelector({ selectedTier, onSelect, score }: Props
                 </div>
               )}
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.35rem' }}>
-                <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#111827' }}>{info.label}</span>
-                <span style={{ fontSize: '1rem', fontWeight: 800, color: selected ? '#1D4ED8' : '#111827', whiteSpace: 'nowrap', marginLeft: 6 }}>{info.priceStr}</span>
+              {/* Stack label + price vertically so they never overflow on narrow cards */}
+              <div style={{ marginBottom: '0.35rem' }}>
+                <span style={{ display: 'block', fontWeight: 700, fontSize: '0.9rem', color: '#111827' }}>{info.label}</span>
+                <span style={{ display: 'block', fontSize: '1rem', fontWeight: 800, color: selected ? '#1D4ED8' : '#111827', marginTop: '0.1rem' }}>{info.priceStr}</span>
               </div>
 
               <p style={{ fontSize: '0.75rem', color: selected ? '#1E40AF' : '#374151', margin: '0 0 0.3rem', lineHeight: 1.4, fontWeight: 500 }}>
