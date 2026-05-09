@@ -90,10 +90,6 @@ export default function Access() {
     }, 200);
   }
 
-  function handleEmailPaste() {
-    // confirm field auto-focuses via useEffect when it slides into view
-  }
-
   function handleConfirmEmailChange(value: string) {
     setConfirmEmail(value);
     if (confirmTouched) {
@@ -136,7 +132,6 @@ export default function Access() {
     setEmailIsDisposable(false);
     setEmailIsConfirmed(true);
     setConfirmError('');
-    setTimeout(() => confirmEmailRef.current?.focus(), 0);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -330,7 +325,6 @@ export default function Access() {
                       value={email}
                       onChange={e => handleEmailChange(e.target.value)}
                       onBlur={handleEmailBlur}
-                      onPaste={handleEmailPaste}
                       placeholder="email@kamu.com"
                       required
                       disabled={status === 'loading'}
