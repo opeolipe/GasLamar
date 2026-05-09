@@ -59,7 +59,9 @@ export async function handleMayarWebhook(request, env, ctx) {
     // This is defence-in-depth: the KV entry is written by /create-payment which already
     // generates a valid sess_ UUID, but we guard against any future KV corruption.
     // Full format: "sess_" + 36-char lowercase UUID (e.g. sess_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
-    if (typeof sid === 'string' && /^sess_[0-9a-f-]{36}$/.test(sid)) {
+    // Normalize to lowercase before testing — crypto.randomUUID() is lowercase in V8/Workers,
+    // but defensive normalization avoids silent rejection if a KV entry was written differently.
+    if (typeof sid === 'string' && /^sess_[0-9a-f-]{36}$/.test(sid.toLowerCase())) {
       sessionId = sid;
     } else if (sid !== undefined) {
       console.error(JSON.stringify({ event: 'webhook_invalid_session_id_format', invoiceId, sid: String(sid).slice(0, 20) }));
