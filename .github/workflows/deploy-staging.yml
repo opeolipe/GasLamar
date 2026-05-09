@@ -3,7 +3,6 @@ name: Deploy Staging (Sandbox)
 on:
   push:
     branches:
-      - 'claude/**'
       - 'staging'
 
 jobs:
@@ -27,6 +26,9 @@ jobs:
 
       - name: Run worker tests
         run: npm test
+
+      - name: Check cache version bumps
+        run: cd .. && node scripts/check-cache-versions.js
 
   deploy-sandbox-worker:
     name: Deploy Staging Worker
@@ -76,6 +78,9 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
+
+      - name: TypeScript type check
+        run: npm run typecheck
 
       - name: Build vendor libs + JS bundles
         run: npm run build
