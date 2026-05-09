@@ -35,6 +35,14 @@ export default function CouponInput({ tier, email, onApplied, onCleared, applied
       inputRef.current?.focus();
       return;
     }
+    if (trimmed.length < 3) {
+      setError('Kode promo minimal 3 karakter');
+      return;
+    }
+    if (!/^[A-Z0-9_\-]+$/.test(trimmed)) {
+      setError('Kode promo hanya boleh berisi huruf, angka, - atau _');
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -124,7 +132,12 @@ export default function CouponInput({ tier, email, onApplied, onCleared, applied
           ref={inputRef}
           type="text"
           value={code}
-          onChange={e => { setCode(e.target.value.toUpperCase()); setError(null); }}
+          onChange={e => {
+            // Strip any character that isn't alphanumeric, dash, or underscore
+            const sanitized = e.target.value.replace(/[^A-Za-z0-9_\-]/g, '').toUpperCase();
+            setCode(sanitized);
+            setError(null);
+          }}
           onKeyDown={handleKeyDown}
           placeholder="Punya kode promo?"
           maxLength={64}

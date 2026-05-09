@@ -23,7 +23,7 @@ const BENEFITS = [
 export default function Home() {
   const [showStickyBar, setShowStickyBar]     = useState(false);
   const [stickyDismissed, setStickyDismissed] = useState(false);
-  const footerRef    = useRef<HTMLElement | null>(null);
+  const footerRef    = useRef<HTMLElement>(null);
   // Tracks whether the scroll threshold was reached — prevents the observer
   // from prematurely re-showing the bar before the scroll handler fires.
   const barEnabledRef = useRef(false);
@@ -51,7 +51,7 @@ export default function Home() {
           setShowStickyBar(true);
         }
       },
-      { threshold: 0.1 },
+      { threshold: 0, rootMargin: '0px 0px 80px 0px' },
     );
     obs.observe(footerRef.current);
     return () => obs.disconnect();

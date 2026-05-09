@@ -2110,6 +2110,23 @@ describe('POST /validate-coupon', () => {
     expect(body.message).toMatch(/paket/i);
   });
 
+  it('rejects coupon code with injection characters → 400', async () => {
+    const injectionCodes = [
+      '<script>alert(1)</script>',
+      "'; DROP TABLE sessions;--",
+      'CODE WITH SPACES',
+      'CODE\nNEWLINE',
+      'CODE\ttab',
+      '../../etc/passwd',
+    ];
+    for (const code of injectionCodes) {
+      const res = await post('/validate-coupon', { coupon_code: code, tier: 'single' });
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.valid).toBe(false);
+    }
+  });
+
   it('returns valid=false when Mayar says coupon is invalid', async () => {
     fetchMock
       .get('https://api.mayar.club')

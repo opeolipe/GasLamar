@@ -22,7 +22,7 @@ export function logMayarEnvironment(env) {
     environment: env.ENVIRONMENT ?? 'sandbox',
     apiUrl: getMayarApiUrl(env),
     key_present: !!apiKey,
-    key_prefix: apiKey ? apiKey.substring(0, 6) + '…' : null,
+    key_prefix: apiKey ? apiKey.substring(0, 3) + '…' : null,
   }));
 }
 
