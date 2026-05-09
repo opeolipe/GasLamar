@@ -9,7 +9,6 @@ interface Props {
   onAcceptSuggestion?: () => void;
   isDisposable?:       boolean;
   isConfirmed?:        boolean;
-  // Confirm-email props
   confirmEmail:        string;
   onConfirmChange:     (value: string) => void;
   onConfirmBlur?:      () => void;
@@ -36,16 +35,15 @@ export default function EmailCapture({
 
   const borderColor = error ? '#DC2626' : isConfirmed ? '#16A34A' : '#CBD5E1';
 
-  // Only one message at a time — priority: error > suggestion > disposable > confirmed
   const showSuggestion = !error && !!suggestion;
   const showDisposable = !error && !suggestion && !!isDisposable;
-  const showConfirmed  = !error && !suggestion && !isDisposable && !!isConfirmed;
 
-  // Confirm field display — suppress when primary has error or suggestion
   const showConfirmError   = !error && !suggestion && !!confirmError;
   const showConfirmSuccess = !error && !suggestion && !!isConfirmed && !!emailsMatch && !!confirmTouched;
-
   const confirmBorderColor = showConfirmError ? '#DC2626' : showConfirmSuccess ? '#16A34A' : '#CBD5E1';
+
+  // Confirm field only reveals once the primary email is valid (no error, no suggestion)
+  const showConfirmField = !!isConfirmed && !error && !suggestion;
 
   const inputStyle: React.CSSProperties = {
     width:        '100%',
@@ -70,10 +68,7 @@ export default function EmailCapture({
 
   return (
     <div style={{ marginBottom: '1rem' }}>
-      <label
-        htmlFor="email-capture"
-        style={labelStyle}
-      >
+      <label htmlFor="email-capture" style={labelStyle}>
         Email <span style={{ color: '#DC2626' }}>*</span>
         {isConfirmed && !error && !suggestion && (
           <span style={{ color: '#16A34A', marginLeft: '0.35rem', fontWeight: 700 }} aria-label="Email valid">✓</span>
@@ -94,7 +89,7 @@ export default function EmailCapture({
         aria-invalid={!!error}
         style={inputStyle}
       />
-      <p style={{ fontSize: '0.875rem', color: '#6B7280', marginTop: '0.4rem', margin: '0.4rem 0 0' }}>
+      <p style={{ fontSize: '0.8rem', color: '#6B7280', marginTop: '0.4rem', margin: '0.4rem 0 0' }}>
         {helper}
       </p>
       {error && (
@@ -116,7 +111,7 @@ export default function EmailCapture({
             border:       '1px solid #BFDBFE',
             borderRadius: 8,
             color:        '#1D4ED8',
-            fontSize: '0.875rem',
+            fontSize:     '0.875rem',
             fontWeight:   600,
             cursor:       'pointer',
             textAlign:    'left' as const,
@@ -132,45 +127,44 @@ export default function EmailCapture({
         </p>
       )}
 
-      {/* Confirm email field — always visible */}
-      <div style={{ marginTop: '0.85rem' }}>
-        <label
-          htmlFor="email-confirm"
-          style={labelStyle}
-        >
-          Ketik ulang email kamu <span style={{ color: '#DC2626' }}>*</span>
-          {showConfirmSuccess && (
-            <span style={{ color: '#16A34A', marginLeft: '0.35rem', fontWeight: 700 }} aria-label="Email konfirmasi cocok">✓</span>
+      {/* Confirm field — reveals only after primary email passes validation */}
+      {showConfirmField && (
+        <div style={{ marginTop: '0.85rem' }}>
+          <label htmlFor="email-confirm" style={labelStyle}>
+            Ketik ulang email kamu <span style={{ color: '#DC2626' }}>*</span>
+            {showConfirmSuccess && (
+              <span style={{ color: '#16A34A', marginLeft: '0.35rem', fontWeight: 700 }} aria-label="Email konfirmasi cocok">✓</span>
+            )}
+          </label>
+          <input
+            id="email-confirm"
+            ref={confirmRef}
+            type="email"
+            inputMode="email"
+            autoCapitalize="off"
+            data-testid="email-confirm-input"
+            value={confirmEmail}
+            onChange={e => onConfirmChange(e.target.value)}
+            onBlur={onConfirmBlur}
+            onPaste={onConfirmPaste}
+            placeholder="contoh@email.com"
+            autoComplete="email"
+            aria-label="Konfirmasi alamat email"
+            aria-invalid={showConfirmError}
+            style={{ ...inputStyle, border: `1.5px solid ${confirmBorderColor}` }}
+          />
+          {showConfirmError && (
+            <p role="alert" style={{ color: '#DC2626', fontSize: '0.875rem', marginTop: '0.4rem', fontWeight: 500 }}>
+              ⚠️ {confirmError}
+            </p>
           )}
-        </label>
-        <input
-          id="email-confirm"
-          ref={confirmRef}
-          type="email"
-          inputMode="email"
-          autoCapitalize="off"
-          data-testid="email-confirm-input"
-          value={confirmEmail}
-          onChange={e => onConfirmChange(e.target.value)}
-          onBlur={onConfirmBlur}
-          onPaste={onConfirmPaste}
-          placeholder="contoh@email.com"
-          autoComplete="email"
-          aria-label="Konfirmasi alamat email"
-          aria-invalid={showConfirmError}
-          style={{ ...inputStyle, border: `1.5px solid ${confirmBorderColor}` }}
-        />
-        {showConfirmError && (
-          <p role="alert" style={{ color: '#DC2626', fontSize: '0.875rem', marginTop: '0.4rem', fontWeight: 500 }}>
-            ⚠️ {confirmError}
-          </p>
-        )}
-        {showConfirmSuccess && (
-          <p style={{ color: '#16A34A', fontSize: '0.875rem', marginTop: '0.4rem', fontWeight: 500 }}>
-            ✓ Email sudah cocok
-          </p>
-        )}
-      </div>
+          {showConfirmSuccess && (
+            <p style={{ color: '#16A34A', fontSize: '0.875rem', marginTop: '0.4rem', fontWeight: 500 }}>
+              ✓ Email sudah cocok
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
