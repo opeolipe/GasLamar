@@ -441,6 +441,7 @@ export default function Download() {
       </main>
 
       <footer className="text-center py-8 text-sm text-slate-400">
+        <p className="mb-3 text-slate-400">GasLamar · Bantu HR lebih notice kamu</p>
         <a href="privacy.html"      className="text-slate-500 no-underline hover:underline mx-2">Kebijakan Privasi</a>
         ·
         <a href="terms.html"        className="text-slate-500 no-underline hover:underline mx-2">Syarat Layanan</a>

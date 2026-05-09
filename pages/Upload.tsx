@@ -441,6 +441,7 @@ export default function Upload() {
       </main>
 
       <footer className="text-center py-6 text-sm text-slate-400">
+        <p className="mb-3 text-slate-400">GasLamar · Bantu kamu lebih pede apply</p>
         <a href="privacy.html" className="text-slate-400 underline hover:text-slate-600 mx-2">Kebijakan Privasi</a>
         ·
         <a href="terms.html" className="text-slate-400 underline hover:text-slate-600 mx-2">Syarat Layanan</a>
