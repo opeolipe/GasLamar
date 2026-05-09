@@ -2,7 +2,7 @@ import { jsonResponseWithCookie } from '../cors.js';
 import { jsonResponse } from '../cors.js';
 import { clientIp, sha256Full, log } from '../utils.js';
 import { checkRateLimit, rateLimitResponse } from '../rateLimit.js';
-import { TIER_CREDITS, SESSION_TTL_MULTI } from '../constants.js';
+import { TIER_CREDITS, SESSION_TTL_MULTI, VALID_TIERS } from '../constants.js';
 import { createMayarInvoice, logMayarEnvironment } from '../mayar.js';
 import { createSession } from '../sessions.js';
 import { makeSessionCookie } from '../cookies.js';
@@ -38,7 +38,7 @@ export async function handleCreatePayment(request, env) {
   // Validate tier first — gives a specific rejection for unknown tiers regardless of
   // whether cv_text_key is also missing, preventing the ambiguous "Data tidak lengkap"
   // response that would otherwise mask an invalid tier name.
-  if (!tier || !['coba', 'single', '3pack', 'jobhunt'].includes(tier)) {
+  if (!tier || !VALID_TIERS.includes(tier)) {
     return jsonResponse({ message: 'Tier tidak valid' }, 400, request, env);
   }
 
@@ -172,6 +172,6 @@ export async function handleCreatePayment(request, env) {
     // (network failures, validation errors). This allows the user to retry safely.
     await env.GASLAMAR_SESSIONS.delete(invoiceLockKey).catch(() => {});
     console.error(JSON.stringify({ event: 'create_payment_failed', error: e.message, tier }));
-    return jsonResponse({ message: e.message || 'Gagal membuat invoice' }, 500, request, env);
+    return jsonResponse({ message: 'Gagal membuat invoice. Coba lagi atau hubungi support@gaslamar.com.' }, 500, request, env);
   }
 }

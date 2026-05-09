@@ -116,6 +116,11 @@ const BANNED_OUTPUT_PHRASES = [
   'add specific tools',
 ];
 
+// Pre-escaped at module load — avoids re-escaping on every postProcessCV() call.
+const BANNED_OUTPUT_REGEXES = BANNED_OUTPUT_PHRASES.map(
+  phrase => new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')
+);
+
 // ── Metric helpers ────────────────────────────────────────────────────────────
 
 function extractMetrics(text) {
@@ -480,10 +485,9 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
   // Step 1b: strip any remaining LLM placeholder brackets from ALL lines
   result = result.replace(/\[[^\]]{1,60}\]/g, '').replace(/[ \t]{2,}/g, ' ');
 
-  // Step 1c: strip banned output phrases (AI artifacts)
-  for (const phrase of BANNED_OUTPUT_PHRASES) {
-    const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    result = result.replace(new RegExp(escaped, 'gi'), '');
+  // Step 1c: strip banned output phrases (AI artifacts) — regexes pre-compiled at module load
+  for (const re of BANNED_OUTPUT_REGEXES) {
+    result = result.replace(re, '');
   }
   result = result.replace(/[ \t]{2,}/g, ' ');
 

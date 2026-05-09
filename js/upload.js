@@ -70,7 +70,7 @@ function processFile(file) {
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'text/plain',
   ];
-  const validExts = ['.pdf', '.docx', '.txt'];
+  const validExts = ['.pdf', '.docx', '.txt'].map(e => e.toLowerCase());
   const ext = '.' + file.name.split('.').pop().toLowerCase();
 
   if (!validExts.includes(ext) && !validTypes.includes(file.type)) {
@@ -509,11 +509,16 @@ function hideError(id) {
     }
   }
 
-  // Restore JD draft — unescape from storage format back to raw text for display
-  const savedJd = sessionStorage.getItem('gaslamar_jd_draft');
-  if (savedJd) {
-    document.getElementById('job-desc').value = unescapeHtml(savedJd);
-    updateCharCount();
+  // Restore JD draft — unescape from storage format back to raw text for display.
+  // Try-catch: sessionStorage value may be corrupted (truncated write, encoding error).
+  try {
+    const savedJd = sessionStorage.getItem('gaslamar_jd_draft');
+    if (savedJd) {
+      document.getElementById('job-desc').value = unescapeHtml(savedJd);
+      updateCharCount();
+    }
+  } catch (_) {
+    sessionStorage.removeItem('gaslamar_jd_draft');
   }
 
   // Restore CV state: prefer post-analysis data (gaslamar_cv_pending), fall back to

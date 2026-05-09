@@ -70,6 +70,8 @@ export function getSessionIdFromCookie(request) {
  */
 export function makeSessionCookie(sessionId, isMulti = false) {
   const maxAge = isMulti ? 2592000 : 604800;
+  // SameSite=None; Secure is safe here: Cloudflare Workers only accept HTTPS connections,
+  // so the Secure flag is always satisfied. No explicit HTTPS check is needed.
   return `session_id=${sessionId}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${maxAge}`;
 }
 
