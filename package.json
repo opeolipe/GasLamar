@@ -6,7 +6,8 @@
     "build:vendor": "node scripts/vendor.js",
     "build:js": "node scripts/build.js",
     "build:react": "node scripts/build-react.js",
-    "build": "npm run build:vendor && npm run build:js && npm run build:react",
+    "build:csp": "node scripts/update-csp-hash.js",
+    "build": "npm run build:csp && npm run build:vendor && npm run build:js && npm run build:react",
     "dev": "node scripts/build.js --watch",
     "start": "npx serve . -p 3000"
   },
