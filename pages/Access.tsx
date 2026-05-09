@@ -91,8 +91,7 @@ export default function Access() {
   }
 
   function handleEmailPaste() {
-    // Security: force user to manually type the confirm field
-    setTimeout(() => confirmEmailRef.current?.focus(), 0);
+    // confirm field auto-focuses via useEffect when it slides into view
   }
 
   function handleConfirmEmailChange(value: string) {
