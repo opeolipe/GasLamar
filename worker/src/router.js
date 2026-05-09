@@ -128,7 +128,7 @@ export async function route(request, env, ctx) {
       return jsonResponse({ ok: false, message: 'Payload terlalu besar' }, 413, request, env);
     }
     const rawBody = contentType.includes('application/json')
-      ? (() => { try { return JSON.parse(bodyText); } catch { return {}; } })()
+      ? (() => { try { const p = JSON.parse(bodyText); return (p !== null && typeof p === 'object' && !Array.isArray(p)) ? p : {}; } catch { return {}; } })()
       : { raw: bodyText };
     // Sanitize all string values before writing to logs to prevent log injection
     const body = Object.fromEntries(
