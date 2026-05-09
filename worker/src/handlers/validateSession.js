@@ -20,7 +20,11 @@ export async function handleValidateSession(request, env) {
   const ip = clientIp(request);
   if (stored.ip && stored.ip !== ip) {
     log('validate_session_ip_mismatch', { ip, stored_ip: stored.ip });
-    // Soft check — log only, don't reject display-only validation
+    // Intentional log-only: this endpoint is display-only (scoring page freshness check).
+    // IPs legitimately change with mobile handoffs, carrier-grade NAT, IPv4→IPv6 transitions,
+    // and VPNs — rejecting here would silently break the scoring page for a large portion
+    // of mobile users.  The authoritative IP-binding check is in /create-payment, which is
+    // the only endpoint with real security consequences.
   }
 
   return jsonResponse({ valid: true }, 200, request, env);

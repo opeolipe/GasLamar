@@ -52,7 +52,9 @@ export async function handleCreatePayment(request, env) {
   }
   const stored = await env.GASLAMAR_SESSIONS.get(cv_text_key, { type: 'json' });
   if (!stored || !stored.text) {
-    return jsonResponse({ message: 'Sesi analisis kedaluwarsa. Ulangi upload CV.' }, 400, request, env);
+    // M22: Include a stable machine-readable code so the client can branch on it
+    // without depending on the Indonesian message text (which can change).
+    return jsonResponse({ message: 'Sesi analisis kedaluwarsa. Ulangi upload CV.', code: 'cv_expired' }, 400, request, env);
   }
 
   // IP-binding check — reject if the key was created from a different network.

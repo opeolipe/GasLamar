@@ -38,7 +38,7 @@ import { sha256Hex }     from './utils.js';
 //                   Bump EXTRACT_CACHE_VERSION when changing pipeline/extract.js or prompts/extract.js.
 // Stale KV entries with old version prefixes are ignored automatically.
 const EXTRACT_CACHE_VERSION  = 'v2'; // current key: extract_v2_<hash>
-const ANALYSIS_CACHE_VERSION = 'v7'; // current key: analysis_v7_<hash> (bumped: red-flag penalty always stored in cache)
+const ANALYSIS_CACHE_VERSION = 'v7'; // current key: analysis_v7_<hash> (bumped: red-flag penalty now applied at write time; old v6 entries must be invalidated to prevent double-penalty on cache hits)
 
 // ---- Orchestrator ----
 
@@ -48,9 +48,11 @@ export async function analyzeCV(cvText, jobDesc, env) {
   const cacheKey = `analysis_${ANALYSIS_CACHE_VERSION}_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
   const cached = await env.GASLAMAR_SESSIONS.get(cacheKey, { type: 'json' });
   if (cached) {
-    // Cache entries written by this version always have the penalty pre-applied
-    // (applyRedFlagPenalty is called before the KV write at line ~161).
-    // No post-read patching is needed; bumping to v7 evicts pre-fix v6 entries.
+    // Cache entries written by v7+ always contain the correctly-penalised skor.
+    // The penalty is applied at write time (below) so there is nothing to patch here.
+    // NOTE: Do NOT re-apply applyRedFlagPenalty() on cache hits — the penalty is NOT
+    // idempotent. Calling it twice subtracts the penalty a second time, producing scores
+    // that get lower on every repeated request for the same CV+JD pair.
     return cached;
   }
 
@@ -155,7 +157,14 @@ export async function analyzeCV(cvText, jobDesc, env) {
     applyRedFlagPenalty(scoring);
   }
 
-  // Legacy backward-compat fields
+  // Legacy backward-compat fields — kept for clients that still read the old shape.
+  // These are NOT independently scored dimensions; they are projections of existing 6D scores
+  // using multipliers chosen to match the scale of the original pre-6D scoring system:
+  //   skor_relevansi    ≈ north_star × 4    (north_star is 0–25, old relevansi was 0–100)
+  //   skor_requirements ≈ recruiter_signal × 3 (old requirements was 0–30 out of a 100-pt scale)
+  //   skor_kualitas     ≈ portfolio × 2       (old kualitas was 0–20)
+  //   skor_keywords     ≈ recruiter_signal     (raw, maps 0–10 to an informal keyword score)
+  // Do not add new scoring logic here — use skor_6d instead.
   scoring.skor_relevansi    = skor_6d.north_star * 4;
   scoring.skor_requirements = Math.round(skor_6d.recruiter_signal * 3);
   scoring.skor_kualitas     = Math.round(skor_6d.portfolio * 2);

@@ -30,8 +30,10 @@ function matchSkills(cvSkillsStr, jdSkills) {
  */
 function extractExperienceYears(angkaDiCv) {
   if (!angkaDiCv || angkaDiCv === 'NOL ANGKA') return null;
-  const m = angkaDiCv.match(/(\d+(?:\.\d+)?)\s*\+?\s*tahun/i);
-  return m ? parseFloat(m[1]) : null;
+  // M11: Accept comma-decimal format ("10,5 tahun") common in Indonesian text.
+  const m = angkaDiCv.match(/(\d+(?:[.,]\d+)?)\s*\+?\s*tahun/i);
+  if (!m) return null;
+  return parseFloat(m[1].replace(',', '.'));
 }
 
 /**

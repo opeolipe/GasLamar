@@ -25,22 +25,29 @@ function parseDiagnoseJSON(rawText) {
     return JSON.parse(cleaned);
   } catch (_) {}
 
-  // 3. Fallback: extract first {...} block in case Claude added preamble/postamble
-  const match = cleaned.match(/\{[\s\S]*\}/);
-  if (match) {
-    try {
-      return JSON.parse(match[0]);
-    } catch (_) {}
+  // 3. Fallback: extract first balanced {...} block (M15 fix — same as extract.js).
+  const firstBrace = cleaned.indexOf('{');
+  if (firstBrace >= 0) {
+    let depth = 0, end = -1;
+    for (let i = firstBrace; i < cleaned.length; i++) {
+      if (cleaned[i] === '{') depth++;
+      else if (cleaned[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
+    }
+    if (end >= 0) {
+      try {
+        return JSON.parse(cleaned.slice(firstBrace, end + 1));
+      } catch (_) {}
+    }
   }
 
-  // 4. Nothing worked — log diagnostic snippet and throw retryable error
-  const e = new SyntaxError('no valid JSON object found');
-  const pos = Number(e.message.match(/position (\d+)/)?.[1] ?? -1);
+  // 4. Nothing worked — log diagnostic snippet and throw retryable error.
+  // M12: The error is always 'no valid JSON object found' (no position X in the message)
+  // so the pos >= 0 branch was dead code. Always show last 80 chars for the snippet.
   console.error(JSON.stringify({
     event: 'diagnose_json_parse_error',
-    error: e.message,
+    error: 'no valid JSON object found',
     raw_length: cleaned.length,
-    snippet: pos >= 0 ? cleaned.slice(Math.max(0, pos - 40), pos + 40) : cleaned.slice(-80),
+    snippet: cleaned.slice(-80),
   }));
   throw new Error('INVALID_JSON');
 }
@@ -115,12 +122,15 @@ function buildUserMessage(extractedData, analysisResult, scoreResult, roleInfere
   // Optional role context block — injected when role inference has run.
   // The LLM uses this to phrase recommendations that fit the candidate's actual role
   // rather than generic advice.  Confidence < 0.6 is still shown but flagged as low.
+  // M13: Strip newlines from role inference fields before injecting into LLM template.
+  // Malformed seniority / industry values containing \n could corrupt the prompt structure.
+  const sanitizeField = v => (typeof v === 'string' ? v.replace(/[\r\n]+/g, ' ').trim() : String(v ?? ''));
   const roleBlock = roleInferenceResult
     ? `\nrole_context:
-inferred_role: ${roleInferenceResult.role}
-confidence: ${roleInferenceResult.confidence}
-seniority: ${roleInferenceResult.seniority}
-industry: ${roleInferenceResult.industry}
+inferred_role: ${sanitizeField(roleInferenceResult.role)}
+confidence: ${sanitizeField(roleInferenceResult.confidence)}
+seniority: ${sanitizeField(roleInferenceResult.seniority)}
+industry: ${sanitizeField(roleInferenceResult.industry)}
 `
     : '';
 
