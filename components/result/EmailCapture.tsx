@@ -3,7 +3,7 @@ interface Props {
   email:               string;
   onChange:            (value: string) => void;
   onBlur?:             () => void;
-  onPaste?:            () => void;
+  onPaste?:            (value: string) => void;
   error?:              string;
   suggestion?:         string | null;
   onAcceptSuggestion?: () => void;
@@ -82,7 +82,7 @@ export default function EmailCapture({
         value={email}
         onChange={e => onChange(e.target.value)}
         onBlur={onBlur}
-        onPaste={onPaste}
+        onPaste={e => onPaste?.(e.clipboardData.getData('text'))}
         placeholder="contoh@email.com"
         autoComplete="email"
         aria-label="Alamat email untuk konfirmasi pembayaran"

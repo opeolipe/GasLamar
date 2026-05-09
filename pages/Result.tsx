@@ -164,8 +164,32 @@ export default function Result() {
     setConfirmError('');
   }
 
-  function handleEmailPaste() {
-    setTimeout(() => confirmEmailRef.current?.focus(), 0);
+  function handleEmailPaste(pastedValue: string) {
+    const trimmed = pastedValue.trim();
+    if (!trimmed) return;
+    // Clear any pending blur timer so we don't double-validate
+    if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+    // Sync state with pasted value
+    setEmail(trimmed);
+    setEmailError('');
+    setEmailSuggestion(suggestEmailFix(trimmed));
+    setEmailIsDisposable(false);
+    setEmailIsConfirmed(false);
+    setConfirmError('');
+    // Validate after paste settles, then auto-advance to confirm field if valid
+    setTimeout(() => {
+      const result = validateEmail(trimmed);
+      setEmailError(result.error ?? '');
+      setEmailSuggestion(result.suggestion);
+      setEmailIsDisposable(result.isDisposable);
+      setEmailIsConfirmed(result.valid && !result.suggestion);
+      if (result.valid && !result.suggestion) {
+        setTimeout(() => {
+          confirmEmailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          confirmEmailRef.current?.focus();
+        }, 50);
+      }
+    }, 50);
   }
 
   function handleConfirmEmailChange(value: string) {
@@ -245,7 +269,10 @@ export default function Result() {
     }
 
     const cvTextKey = sessionStorage.getItem('gaslamar_cv_key');
-    if (!cvTextKey) { alert('Data CV tidak ditemukan. Mohon upload CV kamu kembali.'); window.location.href = 'upload.html'; return; }
+    if (!cvTextKey) {
+      setPaymentError('Data CV tidak ditemukan. Silakan upload CV kamu kembali.');
+      return;
+    }
 
     const emailValidation = validateEmail(email);
     if (!emailValidation.valid || emailValidation.suggestion) {
@@ -253,6 +280,7 @@ export default function Result() {
       setEmailSuggestion(emailValidation.suggestion);
       setEmailIsConfirmed(false);
       ;(window as any).Analytics?.track?.('email_validation_failed', { reason: emailValidation.suggestion ? 'typo_domain' : 'invalid_format' });
+      document.getElementById('email-capture')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
     setEmailError('');
@@ -261,6 +289,7 @@ export default function Result() {
     if (confirmEmail.trim().toLowerCase() !== email.trim().toLowerCase()) {
       setConfirmTouched(true);
       setConfirmError('Email tidak sama. Periksa kembali');
+      confirmEmailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       confirmEmailRef.current?.focus();
       return;
     }
@@ -378,24 +407,24 @@ export default function Result() {
     countdown.variant === 'expired' ? 'expired' :
     countdown.variant === 'warning' ? 'warning' : 'info';
 
-  // ── InfoStrip content: merge countdown + role context ────────────────────
-  function buildStripText(): React.ReactNode | null {
+  // ── InfoStrip content: countdown takes priority; role is secondary ────────
+  // JD mode note is intentionally omitted — too verbose for a status strip.
+  const stripText: React.ReactNode | null = (() => {
     const parts: string[] = [];
     if (countdown.text) parts.push(countdown.text);
     if (data?.inferred_role) {
-      const roleLabel = ROLE_LABELS[data.inferred_role] ?? data.inferred_role;
-      const industryLabel = data.inferred_industry && data.inferred_industry !== 'General' ? ` (${data.inferred_industry})` : '';
-      const confidence = data.inferred_confidence ?? 0;
-      if (confidence >= 0.6) {
-        parts.push(`CV dinilai sebagai ${roleLabel}${industryLabel}`);
-      } else {
-        parts.push('Dioptimalkan berdasarkan pengalaman yang terdeteksi');
-      }
-      if (data.jd_mode === 'inferred') parts.push('JD kurang detail — optimasi berdasarkan profil');
+      const roleLabel     = ROLE_LABELS[data.inferred_role] ?? data.inferred_role;
+      const industryLabel = data.inferred_industry && data.inferred_industry !== 'General'
+        ? ` (${data.inferred_industry})` : '';
+      const confidence    = data.inferred_confidence ?? 0;
+      parts.push(
+        confidence >= 0.6
+          ? `CV dinilai sebagai ${roleLabel}${industryLabel}`
+          : 'Dioptimalkan berdasarkan pengalaman yang terdeteksi',
+      );
     }
-    if (parts.length === 0) return null;
-    return parts.join(' • ');
-  }
+    return parts.length > 0 ? parts.join(' • ') : null;
+  })();
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -457,10 +486,10 @@ export default function Result() {
               </div>
             </header>
 
-            {/* Single status strip — merges countdown + role context */}
-            {buildStripText() && (
+            {/* Single status strip — countdown + role context */}
+            {stripText && (
               <InfoStrip type={stripType}>
-                {buildStripText()}
+                {stripText}
               </InfoStrip>
             )}
 
