@@ -276,6 +276,12 @@ export default function Result() {
 
         if (pending.invoice_url && notExpired) {
           if (tierMatches && noNewUpload) {
+            // Defence-in-depth: re-validate protocol even though the URL was
+            // already checked as HTTPS at storage time. Throws on failure so
+            // the outer catch clears the stale invoice and falls through.
+            let urlSafe = false;
+            try { urlSafe = new URL(pending.invoice_url).protocol === 'https:'; } catch (_) {}
+            if (!urlSafe) throw new Error('invalid_invoice_url');
             setPayBtnOverride('Mengalihkan ke halaman pembayaran...');
             window.location.href = pending.invoice_url;
             return;
@@ -283,8 +289,10 @@ export default function Result() {
           if (!tierMatches && !currentCvKey) {
             // User changed tier but cv_text_key is already consumed — can't create a new invoice.
             // Keep the pending invoice so they can still pay with the original tier by re-selecting it.
-            const origLabel = pending.tier
-              ? (TIER_CONFIG[pending.tier]?.label ?? pending.tier)
+            // Only use the label from the known-good TIER_CONFIG map — never
+            // render a raw sessionStorage string directly in the UI.
+            const origLabel = (pending.tier && TIER_CONFIG[pending.tier])
+              ? TIER_CONFIG[pending.tier].label
               : 'paket sebelumnya';
             setPaymentError(
               `Invoice sudah dibuat untuk "${origLabel}". Pilih paket itu untuk melanjutkan, ` +
