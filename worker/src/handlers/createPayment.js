@@ -80,7 +80,7 @@ export async function handleCreatePayment(request, env) {
   const credits = TIER_CREDITS[tier] ?? 1;
 
   // Compute secret hash — only store it if the client provided a secret
-  const secretHash = (rawSecret && typeof rawSecret === 'string' && rawSecret.length <= 256)
+  const secretHash = (rawSecret && typeof rawSecret === 'string' && rawSecret.length >= 16 && rawSecret.length <= 256)
     ? await sha256Full(rawSecret)
     : null;
 
