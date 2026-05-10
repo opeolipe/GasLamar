@@ -40,21 +40,21 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const CARD_STYLE: React.CSSProperties = {
-  background:     'rgba(255,255,255,0.88)',
+  background:     'rgba(255,255,255,0.92)',
   borderRadius:   24,
-  boxShadow:      '0 18px 44px rgba(15,23,42,0.08)',
-  padding:        '1.5rem',
+  boxShadow:      '0 18px 44px rgba(15,23,42,0.07), 0 1px 2px rgba(15,23,42,0.04)',
+  padding:        '2rem',
   border:         '1px solid rgba(148,163,184,0.14)',
   backdropFilter: 'blur(14px)',
-  marginBottom:   '1.25rem',
+  marginBottom:   '1.5rem',
 };
 
 const SECTION_HEADING: React.CSSProperties = {
-  fontSize:     '1.05rem',
-  fontWeight:   700,
-  color:        '#0F172A',
-  margin:       '0 0 1rem',
-  lineHeight:   1.3,
+  fontSize:      '1.1rem',
+  fontWeight:    700,
+  color:         '#0F172A',
+  margin:        '0 0 1.25rem',
+  lineHeight:    1.3,
   letterSpacing: '-0.01em',
 };
 
@@ -497,7 +497,8 @@ export default function Result() {
         </a>
       </nav>
 
-      <main id="main-content" className="max-w-[980px] mx-auto px-4 sm:px-6 py-8 pb-20">
+      {/* ── Single-column page container ── */}
+      <main id="main-content" className="mx-auto px-5 sm:px-8 py-8 pb-20" style={{ maxWidth: 1040 }}>
 
         {/* ── Loading ── */}
         {loading && (
@@ -523,61 +524,64 @@ export default function Result() {
         {/* ── Main results ── */}
         {data && !loading && !error && (
           <>
-            {/* Breadcrumb — full width */}
+            {/* Breadcrumb */}
             <div style={{ textAlign: 'center', marginBottom: '0.75rem', fontSize: '0.78rem', color: '#94A3B8', fontWeight: 500 }}>
               CV dianalisis berdasarkan posisi yang kamu incar
             </div>
 
-            {/* Status strip — full width */}
+            {/* Status strip */}
             {stripText && (
               <InfoStrip type={stripType}>
                 {stripText}
               </InfoStrip>
             )}
 
-            {/* ── Two-column layout on desktop ── */}
-            <div className="lg:grid lg:grid-cols-[300px_1fr] lg:gap-6 lg:items-start">
+            {/* ── SECTION 1: Score Summary Hero (full width) ── */}
+            <div style={CARD_STYLE} data-testid="result-score">
+              <div style={{
+                display:        'flex',
+                gap:            '2rem',
+                alignItems:     'center',
+                flexWrap:       'wrap',
+              }}>
 
-              {/* ── LEFT: Sticky score card ── */}
-              <div className="lg:sticky lg:top-[68px]">
-                <div style={CARD_STYLE} data-testid="result-score">
-                  {/* Score ring */}
+                {/* Score ring */}
+                <div style={{ flexShrink: 0 }}>
                   <ScoreDisplay score={data.skor} />
+                </div>
 
-                  {/* Score context */}
-                  <div style={{ textAlign: 'center', marginTop: '0.15rem', marginBottom: '0.85rem' }}>
-                    <p style={{ fontSize: '0.95rem', fontWeight: 700, color: '#111827', margin: '0 0 0.4rem', lineHeight: 1.4 }}>
-                      {scoreHeadline(data.skor)}
-                    </p>
-                    <p style={{ fontSize: '0.83rem', color: '#64748B', margin: 0, lineHeight: 1.6, padding: '0 0.25rem' }}>
-                      {verdictDesc(data.veredict, data.skor)}
-                    </p>
-                  </div>
+                {/* Headline + description */}
+                <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+                  <p style={{ fontSize: '1.2rem', fontWeight: 700, color: '#111827', margin: '0 0 0.5rem', lineHeight: 1.35 }}>
+                    {scoreHeadline(data.skor)}
+                  </p>
+                  <p style={{ fontSize: '0.92rem', color: '#64748B', margin: 0, lineHeight: 1.7 }}>
+                    {verdictDesc(data.veredict, data.skor)}
+                  </p>
+                </div>
 
-                  {/* Upgrade projection */}
+                {/* Projection + CTA */}
+                <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '0.85rem', minWidth: 180 }}>
                   {data.skor_sesudah !== undefined && (
                     <div style={{
                       background:   'rgba(34,197,94,0.05)',
-                      border:       '1px solid rgba(34,197,94,0.15)',
-                      borderRadius: 14,
-                      padding:      '0.9rem 1rem',
-                      marginBottom: '1rem',
+                      border:       '1px solid rgba(34,197,94,0.18)',
+                      borderRadius: 16,
+                      padding:      '0.9rem 1.2rem',
                       textAlign:    'center',
                     }}>
-                      <p style={{ fontSize: '0.72rem', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.3rem' }}>
+                      <p style={{ fontSize: '0.68rem', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.25rem' }}>
                         Kalau diperbaiki
                       </p>
-                      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 3 }}>
-                        <span style={{ fontSize: '2.4rem', fontWeight: 800, color: '#16A34A', lineHeight: 1 }}>{data.skor_sesudah}</span>
-                        <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#22C55E' }}>%</span>
+                      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 2 }}>
+                        <span style={{ fontSize: '2.2rem', fontWeight: 800, color: '#16A34A', lineHeight: 1 }}>{data.skor_sesudah}</span>
+                        <span style={{ fontSize: '1rem', fontWeight: 700, color: '#22C55E' }}>%</span>
                       </div>
-                      <p style={{ fontSize: '0.75rem', color: '#16A34A', margin: '0.2rem 0 0', fontWeight: 400 }}>
+                      <p style={{ fontSize: '0.72rem', color: '#16A34A', margin: '0.15rem 0 0', fontWeight: 400 }}>
                         kalau gap utama diperbaiki
                       </p>
                     </div>
                   )}
-
-                  {/* Primary CTA */}
                   <a
                     href="#gap-section"
                     style={{
@@ -585,146 +589,145 @@ export default function Result() {
                       background:     'linear-gradient(180deg,#3b82f6,#1d4ed8)',
                       color:          'white',
                       fontWeight:     700,
-                      fontSize:       '0.9rem',
-                      padding:        '0.65rem 1.5rem',
+                      fontSize:       '0.88rem',
+                      padding:        '0.7rem 1.25rem',
                       borderRadius:   60,
                       textDecoration: 'none',
                       boxShadow:      '0 4px 14px rgba(37,99,235,0.18)',
                       textAlign:      'center',
+                      whiteSpace:     'nowrap',
                     }}
                   >
                     Lihat cara memperbaikinya →
                   </a>
                 </div>
+
               </div>
+            </div>
 
-              {/* ── RIGHT: Insights + payment ── */}
-              <div>
+            {/* ── SECTION 2: Kenapa HR masih ragu ── */}
+            <div id="gap-section" style={{ ...CARD_STYLE, scrollMarginTop: 80 }}>
+              <h2 style={SECTION_HEADING}>Kenapa HR masih ragu</h2>
 
-                {/* ── SECTION 2: Kenapa HR masih ragu ── */}
-                <div id="gap-section" style={{ ...CARD_STYLE, scrollMarginTop: 80 }}>
-                  <h2 style={SECTION_HEADING}>Kenapa HR masih ragu</h2>
+              {(data.gap || []).length > 0 && (
+                <GapList gaps={data.gap || []} />
+              )}
 
-                  {/* Gap list */}
-                  {(data.gap || []).length > 0 && (
-                    <GapList gaps={data.gap || []} />
-                  )}
+              <RedFlags redFlags={data.red_flags || []} />
 
-                  {/* Red flags */}
-                  <RedFlags redFlags={data.red_flags || []} />
-
-                  {/* Accordion: full analysis */}
-                  {result6d && (
-                    <>
-                      <button
-                        onClick={() => setShowAllDimensions(d => !d)}
-                        style={{
-                          width:          '100%',
-                          background:     '#F8FAFC',
-                          border:         '1px solid #E2E8F0',
-                          borderRadius:   10,
-                          padding:        '0.65rem 1rem',
-                          fontSize:       '0.83rem',
-                          fontWeight:     600,
-                          color:          '#1B4FE8',
-                          cursor:         'pointer',
-                          fontFamily:     'inherit',
-                          minHeight:      44,
-                          display:        'flex',
-                          alignItems:     'center',
-                          justifyContent: 'center',
-                          gap:            6,
-                          marginTop:      '0.5rem',
-                          transition:     'background 0.15s',
-                        }}
-                      >
-                        {showAllDimensions ? 'Sembunyikan ↑' : 'Lihat analisis lengkap →'}
-                      </button>
-                      {showAllDimensions && (
-                        <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid rgba(148,163,184,0.14)' }}>
-                          {priorityWeaknesses.length > 0 && (
-                            <>
-                              <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 0.75rem' }}>
-                                Yang paling bikin HR ragu
+              {result6d && (
+                <>
+                  <button
+                    onClick={() => setShowAllDimensions(d => !d)}
+                    style={{
+                      width:          '100%',
+                      background:     '#F8FAFC',
+                      border:         '1px solid #E2E8F0',
+                      borderRadius:   10,
+                      padding:        '0.65rem 1rem',
+                      fontSize:       '0.83rem',
+                      fontWeight:     600,
+                      color:          '#1B4FE8',
+                      cursor:         'pointer',
+                      fontFamily:     'inherit',
+                      minHeight:      44,
+                      display:        'flex',
+                      alignItems:     'center',
+                      justifyContent: 'center',
+                      gap:            6,
+                      marginTop:      '0.5rem',
+                      transition:     'background 0.15s',
+                    }}
+                  >
+                    {showAllDimensions ? 'Sembunyikan ↑' : 'Lihat analisis lengkap →'}
+                  </button>
+                  {showAllDimensions && (
+                    <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid rgba(148,163,184,0.14)' }}>
+                      {priorityWeaknesses.length > 0 && (
+                        <>
+                          <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 0.75rem' }}>
+                            Yang paling bikin HR ragu
+                          </p>
+                          {priorityWeaknesses.map(dim => (
+                            <div key={dim.key} style={{
+                              padding:      '0.85rem 1rem',
+                              background:   dim.score < 4 ? '#FFF7F7' : '#FFFBEB',
+                              border:       `1px solid ${dim.score < 4 ? '#FECACA' : '#FDE68A'}`,
+                              borderRadius: 12,
+                              marginBottom: '0.65rem',
+                            }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#111827' }}>
+                                  {dim.score < 4 ? '❌' : '⚠️'} {dim.label}
+                                </span>
+                                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: dim.score < 4 ? '#DC2626' : '#92400E', flexShrink: 0, marginLeft: 8 }}>
+                                  {dim.score}/10
+                                </span>
+                              </div>
+                              <div style={{ background: dim.score < 4 ? '#FEE2E2' : '#FEF3C7', borderRadius: 3, height: 4, marginBottom: 8 }}>
+                                <div style={{
+                                  width:        `${dim.score * 10}%`,
+                                  background:   dim.score < 4 ? '#F87171' : '#F59E0B',
+                                  borderRadius: 3,
+                                  height:       4,
+                                  transition:   'width 0.7s cubic-bezier(0.22,1,0.36,1)',
+                                }} />
+                              </div>
+                              <p style={{ fontSize: '0.8rem', color: '#64748B', margin: 0, lineHeight: 1.55 }}>
+                                {dim.hint}
                               </p>
-                              {priorityWeaknesses.map(dim => (
-                                <div key={dim.key} style={{
-                                  padding:      '0.85rem 1rem',
-                                  background:   dim.score < 4 ? '#FFF7F7' : '#FFFBEB',
-                                  border:       `1px solid ${dim.score < 4 ? '#FECACA' : '#FDE68A'}`,
-                                  borderRadius: 12,
-                                  marginBottom: '0.65rem',
-                                }}>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                                    <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#111827' }}>
-                                      {dim.score < 4 ? '❌' : '⚠️'} {dim.label}
-                                    </span>
-                                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: dim.score < 4 ? '#DC2626' : '#92400E', flexShrink: 0, marginLeft: 8 }}>
-                                      {dim.score}/10
-                                    </span>
-                                  </div>
-                                  <div style={{ background: dim.score < 4 ? '#FEE2E2' : '#FEF3C7', borderRadius: 3, height: 4, marginBottom: 8 }}>
-                                    <div style={{
-                                      width:        `${dim.score * 10}%`,
-                                      background:   dim.score < 4 ? '#F87171' : '#F59E0B',
-                                      borderRadius: 3,
-                                      height:       4,
-                                      transition:   'width 0.7s cubic-bezier(0.22,1,0.36,1)',
-                                    }} />
-                                  </div>
-                                  <p style={{ fontSize: '0.8rem', color: '#64748B', margin: 0, lineHeight: 1.55 }}>
-                                    {dim.hint}
-                                  </p>
-                                </div>
-                              ))}
-                            </>
-                          )}
-                          <ScoreBars
-                            dimensions={result6d.scores}
-                            mode="full"
-                            primaryKey={result6d.primaryIssue ?? undefined}
-                          />
-                          <div style={{ marginTop: '1rem' }}>
-                            <DetailAnalysis
-                              strengths={data.kekuatan || []}
-                              hr7Data={data.hr_7_detik}
-                            />
-                          </div>
-                        </div>
+                            </div>
+                          ))}
+                        </>
                       )}
-                    </>
-                  )}
-                </div>
-
-                {/* ── SECTION 3: Yang perlu diperbaiki ── */}
-                <div style={CARD_STYLE}>
-                  <h2 style={SECTION_HEADING}>Yang perlu diperbaiki</h2>
-
-                  {(data.rekomendasi || []).length > 0 && (
-                    <div data-testid="fix-before-after" style={{ marginBottom: '1.25rem' }}>
-                      <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                        {(data.rekomendasi || []).slice(0, 3).map((r, i) => (
-                          <li key={i} style={{ fontSize: '0.875rem', color: '#111827', display: 'flex', gap: '0.6rem', alignItems: 'flex-start', lineHeight: 1.5 }}>
-                            <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 2 }}>→</span>
-                            {shortLine(r)}
-                          </li>
-                        ))}
-                      </ul>
+                      <ScoreBars
+                        dimensions={result6d.scores}
+                        mode="full"
+                        primaryKey={result6d.primaryIssue ?? undefined}
+                      />
+                      <div style={{ marginTop: '1rem' }}>
+                        <DetailAnalysis
+                          strengths={data.kekuatan || []}
+                          hr7Data={data.hr_7_detik}
+                        />
+                      </div>
                     </div>
                   )}
+                </>
+              )}
+            </div>
 
-                  {/* Rewrite CTA */}
-                  <div style={{
-                    background:   'linear-gradient(135deg, rgba(37,99,235,0.05) 0%, rgba(27,79,232,0.03) 100%)',
-                    border:       '1px solid rgba(37,99,235,0.15)',
-                    borderRadius: 16,
-                    padding:      '1.25rem',
-                    marginTop:    '1.25rem',
-                  }}>
+            {/* ── SECTION 3: Yang perlu diperbaiki ── */}
+            <div style={CARD_STYLE}>
+              <h2 style={SECTION_HEADING}>Yang perlu diperbaiki</h2>
+
+              {(data.rekomendasi || []).length > 0 && (
+                <div data-testid="fix-before-after" style={{ marginBottom: '1.25rem' }}>
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {(data.rekomendasi || []).slice(0, 3).map((r, i) => (
+                      <li key={i} style={{ fontSize: '0.9rem', color: '#111827', display: 'flex', gap: '0.65rem', alignItems: 'flex-start', lineHeight: 1.6 }}>
+                        <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 2 }}>→</span>
+                        {shortLine(r)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Rewrite CTA */}
+              <div style={{
+                background:   'linear-gradient(135deg, rgba(37,99,235,0.05) 0%, rgba(27,79,232,0.03) 100%)',
+                border:       '1px solid rgba(37,99,235,0.15)',
+                borderRadius: 16,
+                padding:      '1.5rem',
+                marginTop:    '1.25rem',
+              }}>
+                <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div style={{ flex: '1 1 220px' }}>
                     <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', margin: '0 0 0.75rem', lineHeight: 1.4 }}>
                       Mau CV kamu langsung diperbaiki?
                     </h3>
-                    <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 1rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                       {[
                         'Lebih relevan dengan posisi yang kamu incar',
                         'Bahasa Indonesia + English',
@@ -736,6 +739,8 @@ export default function Result() {
                         </li>
                       ))}
                     </ul>
+                  </div>
+                  <div style={{ flexShrink: 0, minWidth: 180 }}>
                     <button
                       onClick={() => document.getElementById('pricing-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
                       style={{
@@ -744,146 +749,147 @@ export default function Result() {
                         color:        'white',
                         border:       'none',
                         borderRadius: 60,
-                        padding:      '0.85rem',
+                        padding:      '0.9rem 1.5rem',
                         fontWeight:   700,
                         fontSize:     '1rem',
                         cursor:       'pointer',
                         fontFamily:   'inherit',
                         boxShadow:    '0 4px 14px rgba(37,99,235,0.18)',
+                        whiteSpace:   'nowrap',
                       }}
                     >
                       Perbaiki CV Saya →
                     </button>
                   </div>
                 </div>
+              </div>
+            </div>
 
-                {/* ── PRICING ── */}
-                <div id="pricing-section" style={{ scrollMarginTop: 80, ...CARD_STYLE }}>
-                  <PricingSelector
-                    selectedTier={selectedTier}
-                    onSelect={handleTierSelect}
-                    score={data.skor}
-                    hasError={tierError}
-                  />
+            {/* ── SECTION 4: Pricing ── */}
+            <div id="pricing-section" style={{ scrollMarginTop: 80, ...CARD_STYLE }}>
+              <PricingSelector
+                selectedTier={selectedTier}
+                onSelect={handleTierSelect}
+                score={data.skor}
+                hasError={tierError}
+              />
 
-                  {tierError && !selectedTier && (
-                    <div
-                      role="alert"
-                      style={{
-                        marginTop:    '-0.5rem',
-                        marginBottom: '1rem',
-                        padding:      '0.6rem 0.9rem',
-                        background:   '#FEF2F2',
-                        border:       '1px solid #FECACA',
-                        borderRadius: 10,
-                        fontSize:     '0.85rem',
-                        fontWeight:   600,
-                        color:        '#DC2626',
-                        display:      'flex',
-                        alignItems:   'center',
-                        gap:          6,
-                      }}
-                    >
-                      ↑ Pilih dulu paketnya sebelum lanjut bayar
-                    </div>
-                  )}
-
-                  <EmailCapture
-                    selectedTier={selectedTier}
-                    email={email}
-                    onChange={handleEmailChange}
-                    onBlur={handleEmailBlur}
-                    onPaste={handleEmailPaste}
-                    error={emailError}
-                    suggestion={emailSuggestion}
-                    onAcceptSuggestion={handleAcceptSuggestion}
-                    isDisposable={emailIsDisposable}
-                    isConfirmed={emailIsConfirmed}
-                    confirmEmail={confirmEmail}
-                    onConfirmChange={handleConfirmEmailChange}
-                    onConfirmBlur={handleConfirmEmailBlur}
-                    onConfirmPaste={handleConfirmEmailPaste}
-                    confirmError={confirmError}
-                    confirmRef={confirmEmailRef}
-                    emailsMatch={emailsMatch}
-                    confirmTouched={confirmTouched}
-                  />
-
-                  {sessionExpiredByPay && (
-                    <div style={{ marginBottom: '1rem', padding: '1rem', background: '#FFFBEB', border: '1px solid rgba(252,211,77,0.5)', borderRadius: 16, textAlign: 'center' }}>
-                      <p style={{ color: '#92400E', fontWeight: 600, fontSize: '0.88rem', margin: '0 0 0.5rem' }}>
-                        Sesi analisis sudah kedaluwarsa (30 menit)
-                      </p>
-                      <p style={{ color: '#78350F', fontSize: '0.875rem', margin: '0 0 0.75rem' }}>
-                        Upload ulang CV kamu untuk melanjutkan.
-                      </p>
-                      <a href="upload.html" style={{ display: 'inline-block', background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', fontWeight: 700, padding: '0.65rem 1.5rem', borderRadius: 60, textDecoration: 'none', fontSize: '0.88rem', boxShadow: '0 8px 24px rgba(37,99,235,0.25)' }}>
-                        Upload CV Lagi →
-                      </a>
-                    </div>
-                  )}
-
-                  {/* Pay button */}
-                  <button
-                    data-testid="generate-cv-button"
-                    onClick={proceedToPayment}
-                    disabled={payBtnDisabled}
-                    aria-label="Lanjut pembayaran"
-                    style={{
-                      background:   payBtnDisabled ? '#CBD5E1' : 'linear-gradient(180deg,#3b82f6,#1d4ed8)',
-                      color:        'white',
-                      border:       'none',
-                      borderRadius: 60,
-                      padding:      '0.95rem 1.5rem',
-                      fontWeight:   700,
-                      cursor:       payBtnDisabled ? 'not-allowed' : 'pointer',
-                      width:        '100%',
-                      transition:   '0.2s',
-                      fontFamily:   'inherit',
-                      fontSize:     '1rem',
-                      opacity:      payBtnDisabled ? 0.55 : 1,
-                      boxShadow:    payBtnDisabled ? 'none' : '0 8px 28px rgba(37,99,235,0.30)',
-                    }}
-                  >
-                    {payBtnLabel}
-                  </button>
-
-                  {emailIsConfirmed && emailsMatch && !sessionExpiredByPay && (
-                    <p style={{ fontSize: '0.8rem', color: '#374151', textAlign: 'center', marginTop: '0.5rem' }}>
-                      📬 CV akan dikirim ke: <strong>{email.trim()}</strong>
-                    </p>
-                  )}
-                  {paymentError && (
-                    <div role="alert" style={{ marginTop: '0.75rem', padding: '0.75rem', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 12, color: '#92400E', fontSize: '0.875rem', textAlign: 'center' }}>
-                      {paymentError}
-                    </div>
-                  )}
+              {tierError && !selectedTier && (
+                <div
+                  role="alert"
+                  style={{
+                    marginTop:    '-0.5rem',
+                    marginBottom: '1rem',
+                    padding:      '0.6rem 0.9rem',
+                    background:   '#FEF2F2',
+                    border:       '1px solid #FECACA',
+                    borderRadius: 10,
+                    fontSize:     '0.85rem',
+                    fontWeight:   600,
+                    color:        '#DC2626',
+                    display:      'flex',
+                    alignItems:   'center',
+                    gap:          6,
+                  }}
+                >
+                  ↑ Pilih dulu paketnya sebelum lanjut bayar
                 </div>
+              )}
 
-                {/* Trust line */}
-                <div style={{ textAlign: 'center', padding: '0.5rem 0 0.5rem', fontSize: '0.8rem', color: '#94A3B8', lineHeight: 1.7 }}>
-                  🔒 Data kamu aman &nbsp;·&nbsp; Bayar via QRIS, VA, e-wallet
-                </div>
+              <EmailCapture
+                selectedTier={selectedTier}
+                email={email}
+                onChange={handleEmailChange}
+                onBlur={handleEmailBlur}
+                onPaste={handleEmailPaste}
+                error={emailError}
+                suggestion={emailSuggestion}
+                onAcceptSuggestion={handleAcceptSuggestion}
+                isDisposable={emailIsDisposable}
+                isConfirmed={emailIsConfirmed}
+                confirmEmail={confirmEmail}
+                onConfirmChange={handleConfirmEmailChange}
+                onConfirmBlur={handleConfirmEmailBlur}
+                onConfirmPaste={handleConfirmEmailPaste}
+                confirmError={confirmError}
+                confirmRef={confirmEmailRef}
+                emailsMatch={emailsMatch}
+                confirmTouched={confirmTouched}
+              />
 
-                {/* Back link */}
-                <div className="text-center mt-4 mb-2">
-                  <a href="upload.html" className="text-sm text-slate-400 hover:text-slate-600 transition-colors no-underline">
-                    ← Upload CV lain
+              {sessionExpiredByPay && (
+                <div style={{ marginBottom: '1rem', padding: '1rem', background: '#FFFBEB', border: '1px solid rgba(252,211,77,0.5)', borderRadius: 16, textAlign: 'center' }}>
+                  <p style={{ color: '#92400E', fontWeight: 600, fontSize: '0.88rem', margin: '0 0 0.5rem' }}>
+                    Sesi analisis sudah kedaluwarsa (30 menit)
+                  </p>
+                  <p style={{ color: '#78350F', fontSize: '0.875rem', margin: '0 0 0.75rem' }}>
+                    Upload ulang CV kamu untuk melanjutkan.
+                  </p>
+                  <a href="upload.html" style={{ display: 'inline-block', background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', fontWeight: 700, padding: '0.65rem 1.5rem', borderRadius: 60, textDecoration: 'none', fontSize: '0.88rem', boxShadow: '0 8px 24px rgba(37,99,235,0.25)' }}>
+                    Upload CV Lagi →
                   </a>
                 </div>
+              )}
 
-                {/* Legal footer */}
-                <footer className="text-center py-6 text-sm text-slate-400">
-                  <p className="mb-3 text-slate-400">GasLamar · Karena nyari kerja udah cukup ribet</p>
-                  <a href="privacy.html" className="text-slate-400 no-underline hover:underline mx-2">Kebijakan Privasi</a>
-                  ·
-                  <a href="terms.html" className="text-slate-400 no-underline hover:underline mx-2">Syarat Layanan</a>
-                  ·
-                  <a href="accessibility.html" className="text-slate-400 no-underline hover:underline mx-2">Aksesibilitas</a>
-                </footer>
+              {/* Pay button */}
+              <button
+                data-testid="generate-cv-button"
+                onClick={proceedToPayment}
+                disabled={payBtnDisabled}
+                aria-label="Lanjut pembayaran"
+                style={{
+                  background:   payBtnDisabled ? '#CBD5E1' : 'linear-gradient(180deg,#3b82f6,#1d4ed8)',
+                  color:        'white',
+                  border:       'none',
+                  borderRadius: 60,
+                  padding:      '0.95rem 1.5rem',
+                  fontWeight:   700,
+                  cursor:       payBtnDisabled ? 'not-allowed' : 'pointer',
+                  width:        '100%',
+                  transition:   '0.2s',
+                  fontFamily:   'inherit',
+                  fontSize:     '1rem',
+                  opacity:      payBtnDisabled ? 0.55 : 1,
+                  boxShadow:    payBtnDisabled ? 'none' : '0 8px 28px rgba(37,99,235,0.30)',
+                }}
+              >
+                {payBtnLabel}
+              </button>
 
-              </div>{/* end right column */}
-            </div>{/* end two-column grid */}
+              {emailIsConfirmed && emailsMatch && !sessionExpiredByPay && (
+                <p style={{ fontSize: '0.8rem', color: '#374151', textAlign: 'center', marginTop: '0.5rem' }}>
+                  📬 CV akan dikirim ke: <strong>{email.trim()}</strong>
+                </p>
+              )}
+              {paymentError && (
+                <div role="alert" style={{ marginTop: '0.75rem', padding: '0.75rem', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 12, color: '#92400E', fontSize: '0.875rem', textAlign: 'center' }}>
+                  {paymentError}
+                </div>
+              )}
+            </div>
+
+            {/* Trust line */}
+            <div style={{ textAlign: 'center', padding: '0.5rem 0 0.5rem', fontSize: '0.8rem', color: '#94A3B8', lineHeight: 1.7 }}>
+              🔒 Data kamu aman &nbsp;·&nbsp; Bayar via QRIS, VA, e-wallet
+            </div>
+
+            {/* Back link */}
+            <div className="text-center mt-4 mb-2">
+              <a href="upload.html" className="text-sm text-slate-400 hover:text-slate-600 transition-colors no-underline">
+                ← Upload CV lain
+              </a>
+            </div>
+
+            {/* Legal footer */}
+            <footer className="text-center py-6 text-sm text-slate-400">
+              <p className="mb-3 text-slate-400">GasLamar · Karena nyari kerja udah cukup ribet</p>
+              <a href="privacy.html" className="text-slate-400 no-underline hover:underline mx-2">Kebijakan Privasi</a>
+              ·
+              <a href="terms.html" className="text-slate-400 no-underline hover:underline mx-2">Syarat Layanan</a>
+              ·
+              <a href="accessibility.html" className="text-slate-400 no-underline hover:underline mx-2">Aksesibilitas</a>
+            </footer>
+
           </>
         )}
       </main>
