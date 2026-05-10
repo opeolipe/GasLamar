@@ -5,7 +5,7 @@ import { checkRateLimitKV }                    from '../rateLimit.js';
 import { sendPaymentConfirmationEmail }        from '../email.js';
 
 const EMAIL_REGEX   = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PAID_STATUSES = new Set(['paid', 'generating', 'done']);
+const PAID_STATUSES = new Set(['paid', 'generating']);
 
 // Always returned — never reveal whether an email or session exists.
 const GENERIC_OK = { success: true, message: 'Jika email terdaftar, link baru telah dikirim.' };
