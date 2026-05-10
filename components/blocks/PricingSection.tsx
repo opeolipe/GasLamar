@@ -30,8 +30,8 @@ export default function PricingSection() {
         {/* paddingTop gives room for the -11px badge pill on top-row cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-3">
           {TIERS.map(tier => {
-            const info     = TIER_CONFIG[tier];
-            const copy     = TIER_COPY[tier];
+            const info       = TIER_CONFIG[tier];
+            const copy       = TIER_COPY[tier];
             const isFeatured = tier === FEATURED_TIER;
 
             return (
@@ -39,25 +39,27 @@ export default function PricingSection() {
                 key={tier}
                 href={`upload.html?tier=${tier}`}
                 style={{
+                  /* minWidth:0 prevents grid children from overflowing their cell */
+                  minWidth:      0,
                   background:    'white',
                   borderRadius:  16,
                   padding:       '1rem',
-                  textAlign:     'left',
                   border:        isFeatured
                     ? '1.5px solid #93C5FD'
                     : '1px solid #E2E8F0',
                   cursor:        'pointer',
                   position:      'relative',
+                  /* overflow:visible keeps the badge pill visible above the card */
                   overflow:      'visible',
                   transition:    'border-color 0.15s, box-shadow 0.15s',
                   boxShadow:     'none',
                   fontFamily:    'inherit',
-                  width:         '100%',
-                  minHeight:     44,
-                  display:       'block',
                   textDecoration:'none',
                   color:         'inherit',
                   boxSizing:     'border-box',
+                  /* flex column so outcome text grows and diff stays at the bottom */
+                  display:       'flex',
+                  flexDirection: 'column',
                 }}
               >
                 {isFeatured && (
@@ -66,17 +68,17 @@ export default function PricingSection() {
                   </div>
                 )}
 
-                {/* Stack label + price vertically so they never overflow on narrow cards */}
-                <div style={{ marginBottom: '0.35rem' }}>
-                  <span style={{ display: 'block', fontWeight: 700, fontSize: '0.9rem', color: '#111827' }}>{info.label}</span>
+                <div style={{ marginBottom: '0.5rem' }}>
+                  <span style={{ display: 'block', fontWeight: 700, fontSize: '0.9rem', color: '#111827', overflowWrap: 'break-word' }}>{info.label}</span>
                   <span style={{ display: 'block', fontSize: '1rem', fontWeight: 800, color: '#111827', marginTop: '0.1rem' }}>{info.priceStr}</span>
                 </div>
 
-                <p style={{ fontSize: '0.75rem', color: '#374151', margin: '0 0 0.3rem', lineHeight: 1.4, fontWeight: 500 }}>
+                {/* flex-grow pushes diff text to the bottom so all cards align */}
+                <p style={{ fontSize: '0.75rem', color: '#374151', margin: '0 0 0.3rem', lineHeight: 1.5, fontWeight: 500, overflowWrap: 'break-word', flexGrow: 1 }}>
                   {copy.outcome}
                 </p>
 
-                <p style={{ fontSize: '0.72rem', color: '#94A3B8', margin: 0, fontWeight: 500 }}>
+                <p style={{ fontSize: '0.72rem', color: '#94A3B8', margin: 0, fontWeight: 500, overflowWrap: 'break-word' }}>
                   {copy.diff}
                 </p>
               </a>
