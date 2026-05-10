@@ -29,14 +29,20 @@ export async function handleMayarWebhook(request, env, ctx) {
   //
   // Mayar's webhook structure varies across API versions and event types:
   //   Flat:   { id: <invoiceId>, status: '...', ... }
-  //   Nested: { id: <eventId>, data: { id: <invoiceId>, status: '...' } }
-  // We try all three candidate fields so a top-level `id` that turns out to be
-  // a webhook-event ID (not the invoice ID) does not prevent the KV lookup.
+  //   Nested: { event: '...', data: { id: <txnId>, productId: <invoiceId>, ... } }
+  //
+  // CRITICAL: in Mayar sandbox (and production), the webhook `data.id` is the
+  // TRANSACTION ID created at payment time — NOT the payment-link ID stored
+  // during /invoice/create.  The payment-link ID appears in `data.productId`.
+  // We must try both so the KV secondary index (keyed by payment-link ID) is found.
   const candidateInvoiceIds = [
     payload.id,
     payload.invoice_id,
     payload.data?.id,
-  ].filter(id => id && typeof id === 'string');
+    payload.data?.productId,    // payment-link ID — matches the index set by /create-payment
+    payload.data?.invoice_id,   // alternate field name used in some API versions
+    payload.data?.transactionId, // belt-and-suspenders for reverse mapping
+  ].filter((id, i, arr) => id && typeof id === 'string' && arr.indexOf(id) === i); // dedupe
 
   const redirectUrl = payload.redirect_url || payload.data?.redirect_url || '';
   const status = payload.status || payload.data?.status;

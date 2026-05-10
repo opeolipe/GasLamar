@@ -105,7 +105,14 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
     }
 
     const data = await res.json();
-    console.log(JSON.stringify({ event: 'mayar_success', endpoint, data_keys: Object.keys(data) }));
+    // Log inner keys so we can see exactly which field holds the payment-link ID.
+    // This makes it easy to diagnose webhook lookup mismatches in the CF log viewer.
+    console.log(JSON.stringify({
+      event: 'mayar_success',
+      endpoint,
+      data_keys: Object.keys(data),
+      data_inner_keys: data.data ? Object.keys(data.data) : null,
+    }));
 
     // Mayar API has returned the invoice ID under different field names across versions;
     // check all known variants so the KV index key matches whatever the webhook sends.
