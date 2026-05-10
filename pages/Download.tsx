@@ -346,7 +346,7 @@ export default function Download() {
       {/* Main content */}
       <main
         id="download-main"
-        className="px-4 py-8"
+        className="px-4 sm:px-6 py-8 pb-20"
         style={{ paddingTop: countdownText ? 'calc(2rem + 34px)' : '2rem' }}
       >
         {/* Delivery section — only shown after the waiting phase to prevent conflict
@@ -355,7 +355,7 @@ export default function Download() {
             "Menunggu Konfirmasi" spinner. */}
         {delivery && view !== 'waiting' && (
           <div className="max-w-[480px] mx-auto mb-8">
-            <div style={{ background: '#F8FAFC', border: '1px solid rgba(148,163,184,0.18)', borderRadius: 20, padding: '1.25rem 1.5rem' }}>
+            <div style={{ background: 'rgba(255,255,255,0.88)', border: '1px solid rgba(148,163,184,0.14)', borderRadius: 24, padding: '1.25rem 1.5rem', boxShadow: '0 18px 44px rgba(15,23,42,0.08)', backdropFilter: 'blur(14px)' }}>
               <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
                 <h2 style={{ fontWeight: 700, fontSize: '1.15rem', color: '#0F172A', margin: '0 0 0.35rem' }}>
                   CV kamu sudah siap digunakan
@@ -441,7 +441,7 @@ export default function Download() {
         )}
       </main>
 
-      <footer className="text-center py-8 text-sm text-slate-400">
+      <footer className="text-center py-6 text-sm text-slate-400">
         <p className="mb-3 text-slate-400">GasLamar · Bantu HR lebih notice kamu</p>
         <a href="privacy.html"      className="text-slate-500 no-underline hover:underline mx-2">Kebijakan Privasi</a>
         ·
