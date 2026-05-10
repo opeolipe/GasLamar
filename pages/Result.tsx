@@ -72,6 +72,12 @@ function verdictDesc(verdict: string | undefined, score: number): string {
   return 'Beberapa gap kecil masih bisa diperbaiki untuk memperkuat peluang kamu.';
 }
 
+function scoreInterpretation(score: number): string {
+  if (score >= 75) return 'Beberapa perbaikan kecil sudah cukup untuk memperkuat peluang kamu di posisi ini.';
+  if (score >= 60) return 'Beberapa gap kecil masih bisa diperbaiki untuk memperkuat peluang kamu.';
+  return 'Beberapa pengalaman dan keyword penting belum terlihat di CV kamu.';
+}
+
 export default function Result() {
   const { data, analyzeTime, loading, error, noSession } = useResultData();
   const countdown = useSessionCountdown(analyzeTime);
@@ -560,17 +566,15 @@ export default function Result() {
             {/* ── BLOCK 1: RESULT ── */}
             <div style={{ marginBottom: '2.5rem' }}>
               <div
-                style={{ ...CARD_STYLE, marginBottom: 0, borderRadius: showDetails ? '24px 24px 0 0' : 24 }}
+                style={{ ...CARD_STYLE, marginBottom: 0, borderRadius: 24 }}
                 data-testid="result-score"
               >
                 <ScoreDisplay
                   score={data.skor}
-                  archetype={data.archetype}
-                  gapCount={(data.gap || []).length}
                 />
                 <div style={{ textAlign: 'center', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(148,163,184,0.14)' }}>
                   <div style={{ fontSize: '1.15rem', fontWeight: 700, color: '#111827', marginBottom: '0.35rem' }}>
-                    {scoreLabel(data.skor)}
+                    {scoreHeadline(data.skor)}
                   </div>
                   <p style={{ fontSize: '0.88rem', color: '#64748B', maxWidth: 360, margin: '0 auto', lineHeight: 1.6 }}>
                     {scoreInterpretation(data.skor)}
