@@ -4,8 +4,9 @@ import { MAX_JD_CHARS } from '@/lib/uploadValidation';
 import { evaluateJDQuality } from '@/utils/evaluateJDQuality';
 
 interface Props {
-  value:    string;
-  onChange: (value: string) => void;
+  value:       string;
+  onChange:    (value: string) => void;
+  submitError?: string;
 }
 
 const JD_EXAMPLE = `Posisi: Digital Marketing Specialist
@@ -13,7 +14,7 @@ Kualifikasi:
 - Social media marketing 2+ tahun
 - Google Analytics & Facebook Ads`;
 
-const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobDescriptionInput({ value, onChange }, ref) {
+const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobDescriptionInput({ value, onChange, submitError }, ref) {
   const [showFetcher, setShowFetcher] = useState(false);
   const [showExample, setShowExample] = useState(false);
   const internalRef = useRef<HTMLTextAreaElement>(null);
@@ -124,13 +125,15 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
         )}
       </div>
 
-      {trimmed && quality.message && (
+      {submitError ? (
+        <div role="alert" className="mt-2 rounded-[10px] px-3 py-2.5 text-sm font-medium bg-red-50 border border-red-200 text-red-700">
+          ⚠️ {submitError}
+        </div>
+      ) : trimmed && quality.message ? (
         <p className="text-xs text-slate-500 mt-2 break-words" style={{ overflowWrap: 'anywhere' }}>{quality.message}</p>
-      )}
-
-      {trimmed && !quality.message && (
+      ) : trimmed && !quality.message ? (
         <p className="text-xs text-emerald-600 mt-2 font-medium">✓ Job description siap</p>
-      )}
+      ) : null}
     </div>
   );
 });

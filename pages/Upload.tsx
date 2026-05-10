@@ -12,6 +12,7 @@ import {
   escapeHtml,
   unescapeHtml,
 } from '@/lib/uploadValidation';
+import { evaluateJDQuality }          from '@/utils/evaluateJDQuality';
 import { WORKER_URL, clearClientSessionData } from '@/lib/downloadUtils';
 
 const SHADOW = '0 18px 44px rgba(15, 23, 42, 0.08)';
@@ -44,9 +45,10 @@ export default function Upload() {
   const [jd, setJd] = useState('');
 
   // UI
-  const [loading,  setLoading]  = useState(false);
-  const [tier,     setTier]     = useState<string | null>(null);
-  const [notices,  setNotices]  = useState<Notice[]>([]);
+  const [loading,        setLoading]        = useState(false);
+  const [tier,           setTier]           = useState<string | null>(null);
+  const [notices,        setNotices]        = useState<Notice[]>([]);
+  const [jdSubmitError,  setJdSubmitError]  = useState('');
 
   // JD textarea ref — used for auto-scroll after CV upload
   const jdRef       = useRef<HTMLTextAreaElement | null>(null);
@@ -276,6 +278,7 @@ export default function Upload() {
   }
 
   function handleJdChange(value: string) {
+    if (jdSubmitError) setJdSubmitError('');
     // Strip null bytes and non-printable control characters (keep tab, LF, CR).
     const sanitized = value.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
     setJd(sanitized);
@@ -292,6 +295,13 @@ export default function Upload() {
     if (!hasFile) {
       setFileError('Masukkan CV dulu ya');
       cvSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    if (!evaluateJDQuality(jd).isValid) {
+      setJdSubmitError('Tambahkan job description posisi yang kamu lamar dulu ya');
+      jdRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      jdRef.current?.focus();
       return;
     }
 
@@ -434,6 +444,7 @@ export default function Upload() {
               ref={jdRef}
               value={jd}
               onChange={handleJdChange}
+              submitError={jdSubmitError}
             />
           </div>
 
