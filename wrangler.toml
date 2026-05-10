@@ -69,6 +69,14 @@ ENVIRONMENT = "staging"
 
 [[env.staging.kv_namespaces]]
 binding = "GASLAMAR_SESSIONS"
+# WARNING: this ID is the same as the default sandbox preview_id above.
+# Local dev (wrangler dev) uses the preview_id namespace, which means local dev
+# sessions and staging sessions share the same KV store. This can cause:
+#   - a local-dev session being picked up by a staging webhook
+#   - staging test data polluting local dev
+# To fix: create a dedicated staging namespace with:
+#   npx wrangler kv:namespace create GASLAMAR_SESSIONS --env staging
+# Then replace the id below with the new namespace ID.
 id = "871f92d1f62e48d899976889e8710858"
 
 [[env.staging.unsafe.bindings]]
