@@ -123,7 +123,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
 
       <div className="mt-4 w-full max-w-full">
         <label htmlFor="cv-paste" className="block text-sm font-semibold text-slate-700 mb-1">
-          Atau paste isi CV di sini
+          Atau paste langsung di sini
         </label>
         <textarea
           ref={pasteRef}

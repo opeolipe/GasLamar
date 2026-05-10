@@ -390,8 +390,7 @@ export default function Upload() {
           </h1>
 
           <p className="text-[15px] text-slate-500 max-w-[44ch] mx-auto mt-5 leading-relaxed">
-            Upload CV + job description —{' '}
-            lihat apa yang bikin HR masih ragu.
+            Lihat apa yang bikin HR masih ragu.
           </p>
 
           {/* Progression strip */}
@@ -400,7 +399,7 @@ export default function Upload() {
             <span className="text-slate-300" aria-hidden="true">→</span>
             <span>Tahu masalahnya</span>
             <span className="text-slate-300" aria-hidden="true">→</span>
-            <span>Benerin sebelum apply</span>
+            <span>Benerin</span>
           </div>
         </div>
 
