@@ -398,9 +398,9 @@ export default function Upload() {
           <div className="mt-5 flex items-center justify-center gap-2 text-sm text-slate-500 flex-wrap">
             <span className="font-medium text-slate-700">Upload CV</span>
             <span className="text-slate-300" aria-hidden="true">→</span>
-            <span>Analisis</span>
+            <span>Tahu masalahnya</span>
             <span className="text-slate-300" aria-hidden="true">→</span>
-            <span>Hasil</span>
+            <span>Benerin sebelum apply</span>
           </div>
         </div>
 
