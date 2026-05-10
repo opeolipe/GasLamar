@@ -625,14 +625,17 @@ export default function Result() {
                 <div data-testid="fix-before-after" style={{ marginBottom: '1.25rem' }}>
                   <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     {(data.rekomendasi || []).slice(0, 3).map((r, i) => (
-                      <li key={i} style={{ fontSize: '0.9rem', color: '#111827', display: 'flex', gap: '0.65rem', alignItems: 'flex-start' }}>
+                      <li key={i} style={{ fontSize: '0.9rem', color: '#111827', display: 'flex', gap: '0.65rem', alignItems: 'flex-start', overflow: 'hidden' }}>
                         <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 3 }}>→</span>
                         <span style={{
+                          minWidth:          0,
                           overflow:          'hidden',
                           display:           '-webkit-box',
                           WebkitLineClamp:   showAllRekomendasi ? 'unset' : 1,
                           WebkitBoxOrient:   'vertical',
                           lineHeight:        1.6,
+                          overflowWrap:      'break-word',
+                          wordBreak:         'break-word',
                         } as React.CSSProperties}>
                           {r}
                         </span>

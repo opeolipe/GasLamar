@@ -12,14 +12,17 @@ export default function GapList({ gaps }: Props) {
     <div style={{ marginBottom: '1rem' }}>
       <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
         {visible.map((g, i) => (
-          <li key={i} style={{ fontSize: '0.875rem', color: '#374151', display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+          <li key={i} style={{ fontSize: '0.875rem', color: '#374151', display: 'flex', gap: '0.5rem', alignItems: 'flex-start', overflow: 'hidden' }}>
             <span style={{ color: '#64748B', flexShrink: 0, marginTop: 3 }}>•</span>
             <span style={{
+              minWidth:          0,
               overflow:          'hidden',
               display:           '-webkit-box',
               WebkitLineClamp:   expanded ? 'unset' : 1,
               WebkitBoxOrient:   'vertical',
               lineHeight:        1.5,
+              overflowWrap:      'break-word',
+              wordBreak:         'break-word',
             } as React.CSSProperties}>
               {g}
             </span>
