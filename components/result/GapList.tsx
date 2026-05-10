@@ -3,7 +3,7 @@ import { useState } from 'react';
 interface Props { gaps: string[] }
 
 export default function GapList({ gaps }: Props) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   if (!gaps.length) return null;
 
   const visible = gaps.slice(0, 4);

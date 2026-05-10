@@ -45,7 +45,7 @@ export default function ScoreDisplay({ score }: Props) {
           />
         </svg>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ fontSize: '0.58rem', fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'center', marginBottom: '0.1rem', lineHeight: 1.3 }}>
+          <div style={{ fontSize: '0.58rem', fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center', marginBottom: '0.1rem', lineHeight: 1.3, maxWidth: 88, overflowWrap: 'break-word', wordBreak: 'break-word' }}>
             Seberapa cocok CV kamu
             <Tooltip text="Estimasi seberapa siap CV kamu bersaing di posisi ini. Skor 70+ = peluang tinggi dipanggil HR." />
           </div>

@@ -3,7 +3,7 @@ import { useState } from 'react';
 interface Props { redFlags: string[] }
 
 export default function RedFlags({ redFlags }: Props) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   if (!redFlags.length) return null;
 
   return (
