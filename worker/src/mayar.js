@@ -107,7 +107,9 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
     const data = await res.json();
     console.log(JSON.stringify({ event: 'mayar_success', endpoint, data_keys: Object.keys(data) }));
 
-    const invoice_id  = data.data?.id  || data.id;
+    // Mayar API has returned the invoice ID under different field names across versions;
+    // check all known variants so the KV index key matches whatever the webhook sends.
+    const invoice_id  = data.data?.id || data.data?.invoice_id || data.id || data.invoice_id;
     // Mayar API has used several field names across versions; check all known variants
     const invoice_url =
       data.data?.link         || data.data?.url          || data.data?.payment_url  ||

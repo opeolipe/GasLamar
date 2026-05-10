@@ -118,8 +118,18 @@ export async function handleMayarWebhook(request, env, ctx) {
     // read→check→write→send sequence.
     await env.GASLAMAR_SESSIONS.put(processedKey, '1', { expirationTtl: 172800 }); // 48 h
 
-    const updated = await updateSession(env, sessionId, { status: 'paid', paid_at: Date.now() });
+    let updated = false;
+    try {
+      updated = await updateSession(env, sessionId, { status: 'paid', paid_at: Date.now() });
+    } catch (e) {
+      // Transient KV error — remove the sentinel so Mayar's next retry can succeed.
+      await env.GASLAMAR_SESSIONS.delete(processedKey).catch(() => {});
+      logError('webhook_update_threw', { sessionId, invoiceId, error: e.message });
+      return new Response('Internal Error', { status: 500 });
+    }
     if (!updated) {
+      // Session is permanently gone (expired/deleted before payment confirmed).
+      // Keep the sentinel to stop infinite Mayar retries; log for operator.
       console.error(JSON.stringify({ event: 'webhook_session_update_failed', sessionId, invoiceId, environment: env.ENVIRONMENT ?? 'sandbox' }));
       return new Response('OK', { status: 200 });
     }
