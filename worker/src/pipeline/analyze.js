@@ -25,6 +25,19 @@ function matchSkills(cvSkillsStr, jdSkills) {
 }
 
 /**
+ * Strips calendar years (1900–2099) and phone-like sequences (9+ digits) from
+ * angka_di_cv so they don't inflate has_numbers / number_count.
+ * The raw string is still used by extractExperienceYears for "X tahun" parsing.
+ */
+function stripNonAchievementNumbers(angkaDiCv) {
+  if (!angkaDiCv || angkaDiCv === 'NOL ANGKA') return angkaDiCv;
+  return angkaDiCv
+    .replace(/\b(19|20)\d{2}\b/g, '')  // calendar years: 2022, 2013, 1999 …
+    .replace(/\b\d{9,}\b/g, '')        // phone / ID numbers (9+ consecutive digits)
+    .trim();
+}
+
+/**
  * Parses "X tahun" / "X+ tahun" patterns from the angka_di_cv string.
  * Returns the first matched number, or null if none found.
  */
@@ -69,9 +82,10 @@ export function runAnalysis(extractedData) {
     ? true
     : (experienceYears !== null && experienceYears >= jd.pengalaman_minimal);
 
-  const has_numbers  = cv.angka_di_cv !== 'NOL ANGKA';
-  const number_count = has_numbers
-    ? (cv.angka_di_cv.match(/\d+/g) || []).length
+  const angkaFiltered = stripNonAchievementNumbers(cv.angka_di_cv);
+  const has_numbers   = angkaFiltered !== 'NOL ANGKA' && /\d/.test(angkaFiltered);
+  const number_count  = has_numbers
+    ? (angkaFiltered.match(/\d+/g) || []).length
     : 0;
 
   const format_ok   = !!(cv.format_cv.satu_kolom && !cv.format_cv.ada_tabel);

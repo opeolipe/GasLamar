@@ -95,6 +95,18 @@ describe('runAnalysis — format and signals', () => {
     expect(runAnalysis(extracted({ angka_di_cv: 'NOL ANGKA' })).has_numbers).toBe(false);
   });
 
+  it('angka_di_cv with only calendar years → has_numbers = false', () => {
+    expect(runAnalysis(extracted({ angka_di_cv: '2022 2020 2013' })).has_numbers).toBe(false);
+  });
+
+  it('angka_di_cv with only phone number → has_numbers = false', () => {
+    expect(runAnalysis(extracted({ angka_di_cv: '082247932645' })).has_numbers).toBe(false);
+  });
+
+  it('angka_di_cv with years and a real metric → has_numbers = true', () => {
+    expect(runAnalysis(extracted({ angka_di_cv: '2022-Present 30% peningkatan' })).has_numbers).toBe(true);
+  });
+
   it('sertifikat !== "TIDAK ADA" → has_certs = true', () => {
     expect(runAnalysis(extracted({ sertifikat: 'AWS Certified Developer' })).has_certs).toBe(true);
   });
@@ -248,6 +260,11 @@ describe('calculateScores — portfolio', () => {
   it('>= 3 numbers, no certs → portfolio = 8', () => {
     const ext = extracted({ angka_di_cv: '4 tahun 30% 2x output', sertifikat: 'TIDAK ADA' });
     expect(calculateScores(ext, runAnalysis(ext)).portfolio).toBe(8);
+  });
+
+  it('calendar years only (no real metrics), no certs → portfolio = 2', () => {
+    const ext = extracted({ angka_di_cv: '2022 2020 2013 2015', sertifikat: 'TIDAK ADA' });
+    expect(calculateScores(ext, runAnalysis(ext)).portfolio).toBe(2);
   });
 
   it('no numbers + certs → portfolio = 4 (2 + 2)', () => {
