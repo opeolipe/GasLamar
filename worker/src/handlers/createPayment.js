@@ -129,6 +129,9 @@ export async function handleCreatePayment(request, env) {
       // The Mayar webhook identifies payments by invoice ID; without the ?session= query
       // param in the redirect URL we need this index to correlate the webhook to a session.
       // TTL matches the session (7d single / 30d multi).
+      // IMPORTANT: log the exact KV key so we can compare against candidateInvoiceIds in
+      // the webhook logs if a webhook_no_session error appears.
+      console.log(JSON.stringify({ event: 'mayar_session_index_stored', kv_key: `mayar_session_${invoice_id}`, sessionId, invoice_id }));
       await env.GASLAMAR_SESSIONS.put(
         `mayar_session_${invoice_id}`,
         JSON.stringify({ session_id: sessionId }),
