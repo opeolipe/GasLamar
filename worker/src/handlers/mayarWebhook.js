@@ -2,6 +2,7 @@ import { log, logError } from '../utils.js';
 import { verifyMayarWebhook } from '../mayar.js';
 import { getSession, updateSession } from '../sessions.js';
 import { sendPaymentConfirmationEmail } from '../email.js';
+import { SESSION_STATES, PENDING_LEGACY } from '../sessionStates.js';
 
 export async function handleMayarWebhook(request, env, ctx) {
   const { valid, body } = await verifyMayarWebhook(request, env);
@@ -107,9 +108,12 @@ export async function handleMayarWebhook(request, env, ctx) {
       return new Response('OK', { status: 200 });
     }
 
-    // Belt-and-suspenders: also check session status (catches retries after KV propagates)
+    // Belt-and-suspenders: also check session status (catches retries after KV propagates).
+    // Accept both 'pending_payment' (new) and 'pending' (legacy sessions created before rename).
     const existing = await getSession(env, sessionId);
-    if (existing && existing.status !== 'pending') {
+    const isPendingPayment = existing &&
+      (existing.status === SESSION_STATES.PENDING_PAYMENT || existing.status === PENDING_LEGACY);
+    if (existing && !isPendingPayment) {
       return new Response('OK', { status: 200 });
     }
 

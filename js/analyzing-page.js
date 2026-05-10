@@ -10,12 +10,13 @@ const filename  = sessionStorage.getItem('gaslamar_filename') || 'CV Kamu';
 
 // Redirect if no pending data (direct navigation or page refresh after completion)
 if (!cvData || !jobDesc) {
-  // If a fresh analysis result already exists, send them to hasil.html
-  const existingScore = sessionStorage.getItem('gaslamar_scoring');
+  // If a fresh cv_key exists, the user already completed analysis — send them to hasil.html.
+  // Scoring is now server-side so we only need the key + timestamp (no scoring blob check).
+  const existingKey = sessionStorage.getItem('gaslamar_cv_key');
   const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
   // SYNC: 7200000ms (2h) must match SESSION_SECS (7200) in hasil-page.js and
-//       the 7200000 freshness check in hasil-guard.js. Change all three together.
-const isFresh = existingScore && analyzeTime && (Date.now() - analyzeTime) < 7200000;
+  //       the 7200000 freshness check in hasil-guard.js. Change all three together.
+  const isFresh = existingKey && analyzeTime && (Date.now() - analyzeTime) < 7200000;
   window.location.replace(isFresh ? 'hasil.html' : 'upload.html');
 }
 
@@ -157,11 +158,13 @@ async function runAnalysis() {
 
     const result = await response.json();
 
-    // Store results — strip cv_text_key from scoring blob (stored separately as gaslamar_cv_key)
-    const { cv_text_key: _cvKey, ...scoringOnly } = result;
-    sessionStorage.setItem('gaslamar_scoring', JSON.stringify(scoringOnly));
+    // Store only the cv_text_key and timestamp — scoring is now fetched server-side by
+    // scoring.js via GET /get-scoring so hasil.html is not lost on tab reopen or refresh.
+    const { cv_text_key: _cvKey } = result;
     sessionStorage.setItem('gaslamar_cv_key', _cvKey || '');
     sessionStorage.setItem('gaslamar_analyze_time', String(Date.now()));
+    // Remove any leftover scoring blob from a previous analysis (defensive cleanup).
+    sessionStorage.removeItem('gaslamar_scoring');
     if (window.Analytics) Analytics.track('analysis_completed', {
       score: result.skor || null,
       confidence: result.konfidensitas || null,

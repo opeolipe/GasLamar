@@ -6,6 +6,7 @@ import { TIER_CREDITS, SESSION_TTL_MULTI, VALID_TIERS } from '../constants.js';
 import { createMayarInvoice, logMayarEnvironment } from '../mayar.js';
 import { createSession } from '../sessions.js';
 import { makeSessionCookie } from '../cookies.js';
+import { SESSION_STATES } from '../sessionStates.js';
 
 export async function handleCreatePayment(request, env) {
   const ip = clientIp(request);
@@ -114,7 +115,7 @@ export async function handleCreatePayment(request, env) {
         // Carry inferred_role through to /generate so it can choose tailoring mode.
         inferred_role: stored.inferred_role ?? null,
         tier,
-        status: 'pending',
+        status: SESSION_STATES.PENDING_PAYMENT,
         mayar_invoice_id: invoice_id,
         credits_remaining: credits,
         total_credits: credits,

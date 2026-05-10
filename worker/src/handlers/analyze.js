@@ -100,6 +100,10 @@ export async function handleAnalyze(request, env) {
     // targeted enumeration. Also bind to the requesting IP so the key cannot be
     // used from a different network if leaked from client storage.
     const cvTextKey = `cvtext_${hexToken(32)}`;
+
+    // Store the full scoring result alongside cv_text so GET /get-scoring can serve
+    // it to hasil.html without the client carrying the entire blob in sessionStorage.
+    // cv_text is only returned by /get-session (after payment) — never by /get-scoring.
     await env.GASLAMAR_SESSIONS.put(cvTextKey, JSON.stringify({
       text: extraction.text,
       job_desc: job_desc.slice(0, 5000),
@@ -107,6 +111,7 @@ export async function handleAnalyze(request, env) {
       // enabling /generate to switch between targeted and inferred tailoring mode.
       inferred_role: scoring.inferred_role ?? null,
       ip,
+      scoring, // used by GET /get-scoring; cv_text is never exposed via that endpoint
     }), { expirationTtl: 86400 }); // 24 hours — gives users time to review hasil before paying
 
     return jsonResponse({ ...scoring, cv_text_key: cvTextKey }, 200, request, env);

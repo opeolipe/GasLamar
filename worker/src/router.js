@@ -19,6 +19,7 @@ import { handleInterviewKit }  from './handlers/interviewKit.js';
 import { handleGetResult } from './handlers/getResult.js';
 import { handleBypassPayment } from './handlers/bypassPayment.js';
 import { handleValidateCoupon } from './handlers/validateCoupon.js';
+import { handleGetScoring } from './handlers/getScoring.js';
 
 // CSRF defence: this worker and the Pages frontend are on different origins
 // (workers.dev vs gaslamar.com). All state-mutating requests use
@@ -68,6 +69,10 @@ export async function route(request, env, ctx) {
 
   if (method === 'GET' && pathname === '/validate-session') {
     return handleValidateSession(request, env);
+  }
+
+  if (method === 'GET' && pathname === '/get-scoring') {
+    return handleGetScoring(request, env);
   }
 
   if (method === 'POST' && pathname === '/get-session') {
