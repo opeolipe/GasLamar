@@ -78,9 +78,6 @@ export default function Upload() {
 
     // Paid session takes priority — redirect the user straight to download.html
     // instead of showing stale analysis notices that point to hasil.html.
-    // gaslamar_scoring is cleared by useGenerateCV after generation, so the
-    // analysis notice would link to a page that immediately bounces back with
-    // reason=no_session once scoring data is gone.
     const paidSessionId = sessionStorage.getItem('gaslamar_session') ?? localStorage.getItem('gaslamar_session') ?? '';
     const hasPaidSession = paidSessionId.startsWith('sess_');
 
@@ -89,7 +86,7 @@ export default function Upload() {
       if (reason) history.replaceState(null, '', location.pathname);
       newNotices.push({
         type: 'info',
-        text: '📁 Kamu sudah upload CV dan menyelesaikan pembayaran.',
+        text: 'Kamu sudah upload CV dan menyelesaikan pembayaran.',
         link: { href: 'download.html', label: 'Lanjutkan ke download →' },
       });
     } else {
@@ -248,7 +245,6 @@ export default function Upload() {
     try {
       sessionStorage.removeItem('gaslamar_cv_draft');
       sessionStorage.removeItem('gaslamar_filename_draft');
-      // Clear JD draft too — user is starting over, stale JD would be confusing.
       sessionStorage.removeItem('gaslamar_jd_draft');
     } catch (_) {}
     setJd('');
@@ -288,7 +284,6 @@ export default function Upload() {
       if (sanitized.trim()) {
         sessionStorage.setItem('gaslamar_jd_draft', escapeHtml(sanitized));
       } else {
-        // Explicit clear — remove draft so navigation back doesn't restore stale content.
         sessionStorage.removeItem('gaslamar_jd_draft');
       }
     } catch (_) {}
@@ -329,7 +324,7 @@ export default function Upload() {
   return (
     <div
       className="min-h-screen w-full overflow-x-hidden text-gray-900 font-sans"
-      style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37,99,235,0.08), transparent)' }}
+      style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37,99,235,0.07), transparent)' }}
     >
       {/* Skip link */}
       <a
@@ -349,7 +344,7 @@ export default function Upload() {
         </a>
       </nav>
 
-      <main className="w-full max-w-screen-xl mx-auto px-6 pt-14 pb-8" id="upload-form">
+      <main className="w-full max-w-screen-xl mx-auto px-6 pt-12 pb-8" id="upload-form">
 
         {/* Notices */}
         {notices.map((n, i) => (
@@ -361,47 +356,69 @@ export default function Upload() {
           </div>
         ))}
 
-        {/* Mobile step indicator — hidden on desktop */}
-        <div className="flex items-center justify-center gap-2 mb-4 sm:hidden" aria-label="Langkah 1 dari 3">
-          <div className="flex items-center gap-1.5">
-            <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">1</span>
-            <div className="w-8 h-0.5 bg-blue-200 rounded" />
-            <span className="w-6 h-6 rounded-full bg-slate-200 text-slate-400 text-xs font-bold flex items-center justify-center">2</span>
-            <div className="w-8 h-0.5 bg-slate-200 rounded" />
-            <span className="w-6 h-6 rounded-full bg-slate-200 text-slate-400 text-xs font-bold flex items-center justify-center">3</span>
-          </div>
-          <span className="text-xs text-slate-500 font-medium ml-1">Langkah 1 / 3</span>
-        </div>
-
-        {/* ZONE 1: Hero (no box) */}
-        <div className="text-center mb-8">
+        {/* ZONE 1: Hero — headline dominates everything */}
+        <div className="text-center mb-10">
           <h1
-            className="text-[clamp(2rem,4vw,2.8rem)] font-semibold leading-tight text-slate-900 mb-2 max-w-[20ch] mx-auto"
-            style={{ fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.03em' }}
+            className="font-bold leading-[1.08] text-slate-900 mb-0 max-w-[16ch] mx-auto"
+            style={{
+              fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif',
+              letterSpacing: '-0.03em',
+              fontSize: 'clamp(2.6rem, 6vw, 4rem)',
+            }}
           >
-            Cek peluang interview kamu
+            Tahu kenapa CV kamu{' '}
+            <span className="relative inline-block whitespace-nowrap">
+              belum dipanggil
+              {/* Marker-stroke underline — bridges the serif headline with the handwritten logo */}
+              <svg
+                className="absolute left-0 w-full overflow-visible pointer-events-none"
+                style={{ bottom: '-4px' }}
+                height="9"
+                viewBox="0 0 100 9"
+                preserveAspectRatio="none"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M1 6.5C18 3 42 8 62 5.8C76 4.4 90 7.5 99 5.5"
+                  stroke="#1B4FE8"
+                  strokeWidth="2.8"
+                  strokeLinecap="round"
+                  opacity="0.42"
+                />
+              </svg>
+            </span>
           </h1>
-          <p className="text-sm text-slate-500 max-w-[48ch] mx-auto mb-1.5">
-            Upload CV + job description → tahu peluang kamu dalam 30 detik
+
+          <p className="text-[15px] text-slate-500 max-w-[44ch] mx-auto mt-5 leading-relaxed">
+            Upload CV + job description — analisis gratis dalam 30 detik.{' '}
+            <span className="text-slate-400">Bayar hanya kalau mau lanjut rewrite.</span>
           </p>
-          <p className="text-sm text-slate-400">Tanpa daftar&nbsp;•&nbsp;analisis dalam ±30 detik</p>
+
+          {/* Emotional progression — journey, not a form stepper */}
+          <div className="mt-5 flex items-center justify-center gap-2 text-sm text-slate-500 flex-wrap">
+            <span className="font-medium text-slate-700">Upload CV</span>
+            <span className="text-slate-300" aria-hidden="true">→</span>
+            <span>Tahu masalahnya</span>
+            <span className="text-slate-300" aria-hidden="true">→</span>
+            <span>Benerin sebelum apply</span>
+          </div>
         </div>
 
-        {/* ZONE 2: Form panel (soft panel) */}
+        {/* ZONE 2: Form panel */}
         <div
-          className="w-full rounded-[24px] px-4 py-6 sm:px-8 sm:py-9 max-w-4xl mx-auto"
+          className="w-full rounded-[24px] px-4 py-5 sm:px-8 sm:py-8 max-w-4xl mx-auto"
           style={{
-            background:     'rgba(255,255,255,0.88)',
-            border:         '1px solid rgba(148,163,184,0.14)',
+            background:     'rgba(255,255,255,0.90)',
+            border:         '1px solid rgba(148,163,184,0.13)',
             boxShadow:      SHADOW,
             backdropFilter: 'blur(14px)',
           }}
         >
           <TierIndicator tier={tier} />
 
-          {/* GROUP 1: Upload CV */}
+          {/* CV upload */}
           <div className="mb-6">
-            <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-500 mb-3">Upload CV</p>
             <CvDropzone
               fileName={fileName}
               fileSize={fileSize}
@@ -415,7 +432,7 @@ export default function Upload() {
             />
           </div>
 
-          {/* GROUP 2: Job target */}
+          {/* Job target */}
           <div className="border-t pt-5" style={{ borderColor: 'rgba(148,163,184,0.10)' }}>
             <JobDescriptionInput
               ref={jdRef}
@@ -436,7 +453,7 @@ export default function Upload() {
           href="mailto:support@gaslamar.com?subject=Bantuan%20Upload%20CV%20-%20GasLamar"
           className="block text-center mt-6 text-sm text-slate-400 hover:text-slate-600 transition-colors"
         >
-          📧 Butuh bantuan? Hubungi support
+          Butuh bantuan? Hubungi support
         </a>
       </main>
 

@@ -27,7 +27,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
     if (!el) return;
     function onNativeInput() {
       const capped = el!.value.length > MAX_CV_PASTE_CHARS ? el!.value.slice(0, MAX_CV_PASTE_CHARS) : el!.value;
-      if (el!.value !== capped) el!.value = capped; // enforce cap in DOM too
+      if (el!.value !== capped) el!.value = capped;
       onChangeRef.current(capped);
     }
     el.addEventListener('input', onNativeInput);
@@ -36,14 +36,14 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
 
   function onDragOver(e: React.DragEvent) {
     e.preventDefault();
-    e.currentTarget.classList.add('!border-blue-500', '!bg-blue-50/40');
+    e.currentTarget.classList.add('!border-blue-400', '!bg-blue-50/30');
   }
   function onDragLeave(e: React.DragEvent) {
-    e.currentTarget.classList.remove('!border-blue-500', '!bg-blue-50/40');
+    e.currentTarget.classList.remove('!border-blue-400', '!bg-blue-50/30');
   }
   function onDrop(e: React.DragEvent) {
     e.preventDefault();
-    e.currentTarget.classList.remove('!border-blue-500', '!bg-blue-50/40');
+    e.currentTarget.classList.remove('!border-blue-400', '!bg-blue-50/30');
     const f = e.dataTransfer.files[0];
     if (f) onFileSelect(f);
   }
@@ -61,7 +61,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
         tabIndex={0}
         role="button"
         aria-label="Area upload CV — klik atau tekan Enter untuk memilih file"
-        className={`min-h-[160px] rounded-2xl border-2 border-dashed border-slate-300 bg-transparent grid place-items-center p-5 text-center transition-all hover:border-blue-400 hover:bg-blue-50/30 ${!fileName ? 'cursor-pointer' : ''}`}
+        className={`min-h-[110px] rounded-2xl border-2 border-dashed border-slate-200 bg-transparent grid place-items-center p-5 text-center transition-all hover:border-blue-300 hover:bg-blue-50/20 ${!fileName ? 'cursor-pointer' : ''}`}
         onClick={() => { if (!fileName) inputRef.current?.click(); }}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
@@ -71,7 +71,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
         {fileName ? (
           <div data-testid="file-preview" className="flex items-center justify-between gap-3 w-full text-left">
             <div className="flex items-center gap-3 flex-1 min-w-0">
-              <span className="text-2xl flex-shrink-0" aria-hidden="true">📄</span>
+              <span className="text-xl flex-shrink-0" aria-hidden="true">📄</span>
               <div className="min-w-0">
                 <div className="font-semibold text-sm text-slate-800 truncate">{fileName}</div>
                 {fileSize && <div className="text-sm text-slate-400 mt-0.5">{fileSize}</div>}
@@ -87,18 +87,18 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
             </button>
           </div>
         ) : (
-          <div>
-            <div className="text-3xl mb-2" aria-hidden="true">📁</div>
-            <div className="font-semibold text-slate-700 mb-3">Upload CV kamu</div>
+          <div className="flex flex-col items-center gap-3">
             <button
               type="button"
-              className="min-h-[44px] px-5 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium inline-flex items-center transition-colors"
+              className="min-h-[44px] px-6 py-2 rounded-full bg-blue-600 hover:bg-blue-700 active:scale-[0.97] text-white text-sm font-semibold inline-flex items-center gap-1.5 transition-all"
               onClick={(e) => { e.stopPropagation(); inputRef.current?.click(); }}
               aria-label="Pilih file CV dari komputer kamu"
             >
-              Pilih file
+              Pilih CV
             </button>
-            <div className="text-sm text-slate-400 mt-3">PDF, DOCX, atau TXT &nbsp;•&nbsp; maks 5MB</div>
+            <p className="text-sm text-slate-400">
+              atau seret file ke sini &nbsp;·&nbsp; PDF, DOCX, TXT &nbsp;·&nbsp; maks 5MB
+            </p>
           </div>
         )}
         <input
@@ -113,24 +113,25 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
         />
       </div>
 
-      <p className="text-sm text-slate-400 mt-2">Pastikan CV kamu berisi teks yang bisa di-copy (bukan hasil scan/foto) untuk hasil analisis terbaik.</p>
+      <p className="text-xs text-slate-400 mt-2">
+        Gunakan CV yang teksnya bisa dicopy (bukan foto/scan) untuk hasil analisis terbaik.
+      </p>
 
       <div className="mt-4 w-full max-w-full">
         <label htmlFor="cv-paste" className="block text-sm font-semibold text-slate-700 mb-1">
-          Atau copy-paste langsung isi CV Anda di sini
+          Atau paste isi CV di sini
         </label>
-        <p className="text-xs text-slate-400 mb-2">Min. {MIN_CV_TEXT_LENGTH} karakter untuk analisis yang akurat (pengalaman, pendidikan, skill).</p>
         <textarea
           ref={pasteRef}
           id="cv-paste"
           value={manualCvText}
           onChange={(e) => onManualCvChange(e.target.value)}
           maxLength={MAX_CV_PASTE_CHARS}
-          className="block w-full max-w-full min-h-[150px] rounded-2xl border border-slate-300 bg-transparent p-4 text-sm text-slate-900 resize-y outline-none transition-all focus:border-blue-500/50 focus:ring-2 focus:ring-slate-200 focus:ring-offset-2"
-          placeholder="Paste isi CV kamu jika upload file bermasalah. Sertakan pengalaman, pendidikan, skill, dan kontak utama."
+          className="block w-full max-w-full min-h-[140px] rounded-2xl border border-slate-200 bg-transparent p-4 text-sm text-slate-900 resize-y outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:ring-offset-1"
+          placeholder="Paste isi CV kamu di sini..."
           aria-label="Paste isi CV secara manual"
         />
-        <div className="flex items-center justify-between mt-1 text-sm">
+        <div className="flex items-center justify-between mt-1 text-xs">
           {manualCvText.trim().length > 0 && manualCvText.trim().length < MIN_CV_TEXT_LENGTH ? (
             <span className="text-amber-600 font-medium">
               ⚠️ Terlalu singkat — tambahkan detail pengalaman &amp; skill
@@ -160,7 +161,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
       )}
 
       {!error && !scanWarning && fileName && cvReady && (
-        <p className="text-sm text-emerald-600 mt-2">✓ CV siap dianalisis</p>
+        <p className="text-sm text-emerald-600 mt-2 font-medium">✓ CV berhasil terbaca</p>
       )}
     </div>
   );
