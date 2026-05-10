@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef }       from 'react';
 import UploadSteps                             from '@/components/upload/UploadSteps';
 import ScoreDisplay                            from '@/components/result/ScoreDisplay';
-import VerdictCard                             from '@/components/result/VerdictCard';
 import GapList                                 from '@/components/result/GapList';
 import RecommendationList                      from '@/components/result/RecommendationList';
 import BeforeAfterProjection                   from '@/components/result/BeforeAfterProjection';
@@ -64,10 +63,17 @@ const TABS = [
 type ActiveTab = typeof TABS[number]['key'];
 
 function scoreHeadline(score: number): string {
-  if (score >= 75) return 'Peluang interview cukup tinggi';
-  if (score >= 60) return 'Peluang interview masih bisa ditingkatkan';
+  if (score >= 75) return 'CV kamu sudah cukup kompetitif';
+  if (score >= 60) return 'Peluang interview bisa lebih kuat';
   if (score >= 50) return 'Peluang interview perlu diperkuat';
   return 'Peluang interview masih rendah';
+}
+
+function verdictDesc(verdict: string | undefined, score: number): string {
+  if (verdict === 'DO') return 'CV kamu sudah cukup kuat untuk dilamar sekarang — beberapa perbaikan kecil bisa mendorong peluang lebih tinggi.';
+  if (verdict === 'DO NOT') return 'CV ini perlu perbaikan signifikan sebelum peluangnya lebih kompetitif di posisi ini.';
+  if (score < 50) return 'Masih ada beberapa gap yang bikin HR ragu. Kalau diperbaiki, peluang kamu bisa jauh lebih kuat.';
+  return 'CV kamu sudah di jalur yang benar — perbaiki beberapa gap untuk makin memperkuat peluang.';
 }
 
 export default function Result() {
@@ -448,7 +454,7 @@ export default function Result() {
       parts.push(
         confidence >= 0.6
           ? `CV dinilai sebagai ${roleLabel}${industryLabel}`
-          : 'Dioptimalkan berdasarkan pengalaman yang terdeteksi',
+          : 'Analisis berdasarkan pengalaman di CV kamu',
       );
     }
     return parts.length > 0 ? parts.join(' • ') : null;
@@ -540,47 +546,36 @@ export default function Result() {
               {/* Score ring */}
               <ScoreDisplay score={data.skor} />
 
-              {/* Score context */}
+              {/* Score context: headline + natural verdict prose */}
               <div style={{ textAlign: 'center', marginTop: '0.15rem', marginBottom: '0.85rem' }}>
-                <p style={{ fontSize: '0.95rem', fontWeight: 700, color: '#111827', margin: 0, lineHeight: 1.4 }}>
+                <p style={{ fontSize: '0.95rem', fontWeight: 700, color: '#111827', margin: '0 0 0.4rem', lineHeight: 1.4 }}>
                   {scoreHeadline(data.skor)}
+                </p>
+                <p style={{ fontSize: '0.83rem', color: '#64748B', margin: 0, lineHeight: 1.6, padding: '0 0.25rem' }}>
+                  {verdictDesc(data.veredict, data.skor)}
                 </p>
               </div>
 
-              {/* Upgrade projection — the emotional core */}
+              {/* Upgrade projection — focus only on the improvement, not the repeat */}
               {data.skor_sesudah !== undefined && (
                 <div style={{
-                  background:   'linear-gradient(135deg, rgba(34,197,94,0.07) 0%, rgba(16,185,129,0.05) 100%)',
-                  border:       '1px solid rgba(34,197,94,0.22)',
+                  background:   'linear-gradient(135deg, rgba(34,197,94,0.08) 0%, rgba(16,185,129,0.05) 100%)',
+                  border:       '1px solid rgba(34,197,94,0.25)',
                   borderRadius: 14,
-                  padding:      '0.85rem 1rem',
+                  padding:      '0.9rem 1rem',
                   marginBottom: '1rem',
                   textAlign:    'center',
                 }}>
-                  <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.4rem' }}>
-                    Setelah diperbaiki
+                  <p style={{ fontSize: '0.72rem', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.3rem' }}>
+                    Potensi setelah diperbaiki
                   </p>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
-                    <div>
-                      <span style={{ fontSize: '1.85rem', fontWeight: 800, color: '#6B7280', lineHeight: 1 }}>{data.skor}%</span>
-                      <span style={{ fontSize: '0.72rem', display: 'block', color: '#9CA3AF', marginTop: 2 }}>sekarang</span>
-                    </div>
-                    <div style={{ fontSize: '1.4rem', color: '#22C55E', fontWeight: 700 }}>→</div>
-                    <div>
-                      <span style={{ fontSize: '1.85rem', fontWeight: 800, color: '#15803D', lineHeight: 1 }}>{data.skor_sesudah}%</span>
-                      <span style={{ fontSize: '0.72rem', display: 'block', color: '#16A34A', marginTop: 2 }}>estimasi</span>
-                    </div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 3 }}>
+                    <span style={{ fontSize: '2.4rem', fontWeight: 800, color: '#15803D', lineHeight: 1 }}>{data.skor_sesudah}</span>
+                    <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#16A34A' }}>%</span>
                   </div>
-                  <p style={{ fontSize: '0.72rem', color: '#6B7280', margin: '0.4rem 0 0', lineHeight: 1.4 }}>
-                    jika semua gap diperbaiki
+                  <p style={{ fontSize: '0.75rem', color: '#16A34A', margin: '0.2rem 0 0', fontWeight: 500 }}>
+                    estimasi jika gap utama diperbaiki
                   </p>
-                </div>
-              )}
-
-              {/* Verdict badge */}
-              {data.veredict && (
-                <div style={{ marginBottom: '1rem' }}>
-                  <VerdictCard verdict={data.veredict as 'DO' | 'DO NOT' | 'TIMED'} timeboxWeeks={data.timebox_weeks} />
                 </div>
               )}
 
@@ -588,19 +583,19 @@ export default function Result() {
               <a
                 href="#pricing-section"
                 style={{
-                  display:      'block',
-                  background:   'linear-gradient(180deg,#3b82f6,#1d4ed8)',
-                  color:        'white',
-                  fontWeight:   700,
-                  fontSize:     '0.95rem',
-                  padding:      '0.8rem 1.75rem',
-                  borderRadius: 60,
+                  display:        'block',
+                  background:     'linear-gradient(180deg,#3b82f6,#1d4ed8)',
+                  color:          'white',
+                  fontWeight:     700,
+                  fontSize:       '0.95rem',
+                  padding:        '0.8rem 1.75rem',
+                  borderRadius:   60,
                   textDecoration: 'none',
-                  boxShadow:    '0 6px 20px rgba(37,99,235,0.28)',
-                  textAlign:    'center',
+                  boxShadow:      '0 6px 20px rgba(37,99,235,0.28)',
+                  textAlign:      'center',
                 }}
               >
-                Perbaiki CV sekarang →
+                Lihat cara memperbaikinya →
               </a>
             </div>
 
