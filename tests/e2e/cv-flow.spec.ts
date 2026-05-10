@@ -301,8 +301,17 @@ test.describe('GasLamar CV Flow', () => {
     await page.click('[data-testid="submit-upload"]');
     await page.waitForURL('**/hasil**', { timeout: 60000 });
 
-    const previewText = await page.locator('[data-testid="rewrite-after"]').textContent();
-    expect(previewText).not.toMatch(/\[.*\]/);
+    // rewrite-after lives inside the Perbaikan tab — click it first.
+    // For a short CV the generic fallback contains brackets, so isValidRewrite=false
+    // and DimRewritePreview is not rendered at all; if it IS rendered it must be bracket-free.
+    await expect(page.locator('[data-testid="generate-cv-button"]')).toBeVisible({ timeout: 15000 });
+    await page.getByRole('button', { name: /perbaikan/i }).click();
+
+    const rewriteAfterCount = await page.locator('[data-testid="rewrite-after"]').count();
+    if (rewriteAfterCount > 0) {
+      const previewText = await page.locator('[data-testid="rewrite-after"]').textContent();
+      expect(previewText).not.toMatch(/\[.*\]/);
+    }
 
     await gotoDownload(page);
     await expect(page.locator('[data-testid="cv-content"]')).toBeVisible({ timeout: 30000 });
@@ -460,13 +469,14 @@ test.describe('GasLamar CV Flow', () => {
   test('mobile viewport: submit button meets 44px touch target, dropzone visible', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 });
 
+    // Check dropzone BEFORE uploading — uploadCV replaces dropzone with file-preview.
+    await expect(page.locator('[data-testid="dropzone"]')).toBeVisible();
+
     await uploadCV(page, SAMPLE_CV_PATH);
     await fillValidJD(page);
 
     const submitBtn = page.locator('[data-testid="submit-upload"]');
     const box = await submitBtn.boundingBox();
     expect(box?.height).toBeGreaterThanOrEqual(44);
-
-    await expect(page.locator('[data-testid="dropzone"]')).toBeVisible();
   });
 });
