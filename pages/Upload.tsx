@@ -12,7 +12,6 @@ import {
   escapeHtml,
   unescapeHtml,
 } from '@/lib/uploadValidation';
-import { evaluateJDQuality }          from '@/utils/evaluateJDQuality';
 import { WORKER_URL, clearClientSessionData } from '@/lib/downloadUtils';
 
 const SHADOW = '0 18px 44px rgba(15, 23, 42, 0.08)';
@@ -50,11 +49,11 @@ export default function Upload() {
   const [notices,  setNotices]  = useState<Notice[]>([]);
 
   // JD textarea ref — used for auto-scroll after CV upload
-  const jdRef = useRef<HTMLTextAreaElement | null>(null);
+  const jdRef       = useRef<HTMLTextAreaElement | null>(null);
+  // CV section ref — used to scroll-to on missing CV validation
+  const cvSectionRef = useRef<HTMLDivElement | null>(null);
 
   const hasFile: boolean = !!fileName && !!cvText;
-  const hasJD:   boolean = evaluateJDQuality(jd).isValid;
-  const isValid: boolean = hasFile && hasJD;
 
   // Mount: read URL params + restore drafts
   useEffect(() => {
@@ -291,15 +290,14 @@ export default function Upload() {
 
   function handleSubmit() {
     if (!hasFile) {
-      setFileError('Mohon upload CV kamu terlebih dahulu.');
+      setFileError('Masukkan CV dulu ya');
+      cvSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
-    const jobDesc = jd.trim();
-    if (!evaluateJDQuality(jobDesc).isValid) return;
 
     setLoading(true);
     try {
-      const safeJd = jobDesc.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      const safeJd = jd.trim().replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
       sessionStorage.setItem('gaslamar_cv_pending', cvText);
       sessionStorage.setItem('gaslamar_jd_pending', escapeHtml(safeJd));
       sessionStorage.setItem('gaslamar_filename',   fileName!);
@@ -310,7 +308,7 @@ export default function Upload() {
       return;
     }
 
-    (window as any).Analytics?.track?.('upload_submitted', { jd_length: jobDesc.length });
+    (window as any).Analytics?.track?.('upload_submitted', { jd_length: jd.trim().length });
     window.location.href = 'analyzing.html';
   }
 
@@ -416,7 +414,7 @@ export default function Upload() {
           <TierIndicator tier={tier} />
 
           {/* CV upload */}
-          <div className="mb-6">
+          <div className="mb-6" ref={cvSectionRef}>
             <CvDropzone
               fileName={fileName}
               fileSize={fileSize}
@@ -440,7 +438,6 @@ export default function Upload() {
           </div>
 
           <SubmitSection
-            isValid={isValid}
             isLoading={loading}
             onSubmit={handleSubmit}
           />
