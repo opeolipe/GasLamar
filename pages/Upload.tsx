@@ -45,16 +45,17 @@ export default function Upload() {
   const [jd, setJd] = useState('');
 
   // UI
-  const [loading,  setLoading]  = useState(false);
-  const [tier,     setTier]     = useState<string | null>(null);
-  const [notices,  setNotices]  = useState<Notice[]>([]);
+  const [loading,        setLoading]        = useState(false);
+  const [tier,           setTier]           = useState<string | null>(null);
+  const [notices,        setNotices]        = useState<Notice[]>([]);
+  const [jdSubmitError,  setJdSubmitError]  = useState('');
 
   // JD textarea ref — used for auto-scroll after CV upload
-  const jdRef = useRef<HTMLTextAreaElement | null>(null);
+  const jdRef       = useRef<HTMLTextAreaElement | null>(null);
+  // CV section ref — used to scroll-to on missing CV validation
+  const cvSectionRef = useRef<HTMLDivElement | null>(null);
 
   const hasFile: boolean = !!fileName && !!cvText;
-  const hasJD:   boolean = evaluateJDQuality(jd).isValid;
-  const isValid: boolean = hasFile && hasJD;
 
   // Mount: read URL params + restore drafts
   useEffect(() => {
@@ -241,6 +242,7 @@ export default function Upload() {
     setCvText('');
     setManualCvText('');
     setFileError('');
+    setJdSubmitError('');
     setScanWarning(false);
     try {
       sessionStorage.removeItem('gaslamar_cv_draft');
@@ -277,6 +279,7 @@ export default function Upload() {
   }
 
   function handleJdChange(value: string) {
+    if (jdSubmitError) setJdSubmitError('');
     // Strip null bytes and non-printable control characters (keep tab, LF, CR).
     const sanitized = value.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
     setJd(sanitized);
@@ -291,15 +294,21 @@ export default function Upload() {
 
   function handleSubmit() {
     if (!hasFile) {
-      setFileError('Mohon upload CV kamu terlebih dahulu.');
+      setFileError('Masukkan CV dulu ya');
+      cvSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
-    const jobDesc = jd.trim();
-    if (!evaluateJDQuality(jobDesc).isValid) return;
+
+    if (!evaluateJDQuality(jd).isValid) {
+      setJdSubmitError('Tambahkan job description posisi yang kamu lamar dulu ya');
+      jdRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      jdRef.current?.focus();
+      return;
+    }
 
     setLoading(true);
     try {
-      const safeJd = jobDesc.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      const safeJd = jd.trim().replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
       sessionStorage.setItem('gaslamar_cv_pending', cvText);
       sessionStorage.setItem('gaslamar_jd_pending', escapeHtml(safeJd));
       sessionStorage.setItem('gaslamar_filename',   fileName!);
@@ -310,7 +319,7 @@ export default function Upload() {
       return;
     }
 
-    (window as any).Analytics?.track?.('upload_submitted', { jd_length: jobDesc.length });
+    (window as any).Analytics?.track?.('upload_submitted', { jd_length: jd.trim().length });
     window.location.href = 'analyzing.html';
   }
 
@@ -390,8 +399,7 @@ export default function Upload() {
           </h1>
 
           <p className="text-[15px] text-slate-500 max-w-[44ch] mx-auto mt-5 leading-relaxed">
-            Upload CV + job description —{' '}
-            lihat apa yang bikin HR masih ragu.
+            Lihat apa yang bikin HR masih ragu.
           </p>
 
           {/* Progression strip */}
@@ -400,7 +408,7 @@ export default function Upload() {
             <span className="text-slate-300" aria-hidden="true">→</span>
             <span>Tahu masalahnya</span>
             <span className="text-slate-300" aria-hidden="true">→</span>
-            <span>Benerin sebelum apply</span>
+            <span>Benerin</span>
           </div>
         </div>
 
@@ -417,7 +425,7 @@ export default function Upload() {
           <TierIndicator tier={tier} />
 
           {/* CV upload */}
-          <div className="mb-6">
+          <div className="mb-6" ref={cvSectionRef}>
             <CvDropzone
               fileName={fileName}
               fileSize={fileSize}
@@ -437,11 +445,11 @@ export default function Upload() {
               ref={jdRef}
               value={jd}
               onChange={handleJdChange}
+              submitError={jdSubmitError}
             />
           </div>
 
           <SubmitSection
-            isValid={isValid}
             isLoading={loading}
             onSubmit={handleSubmit}
           />

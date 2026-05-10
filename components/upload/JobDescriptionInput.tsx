@@ -4,20 +4,17 @@ import { MAX_JD_CHARS } from '@/lib/uploadValidation';
 import { evaluateJDQuality } from '@/utils/evaluateJDQuality';
 
 interface Props {
-  value:    string;
-  onChange: (value: string) => void;
+  value:       string;
+  onChange:    (value: string) => void;
+  submitError?: string;
 }
 
 const JD_EXAMPLE = `Posisi: Digital Marketing Specialist
-
 Kualifikasi:
-- Pengalaman 2+ tahun di social media marketing
-- Familiar dengan Google Analytics & Facebook Ads
+- Social media marketing 2+ tahun
+- Google Analytics & Facebook Ads`;
 
-Tanggung Jawab:
-- Kelola konten Instagram, TikTok, LinkedIn`;
-
-const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobDescriptionInput({ value, onChange }, ref) {
+const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobDescriptionInput({ value, onChange, submitError }, ref) {
   const [showFetcher, setShowFetcher] = useState(false);
   const [showExample, setShowExample] = useState(false);
   const internalRef = useRef<HTMLTextAreaElement>(null);
@@ -66,7 +63,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full max-w-full overflow-hidden">
       <label className="block text-sm font-semibold mb-2 mt-4" htmlFor="job-desc">
         Posisi yang kamu incar
       </label>
@@ -122,19 +119,21 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
           </span>
         </div>
         {showExample && (
-          <div className="mt-2 p-3 bg-slate-50 rounded-xl text-xs text-slate-500 whitespace-pre leading-relaxed border border-slate-100 font-mono">
+          <div className="mt-2 p-3 bg-slate-50 rounded-xl text-xs text-slate-500 leading-relaxed border border-slate-100 font-mono max-w-full overflow-hidden" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
             {JD_EXAMPLE}
           </div>
         )}
       </div>
 
-      {trimmed && quality.message && (
-        <p className="text-sm text-slate-500 mt-2">{quality.message}</p>
-      )}
-
-      {trimmed && !quality.message && (
-        <p className="text-sm text-emerald-600 mt-2 font-medium">✓ Job description siap</p>
-      )}
+      {submitError ? (
+        <div role="alert" className="mt-2 rounded-[10px] px-3 py-2.5 text-sm font-medium bg-red-50 border border-red-200 text-red-700">
+          ⚠️ {submitError}
+        </div>
+      ) : trimmed && quality.message ? (
+        <p className="text-xs text-slate-500 mt-2 break-words" style={{ overflowWrap: 'anywhere' }}>{quality.message}</p>
+      ) : trimmed && !quality.message ? (
+        <p className="text-xs text-emerald-600 mt-2 font-medium">✓ Job description siap</p>
+      ) : null}
     </div>
   );
 });
