@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef }       from 'react';
-import UploadSteps                             from '@/components/upload/UploadSteps';
 import ScoreDisplay                            from '@/components/result/ScoreDisplay';
 import GapList                                 from '@/components/result/GapList';
 import PricingSelector                         from '@/components/result/PricingSelector';
@@ -63,9 +62,9 @@ const SECTION_HEADING: React.CSSProperties = {
 
 function scoreHeadline(score: number): string {
   if (score >= 75) return 'CV kamu sudah cukup kompetitif';
-  if (score >= 60) return 'Peluang interview bisa lebih kuat';
-  if (score >= 50) return 'Peluang interview perlu diperkuat';
-  return 'Peluang interview masih rendah';
+  if (score >= 60) return 'CV kamu sudah di jalur yang benar';
+  if (score >= 50) return 'Masih ada ruang untuk diperkuat';
+  return 'CV kamu masih bisa diperkuat';
 }
 
 function verdictDesc(verdict: string | undefined, score: number): string {
@@ -440,20 +439,24 @@ export default function Result() {
 
   // ── InfoStrip content ─────────────────────────────────────────────────────
   const stripText: React.ReactNode | null = (() => {
-    const parts: string[] = [];
-    if (countdown.text) parts.push(countdown.text);
+    const cdText = countdown.text || null;
+    let roleText: string | null = null;
     if (data?.inferred_role) {
       const roleLabel     = ROLE_LABELS[data.inferred_role] ?? data.inferred_role;
       const industryLabel = data.inferred_industry && data.inferred_industry !== 'General'
         ? ` (${data.inferred_industry})` : '';
       const confidence    = data.inferred_confidence ?? 0;
-      parts.push(
-        confidence >= 0.6
-          ? `CV dinilai sebagai ${roleLabel}${industryLabel}`
-          : 'Analisis berdasarkan pengalaman di CV kamu',
-      );
+      roleText = confidence >= 0.6
+        ? `CV dinilai sebagai ${roleLabel}${industryLabel}`
+        : 'Analisis berdasarkan pengalaman di CV kamu';
     }
-    return parts.length > 0 ? parts.join(' • ') : null;
+    if (!cdText && !roleText) return null;
+    return (
+      <>
+        {cdText && <span style={{ fontSize: '0.73rem', opacity: 0.65, display: 'block' }}>{cdText}</span>}
+        {roleText && <span style={{ display: 'block' }}>{roleText}</span>}
+      </>
+    );
   })();
 
   // ── Top 2 weakest dimensions (inside accordion) ───────────────────────────
@@ -523,12 +526,10 @@ export default function Result() {
         {/* ── Main results ── */}
         {data && !loading && !error && (
           <>
-            {/* Progress steps */}
-            <header aria-label="Langkah analisis CV" style={{ marginBottom: '1rem' }}>
-              <div style={{ ...CARD_STYLE, marginBottom: 0, padding: '1.25rem 1.5rem' }}>
-                <UploadSteps currentStep={3} />
-              </div>
-            </header>
+            {/* Breadcrumb */}
+            <div style={{ textAlign: 'center', marginBottom: '0.75rem', fontSize: '0.78rem', color: '#94A3B8', fontWeight: 500 }}>
+              CV dianalisis berdasarkan posisi yang kamu incar
+            </div>
 
             {/* Single status strip */}
             {stripText && (
@@ -555,22 +556,22 @@ export default function Result() {
               {/* Upgrade projection */}
               {data.skor_sesudah !== undefined && (
                 <div style={{
-                  background:   'linear-gradient(135deg, rgba(34,197,94,0.08) 0%, rgba(16,185,129,0.05) 100%)',
-                  border:       '1px solid rgba(34,197,94,0.25)',
+                  background:   'rgba(34,197,94,0.05)',
+                  border:       '1px solid rgba(34,197,94,0.15)',
                   borderRadius: 14,
                   padding:      '0.9rem 1rem',
                   marginBottom: '1rem',
                   textAlign:    'center',
                 }}>
-                  <p style={{ fontSize: '0.72rem', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.3rem' }}>
-                    Potensi setelah diperbaiki
+                  <p style={{ fontSize: '0.72rem', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.3rem' }}>
+                    Kalau diperbaiki
                   </p>
                   <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 3 }}>
-                    <span style={{ fontSize: '2.4rem', fontWeight: 800, color: '#15803D', lineHeight: 1 }}>{data.skor_sesudah}</span>
-                    <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#16A34A' }}>%</span>
+                    <span style={{ fontSize: '2.4rem', fontWeight: 800, color: '#16A34A', lineHeight: 1 }}>{data.skor_sesudah}</span>
+                    <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#22C55E' }}>%</span>
                   </div>
-                  <p style={{ fontSize: '0.75rem', color: '#16A34A', margin: '0.2rem 0 0', fontWeight: 500 }}>
-                    estimasi jika gap utama diperbaiki
+                  <p style={{ fontSize: '0.75rem', color: '#16A34A', margin: '0.2rem 0 0', fontWeight: 400 }}>
+                    kalau gap utama diperbaiki
                   </p>
                 </div>
               )}
@@ -583,11 +584,11 @@ export default function Result() {
                   background:     'linear-gradient(180deg,#3b82f6,#1d4ed8)',
                   color:          'white',
                   fontWeight:     700,
-                  fontSize:       '0.95rem',
-                  padding:        '0.8rem 1.75rem',
+                  fontSize:       '0.9rem',
+                  padding:        '0.65rem 1.5rem',
                   borderRadius:   60,
                   textDecoration: 'none',
-                  boxShadow:      '0 6px 20px rgba(37,99,235,0.28)',
+                  boxShadow:      '0 4px 14px rgba(37,99,235,0.18)',
                   textAlign:      'center',
                 }}
               >

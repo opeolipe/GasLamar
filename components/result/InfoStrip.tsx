@@ -5,13 +5,13 @@ interface Props {
 
 const STYLES: Record<NonNullable<Props['type']>, React.CSSProperties> = {
   info: {
-    background:  '#EFF6FF',
-    borderColor: '#BFDBFE',
-    color:       '#1E40AF',
+    background:  'rgba(239,246,255,0.55)',
+    borderColor: 'rgba(191,219,254,0.5)',
+    color:       '#2563EB',
   },
   warning: {
-    background:  '#FFFBEB',
-    borderColor: '#FDE68A',
+    background:  'rgba(255,251,235,0.55)',
+    borderColor: 'rgba(253,230,138,0.5)',
     color:       '#92400E',
   },
   expired: {
@@ -32,8 +32,8 @@ export default function InfoStrip({ children, type = 'info' }: Props) {
         border:       `1px solid ${s.borderColor as string}`,
         borderRadius: 10,
         padding:      '0.5rem 1rem',
-        fontSize:     '0.82rem',
-        fontWeight:   500,
+        fontSize:     '0.8rem',
+        fontWeight:   400,
         textAlign:    'center',
         marginBottom: '1rem',
         lineHeight:   1.55,
