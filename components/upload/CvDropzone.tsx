@@ -74,7 +74,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
   const pasteShort = manualCvText.trim().length > 0 && !pasteReady;
 
   return (
-    <div>
+    <div className="w-full max-w-full overflow-hidden">
       <p className="text-sm font-semibold mb-2">CV kamu</p>
 
       {/* Tab switcher */}
@@ -178,9 +178,9 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
             placeholder="Paste isi CV kamu di sini..."
             aria-label="Paste isi CV secara manual"
           />
-          <div className="flex items-center justify-between mt-1 text-xs">
+          <div className="flex items-center justify-between flex-wrap gap-x-2 gap-y-1 mt-1 text-xs min-w-0">
             {pasteShort ? (
-              <span className="text-amber-600 font-medium">
+              <span className="text-amber-600 font-medium min-w-0 break-words" style={{ overflowWrap: 'anywhere' }}>
                 ⚠️ Terlalu singkat — tambahkan detail pengalaman &amp; skill
               </span>
             ) : pasteReady ? (
@@ -188,7 +188,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
             ) : (
               <span />
             )}
-            <span className="text-slate-400 ml-auto">
+            <span className="text-slate-400 flex-shrink-0">
               {manualCvText.length.toLocaleString('id-ID')}
               {pasteShort
                 ? ` / min. ${MIN_CV_TEXT_LENGTH}`
