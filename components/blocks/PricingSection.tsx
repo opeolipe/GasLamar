@@ -14,19 +14,19 @@ interface Tier {
 const TIERS: Tier[] = [
   {
     key: "coba",
-    name: "Coba Dulu",
+    name: "Starter",
     price: "Rp 29k",
     desc: "Rewrite 1 posisi dalam Bahasa Indonesia. Hasil aktif 7 hari.",
     features: ["Gap analysis utama", "Rewrite 1 CV (Bahasa Indonesia)", "Hasil aktif 7 hari"],
-    ctaLabel: "Mulai Coba Dulu",
+    ctaLabel: "Mulai Starter",
   },
   {
     key: "single",
-    name: "Single",
+    name: "Bilingual",
     price: "Rp 59k",
     desc: "Rewrite 1 posisi, versi ID + EN. Hasil aktif 7 hari.",
     features: ["Perbaikan 8 bagian utama CV", "Rewrite langsung dari CV kamu (bukan template)", "Versi ID + EN", "Siap kirim ke HR (ATS-friendly)"],
-    ctaLabel: "Mulai Single",
+    ctaLabel: "Mulai Bilingual",
   },
   {
     key: "3pack",
@@ -40,11 +40,11 @@ const TIERS: Tier[] = [
   },
   {
     key: "jobhunt",
-    name: "Job Hunt Pack",
+    name: "Career Pack",
     price: "Rp 299k",
     desc: "Untuk job hunt intensif, dengan hasil rewrite aktif 30 hari.",
     features: ["10 CV tailored ID + EN", "Rewrite langsung dari CV kamu (bukan template)", "Siap kirim ke HR (ATS-friendly)"],
-    ctaLabel: "Mulai Job Hunt Pack",
+    ctaLabel: "Mulai Career Pack",
   },
 ];
 
@@ -75,7 +75,7 @@ export default function PricingSection() {
 
       {/* Guided decision copy */}
       <p className="text-sm sm:text-base text-slate-600 text-center mb-6 px-2">
-        Kalau kamu fokus 1 posisi → pilih Single. Kalau apply ke beberapa posisi → pilih 3‑Pack.
+        Kalau kamu fokus 1 posisi → pilih Bilingual. Kalau apply ke beberapa posisi → pilih 3‑Pack.
       </p>
 
       {/* Pricing cards */}

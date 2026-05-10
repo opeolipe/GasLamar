@@ -13,10 +13,10 @@ const GUIDANCE_LINE_PATTERN = /^\s{2}\((catatan:|note:)/i;
 // ── Tier helpers ──────────────────────────────────────────────────────────────
 
 export const TIER_LABELS: Record<string, string> = {
-  coba:    'Coba Dulu',
-  single:  'Single',
+  coba:    'Starter',
+  single:  'Bilingual',
   '3pack': '3-Pack',
-  jobhunt: 'Job Hunt Pack',
+  jobhunt: 'Career Pack',
 };
 
 export function isBilingual(tier: string): boolean {

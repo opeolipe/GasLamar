@@ -10,7 +10,7 @@ import ScoreBars                               from '@/components/6d/ScoreBars';
 import { useResultData }                       from '@/hooks/useResultData';
 import { useSessionCountdown }                 from '@/hooks/useSessionCountdown';
 import {
-  WORKER_URL, TIER_CONFIG, EMAIL_REGEX, buildResultData, DIM_LABELS,
+  WORKER_URL, TIER_CONFIG, buildResultData, DIM_LABELS,
 } from '@/lib/resultUtils';
 import { validateEmail }   from '@/utils/emailValidation';
 import { suggestEmailFix } from '@/utils/emailTypo';
@@ -125,7 +125,6 @@ export default function Result() {
   }, [countdown.isExpiringSoon]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
-  const emailValid  = EMAIL_REGEX.test(email.trim());
   const emailsMatch = email.trim().toLowerCase() === confirmEmail.trim().toLowerCase();
 
   const payBtnLabel = payBtnOverride ?? 'Lanjut pembayaran →';
