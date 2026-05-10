@@ -9,13 +9,9 @@ interface Props {
 }
 
 const JD_EXAMPLE = `Posisi: Digital Marketing Specialist
-
 Kualifikasi:
-- Pengalaman 2+ tahun di social media marketing
-- Familiar dengan Google Analytics & Facebook Ads
-
-Tanggung Jawab:
-- Kelola konten Instagram, TikTok, LinkedIn`;
+- Social media marketing 2+ tahun
+- Google Analytics & Facebook Ads`;
 
 const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobDescriptionInput({ value, onChange }, ref) {
   const [showFetcher, setShowFetcher] = useState(false);
@@ -122,7 +118,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
           </span>
         </div>
         {showExample && (
-          <div className="mt-2 p-3 bg-slate-50 rounded-xl text-xs text-slate-500 whitespace-pre leading-relaxed border border-slate-100 font-mono">
+          <div className="mt-2 p-3 bg-slate-50 rounded-xl text-xs text-slate-500 leading-relaxed border border-slate-100 font-mono max-w-full overflow-hidden" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
             {JD_EXAMPLE}
           </div>
         )}
