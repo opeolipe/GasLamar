@@ -7,8 +7,6 @@ import DetailAnalysis                          from '@/components/result/DetailA
 import RedFlags                                from '@/components/result/RedFlags';
 import InfoStrip                               from '@/components/result/InfoStrip';
 import ScoreBars                               from '@/components/6d/ScoreBars';
-import PrimaryHighlight                        from '@/components/6d/PrimaryHighlight';
-import DimRewritePreview                       from '@/components/6d/RewritePreview';
 import { useResultData }                       from '@/hooks/useResultData';
 import { useSessionCountdown }                 from '@/hooks/useSessionCountdown';
 import {
@@ -59,6 +57,11 @@ const SECTION_HEADING: React.CSSProperties = {
   lineHeight:   1.3,
   letterSpacing: '-0.01em',
 };
+
+function shortLine(text: string): string {
+  const first = text.split(/\.\s+/)[0].replace(/\.$/, '');
+  return first.length > 110 ? first.slice(0, 107) + '…' : first;
+}
 
 function scoreHeadline(score: number): string {
   if (score >= 75) return 'CV kamu sudah cukup kompetitif';
@@ -426,11 +429,6 @@ export default function Result() {
       })
     : null;
 
-  const isValidRewrite = !!(
-    result6d?.rewritePreview?.after &&
-    !result6d.rewritePreview.after.includes('[') &&
-    result6d.rewritePreview.after.length > (result6d.rewritePreview.before?.length ?? 0)
-  );
 
   // ── Countdown strip type ──────────────────────────────────────────────────
   const stripType: 'expired' | 'warning' | 'info' =
@@ -600,21 +598,6 @@ export default function Result() {
             <div id="gap-section" style={{ ...CARD_STYLE, scrollMarginTop: 80 }}>
               <h2 style={SECTION_HEADING}>Kenapa HR masih ragu</h2>
 
-              {/* Primary issue */}
-              {result6d?.primaryIssue ? (
-                <div data-testid="primary-problem">
-                  <PrimaryHighlight issueKey={result6d.primaryIssue} />
-                </div>
-              ) : (data.gap || []).length > 0 && (
-                <div data-testid="primary-problem" style={{ marginBottom: '1rem' }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', margin: '0 0 0.4rem', lineHeight: 1.4 }}>
-                    {data.gap![0]}
-                  </h3>
-                  <p style={{ fontSize: '0.875rem', color: '#64748B', margin: 0, lineHeight: 1.6 }}>
-                    Gap ini yang paling berpengaruh terhadap peluang kamu dipanggil interview.
-                  </p>
-                </div>
-              )}
 
               {/* Gap list */}
               {(data.gap || []).length > 0 && (
@@ -711,30 +694,20 @@ export default function Result() {
             <div style={CARD_STYLE}>
               <h2 style={SECTION_HEADING}>Yang perlu diperbaiki</h2>
 
-              {isValidRewrite ? (
-                <div data-testid="fix-before-after">
-                  <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 0.75rem' }}>
-                    Contoh perbaikan dari CV kamu
-                  </p>
-                  <DimRewritePreview preview={result6d!.rewritePreview} />
-                  <p style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '-0.25rem', marginBottom: '0.75rem', lineHeight: 1.55 }}>
-                    Contoh ini diambil langsung dari CV kamu — rewrite lengkap mencakup semua bagian.
-                  </p>
-                </div>
-              ) : (data.rekomendasi || []).length > 0 && (
-                <div data-testid="fix-before-after" style={{ marginBottom: '1rem' }}>
+              {(data.rekomendasi || []).length > 0 && (
+                <div data-testid="fix-before-after" style={{ marginBottom: '1.25rem' }}>
                   <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
                     {(data.rekomendasi || []).slice(0, 3).map((r, i) => (
                       <li key={i} style={{ fontSize: '0.875rem', color: '#111827', display: 'flex', gap: '0.6rem', alignItems: 'flex-start', lineHeight: 1.5 }}>
                         <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 2 }}>→</span>
-                        {r}
+                        {shortLine(r)}
                       </li>
                     ))}
                   </ul>
                 </div>
               )}
 
-              {/* AI Rewrite CTA */}
+              {/* Rewrite CTA */}
               <div style={{
                 background:   'linear-gradient(135deg, rgba(37,99,235,0.05) 0%, rgba(27,79,232,0.03) 100%)',
                 border:       '1px solid rgba(37,99,235,0.15)',
@@ -743,13 +716,13 @@ export default function Result() {
                 marginTop:    '1.25rem',
               }}>
                 <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', margin: '0 0 0.75rem', lineHeight: 1.4 }}>
-                  Mau AI rewrite seluruh CV kamu?
+                  Mau CV kamu langsung diperbaiki?
                 </h3>
                 <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 1rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                   {[
-                    'ATS-friendly & relevan dengan posisi yang kamu lamar',
-                    'Bahasa Indonesia + English (bilingual)',
-                    'Siap kirim: PDF & DOCX langsung',
+                    'Lebih relevan dengan posisi yang kamu incar',
+                    'Bahasa Indonesia + English',
+                    'Siap kirim PDF & DOCX',
                   ].map((b, i) => (
                     <li key={i} style={{ fontSize: '0.875rem', color: '#1E3A8A', display: 'flex', gap: 8, alignItems: 'flex-start', lineHeight: 1.5 }}>
                       <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 1 }}>✓</span>
@@ -770,10 +743,10 @@ export default function Result() {
                     fontSize:     '1rem',
                     cursor:       'pointer',
                     fontFamily:   'inherit',
-                    boxShadow:    '0 6px 20px rgba(37,99,235,0.28)',
+                    boxShadow:    '0 4px 14px rgba(37,99,235,0.18)',
                   }}
                 >
-                  Rewrite CV Saya →
+                  Perbaiki CV Saya →
                 </button>
               </div>
             </div>
