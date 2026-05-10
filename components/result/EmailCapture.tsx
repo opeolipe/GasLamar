@@ -9,14 +9,6 @@ interface Props {
   onAcceptSuggestion?: () => void;
   isDisposable?:       boolean;
   isConfirmed?:        boolean;
-  confirmEmail:        string;
-  onConfirmChange:     (value: string) => void;
-  onConfirmBlur?:      () => void;
-  onConfirmPaste?:     () => void;
-  confirmError?:       string;
-  confirmRef?:         React.RefObject<HTMLInputElement | null>;
-  emailsMatch?:        boolean;
-  confirmTouched?:     boolean;
 }
 
 function getHelper(tier: string | null): string {
@@ -28,8 +20,6 @@ function getHelper(tier: string | null): string {
 export default function EmailCapture({
   selectedTier, email, onChange, onBlur, onPaste, error,
   suggestion, onAcceptSuggestion, isDisposable, isConfirmed,
-  confirmEmail, onConfirmChange, onConfirmBlur, onConfirmPaste,
-  confirmError, confirmRef, emailsMatch, confirmTouched,
 }: Props) {
   const helper = getHelper(selectedTier);
 
@@ -37,17 +27,6 @@ export default function EmailCapture({
 
   const showSuggestion = !error && !!suggestion;
   const showDisposable = !error && !suggestion && !!isDisposable;
-
-  const showConfirmError   = !error && !suggestion && !!confirmError;
-  const showConfirmSuccess = !error && !suggestion && !!isConfirmed && !!emailsMatch && !!confirmTouched;
-  const confirmBorderColor = showConfirmError ? '#DC2626' : showConfirmSuccess ? '#16A34A' : '#CBD5E1';
-
-  // Confirm field reveals as soon as the email passes basic format validation,
-  // regardless of whether the blur event has fired yet. This avoids the case
-  // where the confirm field never appears when the user fills the email and
-  // immediately clicks the (disabled) pay button without blurring first.
-  const emailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-  const showConfirmField = emailLooksValid && !error && !suggestion;
 
   const inputStyle: React.CSSProperties = {
     width:        '100%',
@@ -129,45 +108,6 @@ export default function EmailCapture({
         <p style={{ color: '#D97706', fontSize: '0.875rem', marginTop: '0.4rem', fontWeight: 500 }}>
           ⚠️ Gunakan email aktif agar kamu bisa menerima CV hasil perbaikan.
         </p>
-      )}
-
-      {/* Confirm field — reveals only after primary email passes validation */}
-      {showConfirmField && (
-        <div style={{ marginTop: '0.85rem' }}>
-          <label htmlFor="email-confirm" style={labelStyle}>
-            Ketik ulang email kamu <span style={{ color: '#DC2626' }}>*</span>
-            {showConfirmSuccess && (
-              <span style={{ color: '#16A34A', marginLeft: '0.35rem', fontWeight: 700 }} aria-label="Email konfirmasi cocok">✓</span>
-            )}
-          </label>
-          <input
-            id="email-confirm"
-            ref={confirmRef}
-            type="email"
-            inputMode="email"
-            autoCapitalize="off"
-            data-testid="email-confirm-input"
-            value={confirmEmail}
-            onChange={e => onConfirmChange(e.target.value)}
-            onBlur={onConfirmBlur}
-            onPaste={onConfirmPaste}
-            placeholder="contoh@email.com"
-            autoComplete="email"
-            aria-label="Konfirmasi alamat email"
-            aria-invalid={showConfirmError}
-            style={{ ...inputStyle, border: `1.5px solid ${confirmBorderColor}` }}
-          />
-          {showConfirmError && (
-            <p role="alert" style={{ color: '#DC2626', fontSize: '0.875rem', marginTop: '0.4rem', fontWeight: 500 }}>
-              ⚠️ {confirmError}
-            </p>
-          )}
-          {showConfirmSuccess && (
-            <p style={{ color: '#16A34A', fontSize: '0.875rem', marginTop: '0.4rem', fontWeight: 500 }}>
-              ✓ Email sudah cocok
-            </p>
-          )}
-        </div>
       )}
     </div>
   );
