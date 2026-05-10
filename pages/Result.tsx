@@ -128,27 +128,9 @@ export default function Result() {
   const emailValid  = EMAIL_REGEX.test(email.trim());
   const emailsMatch = email.trim().toLowerCase() === confirmEmail.trim().toLowerCase();
 
-  const payHint: string | null = !selectedTier
-    ? 'Pilih paket di atas untuk melanjutkan'
-    : !!emailSuggestion
-    ? 'Periksa email kamu sebelum lanjut'
-    : !emailValid
-    ? 'Masukkan email yang valid untuk melanjutkan'
-    : !confirmEmail.trim()
-    ? 'Ketik ulang email kamu untuk melanjutkan'
-    : !emailsMatch
-    ? 'Email konfirmasi tidak sama'
-    : null;
+  const payBtnLabel = payBtnOverride ?? 'Lanjut pembayaran →';
 
-  const tierPrice = selectedTier ? (TIER_CONFIG[selectedTier]?.price ?? null) : null;
-
-  const payBtnLabel = payBtnOverride
-    ?? (selectedTier && tierPrice !== null
-      ? `Bayar Rp ${tierPrice.toLocaleString('id-ID')} →`
-      : '✨ Lihat CV hasil rewrite lengkap');
-
-  const payBtnDisabled = !selectedTier || paymentInProgress || sessionExpiredByPay
-    || !!emailSuggestion || !emailValid || !confirmEmail.trim() || !emailsMatch;
+  const payBtnDisabled = paymentInProgress || sessionExpiredByPay;
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   function handleTierSelect(tier: string) {
@@ -253,8 +235,18 @@ export default function Result() {
     ;(window as any).Analytics?.track?.('email_typo_corrected', { corrected_email: accepted });
   }
 
+  function shakeEl(el: Element | null) {
+    if (!el) return;
+    el.classList.add('gaslamar-shake');
+    setTimeout(() => el.classList.remove('gaslamar-shake'), 500);
+  }
+
   async function proceedToPayment() {
-    if (!selectedTier || paymentInProgress) return;
+    if (paymentInProgress) return;
+    if (!selectedTier) {
+      document.getElementById('pricing-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
 
     const currentCvKey = sessionStorage.getItem('gaslamar_cv_key');
     const pendingRaw = sessionStorage.getItem('gaslamar_pending_invoice');
@@ -308,7 +300,9 @@ export default function Result() {
       setEmailSuggestion(emailValidation.suggestion);
       setEmailIsConfirmed(false);
       ;(window as any).Analytics?.track?.('email_validation_failed', { reason: emailValidation.suggestion ? 'typo_domain' : 'invalid_format' });
-      document.getElementById('email-capture')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const emailEl = document.getElementById('email-capture');
+      emailEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => { emailEl?.focus(); shakeEl(emailEl); }, 300);
       return;
     }
     setEmailError('');
@@ -317,8 +311,9 @@ export default function Result() {
     if (confirmEmail.trim().toLowerCase() !== email.trim().toLowerCase()) {
       setConfirmTouched(true);
       setConfirmError('Email tidak sama. Periksa kembali');
-      confirmEmailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      confirmEmailRef.current?.focus();
+      const confirmEl = confirmEmailRef.current;
+      confirmEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => { confirmEl?.focus(); shakeEl(confirmEl); }, 300);
       return;
     }
 
@@ -794,17 +789,12 @@ export default function Result() {
                 </div>
               )}
 
-              <p style={{ fontSize: '0.8rem', color: '#94A3B8', fontStyle: 'italic', textAlign: 'center', margin: '1.25rem 0 0.75rem' }}>
-                Perbaikan ini bikin CV kamu standout di 7 detik pertama.
-              </p>
-
               {/* Pay button */}
               <button
                 data-testid="generate-cv-button"
                 onClick={proceedToPayment}
                 disabled={payBtnDisabled}
-                aria-label="Lihat CV hasil rewrite lengkap"
-                title={payBtnDisabled && payHint ? payHint : undefined}
+                aria-label="Lanjut pembayaran"
                 style={{
                   background:   payBtnDisabled ? '#CBD5E1' : 'linear-gradient(180deg,#3b82f6,#1d4ed8)',
                   color:        'white',
@@ -824,18 +814,13 @@ export default function Result() {
                 {payBtnLabel}
               </button>
 
-              {emailIsConfirmed && !payHint && !sessionExpiredByPay && (
+              {emailIsConfirmed && emailsMatch && !sessionExpiredByPay && (
                 <p style={{ fontSize: '0.8rem', color: '#374151', textAlign: 'center', marginTop: '0.5rem' }}>
                   📬 CV akan dikirim ke: <strong>{email.trim()}</strong>
                 </p>
               )}
-              {payHint && !sessionExpiredByPay && (
-                <p style={{ fontSize: '0.8rem', color: '#DC2626', fontWeight: 500, textAlign: 'center', marginTop: '0.5rem' }}>
-                  ⚠️ {payHint}
-                </p>
-              )}
               {paymentError && (
-                <div role="alert" style={{ marginTop: '0.75rem', padding: '0.75rem', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, color: '#B91C1C', fontSize: '0.875rem', textAlign: 'center' }}>
+                <div role="alert" style={{ marginTop: '0.75rem', padding: '0.75rem', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 12, color: '#92400E', fontSize: '0.875rem', textAlign: 'center' }}>
                   {paymentError}
                 </div>
               )}
@@ -866,7 +851,15 @@ export default function Result() {
         )}
       </main>
 
-      <style>{`@keyframes gasResultSpin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @keyframes gasResultSpin { to { transform: rotate(360deg); } }
+        @keyframes gaslamarShake {
+          0%, 100% { transform: translateX(0); }
+          20%, 60% { transform: translateX(-5px); }
+          40%, 80% { transform: translateX(5px); }
+        }
+        .gaslamar-shake { animation: gaslamarShake 0.4s ease-in-out; }
+      `}</style>
     </div>
   );
 }

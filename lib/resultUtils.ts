@@ -43,7 +43,7 @@ export interface TierInfo {
 
 export const TIER_CONFIG: Record<string, TierInfo> = {
   coba: {
-    label:     'Coba Dulu',
+    label:     'Starter',
     price:     29000,
     bilingual: false,
     desc:      '1 CV · Bahasa Indonesia',
@@ -56,7 +56,7 @@ export const TIER_CONFIG: Record<string, TierInfo> = {
     ],
   },
   single: {
-    label:     'Single',
+    label:     'Bilingual',
     price:     59000,
     bilingual: true,
     desc:      '1 CV · Bilingual ID + EN',
@@ -83,7 +83,7 @@ export const TIER_CONFIG: Record<string, TierInfo> = {
     ],
   },
   jobhunt: {
-    label:    'Job Hunt Pack',
+    label:    'Career Pack',
     price:    299000,
     bilingual: true,
     desc:     '10 posisi berbeda · Bilingual',
