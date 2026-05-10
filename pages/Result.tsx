@@ -112,7 +112,7 @@ export default function Result() {
   useEffect(() => {
     if (!noSession) return;
     if (noSession === 'expired') {
-      window.location.replace('access.html?expired=1');
+      window.location.replace('access.html?expired=1&source=hasil');
       return;
     }
     window.location.replace('upload.html?reason=no_session');
@@ -536,6 +536,26 @@ export default function Result() {
                   : <>Kami mengoptimalkan CV kamu berdasarkan pengalaman yang terdeteksi.</>
                 }
                 {data.jd_mode === 'inferred' && <> — JD kurang detail, optimasi berdasarkan profil kamu.</>}
+              </div>
+            )}
+
+            {/* Quick priorities */}
+            {((data.gap || []).length > 0 || (data.rekomendasi || []).length > 0) && (
+              <div style={{ ...CARD_STYLE, marginBottom: '1rem', padding: '1.25rem' }}>
+                <p style={{ fontSize: '0.78rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.5rem' }}>
+                  Prioritas Perbaikan
+                </p>
+                <p style={{ fontSize: '0.9rem', color: '#64748B', margin: '0 0 0.8rem', lineHeight: 1.55 }}>
+                  Fokus ke 3 poin ini dulu untuk dampak paling cepat ke peluang interview:
+                </p>
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                  {((data.gap && data.gap.length > 0) ? data.gap : (data.rekomendasi || [])).slice(0, 3).map((item, i) => (
+                    <li key={i} style={{ fontSize: '0.92rem', color: '#111827', display: 'flex', gap: '0.55rem', alignItems: 'flex-start', lineHeight: 1.45 }}>
+                      <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{i + 1}.</span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
 

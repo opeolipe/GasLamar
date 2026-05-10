@@ -60,7 +60,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
   return (
     <div className="w-full">
       <label className="block text-sm font-semibold mb-2 mt-6" htmlFor="job-desc">
-        Job yang kamu targetkan
+        Job yang kamu targetkan (wajib)
       </label>
 
       <div className="mb-3">
@@ -110,6 +110,12 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
 
       {trimmed && quality.message && (
         <p className="text-sm text-slate-500 mt-2">{quality.message}</p>
+      )}
+
+      {!trimmed && (
+        <p className="text-sm text-slate-500 mt-2">
+          Job description wajib diisi. Minimal berisi kualifikasi dan tanggung jawab utama.
+        </p>
       )}
 
       {trimmed && !quality.message && (

@@ -13,7 +13,7 @@ import {
   unescapeHtml,
 } from '@/lib/uploadValidation';
 import { evaluateJDQuality }          from '@/utils/evaluateJDQuality';
-import { WORKER_URL, clearClientSessionData } from '@/lib/downloadUtils';
+import { WORKER_URL, clearClientSessionData } from '@/lib/sessionUtils';
 
 const SHADOW = '0 18px 44px rgba(15, 23, 42, 0.08)';
 
@@ -52,9 +52,10 @@ export default function Upload() {
   // JD textarea ref — used for auto-scroll after CV upload
   const jdRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // Derived — JD is optional; button enables as soon as a valid CV is present.
+  // Derived — JD is mandatory and must pass basic structure checks.
   const hasFile: boolean = !!fileName && !!cvText;
-  const isValid: boolean = hasFile;
+  const jdQuality = evaluateJDQuality(jd);
+  const isValid: boolean = hasFile && jdQuality.isValid;
 
   // Mount: read URL params + restore drafts
   useEffect(() => {
@@ -300,8 +301,8 @@ export default function Upload() {
       return;
     }
     const jobDesc = jd.trim();
-    // Only reject a non-empty JD that is too short/unstructured — empty JD runs general mode.
-    if (jobDesc.length > 0 && !evaluateJDQuality(jobDesc).isValid) return;
+    if (!jobDesc.length) return;
+    if (!evaluateJDQuality(jobDesc).isValid) return;
 
     setLoading(true);
     try {
@@ -382,9 +383,9 @@ export default function Upload() {
             Cek peluang interview kamu
           </h1>
           <p className="text-sm text-slate-500 max-w-[48ch] mx-auto mb-1.5">
-            Upload CV + job description → tahu peluang kamu dalam 30 detik
+            Upload CV + job description → lihat analisis yang jelas sebelum apply
           </p>
-          <p className="text-sm text-slate-400">Tanpa daftar&nbsp;•&nbsp;analisis dalam ±30 detik</p>
+          <p className="text-sm text-slate-400">Tanpa daftar&nbsp;•&nbsp;rata-rata selesai dalam kurang dari 1 menit</p>
         </div>
 
         {/* ZONE 2: Form panel (soft panel) */}
@@ -427,7 +428,10 @@ export default function Upload() {
           <SubmitSection
             isValid={isValid}
             isLoading={loading}
-            showJdHint={hasFile && jd.trim().length === 0}
+            showJdHint={hasFile && (!jd.trim().length || !jdQuality.isValid)}
+            jdHintText={!jd.trim().length
+              ? 'Job description wajib diisi agar analisis bisa dimulai.'
+              : (jdQuality.message || 'Lengkapi job description agar analisis lebih akurat.')}
             onSubmit={handleSubmit}
           />
         </div>

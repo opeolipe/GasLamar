@@ -17,7 +17,7 @@ export default function PricingSelector({ selectedTier, onSelect, score }: Props
         Pilih versi CV yang ingin kamu gunakan
       </h3>
       <p style={{ textAlign: 'center', fontSize: '0.9rem', color: '#4B5563', margin: '0 0 1rem' }}>
-        Sekali bayar — langsung download CV yang sudah diperbaiki
+        Pilih paket berdasarkan jumlah loker yang mau kamu kejar minggu ini
       </p>
 
       {/* Tier recommendation — inline, no black banner */}
@@ -36,7 +36,7 @@ export default function PricingSelector({ selectedTier, onSelect, score }: Props
 
       {/* Guided decision copy */}
       <p style={{ textAlign: 'center', fontSize: '0.875rem', color: '#475569', margin: '0.5rem 0 0', lineHeight: 1.5 }}>
-        Fokus 1 posisi → Single. Apply ke banyak loker → 3‑Pack.
+        Fokus 1 posisi: Single. Lebih dari 1 posisi: 3‑Pack/Job Hunt biasanya lebih hemat.
       </p>
 
       {/* Pricing grid */}
@@ -65,9 +65,14 @@ export default function PricingSelector({ selectedTier, onSelect, score }: Props
                 cursor:       'pointer',
                 position:     'relative',
                 transition:   '0.2s',
-                boxShadow:    selected ? '0 0 0 3px rgba(37,99,235,0.12)' : 'none',
+                boxShadow:    selected
+                  ? '0 0 0 3px rgba(37,99,235,0.12)'
+                  : isRec
+                  ? '0 6px 18px rgba(37,99,235,0.10)'
+                  : 'none',
                 fontFamily:   'inherit',
                 width:        '100%',
+                transform:    isRec && !selected ? 'scale(1.02)' : 'none',
               }}
             >
               {/* Badge */}

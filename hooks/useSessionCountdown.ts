@@ -45,7 +45,7 @@ export function useSessionCountdown(analyzeTime: number): SessionCountdown {
   if (remaining <= 300) {
     return {
       text: `⚠️ Preview berakhir dalam ${m}m ${s}s — selesaikan pembayaran sekarang!`,
-      variant: 'expired',
+      variant: 'warning',
       isExpiringSoon: true,
       isExpired: false,
     };

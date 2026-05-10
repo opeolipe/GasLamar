@@ -3,10 +3,11 @@ interface Props {
   isValid:        boolean;
   isLoading:      boolean;
   showJdHint:     boolean;
+  jdHintText?:    string;
   onSubmit:       () => void;
 }
 
-export default function SubmitSection({ isValid, isLoading, showJdHint, onSubmit }: Props) {
+export default function SubmitSection({ isValid, isLoading, showJdHint, jdHintText, onSubmit }: Props) {
   const btnRef   = useRef<HTMLButtonElement>(null);
   const canSubmit = isValid && !isLoading;
 
@@ -33,12 +34,12 @@ export default function SubmitSection({ isValid, isLoading, showJdHint, onSubmit
 
       {showJdHint && (
         <p className="text-center text-sm text-slate-500 mt-3">
-          Tambahkan job description untuk hasil analisis yang lebih akurat (opsional).
+          {jdHintText || 'Job description wajib diisi sebelum analisis dimulai.'}
         </p>
       )}
 
       <p className="text-center text-sm text-slate-400 mt-4">
-        CV tidak disimpan • tanpa registrasi • analisis ±30 detik • hasil gratis aktif 2 jam
+        CV tidak disimpan • tanpa registrasi • rata-rata selesai {'<'} 1 menit • hasil gratis aktif 2 jam
       </p>
     </div>
   );

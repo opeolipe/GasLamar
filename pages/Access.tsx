@@ -1,5 +1,5 @@
 import { useState, useRef }      from 'react';
-import { WORKER_URL }             from '@/lib/downloadUtils';
+import { WORKER_URL }             from '@/lib/sessionUtils';
 import { validateEmail, EMAIL_REGEX } from '@/utils/emailValidation';
 import { suggestEmailFix }        from '@/utils/emailTypo';
 
@@ -20,6 +20,12 @@ function isSameOriginUrl(url: string): boolean {
 export default function Access() {
   const params = new URLSearchParams(window.location.search);
   const showExpiredBanner = params.get('expired') === '1';
+  const source = params.get('source');
+  const sourceLabel = source === 'download'
+    ? 'halaman download'
+    : source === 'hasil'
+    ? 'halaman hasil analisis'
+    : null;
 
   if (params.has('return_url')) {
     const raw = params.get('return_url') ?? '';
@@ -234,7 +240,7 @@ export default function Access() {
               className="rounded-[16px] px-4 py-3 text-sm mb-4 text-amber-800"
               style={{ background: 'rgba(255,251,235,0.9)', border: '1px solid rgba(253,230,138,0.8)' }}
             >
-              ⏰ Link kamu sudah kadaluarsa, tapi tenang — kamu masih bisa akses CV kamu.
+              ⏰ Sesi dari {sourceLabel || 'halaman sebelumnya'} sudah berakhir, tapi tenang — kamu tetap bisa akses CV melalui email.
             </div>
           )}
 

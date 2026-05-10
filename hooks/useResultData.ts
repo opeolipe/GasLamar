@@ -82,7 +82,7 @@ export function useResultData(): ResultDataState {
         .then((result: { valid: boolean }) => {
           if (!result.valid) {
             sessionStorage.removeItem('gaslamar_cv_key');
-            window.location.replace('access.html?expired=1');
+            window.location.replace('access.html?expired=1&source=hasil');
           }
         })
         .catch(() => {}); // network unavailable — fail open

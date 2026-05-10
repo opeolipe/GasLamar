@@ -17,6 +17,8 @@ const ENTRIES = [
 
 const ALIASES = {
   '@': ROOT,
+  // docx pulls Node-style buffer in some branches; map it to browser buffer package.
+  'buffer': require.resolve('buffer/index.js'),
 };
 
 (async () => {

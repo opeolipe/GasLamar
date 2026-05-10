@@ -40,7 +40,7 @@
   var isExpired = analyzeTime > 0 && (Date.now() - analyzeTime) / 1000 > SESSION_SECS;
   if (isExpired) {
     KEYS.forEach(function(k) { sessionStorage.removeItem(k); });
-    window.location.replace('access.html?expired=1');
+    window.location.replace('access.html?expired=1&source=hasil');
     return;
   }
 

@@ -32,7 +32,7 @@ export interface UseAnalysisResult {
   cancel:      () => void;
 }
 
-const INIT_TIMER = `⏱️ Estimasi selesai: ~${Math.ceil(ESTIMATED_MS / 1000)} detik`;
+const INIT_TIMER = `⏱️ Estimasi selesai: sekitar ${Math.ceil(ESTIMATED_MS / 1000)} detik`;
 
 export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult {
   const [activeStep,  setActiveStep]  = useState(0);
