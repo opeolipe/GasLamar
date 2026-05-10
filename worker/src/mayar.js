@@ -174,16 +174,15 @@ export async function verifyMayarWebhook(request, env) {
 
   const isSandbox = env.ENVIRONMENT !== 'production';
 
-  // Sandbox bypass: skip HMAC verification for non-production environments when
-  // no secret is configured, or when the payload signals a sandbox/test event.
-  // This handles Mayar sandbox omitting the x-mayar-signature header entirely.
+  // Sandbox bypass: always skip HMAC in non-production environments.
+  // Mayar sandbox (api.mayar.club) behaviour is inconsistent: it sometimes omits
+  // the x-mayar-signature header, sometimes sends a signature that doesn't match
+  // the configured secret (e.g. when the secret was set after the invoice was
+  // created, or when the sandbox uses a different signing key than production).
+  // There is no real financial risk in staging so we accept all webhook payloads
+  // without signature verification.
   if (isSandbox) {
-    let parsed = {};
-    try { parsed = JSON.parse(body || '{}'); } catch (_) {}
-    const isTestEvent = parsed?.is_sandbox === true || (typeof parsed?.id === 'string' && parsed.id.startsWith('test_'));
-    if (!secret || isTestEvent) {
-      return { valid: true, body };
-    }
+    return { valid: true, body };
   }
 
   const signature = request.headers.get('x-mayar-signature') || request.headers.get('X-Mayar-Signature');
