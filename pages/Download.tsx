@@ -389,6 +389,7 @@ export default function Download() {
               statusText={session.statusText}
               showCheckButton={session.showCheckButton}
               onStartFresh={handleStartFresh}
+              onCheckNow={session.onCheckNow}
             />
           </div>
         )}
