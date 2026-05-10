@@ -124,9 +124,36 @@ async function poll(sessionId) {
     const data     = await res.json();
     const { status } = data;
 
-    if (status === 'paid' || status === 'generating') {
+    // 'paid'       — payment confirmed, ready for first generation
+    // 'ready'      — a previous generation succeeded; another can be triggered
+    // 'generating' — generation already in progress (retry after failure)
+    if (status === 'paid' || status === 'ready' || status === 'generating') {
       await handlePaidSession(data, sessionId);
-    } else if (status === 'pending') {
+    } else if (status === 'exhausted') {
+      // All credits consumed — fetch the last result directly instead of waiting.
+      // This surfaces the CV immediately on page reload rather than a confusing 404.
+      clearTimeout(pollTimer);
+      try {
+        const resultRes = await fetch(WORKER_URL + '/get-result', {
+          method: 'POST',
+          headers: Object.assign({ 'Content-Type': 'application/json' }, getSecretHeaders()),
+          credentials: 'include',
+        });
+        if (resultRes.ok) {
+          const resultData = await resultRes.json();
+          await showExhaustedResult(resultData);
+          return;
+        }
+      } catch (_) {}
+      // No stored result — unlikely but show a graceful message
+      showSessionError(
+        'Kredit Habis',
+        'Semua kredit kamu sudah digunakan. Cek email kamu untuk CV yang sudah digenerate, ' +
+        'atau hubungi support@gaslamar.com.',
+        false
+      );
+    } else if (status === 'pending' || status === 'pending_payment') {
+      // Awaiting payment confirmation from Mayar webhook — keep polling
       if (pollCount >= MAX_POLLS) {
         if (window.Analytics) Analytics.track('payment_timeout', { poll_attempts: pollCount });
         document.getElementById('check-btn').classList.remove('hidden');

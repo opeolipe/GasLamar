@@ -1,7 +1,8 @@
 import { jsonResponse } from '../cors.js';
 import { clientIp, log, logError, extractJobMetadata } from '../utils.js';
 import { checkRateLimit, rateLimitResponse } from '../rateLimit.js';
-import { getSession, updateSession, deleteSession, verifySessionSecret } from '../sessions.js';
+import { getSession, updateSession, verifySessionSecret } from '../sessions.js';
+import { SESSION_STATES } from '../sessionStates.js';
 import { tailorCVID, tailorCVEN } from '../tailoring.js';
 import { KV_CV_RESULT_PREFIX } from '../constants.js';
 import { sendCVReadyEmail } from '../email.js';
@@ -224,22 +225,30 @@ export async function handleGenerate(request, env, ctx) {
     log('generate_success', { session_id, tier, credits_remaining: newCreditsRemaining });
 
     if (newCreditsRemaining <= 0) {
+      // Last credit consumed — mark exhausted rather than deleting so /check-session
+      // returns a meaningful status and the client can distinguish "used up" from "expired".
+      // cv_result_ and kit_ KV entries persist under their own TTLs.
       if (ctx && (score !== undefined || gaps !== undefined)) {
-        // sendCVReadyEmail reads the session KV entry to get the stored email address.
-        // Deleting the session first (as we did before) causes getSession() to return null
-        // and the email to be silently dropped. Chain deleteSession in .finally() so it
-        // runs after the send — whether the send succeeds or fails — without blocking the response.
+        // sendCVReadyEmail reads the session to get the stored email address.
+        // Mark exhausted first so the session exists for the email lookup,
+        // then fire the email in the background.
+        await updateSession(env, session_id, {
+          status: SESSION_STATES.EXHAUSTED,
+          credits_remaining: 0,
+        }).catch(() => {});
         ctx.waitUntil(
           sendCVReadyEmail(session_id, score, gaps, env)
             .catch(e => logError('cv_ready_email_failed', { session_id, error: e.message }))
-            .finally(() => deleteSession(env, session_id).catch(() => {}))
         );
       } else {
-        await deleteSession(env, session_id);
+        await updateSession(env, session_id, {
+          status: SESSION_STATES.EXHAUSTED,
+          credits_remaining: 0,
+        }).catch(() => {});
       }
     } else {
-      // Credits remain — reset to 'paid' for next generation, persist updated job_desc if changed
-      const updates = { status: 'paid', credits_remaining: newCreditsRemaining };
+      // Credits remain — transition to 'ready' (not 'paid') so the client knows a result exists.
+      const updates = { status: SESSION_STATES.READY, credits_remaining: newCreditsRemaining };
       if (newJobDesc && newJobDesc.trim()) updates.job_desc = effectiveJobDesc;
       await updateSession(env, session_id, updates);
       if (ctx && (score !== undefined || gaps !== undefined)) {
@@ -263,9 +272,13 @@ export async function handleGenerate(request, env, ctx) {
       interview_kit:     interviewKitId ?? null,
     }, 200, request, env);
   } catch (e) {
-    // On failure, reset to 'paid' so user can retry (don't consume the credit)
+    // On failure, restore to the state that allows retry without consuming a credit.
+    // If a cv_result_ already exists the user has a previous generation — restore to
+    // 'ready' so the client knows the result is accessible. Otherwise restore to 'paid'.
     logError('generate_failed', { session_id, error: e.message });
-    await updateSession(env, session_id, { status: 'paid' }).catch((e2) => {
+    const hasExistingResult = !!(await env.GASLAMAR_SESSIONS.get(`${KV_CV_RESULT_PREFIX}${session_id}`).catch(() => null));
+    const rollbackStatus = hasExistingResult ? SESSION_STATES.READY : SESSION_STATES.PAID;
+    await updateSession(env, session_id, { status: rollbackStatus }).catch((e2) => {
       logError('generate_recovery_failed', { session_id, error: e2.message });
     });
     // Only pass through known user-facing messages from tailoring.js (size/content issues).

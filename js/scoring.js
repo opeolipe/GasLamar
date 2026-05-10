@@ -23,58 +23,64 @@
     return;
   }
 
-  // --- Server-side session validation (defense-in-depth) ---
-  // hasil-guard.js already validated format + timing client-side.
-  // We also check the server so a replayed/expired cvtext_ key is caught.
+  // --- Fetch scoring from server ---
+  // Scoring is no longer stored as a blob in sessionStorage — only the cv_text_key is kept.
+  // This lets the user refresh or open hasil.html in a new tab without losing their results,
+  // as long as the 24h cvtext_ TTL has not expired.
   const cvKey = sessionStorage.getItem('gaslamar_cv_key');
+
+  let scoring;
+
   if (cvKey && cvKey.startsWith('cvtext_')) {
     try {
-      // M16: Add AbortController timeout so a hung /validate-session call doesn't
-      // stall the scoring page indefinitely.
-      const _vc = new AbortController();
-      const _vt = setTimeout(() => _vc.abort(), 5000);
-      const res = await fetch(`${WORKER_URL}/validate-session?cvKey=${encodeURIComponent(cvKey)}`, { signal: _vc.signal });
-      clearTimeout(_vt);
+      const _ac = new AbortController();
+      const _at = setTimeout(() => _ac.abort(), 8000);
+      const res = await fetch(`${WORKER_URL}/get-scoring?key=${encodeURIComponent(cvKey)}`, { signal: _ac.signal });
+      clearTimeout(_at);
+
       if (res.ok) {
         const data = await res.json();
-        if (!data.valid) {
-          // Key not found on server — session expired or tampered.
-          showError('⏰ Sesi analisis sudah berakhir (berlaku 2 jam). Mohon upload ulang CV kamu.');
-          sessionStorage.removeItem('gaslamar_scoring');
+        if (data.valid && data.scoring) {
+          scoring = data.scoring;
+        } else {
+          // Key expired or not found on server.
           sessionStorage.removeItem('gaslamar_cv_key');
+          sessionStorage.removeItem('gaslamar_analyze_time');
+          showError('⏰ Sesi analisis sudah berakhir (berlaku 2 jam). Mohon upload ulang CV kamu.');
           setTimeout(() => window.location.href = 'upload.html', 3000);
           return;
         }
+      } else if (res.status === 404) {
+        sessionStorage.removeItem('gaslamar_cv_key');
+        sessionStorage.removeItem('gaslamar_analyze_time');
+        showError('⏰ Sesi analisis sudah berakhir (berlaku 2 jam). Mohon upload ulang CV kamu.');
+        setTimeout(() => window.location.href = 'upload.html', 3000);
+        return;
       }
-      // Network/server error → fail open, continue rendering
+      // Other server errors → try sessionStorage fallback below
     } catch (_) {
-      // Network unavailable or timeout — fail open
+      // Network unavailable or timeout — try sessionStorage fallback
     }
   }
 
-  const raw = sessionStorage.getItem('gaslamar_scoring');
+  // Fallback: legacy sessionStorage blob (sessions from before this change, or network failure).
+  if (!scoring) {
+    const raw = sessionStorage.getItem('gaslamar_scoring');
+    if (raw) {
+      try {
+        scoring = JSON.parse(raw);
+        sessionStorage.removeItem('gaslamar_scoring');
+      } catch (_) {
+        sessionStorage.removeItem('gaslamar_scoring');
+      }
+    }
+  }
 
-  if (!raw) {
-    // No data — redirect back
+  if (!scoring) {
     showError('Data analisis tidak ditemukan. Mohon upload CV kamu kembali.');
     window.location.href = 'upload.html?reason=session_expired';
     return;
   }
-
-  let scoring;
-  try {
-    scoring = JSON.parse(raw);
-  } catch (e) {
-    showError('Data analisis tidak valid. Mohon upload CV kamu kembali.');
-    setTimeout(() => window.location.href = 'upload.html', 3000);
-    return;
-  }
-
-  // M17: Remove from sessionStorage only after successful parse.
-  // The previous code removed before JSON.parse — if parsing threw, the data was
-  // gone and the user couldn't recover. Now removal is safe: parse succeeded.
-  // Scoring lives in JS memory only; sessionStorage was just the transport.
-  sessionStorage.removeItem('gaslamar_scoring');
 
   // Store a non-sensitive summary so the download page can forward score/gaps/primary_issue
   // to the post-generate email. The full scoring blob has already been deleted above.

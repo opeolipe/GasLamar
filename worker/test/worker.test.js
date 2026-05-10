@@ -1014,9 +1014,11 @@ describe('POST /generate — happy path (mocked Claude)', () => {
     expect(body.job_title).toBeNull();
     expect(body.company).toBeNull();
 
-    // Session deleted after use (one-time)
+    // Session marked exhausted after last credit consumed (not deleted — keeps status for auditing)
     const session = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
-    expect(session).toBeNull();
+    expect(session).not.toBeNull();
+    expect(session.status).toBe('exhausted');
+    expect(session.credits_remaining).toBe(0);
   });
 
   it('generates ID-only CV for coba tier — cv_en is null', async () => {

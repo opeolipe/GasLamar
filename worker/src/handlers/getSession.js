@@ -1,6 +1,7 @@
 import { jsonResponse } from '../cors.js';
 import { getSession, updateSession, verifySessionSecret } from '../sessions.js';
 import { getSessionIdFromCookie } from '../cookies.js';
+import { SESSION_STATES, canStartGeneration } from '../sessionStates.js';
 
 export async function handleGetSession(request, env) {
   const session_id = getSessionIdFromCookie(request);
@@ -21,14 +22,15 @@ export async function handleGetSession(request, env) {
     return jsonResponse({ message: 'Akses ditolak: token sesi tidak valid' }, 403, request, env);
   }
 
-  // Allow 'paid' (first time) or 'generating' (retry after failed /generate)
-  if (session.status !== 'paid' && session.status !== 'generating') {
+  // Allow 'paid' (first generation), 'ready' (subsequent generation for multi-credit),
+  // or 'generating' (retry after a failed /generate call).
+  if (!canStartGeneration(session.status)) {
     return jsonResponse({ message: 'Pembayaran belum dikonfirmasi' }, 403, request, env);
   }
 
-  // Only transition paid → generating once; already-generating sessions stay generating
-  if (session.status === 'paid') {
-    await updateSession(env, session_id, { status: 'generating' });
+  // Transition to 'generating' if not already there.
+  if (session.status !== SESSION_STATES.GENERATING) {
+    await updateSession(env, session_id, { status: SESSION_STATES.GENERATING });
   }
 
   return jsonResponse({

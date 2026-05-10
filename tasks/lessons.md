@@ -61,3 +61,17 @@ period as thousands separator). Every price above 999 IDR contains '0'.
 
 **Fix:** Assert the full price string: `toContainText('59.000')` or
 `not.toContainText('Rp 0 ')` (with trailing space to avoid matching '29.000', etc.)
+
+## Session state exhausted vs delete (2026-05-10)
+When the last credit is consumed, mark session `exhausted` instead of deleting it.
+- /check-session returns `{ status: 'exhausted' }` instead of 404 — client can distinguish "used up" from "expired/not found"
+- cv_result_ and kit_ KV entries have their own TTLs so /get-result still works
+- Any test expecting `session === null` after last-credit use must be updated to expect `status: 'exhausted'`
+- Backward compat: old sessions with `status: 'pending'` are handled alongside new `'pending_payment'` in webhook guard
+
+## Server-side scoring snapshot (2026-05-10)
+Store scoring in cvtext_ KV entry at /analyze time; serve via GET /get-scoring.
+- analyzing-page.js no longer stores gaslamar_scoring blob in sessionStorage
+- scoring.js fetches from /get-scoring; falls back to legacy sessionStorage blob for old sessions
+- hasil-guard.js simplified — no scoring blob validation; just checks cv_text_key format + analyze_time
+- Security: /get-scoring returns only the scoring portion, never cv_text or job_desc
