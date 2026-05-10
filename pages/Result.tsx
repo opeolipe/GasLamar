@@ -549,32 +549,17 @@ export default function Result() {
                 {verdictDesc(data.veredict, data.skor)}
               </p>
 
-              {/* Inline improvement hint — part of the narrative, not a widget */}
+              {/* Improvement score — emotional payoff, large and prominent */}
               {data.skor_sesudah !== undefined && (
-                <p style={{ fontSize: '0.95rem', color: '#15803D', fontWeight: 600, margin: '0 0 1.5rem' }}>
-                  Potensi setelah diperbaiki:{' '}
-                  <span style={{ fontSize: '1.15rem', fontWeight: 800 }}>{data.skor_sesudah}%</span>
-                </p>
+                <div style={{ marginTop: '1.25rem' }}>
+                  <p style={{ fontSize: '0.78rem', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 0.25rem' }}>
+                    Bisa naik hingga
+                  </p>
+                  <p style={{ fontSize: '4rem', fontWeight: 800, color: '#15803D', lineHeight: 1, margin: 0 }}>
+                    {data.skor_sesudah}%
+                  </p>
+                </div>
               )}
-
-              {/* CTA — restrained: not a checkout button, a guide into the insight */}
-              <a
-                href="#gap-section"
-                style={{
-                  display:        'inline-block',
-                  background:     'linear-gradient(180deg,#3b82f6,#1d4ed8)',
-                  color:          'white',
-                  fontWeight:     600,
-                  fontSize:       '0.9rem',
-                  padding:        '0.65rem 2rem',
-                  borderRadius:   60,
-                  textDecoration: 'none',
-                  boxShadow:      '0 2px 8px rgba(37,99,235,0.14)',
-                  maxWidth:       320,
-                }}
-              >
-                Lihat cara memperbaikinya →
-              </a>
 
             </div>
 
@@ -687,55 +672,6 @@ export default function Result() {
                 </div>
               )}
 
-              {/* Rewrite CTA */}
-              <div style={{
-                background:   'linear-gradient(135deg, rgba(37,99,235,0.05) 0%, rgba(27,79,232,0.03) 100%)',
-                border:       '1px solid rgba(37,99,235,0.15)',
-                borderRadius: 16,
-                padding:      '1.5rem',
-                marginTop:    '1.25rem',
-              }}>
-                <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <div style={{ flex: '1 1 220px' }}>
-                    <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', margin: '0 0 0.75rem', lineHeight: 1.4 }}>
-                      Mau CV kamu langsung diperbaiki?
-                    </h3>
-                    <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                      {[
-                        'Lebih relevan dengan posisi yang kamu incar',
-                        'Bahasa Indonesia + English',
-                        'Siap kirim PDF & DOCX',
-                      ].map((b, i) => (
-                        <li key={i} style={{ fontSize: '0.875rem', color: '#1E3A8A', display: 'flex', gap: 8, alignItems: 'flex-start', lineHeight: 1.5 }}>
-                          <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 1 }}>✓</span>
-                          {b}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div style={{ flexShrink: 0, minWidth: 180 }}>
-                    <button
-                      onClick={() => document.getElementById('pricing-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                      style={{
-                        width:        '100%',
-                        background:   'linear-gradient(180deg,#3b82f6,#1d4ed8)',
-                        color:        'white',
-                        border:       'none',
-                        borderRadius: 60,
-                        padding:      '0.9rem 1.5rem',
-                        fontWeight:   700,
-                        fontSize:     '1rem',
-                        cursor:       'pointer',
-                        fontFamily:   'inherit',
-                        boxShadow:    '0 4px 14px rgba(37,99,235,0.18)',
-                        whiteSpace:   'nowrap',
-                      }}
-                    >
-                      Perbaiki CV Saya →
-                    </button>
-                  </div>
-                </div>
-              </div>
             </div>
 
             {/* ── SECTION 4: Pricing ── */}
