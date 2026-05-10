@@ -46,7 +46,7 @@ const CARD_STYLE: React.CSSProperties = {
   padding:        '2rem',
   border:         '1px solid rgba(148,163,184,0.14)',
   backdropFilter: 'blur(14px)',
-  marginBottom:   '1.5rem',
+  marginBottom:   '1.75rem',
 };
 
 const SECTION_HEADING: React.CSSProperties = {
@@ -58,23 +58,18 @@ const SECTION_HEADING: React.CSSProperties = {
   letterSpacing: '-0.01em',
 };
 
-function shortLine(text: string): string {
-  const first = text.split(/\.\s+/)[0].replace(/\.$/, '');
-  return first.length > 110 ? first.slice(0, 107) + '…' : first;
-}
-
 function scoreHeadline(score: number): string {
   if (score >= 75) return 'CV kamu sudah cukup kompetitif';
   if (score >= 60) return 'CV kamu sudah di jalur yang benar';
-  if (score >= 50) return 'Masih ada ruang untuk diperkuat';
-  return 'CV kamu masih bisa diperkuat';
+  if (score >= 50) return 'Masih beberapa hal yang bikin HR ragu';
+  return 'CV kamu belum cukup kuat untuk posisi ini';
 }
 
 function verdictDesc(verdict: string | undefined, score: number): string {
-  if (verdict === 'DO') return 'CV kamu sudah cukup kuat untuk dilamar sekarang — beberapa perbaikan kecil bisa mendorong peluang lebih tinggi.';
-  if (verdict === 'DO NOT') return 'CV ini perlu perbaikan signifikan sebelum peluangnya lebih kompetitif di posisi ini.';
-  if (score < 50) return 'Masih ada beberapa gap yang bikin HR ragu. Kalau diperbaiki, peluang kamu bisa jauh lebih kuat.';
-  return 'CV kamu sudah di jalur yang benar — perbaiki beberapa gap untuk makin memperkuat peluang.';
+  if (verdict === 'DO') return 'Beberapa perbaikan kecil sudah cukup untuk memperkuat peluang kamu di posisi ini.';
+  if (verdict === 'DO NOT') return 'Beberapa pengalaman dan keyword penting belum terlihat di CV kamu.';
+  if (score < 50) return 'Beberapa pengalaman dan keyword penting belum terlihat di CV kamu.';
+  return 'Beberapa gap kecil masih bisa diperbaiki untuk memperkuat peluang kamu.';
 }
 
 export default function Result() {
@@ -536,73 +531,51 @@ export default function Result() {
               </InfoStrip>
             )}
 
-            {/* ── SECTION 1: Score Summary Hero (full width) ── */}
-            <div style={CARD_STYLE} data-testid="result-score">
-              <div style={{
-                display:        'flex',
-                gap:            '2rem',
-                alignItems:     'center',
-                flexWrap:       'wrap',
-              }}>
+            {/* ── SECTION 1: Score Hero — one narrative, one visual hierarchy ── */}
+            <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '2.5rem 2rem 2rem' }} data-testid="result-score">
 
-                {/* Score ring */}
-                <div style={{ flexShrink: 0 }}>
-                  <ScoreDisplay score={data.skor} />
-                </div>
-
-                {/* Headline + description */}
-                <div style={{ flex: '1 1 220px', minWidth: 0 }}>
-                  <p style={{ fontSize: '1.2rem', fontWeight: 700, color: '#111827', margin: '0 0 0.5rem', lineHeight: 1.35 }}>
-                    {scoreHeadline(data.skor)}
-                  </p>
-                  <p style={{ fontSize: '0.92rem', color: '#64748B', margin: 0, lineHeight: 1.7 }}>
-                    {verdictDesc(data.veredict, data.skor)}
-                  </p>
-                </div>
-
-                {/* Projection + CTA */}
-                <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '0.85rem', minWidth: 180 }}>
-                  {data.skor_sesudah !== undefined && (
-                    <div style={{
-                      background:   'rgba(34,197,94,0.05)',
-                      border:       '1px solid rgba(34,197,94,0.18)',
-                      borderRadius: 16,
-                      padding:      '0.9rem 1.2rem',
-                      textAlign:    'center',
-                    }}>
-                      <p style={{ fontSize: '0.68rem', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.25rem' }}>
-                        Kalau diperbaiki
-                      </p>
-                      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 2 }}>
-                        <span style={{ fontSize: '2.2rem', fontWeight: 800, color: '#16A34A', lineHeight: 1 }}>{data.skor_sesudah}</span>
-                        <span style={{ fontSize: '1rem', fontWeight: 700, color: '#22C55E' }}>%</span>
-                      </div>
-                      <p style={{ fontSize: '0.72rem', color: '#16A34A', margin: '0.15rem 0 0', fontWeight: 400 }}>
-                        kalau gap utama diperbaiki
-                      </p>
-                    </div>
-                  )}
-                  <a
-                    href="#gap-section"
-                    style={{
-                      display:        'block',
-                      background:     'linear-gradient(180deg,#3b82f6,#1d4ed8)',
-                      color:          'white',
-                      fontWeight:     700,
-                      fontSize:       '0.88rem',
-                      padding:        '0.7rem 1.25rem',
-                      borderRadius:   60,
-                      textDecoration: 'none',
-                      boxShadow:      '0 4px 14px rgba(37,99,235,0.18)',
-                      textAlign:      'center',
-                      whiteSpace:     'nowrap',
-                    }}
-                  >
-                    Lihat cara memperbaikinya →
-                  </a>
-                </div>
-
+              {/* Score ring — scaled down ~17% to reduce dashboard dominance */}
+              <div style={{ transform: 'scale(0.83)', transformOrigin: 'center top', lineHeight: 0, marginBottom: '-6px' }}>
+                <ScoreDisplay score={data.skor} />
               </div>
+
+              {/* Headline */}
+              <p style={{ fontSize: '1.2rem', fontWeight: 700, color: '#111827', margin: '1rem 0 0.5rem', lineHeight: 1.35 }}>
+                {scoreHeadline(data.skor)}
+              </p>
+
+              {/* Body — short, human, readable width */}
+              <p style={{ fontSize: '0.9rem', color: '#64748B', lineHeight: 1.7, margin: '0 auto 1rem', maxWidth: 440 }}>
+                {verdictDesc(data.veredict, data.skor)}
+              </p>
+
+              {/* Inline improvement hint — part of the narrative, not a widget */}
+              {data.skor_sesudah !== undefined && (
+                <p style={{ fontSize: '0.95rem', color: '#15803D', fontWeight: 600, margin: '0 0 1.5rem' }}>
+                  Potensi setelah diperbaiki:{' '}
+                  <span style={{ fontSize: '1.15rem', fontWeight: 800 }}>{data.skor_sesudah}%</span>
+                </p>
+              )}
+
+              {/* CTA — restrained: not a checkout button, a guide into the insight */}
+              <a
+                href="#gap-section"
+                style={{
+                  display:        'inline-block',
+                  background:     'linear-gradient(180deg,#3b82f6,#1d4ed8)',
+                  color:          'white',
+                  fontWeight:     600,
+                  fontSize:       '0.9rem',
+                  padding:        '0.65rem 2rem',
+                  borderRadius:   60,
+                  textDecoration: 'none',
+                  boxShadow:      '0 2px 8px rgba(37,99,235,0.14)',
+                  maxWidth:       320,
+                }}
+              >
+                Lihat cara memperbaikinya →
+              </a>
+
             </div>
 
             {/* ── SECTION 2: Kenapa HR masih ragu ── */}
@@ -707,7 +680,7 @@ export default function Result() {
                     {(data.rekomendasi || []).slice(0, 3).map((r, i) => (
                       <li key={i} style={{ fontSize: '0.9rem', color: '#111827', display: 'flex', gap: '0.65rem', alignItems: 'flex-start', lineHeight: 1.6 }}>
                         <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 2 }}>→</span>
-                        {shortLine(r)}
+                        {r}
                       </li>
                     ))}
                   </ul>
