@@ -38,7 +38,7 @@ import { sha256Hex }     from './utils.js';
 //                   Bump EXTRACT_CACHE_VERSION when changing pipeline/extract.js or prompts/extract.js.
 // Stale KV entries with old version prefixes are ignored automatically.
 const EXTRACT_CACHE_VERSION  = 'v2'; // current key: extract_v2_<hash>
-const ANALYSIS_CACHE_VERSION = 'v7'; // current key: analysis_v7_<hash> (bumped: red-flag penalty now applied at write time; old v6 entries must be invalidated to prevent double-penalty on cache hits)
+const ANALYSIS_CACHE_VERSION = 'v8'; // current key: analysis_v8_<hash> (bumped: added optional preview_before/preview_after fields from diagnose stage)
 
 // ---- Orchestrator ----
 
@@ -144,6 +144,8 @@ export async function analyzeCV(cvText, jobDesc, env) {
     inferred_industry:    roleInferenceResult.industry,
     primary_issue_dim,
     jd_mode,
+    preview_before:       typeof diagnoseResult.preview_before === 'string' && diagnoseResult.preview_before.trim() ? diagnoseResult.preview_before.trim() : undefined,
+    preview_after:        typeof diagnoseResult.preview_after  === 'string' && diagnoseResult.preview_after.trim()  ? diagnoseResult.preview_after.trim()  : undefined,
   };
 
   if (!scoring.hr_7_detik) delete scoring.hr_7_detik;
