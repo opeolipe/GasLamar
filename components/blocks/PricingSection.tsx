@@ -28,7 +28,7 @@ export default function PricingSection() {
         </div>
 
         {/* paddingTop gives room for the -11px badge pill on top-row cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', paddingTop: '0.75rem' }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-3">
           {TIERS.map(tier => {
             const info     = TIER_CONFIG[tier];
             const copy     = TIER_COPY[tier];
