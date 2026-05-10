@@ -93,9 +93,6 @@ export default function Result() {
   const [emailSuggestion,       setEmailSuggestion]       = useState<string | null>(null);
   const [emailIsDisposable,     setEmailIsDisposable]     = useState(false);
   const [emailIsConfirmed,      setEmailIsConfirmed]      = useState(false);
-  const [confirmEmail,          setConfirmEmail]          = useState('');
-  const [confirmTouched,        setConfirmTouched]        = useState(false);
-  const [confirmError,          setConfirmError]          = useState('');
   const [paymentInProgress,     setPaymentInProgress]     = useState(false);
   const [payBtnOverride,        setPayBtnOverride]        = useState<string | null>(null);
   const [paymentError,          setPaymentError]          = useState<string | null>(null);
@@ -105,7 +102,6 @@ export default function Result() {
 
   const toastShownRef   = useRef(false);
   const blurTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const confirmEmailRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const saved = sessionStorage.getItem('gaslamar_tier') || localStorage.getItem('gaslamar_tier');
@@ -130,8 +126,6 @@ export default function Result() {
   }, [countdown.isExpiringSoon]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
-  const emailsMatch = email.trim().toLowerCase() === confirmEmail.trim().toLowerCase();
-
   const payBtnLabel = payBtnOverride ?? 'Lanjut pembayaran →';
 
   const payBtnDisabled = paymentInProgress || sessionExpiredByPay;
@@ -152,7 +146,6 @@ export default function Result() {
     setEmailSuggestion(suggestEmailFix(value));
     setEmailIsDisposable(false);
     setEmailIsConfirmed(false);
-    setConfirmError('');
   }
 
   function handleEmailPaste(pastedValue: string) {
@@ -164,51 +157,13 @@ export default function Result() {
     setEmailSuggestion(suggestEmailFix(trimmed));
     setEmailIsDisposable(false);
     setEmailIsConfirmed(false);
-    setConfirmError('');
     setTimeout(() => {
       const result = validateEmail(trimmed);
       setEmailError(result.error ?? '');
       setEmailSuggestion(result.suggestion);
       setEmailIsDisposable(result.isDisposable);
       setEmailIsConfirmed(result.valid && !result.suggestion);
-      if (result.valid && !result.suggestion) {
-        setTimeout(() => {
-          confirmEmailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-          confirmEmailRef.current?.focus();
-        }, 50);
-      }
     }, 50);
-  }
-
-  function handleConfirmEmailChange(value: string) {
-    setConfirmEmail(value);
-    if (confirmTouched) {
-      const matches = email.trim().toLowerCase() === value.trim().toLowerCase();
-      setConfirmError(matches ? '' : 'Email tidak sama. Periksa kembali');
-    }
-  }
-
-  function handleConfirmEmailBlur() {
-    setConfirmTouched(true);
-    const matches = email.trim().toLowerCase() === confirmEmail.trim().toLowerCase();
-    if (!matches) {
-      setConfirmError('Email tidak sama. Periksa kembali');
-      ;(window as any).Analytics?.track?.('email_mismatch_detected');
-    } else {
-      setConfirmError('');
-      if (emailIsConfirmed) { (window as any).Analytics?.track?.('email_confirm_success'); }
-    }
-  }
-
-  function handleConfirmEmailPaste() {
-    setConfirmTouched(true);
-    setTimeout(() => {
-      const el = confirmEmailRef.current;
-      if (!el) return;
-      const matches = email.trim().toLowerCase() === el.value.trim().toLowerCase();
-      setConfirmEmail(el.value);
-      setConfirmError(matches ? '' : 'Email tidak sama. Periksa kembali');
-    }, 0);
   }
 
   function handleEmailBlur() {
@@ -315,15 +270,6 @@ export default function Result() {
     }
     setEmailError('');
     setEmailSuggestion(null);
-
-    if (confirmEmail.trim().toLowerCase() !== email.trim().toLowerCase()) {
-      setConfirmTouched(true);
-      setConfirmError('Email tidak sama. Periksa kembali');
-      const confirmEl = confirmEmailRef.current;
-      confirmEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      setTimeout(() => { confirmEl?.focus(); shakeEl(confirmEl); }, 300);
-      return;
-    }
 
     const capturedEmail = email.trim();
     try { sessionStorage.setItem('gaslamar_email', capturedEmail); } catch (_) {}
@@ -743,14 +689,6 @@ export default function Result() {
                 onAcceptSuggestion={handleAcceptSuggestion}
                 isDisposable={emailIsDisposable}
                 isConfirmed={emailIsConfirmed}
-                confirmEmail={confirmEmail}
-                onConfirmChange={handleConfirmEmailChange}
-                onConfirmBlur={handleConfirmEmailBlur}
-                onConfirmPaste={handleConfirmEmailPaste}
-                confirmError={confirmError}
-                confirmRef={confirmEmailRef}
-                emailsMatch={emailsMatch}
-                confirmTouched={confirmTouched}
               />
 
               {sessionExpiredByPay && (
@@ -792,7 +730,7 @@ export default function Result() {
                 {payBtnLabel}
               </button>
 
-              {emailIsConfirmed && emailsMatch && !sessionExpiredByPay && (
+              {emailIsConfirmed && !sessionExpiredByPay && (
                 <p style={{ fontSize: '0.8rem', color: '#374151', textAlign: 'center', marginTop: '0.5rem' }}>
                   📬 CV akan dikirim ke: <strong>{email.trim()}</strong>
                 </p>
