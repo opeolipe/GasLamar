@@ -87,7 +87,7 @@ export default function Result() {
   );
 
   const [showAllDimensions,     setShowAllDimensions]     = useState(false);
-  const [showAllRekomendasi,    setShowAllRekomendasi]    = useState(false);
+  const [showAllRekomendasi,    setShowAllRekomendasi]    = useState(true);
   const [selectedTier,          setSelectedTier]          = useState<string | null>(null);
   const [email,                 setEmail]                 = useState('');
   const [emailError,            setEmailError]            = useState('');
