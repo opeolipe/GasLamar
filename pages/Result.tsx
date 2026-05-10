@@ -100,6 +100,7 @@ export default function Result() {
   const [paymentError,          setPaymentError]          = useState<string | null>(null);
   const [sessionExpiredByPay,   setSessionExpiredByPay]   = useState(false);
   const [showExpiryToast,       setShowExpiryToast]       = useState(false);
+  const [tierError,             setTierError]             = useState(false);
 
   const toastShownRef   = useRef(false);
   const blurTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -135,6 +136,7 @@ export default function Result() {
   function handleTierSelect(tier: string) {
     setSelectedTier(tier);
     setPaymentError(null);
+    setTierError(false);
     sessionStorage.setItem('gaslamar_tier', tier);
     setEmailError('');
     ;(window as any).Analytics?.track?.('tier_selected', { tier, tier_price_idr: TIER_CONFIG[tier].price, tier_label: TIER_CONFIG[tier].label, is_bilingual: TIER_CONFIG[tier].bilingual });
@@ -243,7 +245,10 @@ export default function Result() {
   async function proceedToPayment() {
     if (paymentInProgress) return;
     if (!selectedTier) {
-      document.getElementById('pricing-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setTierError(true);
+      const pricingEl = document.getElementById('pricing-section');
+      pricingEl?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setTimeout(() => shakeEl(document.getElementById('tier-grid')), 300);
       return;
     }
 
@@ -751,7 +756,30 @@ export default function Result() {
                 selectedTier={selectedTier}
                 onSelect={handleTierSelect}
                 score={data.skor}
+                hasError={tierError}
               />
+
+              {tierError && !selectedTier && (
+                <div
+                  role="alert"
+                  style={{
+                    marginTop:    '-0.5rem',
+                    marginBottom: '1rem',
+                    padding:      '0.6rem 0.9rem',
+                    background:   '#FEF2F2',
+                    border:       '1px solid #FECACA',
+                    borderRadius: 10,
+                    fontSize:     '0.85rem',
+                    fontWeight:   600,
+                    color:        '#DC2626',
+                    display:      'flex',
+                    alignItems:   'center',
+                    gap:          6,
+                  }}
+                >
+                  ↑ Pilih dulu paketnya sebelum lanjut bayar
+                </div>
+              )}
 
               <EmailCapture
                 selectedTier={selectedTier}

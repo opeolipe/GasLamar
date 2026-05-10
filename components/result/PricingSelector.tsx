@@ -4,6 +4,7 @@ interface Props {
   selectedTier:  string | null;
   onSelect:      (tier: string) => void;
   score?:        number;
+  hasError?:     boolean;
 }
 
 const TIERS = ['coba', 'single', '3pack', 'jobhunt'] as const;
@@ -15,7 +16,7 @@ const TIER_COPY: Record<string, { outcome: string; diff: string }> = {
   jobhunt:  { outcome: 'Tailor CV untuk 10 posisi berbeda',      diff: '≈ Rp 30k per lamaran' },
 };
 
-export default function PricingSelector({ selectedTier, onSelect, score }: Props) {
+export default function PricingSelector({ selectedTier, onSelect, score, hasError }: Props) {
   const rec = score !== undefined ? tierRecommendation(score) : null;
 
   return (
@@ -33,7 +34,7 @@ export default function PricingSelector({ selectedTier, onSelect, score }: Props
       </div>
 
       {/* paddingTop gives room for the -11px badge pill on top-row cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', paddingTop: '0.75rem' }}>
+      <div id="tier-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', paddingTop: '0.75rem', borderRadius: 16, outline: hasError ? '2px solid #EF4444' : 'none', outlineOffset: 4 }}>
         {TIERS.map(tier => {
           const info     = TIER_CONFIG[tier];
           const copy     = TIER_COPY[tier];
