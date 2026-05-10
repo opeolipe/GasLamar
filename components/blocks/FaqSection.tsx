@@ -10,7 +10,7 @@ const SERIF = { fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua
 const FAQ_ITEMS: { q: string; a: React.ReactNode }[] = [
   {
     q: "Apakah CV saya aman?",
-    a: "Hasil analisis gratis tersimpan di browser kamu selama 2 jam — selesaikan pembayaran sebelum waktu habis untuk lanjut download CV. Untuk paket Coba Dulu dan Single, CV tersimpan di server selama 7 hari setelah pembayaran, lalu dihapus otomatis. Untuk paket 3-Pack dan Job Hunt Pack, CV disimpan selama 30 hari agar kamu bisa kembali generate CV untuk loker berikutnya tanpa upload ulang — lalu dihapus otomatis setelah 30 hari atau saat semua kredit habis. Kami tidak menyimpan CV kamu secara permanen.",
+    a: "Hasil analisis gratis tersimpan di browser kamu selama 2 jam — selesaikan pembayaran sebelum waktu habis untuk lanjut download CV. Untuk paket Starter dan Bilingual, CV tersimpan di server selama 7 hari setelah pembayaran, lalu dihapus otomatis. Untuk paket 3-Pack dan Career Pack, CV disimpan selama 30 hari agar kamu bisa kembali generate CV untuk loker berikutnya tanpa upload ulang — lalu dihapus otomatis setelah 30 hari atau saat semua kredit habis. Kami tidak menyimpan CV kamu secara permanen.",
   },
   {
     q: "Format CV apa yang didukung?",
@@ -29,7 +29,7 @@ const FAQ_ITEMS: { q: string; a: React.ReactNode }[] = [
     a: "Kode diskon dimasukkan langsung di halaman pembayaran Mayar — bukan di halaman GasLamar. Setelah kamu klik tombol bayar dan diarahkan ke Mayar, cari kolom \"Kode Voucher\" atau \"Kode Promo\" di halaman checkout mereka, lalu masukkan kode kamu di sana sebelum menyelesaikan pembayaran.",
   },
   {
-    q: "Apa itu paket 3-Pack dan Job Hunt Pack?",
+    q: "Apa itu paket 3-Pack dan Career Pack?",
     a: "Paket multi-CV memungkinkan kamu tailoring CV untuk beberapa posisi berbeda dengan harga lebih hemat. Setiap CV dianalisis dan disesuaikan dengan job description masing-masing loker.",
   },
   {

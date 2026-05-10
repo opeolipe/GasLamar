@@ -20,8 +20,8 @@ interface Props {
 }
 
 function getHelper(tier: string | null): string {
-  if (tier === '3pack')   return '🔒 Link berlaku 30 hari — bisa dipakai untuk 3 lamaran';
-  if (tier === 'jobhunt') return '⚡ Link berlaku 30 hari — bisa dipakai untuk 10 lamaran';
+  if (tier === '3pack')   return '🔒 Link berlaku 30 hari — bisa dipakai untuk 3 CV berbeda';
+  if (tier === 'jobhunt') return '⚡ Link berlaku 30 hari — bisa dipakai untuk 10 CV berbeda';
   return '🔒 Link download dikirim ke email ini setelah pembayaran';
 }
 
@@ -93,7 +93,7 @@ export default function EmailCapture({
         aria-invalid={!!error}
         style={inputStyle}
       />
-      <p style={{ fontSize: '0.8rem', color: '#6B7280', marginTop: '0.4rem', margin: '0.4rem 0 0' }}>
+      <p style={{ fontSize: '0.8rem', color: '#374151', marginTop: '0.4rem', margin: '0.4rem 0 0' }}>
         {helper}
       </p>
       {error && (

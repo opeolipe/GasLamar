@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef }       from 'react';
-import UploadSteps                             from '@/components/upload/UploadSteps';
 import ScoreDisplay                            from '@/components/result/ScoreDisplay';
 import GapList                                 from '@/components/result/GapList';
 import PricingSelector                         from '@/components/result/PricingSelector';
@@ -8,12 +7,10 @@ import DetailAnalysis                          from '@/components/result/DetailA
 import RedFlags                                from '@/components/result/RedFlags';
 import InfoStrip                               from '@/components/result/InfoStrip';
 import ScoreBars                               from '@/components/6d/ScoreBars';
-import PrimaryHighlight                        from '@/components/6d/PrimaryHighlight';
-import DimRewritePreview                       from '@/components/6d/RewritePreview';
 import { useResultData }                       from '@/hooks/useResultData';
 import { useSessionCountdown }                 from '@/hooks/useSessionCountdown';
 import {
-  WORKER_URL, TIER_CONFIG, EMAIL_REGEX, buildResultData, DIM_LABELS,
+  WORKER_URL, TIER_CONFIG, buildResultData, DIM_LABELS,
 } from '@/lib/resultUtils';
 import { validateEmail }   from '@/utils/emailValidation';
 import { suggestEmailFix } from '@/utils/emailTypo';
@@ -61,11 +58,16 @@ const SECTION_HEADING: React.CSSProperties = {
   letterSpacing: '-0.01em',
 };
 
+function shortLine(text: string): string {
+  const first = text.split(/\.\s+/)[0].replace(/\.$/, '');
+  return first.length > 110 ? first.slice(0, 107) + '…' : first;
+}
+
 function scoreHeadline(score: number): string {
   if (score >= 75) return 'CV kamu sudah cukup kompetitif';
-  if (score >= 60) return 'Peluang interview bisa lebih kuat';
-  if (score >= 50) return 'Peluang interview perlu diperkuat';
-  return 'Peluang interview masih rendah';
+  if (score >= 60) return 'CV kamu sudah di jalur yang benar';
+  if (score >= 50) return 'Masih ada ruang untuk diperkuat';
+  return 'CV kamu masih bisa diperkuat';
 }
 
 function verdictDesc(verdict: string | undefined, score: number): string {
@@ -123,30 +125,11 @@ export default function Result() {
   }, [countdown.isExpiringSoon]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
-  const emailValid  = EMAIL_REGEX.test(email.trim());
   const emailsMatch = email.trim().toLowerCase() === confirmEmail.trim().toLowerCase();
 
-  const payHint: string | null = !selectedTier
-    ? 'Pilih paket di atas untuk melanjutkan'
-    : !!emailSuggestion
-    ? 'Periksa email kamu sebelum lanjut'
-    : !emailValid
-    ? 'Masukkan email yang valid untuk melanjutkan'
-    : !confirmEmail.trim()
-    ? 'Ketik ulang email kamu untuk melanjutkan'
-    : !emailsMatch
-    ? 'Email konfirmasi tidak sama'
-    : null;
+  const payBtnLabel = payBtnOverride ?? 'Lanjut pembayaran →';
 
-  const tierPrice = selectedTier ? (TIER_CONFIG[selectedTier]?.price ?? null) : null;
-
-  const payBtnLabel = payBtnOverride
-    ?? (selectedTier && tierPrice !== null
-      ? `Bayar Rp ${tierPrice.toLocaleString('id-ID')} →`
-      : '✨ Lihat CV hasil rewrite lengkap');
-
-  const payBtnDisabled = !selectedTier || paymentInProgress || sessionExpiredByPay
-    || !!emailSuggestion || !emailValid || !confirmEmail.trim() || !emailsMatch;
+  const payBtnDisabled = paymentInProgress || sessionExpiredByPay;
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   function handleTierSelect(tier: string) {
@@ -251,8 +234,18 @@ export default function Result() {
     ;(window as any).Analytics?.track?.('email_typo_corrected', { corrected_email: accepted });
   }
 
+  function shakeEl(el: Element | null) {
+    if (!el) return;
+    el.classList.add('gaslamar-shake');
+    setTimeout(() => el.classList.remove('gaslamar-shake'), 500);
+  }
+
   async function proceedToPayment() {
-    if (!selectedTier || paymentInProgress) return;
+    if (paymentInProgress) return;
+    if (!selectedTier) {
+      document.getElementById('pricing-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
 
     const currentCvKey = sessionStorage.getItem('gaslamar_cv_key');
     const pendingRaw = sessionStorage.getItem('gaslamar_pending_invoice');
@@ -306,7 +299,9 @@ export default function Result() {
       setEmailSuggestion(emailValidation.suggestion);
       setEmailIsConfirmed(false);
       ;(window as any).Analytics?.track?.('email_validation_failed', { reason: emailValidation.suggestion ? 'typo_domain' : 'invalid_format' });
-      document.getElementById('email-capture')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const emailEl = document.getElementById('email-capture');
+      emailEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => { emailEl?.focus(); shakeEl(emailEl); }, 300);
       return;
     }
     setEmailError('');
@@ -315,8 +310,9 @@ export default function Result() {
     if (confirmEmail.trim().toLowerCase() !== email.trim().toLowerCase()) {
       setConfirmTouched(true);
       setConfirmError('Email tidak sama. Periksa kembali');
-      confirmEmailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      confirmEmailRef.current?.focus();
+      const confirmEl = confirmEmailRef.current;
+      confirmEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => { confirmEl?.focus(); shakeEl(confirmEl); }, 300);
       return;
     }
 
@@ -427,11 +423,6 @@ export default function Result() {
       })
     : null;
 
-  const isValidRewrite = !!(
-    result6d?.rewritePreview?.after &&
-    !result6d.rewritePreview.after.includes('[') &&
-    result6d.rewritePreview.after.length > (result6d.rewritePreview.before?.length ?? 0)
-  );
 
   // ── Countdown strip type ──────────────────────────────────────────────────
   const stripType: 'expired' | 'warning' | 'info' =
@@ -440,20 +431,24 @@ export default function Result() {
 
   // ── InfoStrip content ─────────────────────────────────────────────────────
   const stripText: React.ReactNode | null = (() => {
-    const parts: string[] = [];
-    if (countdown.text) parts.push(countdown.text);
+    const cdText = countdown.text || null;
+    let roleText: string | null = null;
     if (data?.inferred_role) {
       const roleLabel     = ROLE_LABELS[data.inferred_role] ?? data.inferred_role;
       const industryLabel = data.inferred_industry && data.inferred_industry !== 'General'
         ? ` (${data.inferred_industry})` : '';
       const confidence    = data.inferred_confidence ?? 0;
-      parts.push(
-        confidence >= 0.6
-          ? `CV dinilai sebagai ${roleLabel}${industryLabel}`
-          : 'Analisis berdasarkan pengalaman di CV kamu',
-      );
+      roleText = confidence >= 0.6
+        ? `CV dinilai sebagai ${roleLabel}${industryLabel}`
+        : 'Analisis berdasarkan pengalaman di CV kamu';
     }
-    return parts.length > 0 ? parts.join(' • ') : null;
+    if (!cdText && !roleText) return null;
+    return (
+      <>
+        {cdText && <span style={{ fontSize: '0.73rem', opacity: 0.65, display: 'block' }}>{cdText}</span>}
+        {roleText && <span style={{ display: 'block' }}>{roleText}</span>}
+      </>
+    );
   })();
 
   // ── Top 2 weakest dimensions (inside accordion) ───────────────────────────
@@ -523,12 +518,10 @@ export default function Result() {
         {/* ── Main results ── */}
         {data && !loading && !error && (
           <>
-            {/* Progress steps */}
-            <header aria-label="Langkah analisis CV" style={{ marginBottom: '1rem' }}>
-              <div style={{ ...CARD_STYLE, marginBottom: 0, padding: '1.25rem 1.5rem' }}>
-                <UploadSteps currentStep={3} />
-              </div>
-            </header>
+            {/* Breadcrumb */}
+            <div style={{ textAlign: 'center', marginBottom: '0.75rem', fontSize: '0.78rem', color: '#94A3B8', fontWeight: 500 }}>
+              CV dianalisis berdasarkan posisi yang kamu incar
+            </div>
 
             {/* Single status strip */}
             {stripText && (
@@ -555,22 +548,22 @@ export default function Result() {
               {/* Upgrade projection */}
               {data.skor_sesudah !== undefined && (
                 <div style={{
-                  background:   'linear-gradient(135deg, rgba(34,197,94,0.08) 0%, rgba(16,185,129,0.05) 100%)',
-                  border:       '1px solid rgba(34,197,94,0.25)',
+                  background:   'rgba(34,197,94,0.05)',
+                  border:       '1px solid rgba(34,197,94,0.15)',
                   borderRadius: 14,
                   padding:      '0.9rem 1rem',
                   marginBottom: '1rem',
                   textAlign:    'center',
                 }}>
-                  <p style={{ fontSize: '0.72rem', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.3rem' }}>
-                    Potensi setelah diperbaiki
+                  <p style={{ fontSize: '0.72rem', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.3rem' }}>
+                    Kalau diperbaiki
                   </p>
                   <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 3 }}>
-                    <span style={{ fontSize: '2.4rem', fontWeight: 800, color: '#15803D', lineHeight: 1 }}>{data.skor_sesudah}</span>
-                    <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#16A34A' }}>%</span>
+                    <span style={{ fontSize: '2.4rem', fontWeight: 800, color: '#16A34A', lineHeight: 1 }}>{data.skor_sesudah}</span>
+                    <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#22C55E' }}>%</span>
                   </div>
-                  <p style={{ fontSize: '0.75rem', color: '#16A34A', margin: '0.2rem 0 0', fontWeight: 500 }}>
-                    estimasi jika gap utama diperbaiki
+                  <p style={{ fontSize: '0.75rem', color: '#16A34A', margin: '0.2rem 0 0', fontWeight: 400 }}>
+                    kalau gap utama diperbaiki
                   </p>
                 </div>
               )}
@@ -583,11 +576,11 @@ export default function Result() {
                   background:     'linear-gradient(180deg,#3b82f6,#1d4ed8)',
                   color:          'white',
                   fontWeight:     700,
-                  fontSize:       '0.95rem',
-                  padding:        '0.8rem 1.75rem',
+                  fontSize:       '0.9rem',
+                  padding:        '0.65rem 1.5rem',
                   borderRadius:   60,
                   textDecoration: 'none',
-                  boxShadow:      '0 6px 20px rgba(37,99,235,0.28)',
+                  boxShadow:      '0 4px 14px rgba(37,99,235,0.18)',
                   textAlign:      'center',
                 }}
               >
@@ -599,21 +592,6 @@ export default function Result() {
             <div id="gap-section" style={{ ...CARD_STYLE, scrollMarginTop: 80 }}>
               <h2 style={SECTION_HEADING}>Kenapa HR masih ragu</h2>
 
-              {/* Primary issue */}
-              {result6d?.primaryIssue ? (
-                <div data-testid="primary-problem">
-                  <PrimaryHighlight issueKey={result6d.primaryIssue} />
-                </div>
-              ) : (data.gap || []).length > 0 && (
-                <div data-testid="primary-problem" style={{ marginBottom: '1rem' }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', margin: '0 0 0.4rem', lineHeight: 1.4 }}>
-                    {data.gap![0]}
-                  </h3>
-                  <p style={{ fontSize: '0.875rem', color: '#64748B', margin: 0, lineHeight: 1.6 }}>
-                    Gap ini yang paling berpengaruh terhadap peluang kamu dipanggil interview.
-                  </p>
-                </div>
-              )}
 
               {/* Gap list */}
               {(data.gap || []).length > 0 && (
@@ -710,30 +688,20 @@ export default function Result() {
             <div style={CARD_STYLE}>
               <h2 style={SECTION_HEADING}>Yang perlu diperbaiki</h2>
 
-              {isValidRewrite ? (
-                <div data-testid="fix-before-after">
-                  <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 0.75rem' }}>
-                    Contoh perbaikan dari CV kamu
-                  </p>
-                  <DimRewritePreview preview={result6d!.rewritePreview} />
-                  <p style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '-0.25rem', marginBottom: '0.75rem', lineHeight: 1.55 }}>
-                    Contoh ini diambil langsung dari CV kamu — rewrite lengkap mencakup semua bagian.
-                  </p>
-                </div>
-              ) : (data.rekomendasi || []).length > 0 && (
-                <div data-testid="fix-before-after" style={{ marginBottom: '1rem' }}>
+              {(data.rekomendasi || []).length > 0 && (
+                <div data-testid="fix-before-after" style={{ marginBottom: '1.25rem' }}>
                   <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
                     {(data.rekomendasi || []).slice(0, 3).map((r, i) => (
                       <li key={i} style={{ fontSize: '0.875rem', color: '#111827', display: 'flex', gap: '0.6rem', alignItems: 'flex-start', lineHeight: 1.5 }}>
                         <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 2 }}>→</span>
-                        {r}
+                        {shortLine(r)}
                       </li>
                     ))}
                   </ul>
                 </div>
               )}
 
-              {/* AI Rewrite CTA */}
+              {/* Rewrite CTA */}
               <div style={{
                 background:   'linear-gradient(135deg, rgba(37,99,235,0.05) 0%, rgba(27,79,232,0.03) 100%)',
                 border:       '1px solid rgba(37,99,235,0.15)',
@@ -742,13 +710,13 @@ export default function Result() {
                 marginTop:    '1.25rem',
               }}>
                 <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', margin: '0 0 0.75rem', lineHeight: 1.4 }}>
-                  Mau AI rewrite seluruh CV kamu?
+                  Mau CV kamu langsung diperbaiki?
                 </h3>
                 <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 1rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                   {[
-                    'ATS-friendly & relevan dengan posisi yang kamu lamar',
-                    'Bahasa Indonesia + English (bilingual)',
-                    'Siap kirim: PDF & DOCX langsung',
+                    'Lebih relevan dengan posisi yang kamu incar',
+                    'Bahasa Indonesia + English',
+                    'Siap kirim PDF & DOCX',
                   ].map((b, i) => (
                     <li key={i} style={{ fontSize: '0.875rem', color: '#1E3A8A', display: 'flex', gap: 8, alignItems: 'flex-start', lineHeight: 1.5 }}>
                       <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 1 }}>✓</span>
@@ -769,10 +737,10 @@ export default function Result() {
                     fontSize:     '1rem',
                     cursor:       'pointer',
                     fontFamily:   'inherit',
-                    boxShadow:    '0 6px 20px rgba(37,99,235,0.28)',
+                    boxShadow:    '0 4px 14px rgba(37,99,235,0.18)',
                   }}
                 >
-                  Rewrite CV Saya →
+                  Perbaiki CV Saya →
                 </button>
               </div>
             </div>
@@ -820,17 +788,12 @@ export default function Result() {
                 </div>
               )}
 
-              <p style={{ fontSize: '0.8rem', color: '#94A3B8', fontStyle: 'italic', textAlign: 'center', margin: '1.25rem 0 0.75rem' }}>
-                Perbaikan ini bikin CV kamu standout di 7 detik pertama.
-              </p>
-
               {/* Pay button */}
               <button
                 data-testid="generate-cv-button"
                 onClick={proceedToPayment}
                 disabled={payBtnDisabled}
-                aria-label="Lihat CV hasil rewrite lengkap"
-                title={payBtnDisabled && payHint ? payHint : undefined}
+                aria-label="Lanjut pembayaran"
                 style={{
                   background:   payBtnDisabled ? '#CBD5E1' : 'linear-gradient(180deg,#3b82f6,#1d4ed8)',
                   color:        'white',
@@ -850,18 +813,13 @@ export default function Result() {
                 {payBtnLabel}
               </button>
 
-              {emailIsConfirmed && !payHint && !sessionExpiredByPay && (
+              {emailIsConfirmed && emailsMatch && !sessionExpiredByPay && (
                 <p style={{ fontSize: '0.8rem', color: '#374151', textAlign: 'center', marginTop: '0.5rem' }}>
                   📬 CV akan dikirim ke: <strong>{email.trim()}</strong>
                 </p>
               )}
-              {payHint && !sessionExpiredByPay && (
-                <p style={{ fontSize: '0.8rem', color: '#DC2626', fontWeight: 500, textAlign: 'center', marginTop: '0.5rem' }}>
-                  ⚠️ {payHint}
-                </p>
-              )}
               {paymentError && (
-                <div role="alert" style={{ marginTop: '0.75rem', padding: '0.75rem', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, color: '#B91C1C', fontSize: '0.875rem', textAlign: 'center' }}>
+                <div role="alert" style={{ marginTop: '0.75rem', padding: '0.75rem', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 12, color: '#92400E', fontSize: '0.875rem', textAlign: 'center' }}>
                   {paymentError}
                 </div>
               )}
@@ -892,7 +850,15 @@ export default function Result() {
         )}
       </main>
 
-      <style>{`@keyframes gasResultSpin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @keyframes gasResultSpin { to { transform: rotate(360deg); } }
+        @keyframes gaslamarShake {
+          0%, 100% { transform: translateX(0); }
+          20%, 60% { transform: translateX(-5px); }
+          40%, 80% { transform: translateX(5px); }
+        }
+        .gaslamar-shake { animation: gaslamarShake 0.4s ease-in-out; }
+      `}</style>
     </div>
   );
 }

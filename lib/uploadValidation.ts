@@ -19,10 +19,10 @@ export interface TierInfo {
 }
 
 export const TIER_DISPLAY: Record<ValidTier, TierInfo> = {
-  coba:    { icon: '🧪', name: 'Coba Dulu',    desc: '1 CV · Rp 29.000'             },
-  single:  { icon: '✨', name: 'Single',        desc: '1 CV Bilingual · Rp 59.000'   },
-  '3pack': { icon: '📦', name: '3-Pack',        desc: '3 CV Bilingual · Rp 149.000'  },
-  jobhunt: { icon: '🚀', name: 'Job Hunt Pack', desc: '10 CV Bilingual · Rp 299.000' },
+  coba:    { icon: '🧪', name: 'Starter',     desc: '1 CV · Rp 29.000'             },
+  single:  { icon: '✨', name: 'Bilingual',   desc: '1 CV Bilingual · Rp 59.000'   },
+  '3pack': { icon: '📦', name: '3-Pack',      desc: '3 CV Bilingual · Rp 149.000'  },
+  jobhunt: { icon: '🚀', name: 'Career Pack', desc: '10 CV Bilingual · Rp 299.000' },
 };
 
 export function validateFile(file: File): string | null {

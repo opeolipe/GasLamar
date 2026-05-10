@@ -301,16 +301,12 @@ test.describe('GasLamar CV Flow', () => {
     await page.click('[data-testid="submit-upload"]');
     await page.waitForURL('**/hasil**', { timeout: 60000 });
 
-    // rewrite-after lives inside the Perbaikan tab — click it first.
-    // For a short CV the generic fallback contains brackets, so isValidRewrite=false
-    // and DimRewritePreview is not rendered at all; if it IS rendered it must be bracket-free.
-    await expect(page.locator('[data-testid="generate-cv-button"]')).toBeVisible({ timeout: 15000 });
-    await page.getByRole('button', { name: /perbaikan/i }).click();
+    // Check rekomendasi bullets section (tabs removed; DimRewritePreview removed; fix-before-after is now used)
+    const fixSection = page.locator('[data-testid="fix-before-after"]');
+    if (await fixSection.isVisible()) {
+      const fixText = await fixSection.textContent();
+      expect(fixText).not.toMatch(/\[.*\]/);
 
-    const rewriteAfterCount = await page.locator('[data-testid="rewrite-after"]').count();
-    if (rewriteAfterCount > 0) {
-      const previewText = await page.locator('[data-testid="rewrite-after"]').textContent();
-      expect(previewText).not.toMatch(/\[.*\]/);
     }
 
     await gotoDownload(page);
@@ -393,7 +389,7 @@ test.describe('GasLamar CV Flow', () => {
     });
 
     // Select a tier and enter a valid email — both must be present for payment to proceed
-    const tierBtn = page.locator('[role="button"], button').filter({ hasText: /single|coba|59/i }).first();
+    const tierBtn = page.locator('[role="button"], button').filter({ hasText: /bilingual|starter|59/i }).first();
     await expect(tierBtn).toBeVisible({ timeout: 10000 });
     await tierBtn.click();
 
