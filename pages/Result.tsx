@@ -87,6 +87,7 @@ export default function Result() {
   );
 
   const [showAllDimensions,     setShowAllDimensions]     = useState(false);
+  const [showAllRekomendasi,    setShowAllRekomendasi]    = useState(false);
   const [selectedTier,          setSelectedTier]          = useState<string | null>(null);
   const [email,                 setEmail]                 = useState('');
   const [emailError,            setEmailError]            = useState('');
@@ -486,28 +487,8 @@ export default function Result() {
               </InfoStrip>
             )}
 
-            {/* ── SECTION 1: Score Hero — one narrative, one visual hierarchy ── */}
+            {/* ── SECTION 1: Score Hero ── */}
             <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '2.5rem 2rem 2rem' }} data-testid="result-score">
-
-            {/* Quick priorities */}
-            {((data.gap || []).length > 0 || (data.rekomendasi || []).length > 0) && (
-              <div style={{ ...CARD_STYLE, marginBottom: '1rem', padding: '1.25rem' }}>
-                <p style={{ fontSize: '0.78rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.5rem' }}>
-                  Prioritas Perbaikan
-                </p>
-                <p style={{ fontSize: '0.9rem', color: '#64748B', margin: '0 0 0.8rem', lineHeight: 1.55 }}>
-                  Fokus ke 3 poin ini dulu untuk dampak paling cepat ke peluang interview:
-                </p>
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                  {((data.gap && data.gap.length > 0) ? data.gap : (data.rekomendasi || [])).slice(0, 3).map((item, i) => (
-                    <li key={i} style={{ fontSize: '0.92rem', color: '#111827', display: 'flex', gap: '0.55rem', alignItems: 'flex-start', lineHeight: 1.45 }}>
-                      <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{i + 1}.</span>
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
 
             {/* ── BLOCK 1: RESULT ── */}
             <div style={{ marginBottom: '2.5rem' }}>
@@ -526,9 +507,17 @@ export default function Result() {
                     {scoreInterpretation(data.skor)}
                   </p>
                   {data.skor_sesudah !== undefined && (
-                    <p style={{ fontSize: '4rem', fontWeight: 800, color: '#15803D', lineHeight: 1, margin: 0 }}>
-                      {data.skor_sesudah}%
-                    </p>
+                    <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid rgba(148,163,184,0.12)' }}>
+                      <p style={{ fontSize: '0.78rem', color: '#64748B', margin: '0 0 0.1rem', fontWeight: 500 }}>
+                        Bisa naik hingga
+                      </p>
+                      <p style={{ fontSize: '3.5rem', fontWeight: 800, color: '#15803D', lineHeight: 1, margin: '0 0 0.2rem' }}>
+                        {data.skor_sesudah}%
+                      </p>
+                      <p style={{ fontSize: '0.78rem', color: '#64748B', margin: 0 }}>
+                        kalau gap utama diperbaiki
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>
@@ -636,12 +625,37 @@ export default function Result() {
                 <div data-testid="fix-before-after" style={{ marginBottom: '1.25rem' }}>
                   <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     {(data.rekomendasi || []).slice(0, 3).map((r, i) => (
-                      <li key={i} style={{ fontSize: '0.9rem', color: '#111827', display: 'flex', gap: '0.65rem', alignItems: 'flex-start', lineHeight: 1.6 }}>
-                        <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 2 }}>→</span>
-                        {r}
+                      <li key={i} style={{ fontSize: '0.9rem', color: '#111827', display: 'flex', gap: '0.65rem', alignItems: 'flex-start' }}>
+                        <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 3 }}>→</span>
+                        <span style={{
+                          overflow:          'hidden',
+                          display:           '-webkit-box',
+                          WebkitLineClamp:   showAllRekomendasi ? 'unset' : 1,
+                          WebkitBoxOrient:   'vertical',
+                          lineHeight:        1.6,
+                        } as React.CSSProperties}>
+                          {r}
+                        </span>
                       </li>
                     ))}
                   </ul>
+                  <button
+                    onClick={() => setShowAllRekomendasi(e => !e)}
+                    style={{
+                      background:  'none',
+                      border:      'none',
+                      padding:     '0.35rem 0',
+                      fontSize:    '0.82rem',
+                      color:       '#2563EB',
+                      fontWeight:  600,
+                      cursor:      'pointer',
+                      fontFamily:  'inherit',
+                      marginTop:   '0.4rem',
+                      display:     'block',
+                    }}
+                  >
+                    {showAllRekomendasi ? 'Sembunyikan ↑' : 'Lihat detail analisis →'}
+                  </button>
                 </div>
               )}
 
@@ -678,68 +692,77 @@ export default function Result() {
                 </div>
               )}
 
-              <EmailCapture
-                selectedTier={selectedTier}
-                email={email}
-                onChange={handleEmailChange}
-                onBlur={handleEmailBlur}
-                onPaste={handleEmailPaste}
-                error={emailError}
-                suggestion={emailSuggestion}
-                onAcceptSuggestion={handleAcceptSuggestion}
-                isDisposable={emailIsDisposable}
-                isConfirmed={emailIsConfirmed}
-              />
+              {/* Payment block — email + CTA grouped */}
+              <div style={{
+                background:   'rgba(37,99,235,0.03)',
+                border:       '1px solid rgba(37,99,235,0.08)',
+                borderRadius: 16,
+                padding:      '1.25rem',
+                marginTop:    '0.5rem',
+              }}>
+                <EmailCapture
+                  selectedTier={selectedTier}
+                  email={email}
+                  onChange={handleEmailChange}
+                  onBlur={handleEmailBlur}
+                  onPaste={handleEmailPaste}
+                  error={emailError}
+                  suggestion={emailSuggestion}
+                  onAcceptSuggestion={handleAcceptSuggestion}
+                  isDisposable={emailIsDisposable}
+                  isConfirmed={emailIsConfirmed}
+                />
 
-              {sessionExpiredByPay && (
-                <div style={{ marginBottom: '1rem', padding: '1rem', background: '#FFFBEB', border: '1px solid rgba(252,211,77,0.5)', borderRadius: 16, textAlign: 'center' }}>
-                  <p style={{ color: '#92400E', fontWeight: 600, fontSize: '0.88rem', margin: '0 0 0.5rem' }}>
-                    Sesi analisis sudah kedaluwarsa (30 menit)
+                {sessionExpiredByPay && (
+                  <div style={{ marginBottom: '1rem', padding: '1rem', background: '#FFFBEB', border: '1px solid rgba(252,211,77,0.5)', borderRadius: 16, textAlign: 'center' }}>
+                    <p style={{ color: '#92400E', fontWeight: 600, fontSize: '0.88rem', margin: '0 0 0.5rem' }}>
+                      Sesi analisis sudah kedaluwarsa (30 menit)
+                    </p>
+                    <p style={{ color: '#78350F', fontSize: '0.875rem', margin: '0 0 0.75rem' }}>
+                      Upload ulang CV kamu untuk melanjutkan.
+                    </p>
+                    <a href="upload.html" style={{ display: 'inline-block', background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', fontWeight: 700, padding: '0.65rem 1.5rem', borderRadius: 60, textDecoration: 'none', fontSize: '0.88rem', boxShadow: '0 8px 24px rgba(37,99,235,0.25)' }}>
+                      Upload CV Lagi →
+                    </a>
+                  </div>
+                )}
+
+                {/* Pay button */}
+                <button
+                  data-testid="generate-cv-button"
+                  onClick={proceedToPayment}
+                  disabled={payBtnDisabled}
+                  aria-label="Lanjut pembayaran"
+                  style={{
+                    background:   payBtnDisabled ? '#CBD5E1' : 'linear-gradient(180deg,#3b82f6,#1d4ed8)',
+                    color:        'white',
+                    border:       'none',
+                    borderRadius: 60,
+                    padding:      '0.95rem 1.5rem',
+                    fontWeight:   700,
+                    cursor:       payBtnDisabled ? 'not-allowed' : 'pointer',
+                    width:        '100%',
+                    transition:   '0.2s',
+                    fontFamily:   'inherit',
+                    fontSize:     '1rem',
+                    opacity:      payBtnDisabled ? 0.55 : 1,
+                    boxShadow:    payBtnDisabled ? 'none' : '0 8px 28px rgba(37,99,235,0.30)',
+                  }}
+                >
+                  {payBtnLabel}
+                </button>
+
+                {emailIsConfirmed && !sessionExpiredByPay && (
+                  <p style={{ fontSize: '0.8rem', color: '#374151', textAlign: 'center', marginTop: '0.5rem' }}>
+                    📬 CV akan dikirim ke: <strong>{email.trim()}</strong>
                   </p>
-                  <p style={{ color: '#78350F', fontSize: '0.875rem', margin: '0 0 0.75rem' }}>
-                    Upload ulang CV kamu untuk melanjutkan.
-                  </p>
-                  <a href="upload.html" style={{ display: 'inline-block', background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', fontWeight: 700, padding: '0.65rem 1.5rem', borderRadius: 60, textDecoration: 'none', fontSize: '0.88rem', boxShadow: '0 8px 24px rgba(37,99,235,0.25)' }}>
-                    Upload CV Lagi →
-                  </a>
-                </div>
-              )}
-
-              {/* Pay button */}
-              <button
-                data-testid="generate-cv-button"
-                onClick={proceedToPayment}
-                disabled={payBtnDisabled}
-                aria-label="Lanjut pembayaran"
-                style={{
-                  background:   payBtnDisabled ? '#CBD5E1' : 'linear-gradient(180deg,#3b82f6,#1d4ed8)',
-                  color:        'white',
-                  border:       'none',
-                  borderRadius: 60,
-                  padding:      '0.95rem 1.5rem',
-                  fontWeight:   700,
-                  cursor:       payBtnDisabled ? 'not-allowed' : 'pointer',
-                  width:        '100%',
-                  transition:   '0.2s',
-                  fontFamily:   'inherit',
-                  fontSize:     '1rem',
-                  opacity:      payBtnDisabled ? 0.55 : 1,
-                  boxShadow:    payBtnDisabled ? 'none' : '0 8px 28px rgba(37,99,235,0.30)',
-                }}
-              >
-                {payBtnLabel}
-              </button>
-
-              {emailIsConfirmed && !sessionExpiredByPay && (
-                <p style={{ fontSize: '0.8rem', color: '#374151', textAlign: 'center', marginTop: '0.5rem' }}>
-                  📬 CV akan dikirim ke: <strong>{email.trim()}</strong>
-                </p>
-              )}
-              {paymentError && (
-                <div role="alert" style={{ marginTop: '0.75rem', padding: '0.75rem', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 12, color: '#92400E', fontSize: '0.875rem', textAlign: 'center' }}>
-                  {paymentError}
-                </div>
-              )}
+                )}
+                {paymentError && (
+                  <div role="alert" style={{ marginTop: '0.75rem', padding: '0.75rem', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 12, color: '#92400E', fontSize: '0.875rem', textAlign: 'center' }}>
+                    {paymentError}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Trust line */}

@@ -24,18 +24,8 @@ export default function PricingSelector({ selectedTier, onSelect, score, hasErro
       <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: '0 0 0.25rem', color: '#0F172A' }}>
         Pilih versi CV yang ingin kamu gunakan
       </h3>
-      <p style={{ textAlign: 'center', fontSize: '0.9rem', color: '#4B5563', margin: '0 0 1rem' }}>
-        Pilih paket berdasarkan jumlah loker yang mau kamu kejar minggu ini
-      </p>
-
-      <div style={{ fontSize: '0.8rem', color: '#374151', margin: '0 0 1rem', lineHeight: 1.9 }}>
-        <span style={{ display: 'block' }}>Fokus 1 posisi → <strong>Bilingual</strong></span>
-        <span style={{ display: 'block' }}>Apply lebih dari 1 posisi → <strong>3-Pack lebih hemat</strong></span>
-      </div>
-
-      {/* Guided decision copy */}
-      <p style={{ textAlign: 'center', fontSize: '0.875rem', color: '#475569', margin: '0.5rem 0 0', lineHeight: 1.5 }}>
-        Fokus 1 posisi: Single. Lebih dari 1 posisi: 3‑Pack/Job Hunt biasanya lebih hemat.
+      <p style={{ fontSize: '0.8rem', color: '#64748B', margin: '0.15rem 0 0', textAlign: 'center' }}>
+        1 posisi → Bilingual &nbsp;·&nbsp; 3+ posisi → 3-Pack lebih hemat
       </p>
 
       {/* Pricing grid */}
