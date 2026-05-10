@@ -25,6 +25,8 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
   const isFileCv   = !!fileName && !isPastedCv && cvReady;
 
   // Catch programmatic `.value` assignments that bypass React's synthetic onChange.
+  // Depends on `tab` so it re-registers each time the paste textarea mounts
+  // (the textarea is conditionally rendered — pasteRef.current is null on upload tab).
   useEffect(() => {
     const el = pasteRef.current;
     if (!el) return;
@@ -35,7 +37,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
     }
     el.addEventListener('input', onNativeInput);
     return () => el.removeEventListener('input', onNativeInput);
-  }, []);
+  }, [tab]);
 
   // Follow the active CV source when it changes externally (e.g. session restore).
   useEffect(() => {

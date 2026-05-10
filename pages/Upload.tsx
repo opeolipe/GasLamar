@@ -242,6 +242,7 @@ export default function Upload() {
     setCvText('');
     setManualCvText('');
     setFileError('');
+    setJdSubmitError('');
     setScanWarning(false);
     try {
       sessionStorage.removeItem('gaslamar_cv_draft');
