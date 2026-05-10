@@ -13,8 +13,7 @@ export default function TierIndicator({ tier }: Props) {
   if (!tier || !(VALID_TIERS as readonly string[]).includes(tier)) {
     return (
       <p className="text-xs text-slate-400 mb-5">
-        Gratis mulai · bayar hanya kalau mau lanjut rewrite{' '}
-        <a href="index.html#pricing" className="underline hover:text-slate-600">Lihat paket</a>
+        Gratis cek dulu. Bayar kalau mau lanjut.
       </p>
     );
   }

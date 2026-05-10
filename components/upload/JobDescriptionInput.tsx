@@ -79,9 +79,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
           />
         ) : (
           <p className="text-sm text-slate-500">
-            Paste job description{' '}
-            <span className="text-slate-400">(requirements / tanggung jawab)</span>
-            {' '}atau{' '}
+            Paste job description atau{' '}
             <button
               type="button"
               onClick={() => setShowFetcher(true)}
@@ -107,7 +105,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
           value={value}
           onChange={handleChange}
           maxLength={MAX_JD_CHARS}
-          placeholder="Paste job description di sini..."
+          placeholder="Paste isi loker di sini..."
           className={textareaCls}
           aria-label="Job description atau lowongan kerja yang kamu targetkan"
         />
