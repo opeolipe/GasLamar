@@ -63,9 +63,9 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
   }
 
   return (
-    <div className="w-full max-w-full overflow-hidden">
-      <label className="block text-sm font-semibold mb-2 mt-4" htmlFor="job-desc">
-        Posisi yang kamu incar
+    <div className="w-full">
+      <label className="block text-sm font-semibold mb-2 mt-6" htmlFor="job-desc">
+        Job yang kamu targetkan (wajib)
       </label>
 
       <div className="mb-3">
@@ -130,10 +130,14 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
           ⚠️ {submitError}
         </div>
       ) : trimmed && quality.message ? (
-        <p className="text-xs text-slate-500 mt-2 break-words" style={{ overflowWrap: 'anywhere' }}>{quality.message}</p>
+        <p className="text-sm text-slate-500 mt-2 break-words" style={{ overflowWrap: 'anywhere' }}>{quality.message}</p>
       ) : trimmed && !quality.message ? (
-        <p className="text-xs text-emerald-600 mt-2 font-medium">✓ Job description siap</p>
-      ) : null}
+        <p className="text-sm text-emerald-600 mt-2 font-medium">✓ Job description siap</p>
+      ) : (
+        <p className="text-sm text-slate-500 mt-2">
+          Job description wajib diisi. Minimal berisi kualifikasi dan tanggung jawab utama.
+        </p>
+      )}
     </div>
   );
 });

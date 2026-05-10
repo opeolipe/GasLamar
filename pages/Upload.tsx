@@ -13,7 +13,7 @@ import {
   unescapeHtml,
 } from '@/lib/uploadValidation';
 import { evaluateJDQuality }          from '@/utils/evaluateJDQuality';
-import { WORKER_URL, clearClientSessionData } from '@/lib/downloadUtils';
+import { WORKER_URL, clearClientSessionData } from '@/lib/sessionUtils';
 
 const SHADOW = '0 18px 44px rgba(15, 23, 42, 0.08)';
 
@@ -55,7 +55,9 @@ export default function Upload() {
   // CV section ref — used to scroll-to on missing CV validation
   const cvSectionRef = useRef<HTMLDivElement | null>(null);
 
+  // Derived — JD is mandatory and must pass basic structure checks.
   const hasFile: boolean = !!fileName && !!cvText;
+  const jdQuality = evaluateJDQuality(jd);
 
   // Mount: read URL params + restore drafts
   useEffect(() => {
@@ -305,6 +307,9 @@ export default function Upload() {
       jdRef.current?.focus();
       return;
     }
+    const jobDesc = jd.trim();
+    if (!jobDesc.length) return;
+    if (!evaluateJDQuality(jobDesc).isValid) return;
 
     setLoading(true);
     try {
@@ -397,7 +402,6 @@ export default function Upload() {
             </span>
             {' '}kamu
           </h1>
-
           <p className="text-[15px] text-slate-500 max-w-[44ch] mx-auto mt-5 leading-relaxed">
             Lihat apa yang bikin HR masih ragu.
           </p>
@@ -451,6 +455,10 @@ export default function Upload() {
 
           <SubmitSection
             isLoading={loading}
+            showJdHint={hasFile && (!jd.trim().length || !jdQuality.isValid)}
+            jdHintText={!jd.trim().length
+              ? 'Job description wajib diisi agar analisis bisa dimulai.'
+              : (jdQuality.message || 'Lengkapi job description agar analisis lebih akurat.')}
             onSubmit={handleSubmit}
           />
         </div>

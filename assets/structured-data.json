@@ -4,7 +4,7 @@
     "@type": "WebSite",
     "name": "GasLamar",
     "url": "https://gaslamar.com",
-    "description": "Upload CV + job description. Tahu peluang interview kamu dalam 30 detik.",
+    "description": "Upload CV + job description. Lihat peluang interview kamu sebelum apply.",
     "inLanguage": "id-ID",
     "potentialAction": {
       "@type": "Action",
@@ -17,7 +17,7 @@
     "@type": "WebApplication",
     "name": "GasLamar",
     "url": "https://gaslamar.com",
-    "description": "AI CV analysis untuk pencari kerja Indonesia. Upload CV, tahu peluang interview dalam 30 detik.",
+    "description": "AI CV analysis untuk pencari kerja Indonesia. Upload CV dan lihat peluang interview sebelum apply.",
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "Web Browser",
     "inLanguage": "id-ID",

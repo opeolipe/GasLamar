@@ -3,7 +3,7 @@ import MobileFallback       from '@/components/download/MobileFallback';
 import UpgradeNudge         from '@/components/download/UpgradeNudge';
 import MultiCreditSection   from '@/components/download/MultiCreditSection';
 import ScoreBars            from '@/components/6d/ScoreBars';
-import { isBilingual }      from '@/lib/downloadUtils';
+import { isBilingual }      from '@/lib/sessionUtils';
 
 const SHADOW = '0 18px 44px rgba(15, 23, 42, 0.08)';
 
@@ -106,20 +106,20 @@ function PostDownloadCard({ creditsRemaining, onDismiss, onScrollToMulti, onShow
       </button>
       <div className="font-bold text-slate-900 mb-1 pr-6">🚀 CV kamu sudah siap dikirim!</div>
       <p className="text-sm text-slate-600 mb-4">
-        Tingkatkan peluang interview dengan persiapan yang matang, atau beli paket hemat untuk loker berikutnya.
+        Kalau kamu mau lanjut, ini langkah opsional untuk aplikasi berikutnya.
       </p>
       <div className="flex gap-2 flex-wrap">
         <a
           href="/?tier=3pack"
-          className="inline-flex items-center min-h-[40px] px-4 rounded-[14px] font-bold text-white text-sm transition-all hover:-translate-y-[1px]"
-          style={{ background: 'linear-gradient(180deg,#2563eb,#1d4ed8)', boxShadow: SHADOW }}
+          className="inline-flex items-center min-h-[40px] px-4 rounded-[14px] font-semibold text-slate-700 text-sm transition-colors"
+          style={{ background: 'white', border: '1.5px solid #E2E8F0' }}
         >
           📦 Beli Paket Hemat
         </a>
         <button
           onClick={onShowTips}
-          className="inline-flex items-center min-h-[40px] px-4 rounded-[14px] font-semibold text-sm text-slate-700 transition-colors"
-          style={{ background: 'white', border: '1.5px solid #E2E8F0' }}
+          className="inline-flex items-center min-h-[40px] px-4 rounded-[14px] font-bold text-white text-sm transition-all hover:-translate-y-[1px]"
+          style={{ background: 'linear-gradient(180deg,#2563eb,#1d4ed8)', boxShadow: SHADOW }}
         >
           💡 Tips Interview
         </button>

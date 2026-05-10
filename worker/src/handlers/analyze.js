@@ -30,8 +30,7 @@ export async function handleAnalyze(request, env) {
     return jsonResponse({ message: 'Request body tidak valid' }, 400, request, env);
   }
 
-  // rawJobDesc defaults to '' so omitting it triggers general-mode analysis.
-  const { cv, job_desc: rawJobDesc = '' } = body;
+  const { cv, job_desc: rawJobDesc } = body;
 
   if (!cv) {
     return jsonResponse({ message: 'CV wajib diisi' }, 400, request, env);
@@ -50,6 +49,11 @@ export async function handleAnalyze(request, env) {
     return jsonResponse({ message: 'CV terlalu besar (maks 2MB). Coba kompres atau konversi ke format teks.' }, 413, request, env);
   }
 
+  if (rawJobDesc === undefined || rawJobDesc === null) {
+    logError('analyze_invalid_input', { reason: 'jd_missing', ip });
+    return jsonResponse({ message: 'Job description wajib diisi.' }, 400, request, env);
+  }
+
   if (typeof rawJobDesc !== 'string' || rawJobDesc.length > 5000) {
     return jsonResponse({ message: 'Job description terlalu panjang (maks 5.000 karakter)' }, 400, request, env);
   }
@@ -66,8 +70,12 @@ export async function handleAnalyze(request, env) {
 
   const job_desc = sanitizeForLLM(rawJobDescStripped);
 
-  // Enforce minimum length only when JD is non-empty — empty JD is valid (general mode).
-  if (job_desc.length > 0 && job_desc.length < 100) {
+  if (!job_desc.length) {
+    logError('analyze_invalid_input', { reason: 'jd_missing', ip });
+    return jsonResponse({ message: 'Job description wajib diisi.' }, 400, request, env);
+  }
+
+  if (job_desc.length < 100) {
     logError('analyze_invalid_input', { reason: 'jd_too_short', trimLen: job_desc.length, ip });
     return jsonResponse({ message: 'Job description terlalu pendek. Tulis minimal 100 karakter.' }, 400, request, env);
   }

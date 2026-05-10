@@ -39,7 +39,7 @@ const trustMessages = [
   '🔒 CV tidak disimpan — aman',
   '🤖 Analisis berbasis pola HR & ATS',
   '🎯 Hasil spesifik untuk job ini',
-  '⚡ Rata-rata selesai dalam 30 detik'
+  '⚡ Rata-rata selesai dalam kurang dari 1 menit'
 ];
 let trustIndex = 0;
 

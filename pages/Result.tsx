@@ -108,7 +108,10 @@ export default function Result() {
 
   useEffect(() => {
     if (!noSession) return;
-    if (noSession === 'expired') { window.location.replace('access.html?expired=1'); return; }
+    if (noSession === 'expired') {
+      window.location.replace('access.html?expired=1&source=hasil');
+      return;
+    }
     window.location.replace('upload.html?reason=no_session');
   }, [noSession]);
 
@@ -534,33 +537,53 @@ export default function Result() {
             {/* ── SECTION 1: Score Hero — one narrative, one visual hierarchy ── */}
             <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '2.5rem 2rem 2rem' }} data-testid="result-score">
 
-              {/* Score ring — scaled down ~17% to reduce dashboard dominance */}
-              <div style={{ transform: 'scale(0.83)', transformOrigin: 'center top', lineHeight: 0, marginBottom: '-6px' }}>
-                <ScoreDisplay score={data.skor} />
+            {/* Quick priorities */}
+            {((data.gap || []).length > 0 || (data.rekomendasi || []).length > 0) && (
+              <div style={{ ...CARD_STYLE, marginBottom: '1rem', padding: '1.25rem' }}>
+                <p style={{ fontSize: '0.78rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.5rem' }}>
+                  Prioritas Perbaikan
+                </p>
+                <p style={{ fontSize: '0.9rem', color: '#64748B', margin: '0 0 0.8rem', lineHeight: 1.55 }}>
+                  Fokus ke 3 poin ini dulu untuk dampak paling cepat ke peluang interview:
+                </p>
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                  {((data.gap && data.gap.length > 0) ? data.gap : (data.rekomendasi || [])).slice(0, 3).map((item, i) => (
+                    <li key={i} style={{ fontSize: '0.92rem', color: '#111827', display: 'flex', gap: '0.55rem', alignItems: 'flex-start', lineHeight: 1.45 }}>
+                      <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{i + 1}.</span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* ── BLOCK 1: RESULT ── */}
+            <div style={{ marginBottom: '2.5rem' }}>
+              <div
+                style={{ ...CARD_STYLE, marginBottom: 0, borderRadius: showDetails ? '24px 24px 0 0' : 24 }}
+                data-testid="result-score"
+              >
+                <ScoreDisplay
+                  score={data.skor}
+                  archetype={data.archetype}
+                  gapCount={(data.gap || []).length}
+                />
+                <div style={{ textAlign: 'center', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(148,163,184,0.14)' }}>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 700, color: '#111827', marginBottom: '0.35rem' }}>
+                    {scoreLabel(data.skor)}
+                  </div>
+                  <p style={{ fontSize: '0.88rem', color: '#64748B', maxWidth: 360, margin: '0 auto', lineHeight: 1.6 }}>
+                    {scoreInterpretation(data.skor)}
+                  </p>
+                  {data.skor_sesudah !== undefined && (
+                    <p style={{ fontSize: '4rem', fontWeight: 800, color: '#15803D', lineHeight: 1, margin: 0 }}>
+                      {data.skor_sesudah}%
+                    </p>
+                  )}
+                </div>
               </div>
 
-              {/* Headline */}
-              <p style={{ fontSize: '1.2rem', fontWeight: 700, color: '#111827', margin: '1rem 0 0.5rem', lineHeight: 1.35 }}>
-                {scoreHeadline(data.skor)}
-              </p>
-
-              {/* Body — short, human, readable width */}
-              <p style={{ fontSize: '0.9rem', color: '#64748B', lineHeight: 1.7, margin: '0 auto 1rem', maxWidth: 440 }}>
-                {verdictDesc(data.veredict, data.skor)}
-              </p>
-
-              {/* Improvement score — emotional payoff, large and prominent */}
-              {data.skor_sesudah !== undefined && (
-                <div style={{ marginTop: '1.25rem' }}>
-                  <p style={{ fontSize: '0.78rem', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 0.25rem' }}>
-                    Bisa naik hingga
-                  </p>
-                  <p style={{ fontSize: '4rem', fontWeight: 800, color: '#15803D', lineHeight: 1, margin: 0 }}>
-                    {data.skor_sesudah}%
-                  </p>
-                </div>
-              )}
-
+            </div>
             </div>
 
             {/* ── SECTION 2: Kenapa HR masih ragu ── */}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { validateEmail }               from '@/utils/emailValidation';
-import { WORKER_URL, buildSecretHeaders } from '@/lib/downloadUtils';
+import { WORKER_URL, buildSecretHeaders } from '@/lib/sessionUtils';
 import { logError } from '@/lib/logger';
 
 // ── Types ─────────────────────────────────────────────────────────────────────

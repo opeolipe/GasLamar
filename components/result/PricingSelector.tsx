@@ -24,8 +24,8 @@ export default function PricingSelector({ selectedTier, onSelect, score, hasErro
       <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: '0 0 0.25rem', color: '#0F172A' }}>
         Pilih versi CV yang ingin kamu gunakan
       </h3>
-      <p style={{ fontSize: '0.85rem', color: '#64748B', margin: '0 0 0.75rem' }}>
-        Sekali bayar — langsung download CV yang sudah diperbaiki
+      <p style={{ textAlign: 'center', fontSize: '0.9rem', color: '#4B5563', margin: '0 0 1rem' }}>
+        Pilih paket berdasarkan jumlah loker yang mau kamu kejar minggu ini
       </p>
 
       <div style={{ fontSize: '0.8rem', color: '#374151', margin: '0 0 1rem', lineHeight: 1.9 }}>
@@ -33,8 +33,13 @@ export default function PricingSelector({ selectedTier, onSelect, score, hasErro
         <span style={{ display: 'block' }}>Apply lebih dari 1 posisi → <strong>3-Pack lebih hemat</strong></span>
       </div>
 
-      {/* paddingTop gives room for the -11px badge pill on top-row cards */}
-      <div id="tier-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', paddingTop: '0.75rem', borderRadius: 16, outline: hasError ? '2px solid #EF4444' : 'none', outlineOffset: 4 }}>
+      {/* Guided decision copy */}
+      <p style={{ textAlign: 'center', fontSize: '0.875rem', color: '#475569', margin: '0.5rem 0 0', lineHeight: 1.5 }}>
+        Fokus 1 posisi: Single. Lebih dari 1 posisi: 3‑Pack/Job Hunt biasanya lebih hemat.
+      </p>
+
+      {/* Pricing grid */}
+      <div id="tier-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', margin: '1.5rem 0 0', borderRadius: 16, outline: hasError ? '2px solid #EF4444' : 'none', outlineOffset: 4 }}>
         {TIERS.map(tier => {
           const info     = TIER_CONFIG[tier];
           const copy     = TIER_COPY[tier];
@@ -58,11 +63,16 @@ export default function PricingSelector({ selectedTier, onSelect, score, hasErro
                   : '1px solid #E2E8F0',
                 cursor:       'pointer',
                 position:     'relative',
-                overflow:     'visible',
-                transition:   'border-color 0.15s, box-shadow 0.15s',
-                boxShadow:    selected ? '0 0 0 3px rgba(37,99,235,0.10)' : 'none',
+                boxShadow:    selected
+                  ? '0 0 0 3px rgba(37,99,235,0.12)'
+                  : isRec
+                  ? '0 6px 18px rgba(37,99,235,0.10)'
+                  : 'none',
                 fontFamily:   'inherit',
                 width:        '100%',
+                transform:    isRec && !selected ? 'scale(1.02)' : 'none',
+                overflow:     'visible',
+                transition:   '0.2s',
                 minHeight:    44,
               }}
             >

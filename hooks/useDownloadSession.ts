@@ -4,7 +4,7 @@ import {
   clearClientSessionData,
   getSessionSecret,
   buildSecretHeaders,
-} from '@/lib/downloadUtils';
+} from '@/lib/sessionUtils';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

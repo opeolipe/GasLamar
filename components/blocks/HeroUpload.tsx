@@ -17,7 +17,7 @@ export default function HeroUpload() {
             Gas atau skip? Tahu dulu peluang kamu sebelum apply.
           </h1>
           <p className="mt-5 max-w-xl mx-auto text-[#6b7280] text-base leading-[1.6]">
-            Upload CV + job description.<br />Tahu peluang interview kamu dalam 30 detik.
+            Upload CV + job description.<br />Dapatkan analisis yang jelas sebelum kamu apply.
           </p>
         </div>
         <div className="mt-8 w-full">
@@ -29,7 +29,7 @@ export default function HeroUpload() {
             Cek Peluang Saya
           </a>
           <p className="mt-4 text-[#6b7280] text-sm leading-[1.5]">
-            CV tidak disimpan permanen • tanpa registrasi • analisis ±30 detik • hasil gratis aktif 2 jam
+            CV tidak disimpan permanen • tanpa registrasi • rata-rata selesai {'<'} 1 menit • hasil gratis aktif 2 jam
           </p>
         </div>
       </div>

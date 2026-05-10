@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
-import { copyToClipboard, buildSecretHeaders, WORKER_URL } from '@/lib/downloadUtils';
+import { copyToClipboard, buildSecretHeaders, WORKER_URL } from '@/lib/sessionUtils';
 import { logError } from '@/lib/logger';
 import LoadingPlaceholder from '@/components/ui/LoadingPlaceholder';
 

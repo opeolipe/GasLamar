@@ -3,18 +3,20 @@ import { useDownloadSession }  from '@/hooks/useDownloadSession';
 import { useGenerateCV }       from '@/hooks/useGenerateCV';
 import { logError }            from '@/lib/logger';
 import {
-  isBilingual,
-  isMultiCredit,
   buildCVFilename,
-  clearClientSessionData,
   generateDOCXBlob,
   generatePDFBlob,
   triggerDownload,
   getCountdownInfo,
   formatExpiryDate,
+} from '@/lib/downloadUtils';
+import {
+  isBilingual,
+  isMultiCredit,
+  clearClientSessionData,
   WORKER_URL,
   buildSecretHeaders,
-} from '@/lib/downloadUtils';
+} from '@/lib/sessionUtils';
 import { buildResultData } from '@/lib/resultUtils';
 import type { ResultData } from '@/types/result';
 import SessionError          from '@/components/download/SessionError';
@@ -69,7 +71,7 @@ export default function Download() {
     const sessionInStorage = localStorage.getItem('gaslamar_session')
                           ?? sessionStorage.getItem('gaslamar_session');
     if (!delivery && !sessionInStorage) {
-      window.location.replace('access.html?expired=1');
+      window.location.replace('access.html?expired=1&source=download');
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -99,7 +101,7 @@ export default function Download() {
   useEffect(() => {
     if (session.phase === 'error' && viewRef.current === 'waiting') {
       if (session.error?.reason === 'expired') {
-        window.location.replace('access.html?expired=1');
+        window.location.replace('access.html?expired=1&source=download');
         return;
       }
       setView('error');

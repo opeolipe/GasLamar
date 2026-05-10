@@ -127,7 +127,7 @@ export default function Analyzing() {
     const scoring     = sessionStorage.getItem('gaslamar_scoring');
     const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
     const isFresh     = !!(scoring && analyzeTime && (Date.now() - analyzeTime) < 7_200_000);
-    window.location.replace(isFresh ? 'hasil.html' : 'upload.html?reason=interrupted');
+    window.location.replace(isFresh ? 'hasil.html' : 'upload.html?reason=missing_data');
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!ready) return null;

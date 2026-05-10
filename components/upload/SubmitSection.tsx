@@ -1,9 +1,11 @@
 interface Props {
-  isLoading: boolean;
-  onSubmit:  () => void;
+  isLoading:   boolean;
+  showJdHint:  boolean;
+  jdHintText?: string;
+  onSubmit:    () => void;
 }
 
-export default function SubmitSection({ isLoading, onSubmit }: Props) {
+export default function SubmitSection({ isLoading, showJdHint, jdHintText, onSubmit }: Props) {
   return (
     <div className="mt-6">
       <button
@@ -24,8 +26,14 @@ export default function SubmitSection({ isLoading, onSubmit }: Props) {
         ) : 'Cek peluang saya'}
       </button>
 
-      <p className="text-center text-xs text-slate-400 mt-4 leading-relaxed">
-        Tanpa daftar&nbsp;·&nbsp;analisis ±30 detik&nbsp;·&nbsp;CV tidak disimpan
+      {showJdHint && (
+        <p className="text-center text-sm text-slate-500 mt-3">
+          {jdHintText || 'Job description wajib diisi sebelum analisis dimulai.'}
+        </p>
+      )}
+
+      <p className="text-center text-sm text-slate-400 mt-4">
+        CV tidak disimpan • tanpa registrasi • rata-rata selesai {'<'} 1 menit • hasil gratis aktif 2 jam
       </p>
     </div>
   );

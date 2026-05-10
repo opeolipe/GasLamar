@@ -3,7 +3,7 @@ import {
   WORKER_URL,
   clearClientSessionData,
   buildSecretHeaders,
-} from '@/lib/downloadUtils';
+} from '@/lib/sessionUtils';
 import { getPrimaryIssue } from '@/lib/resultUtils';
 
 // ── Types ─────────────────────────────────────────────────────────────────────

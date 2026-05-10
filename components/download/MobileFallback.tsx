@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { copyToClipboard } from '@/lib/downloadUtils';
+import { copyToClipboard } from '@/lib/sessionUtils';
 
 interface Props {
   cvTextId: string;

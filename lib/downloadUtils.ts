@@ -1,53 +1,26 @@
 import { Document, Packer, Paragraph, TextRun, BorderStyle, AlignmentType, TabStopType, LevelFormat } from 'docx';
 import { jsPDF } from 'jspdf';
-import { WORKER_URL as PROD_WORKER_URL, SANDBOX_WORKER_URL } from '@/lib/uploadValidation';
-// IS_SANDBOX is a build-time define injected by esbuild (true in staging, false in production).
-// The download page must poll the same worker origin that set the session_id cookie — if the
-// bypass used SANDBOX_WORKER_URL, polling PROD_WORKER_URL would get 401 (cross-origin cookie).
-declare const IS_SANDBOX: boolean;
-export const WORKER_URL: string = IS_SANDBOX ? SANDBOX_WORKER_URL : PROD_WORKER_URL;
+import {
+  WORKER_URL,
+  TIER_LABELS,
+  isBilingual,
+  isMultiCredit,
+  clearClientSessionData,
+  getSessionSecret,
+  buildSecretHeaders,
+} from '@/lib/sessionUtils';
+export {
+  WORKER_URL,
+  TIER_LABELS,
+  isBilingual,
+  isMultiCredit,
+  clearClientSessionData,
+  getSessionSecret,
+  buildSecretHeaders,
+};
 
 // Server-side guidance lines are prefixed with two spaces and wrapped in parens.
 const GUIDANCE_LINE_PATTERN = /^\s{2}\((catatan:|note:)/i;
-
-// ── Tier helpers ──────────────────────────────────────────────────────────────
-
-export const TIER_LABELS: Record<string, string> = {
-  coba:    'Starter',
-  single:  'Bilingual',
-  '3pack': '3-Pack',
-  jobhunt: 'Career Pack',
-};
-
-export function isBilingual(tier: string): boolean {
-  return tier !== 'coba';
-}
-
-export function isMultiCredit(tier: string): boolean {
-  return tier === '3pack' || tier === 'jobhunt';
-}
-
-// ── Session storage helpers ───────────────────────────────────────────────────
-
-export function clearClientSessionData(sessionId: string | null): void {
-  sessionStorage.removeItem('gaslamar_tier');
-  sessionStorage.removeItem('gaslamar_session');
-  localStorage.removeItem('gaslamar_session');
-  localStorage.removeItem('gaslamar_tier');
-  if (sessionId) {
-    sessionStorage.removeItem(`gaslamar_secret_${sessionId}`);
-    localStorage.removeItem(`gaslamar_secret_${sessionId}`);
-  }
-}
-
-export function getSessionSecret(sessionId: string): string | null {
-  return sessionStorage.getItem(`gaslamar_secret_${sessionId}`)
-    ?? localStorage.getItem(`gaslamar_secret_${sessionId}`);
-}
-
-export function buildSecretHeaders(secret: string | null): Record<string, string> {
-  return secret ? { 'X-Session-Secret': secret } : {};
-}
 
 // ── Filename construction ─────────────────────────────────────────────────────
 
