@@ -104,6 +104,8 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
       if (typeof summary.skor === 'number')                       reqBody.score         = summary.skor;
       if (Array.isArray(summary.gap) && summary.gap.length)       reqBody.gaps          = summary.gap.slice(0, 3);
       if (summary.primary_issue)                                  reqBody.primary_issue = summary.primary_issue;
+      if (typeof summary.preview_before === 'string' && summary.preview_before) reqBody.preview_sample = summary.preview_before;
+      if (typeof summary.preview_after  === 'string' && summary.preview_after)  reqBody.preview_after  = summary.preview_after;
     } catch (_) { /* ignore malformed sessionStorage */ }
 
     const res = await fetch(WORKER_URL + '/generate', {
@@ -246,6 +248,9 @@ async function showExhaustedResult(data) {
 // Called by the "Coba Lagi" error button. Reloads if session ID is gone.
 async function retryGeneration() {
   if (!sessionIdCache) { window.location.reload(); return; }
+  if (window.Analytics) Analytics.track('cv_generation_retry', {
+    tier: sessionStorage.getItem('gaslamar_tier') || undefined,
+  });
   await fetchAndGenerateCV(sessionIdCache);
 }
 

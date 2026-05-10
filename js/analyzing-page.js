@@ -165,6 +165,12 @@ async function runAnalysis() {
     sessionStorage.setItem('gaslamar_analyze_time', String(Date.now()));
     // Remove any leftover scoring blob from a previous analysis (defensive cleanup).
     sessionStorage.removeItem('gaslamar_scoring');
+
+    // Advisory: if skor is very low and no strengths found, the PDF may be scanned/image-based.
+    // Set a flag so scoring.js can show a soft warning on hasil.html.
+    if (result.skor != null && result.skor < 40 && (!result.kekuatan || result.kekuatan.length === 0)) {
+      try { sessionStorage.setItem('gaslamar_scan_advisory', '1'); } catch (_) {}
+    }
     if (window.Analytics) Analytics.track('analysis_completed', {
       score: result.skor || null,
       confidence: result.konfidensitas || null,

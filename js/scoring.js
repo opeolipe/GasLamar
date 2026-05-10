@@ -91,9 +91,11 @@
       return (skor6d[a] != null ? skor6d[a] : 10) <= (skor6d[b] != null ? skor6d[b] : 10) ? a : b;
     });
     sessionStorage.setItem('gaslamar_score_summary', JSON.stringify({
-      skor:          scoring.skor,
-      gap:           (scoring.gap || []).slice(0, 3),
-      primary_issue: primary_issue,
+      skor:           scoring.skor,
+      gap:            (scoring.gap || []).slice(0, 3),
+      primary_issue:  primary_issue,
+      preview_before: scoring.preview_before || undefined,
+      preview_after:  scoring.preview_after  || undefined,
     }));
   } catch (_) {}
 
@@ -110,7 +112,7 @@
   renderRecommendations(scoring.rekomendasi || []);
   renderSkor6D(scoring.skor_6d);
   renderBeforeAfter(scoring);
-  renderRewritePreview(scoring.rekomendasi || [], scoring.gap || []);
+  renderRewritePreview(scoring.rekomendasi || [], scoring.gap || [], scoring.preview_before, scoring.preview_after);
   setupShareButton(scoring.skor || 0);
   setupTierRecommendation(scoring.skor || 0);
 
@@ -194,6 +196,17 @@ function renderScore(scoring) {
     confEl.textContent = `Konfidensitas analisis: ${scoring.konfidensitas}`;
     confEl.classList.remove('hidden');
   }
+
+  // Scanned PDF advisory
+  const scanAdvisory = sessionStorage.getItem('gaslamar_scan_advisory');
+  if (scanAdvisory) {
+    sessionStorage.removeItem('gaslamar_scan_advisory');
+    const advisoryEl = document.createElement('div');
+    advisoryEl.style.cssText = 'background:#FEF9C3;border:1px solid #FDE047;border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:0.875rem;color:#713F12;';
+    advisoryEl.textContent = '⚠️ CV terdeteksi sebagai PDF scan — akurasi analisis mungkin lebih rendah. Untuk hasil terbaik, gunakan PDF yang dibuat langsung dari aplikasi (bukan hasil scan).';
+    const resultsContent = document.getElementById('results-content');
+    if (resultsContent) resultsContent.insertBefore(advisoryEl, resultsContent.firstChild);
+  }
 }
 
 function renderStrengths(strengths) {
@@ -261,7 +274,7 @@ function renderBeforeAfter(scoring) {
   section.classList.remove('hidden');
 }
 
-function renderRewritePreview(rekomendasi, gap) {
+function renderRewritePreview(rekomendasi, gap, previewBefore, previewAfter) {
   const section = document.getElementById('rewrite-preview');
   if (!section) return;
 
@@ -271,13 +284,25 @@ function renderRewritePreview(rekomendasi, gap) {
 
   const totalCount = allItems.length;
 
-  // First item — fully visible
-  const first = allItems[0];
-  document.getElementById('preview-item-1').innerHTML = `
-    <div class="preview-item">
-      <div class="preview-item-label">✅ Perbaikan #1 — contoh gratis</div>
-      <div class="preview-item-text">${escapeHtml(first)}</div>
-    </div>`;
+  // Show actual before/after CV line when the server provided a preview example
+  if (previewBefore && previewAfter) {
+    document.getElementById('preview-item-1').innerHTML = `
+      <div class="preview-item">
+        <div class="preview-item-label">✅ Contoh perbaikan nyata dari CV kamu</div>
+        <div style="margin-top:6px;font-size:0.8rem;color:#6B7280;margin-bottom:2px;">Sebelum:</div>
+        <div class="preview-item-text" style="text-decoration:line-through;opacity:0.6;">${escapeHtml(previewBefore)}</div>
+        <div style="margin-top:6px;font-size:0.8rem;color:#059669;margin-bottom:2px;">Sesudah:</div>
+        <div class="preview-item-text" style="color:#059669;">${escapeHtml(previewAfter)}</div>
+      </div>`;
+  } else {
+    // Fallback: show first recommendation/gap item
+    const first = allItems[0];
+    document.getElementById('preview-item-1').innerHTML = `
+      <div class="preview-item">
+        <div class="preview-item-label">✅ Perbaikan #1 — contoh gratis</div>
+        <div class="preview-item-text">${escapeHtml(first)}</div>
+      </div>`;
+  }
 
   // Remaining items (up to 4) — blurred
   const rest = allItems.slice(1, 5);

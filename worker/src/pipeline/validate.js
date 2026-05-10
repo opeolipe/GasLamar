@@ -94,5 +94,13 @@ export function validateDiagnoseOutput(parsed) {
     errors.push('red_flags must be array when present');
   }
 
+  // preview_before and preview_after are optional — only validate type when present
+  if (parsed.preview_before !== undefined && typeof parsed.preview_before !== 'string') {
+    errors.push('preview_before must be string when present');
+  }
+  if (parsed.preview_after !== undefined && typeof parsed.preview_after !== 'string') {
+    errors.push('preview_after must be string when present');
+  }
+
   return { valid: errors.length === 0, errors };
 }

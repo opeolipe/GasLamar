@@ -259,11 +259,17 @@ async function proceedToPayment() {
     btn.disabled = false;
     btn.textContent = originalText;
 
-    if (window.Analytics) Analytics.trackError('payment_api', {
-      tier: selectedTier,
-      is_timeout: err.name === 'AbortError',
-      error_message: err.message,
-    });
+    if (window.Analytics) {
+      Analytics.trackError('payment_api', {
+        tier: selectedTier,
+        is_timeout: err.name === 'AbortError',
+        error_message: err.message,
+      });
+      Analytics.track('payment_failed', {
+        tier: selectedTier,
+        is_timeout: err.name === 'AbortError',
+      });
+    }
 
     let msg = 'Terjadi kesalahan. Coba lagi.';
     if (err.name === 'AbortError') {
