@@ -6,9 +6,10 @@ interface Props {
   statusText:      string;
   showCheckButton: boolean;
   onStartFresh?:   () => void;
+  onCheckNow?:     () => void;
 }
 
-export default function WaitingPayment({ statusText, showCheckButton, onStartFresh }: Props) {
+export default function WaitingPayment({ statusText, showCheckButton, onStartFresh, onCheckNow }: Props) {
   const [showContact,    setShowContact]    = useState(false);
   const [showSlowHint,   setShowSlowHint]   = useState(false);
   const [showStartFresh, setShowStartFresh] = useState(false);
@@ -62,8 +63,8 @@ export default function WaitingPayment({ statusText, showCheckButton, onStartFre
       {showCheckButton && (
         <div className="flex flex-col items-center gap-3 mt-4">
           <button
-            onClick={() => window.location.reload()}
-            aria-label="Cek ulang status pembayaran dengan memuat ulang halaman"
+            onClick={onCheckNow ?? (() => window.location.reload())}
+            aria-label="Cek ulang status pembayaran"
             className="min-h-[48px] px-6 rounded-full font-bold text-white text-sm transition-all hover:-translate-y-[1px]"
             style={{ background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', boxShadow: '0 8px 24px rgba(37,99,235,0.30)' }}
           >

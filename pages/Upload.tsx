@@ -45,17 +45,19 @@ export default function Upload() {
   const [jd, setJd] = useState('');
 
   // UI
-  const [loading,  setLoading]  = useState(false);
-  const [tier,     setTier]     = useState<string | null>(null);
-  const [notices,  setNotices]  = useState<Notice[]>([]);
+  const [loading,        setLoading]        = useState(false);
+  const [tier,           setTier]           = useState<string | null>(null);
+  const [notices,        setNotices]        = useState<Notice[]>([]);
+  const [jdSubmitError,  setJdSubmitError]  = useState('');
 
   // JD textarea ref — used for auto-scroll after CV upload
-  const jdRef = useRef<HTMLTextAreaElement | null>(null);
+  const jdRef       = useRef<HTMLTextAreaElement | null>(null);
+  // CV section ref — used to scroll-to on missing CV validation
+  const cvSectionRef = useRef<HTMLDivElement | null>(null);
 
   // Derived — JD is mandatory and must pass basic structure checks.
   const hasFile: boolean = !!fileName && !!cvText;
   const jdQuality = evaluateJDQuality(jd);
-  const isValid: boolean = hasFile && jdQuality.isValid;
 
   // Mount: read URL params + restore drafts
   useEffect(() => {
@@ -79,9 +81,6 @@ export default function Upload() {
 
     // Paid session takes priority — redirect the user straight to download.html
     // instead of showing stale analysis notices that point to hasil.html.
-    // gaslamar_scoring is cleared by useGenerateCV after generation, so the
-    // analysis notice would link to a page that immediately bounces back with
-    // reason=no_session once scoring data is gone.
     const paidSessionId = sessionStorage.getItem('gaslamar_session') ?? localStorage.getItem('gaslamar_session') ?? '';
     const hasPaidSession = paidSessionId.startsWith('sess_');
 
@@ -90,7 +89,7 @@ export default function Upload() {
       if (reason) history.replaceState(null, '', location.pathname);
       newNotices.push({
         type: 'info',
-        text: '📁 Kamu sudah upload CV dan menyelesaikan pembayaran.',
+        text: 'Kamu sudah upload CV dan menyelesaikan pembayaran.',
         link: { href: 'download.html', label: 'Lanjutkan ke download →' },
       });
     } else {
@@ -245,11 +244,11 @@ export default function Upload() {
     setCvText('');
     setManualCvText('');
     setFileError('');
+    setJdSubmitError('');
     setScanWarning(false);
     try {
       sessionStorage.removeItem('gaslamar_cv_draft');
       sessionStorage.removeItem('gaslamar_filename_draft');
-      // Clear JD draft too — user is starting over, stale JD would be confusing.
       sessionStorage.removeItem('gaslamar_jd_draft');
     } catch (_) {}
     setJd('');
@@ -282,6 +281,7 @@ export default function Upload() {
   }
 
   function handleJdChange(value: string) {
+    if (jdSubmitError) setJdSubmitError('');
     // Strip null bytes and non-printable control characters (keep tab, LF, CR).
     const sanitized = value.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
     setJd(sanitized);
@@ -289,7 +289,6 @@ export default function Upload() {
       if (sanitized.trim()) {
         sessionStorage.setItem('gaslamar_jd_draft', escapeHtml(sanitized));
       } else {
-        // Explicit clear — remove draft so navigation back doesn't restore stale content.
         sessionStorage.removeItem('gaslamar_jd_draft');
       }
     } catch (_) {}
@@ -297,7 +296,15 @@ export default function Upload() {
 
   function handleSubmit() {
     if (!hasFile) {
-      setFileError('Mohon upload CV kamu terlebih dahulu.');
+      setFileError('Masukkan CV dulu ya');
+      cvSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    if (!evaluateJDQuality(jd).isValid) {
+      setJdSubmitError('Tambahkan job description posisi yang kamu lamar dulu ya');
+      jdRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      jdRef.current?.focus();
       return;
     }
     const jobDesc = jd.trim();
@@ -306,7 +313,7 @@ export default function Upload() {
 
     setLoading(true);
     try {
-      const safeJd = jobDesc.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      const safeJd = jd.trim().replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
       sessionStorage.setItem('gaslamar_cv_pending', cvText);
       sessionStorage.setItem('gaslamar_jd_pending', escapeHtml(safeJd));
       sessionStorage.setItem('gaslamar_filename',   fileName!);
@@ -317,7 +324,7 @@ export default function Upload() {
       return;
     }
 
-    (window as any).Analytics?.track?.('upload_submitted', { jd_length: jobDesc.length });
+    (window as any).Analytics?.track?.('upload_submitted', { jd_length: jd.trim().length });
     window.location.href = 'analyzing.html';
   }
 
@@ -330,7 +337,7 @@ export default function Upload() {
   return (
     <div
       className="min-h-screen w-full overflow-x-hidden text-gray-900 font-sans"
-      style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37,99,235,0.08), transparent)' }}
+      style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37,99,235,0.07), transparent)' }}
     >
       {/* Skip link */}
       <a
@@ -350,7 +357,7 @@ export default function Upload() {
         </a>
       </nav>
 
-      <main className="w-full max-w-screen-xl mx-auto px-6 pt-14 pb-8" id="upload-form">
+      <main className="w-full max-w-screen-xl mx-auto px-6 pt-12 pb-8" id="upload-form">
 
         {/* Notices */}
         {notices.map((n, i) => (
@@ -362,47 +369,67 @@ export default function Upload() {
           </div>
         ))}
 
-        {/* Mobile step indicator — hidden on desktop */}
-        <div className="flex items-center justify-center gap-2 mb-4 sm:hidden" aria-label="Langkah 1 dari 3">
-          <div className="flex items-center gap-1.5">
-            <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">1</span>
-            <div className="w-8 h-0.5 bg-blue-200 rounded" />
-            <span className="w-6 h-6 rounded-full bg-slate-200 text-slate-400 text-xs font-bold flex items-center justify-center">2</span>
-            <div className="w-8 h-0.5 bg-slate-200 rounded" />
-            <span className="w-6 h-6 rounded-full bg-slate-200 text-slate-400 text-xs font-bold flex items-center justify-center">3</span>
-          </div>
-          <span className="text-xs text-slate-500 font-medium ml-1">Langkah 1 / 3</span>
-        </div>
-
-        {/* ZONE 1: Hero (no box) */}
-        <div className="text-center mb-8">
+        {/* ZONE 1: Hero */}
+        <div className="text-center mb-10">
           <h1
-            className="text-[clamp(2rem,4vw,2.8rem)] font-semibold leading-tight text-slate-900 mb-2 max-w-[20ch] mx-auto"
-            style={{ fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.03em' }}
+            className="font-bold leading-[1.1] text-slate-900 mb-0 mx-auto"
+            style={{
+              fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif',
+              letterSpacing: '-0.03em',
+              fontSize: 'clamp(2.6rem, 6vw, 4rem)',
+            }}
           >
-            Cek peluang interview kamu
+            Cek peluang{' '}
+            <span className="relative inline-block whitespace-nowrap">
+              interview
+              <svg
+                className="absolute left-0 w-full overflow-visible pointer-events-none"
+                style={{ bottom: '-4px' }}
+                height="9"
+                viewBox="0 0 100 9"
+                preserveAspectRatio="none"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M1 6.5C18 3 42 8 62 5.8C76 4.4 90 7.5 99 5.5"
+                  stroke="#1B4FE8"
+                  strokeWidth="2.8"
+                  strokeLinecap="round"
+                  opacity="0.42"
+                />
+              </svg>
+            </span>
+            {' '}kamu
           </h1>
-          <p className="text-sm text-slate-500 max-w-[48ch] mx-auto mb-1.5">
-            Upload CV + job description → lihat analisis yang jelas sebelum apply
+          <p className="text-[15px] text-slate-500 max-w-[44ch] mx-auto mt-5 leading-relaxed">
+            Lihat apa yang bikin HR masih ragu.
           </p>
-          <p className="text-sm text-slate-400">Tanpa daftar&nbsp;•&nbsp;rata-rata selesai dalam kurang dari 1 menit</p>
+
+          {/* Progression strip */}
+          <div className="mt-5 flex items-center justify-center gap-2 text-sm text-slate-500 flex-wrap">
+            <span className="font-medium text-slate-700">Upload CV</span>
+            <span className="text-slate-300" aria-hidden="true">→</span>
+            <span>Tahu masalahnya</span>
+            <span className="text-slate-300" aria-hidden="true">→</span>
+            <span>Benerin</span>
+          </div>
         </div>
 
-        {/* ZONE 2: Form panel (soft panel) */}
+        {/* ZONE 2: Form panel */}
         <div
-          className="w-full rounded-[24px] px-4 py-6 sm:px-8 sm:py-9 max-w-4xl mx-auto"
+          className="w-full rounded-[24px] px-4 py-5 sm:px-8 sm:py-8 max-w-4xl mx-auto"
           style={{
-            background:     'rgba(255,255,255,0.88)',
-            border:         '1px solid rgba(148,163,184,0.14)',
+            background:     'rgba(255,255,255,0.90)',
+            border:         '1px solid rgba(148,163,184,0.13)',
             boxShadow:      SHADOW,
             backdropFilter: 'blur(14px)',
           }}
         >
           <TierIndicator tier={tier} />
 
-          {/* GROUP 1: Upload CV */}
-          <div className="mb-6">
-            <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-500 mb-3">Upload CV</p>
+          {/* CV upload */}
+          <div className="mb-6" ref={cvSectionRef}>
             <CvDropzone
               fileName={fileName}
               fileSize={fileSize}
@@ -416,17 +443,17 @@ export default function Upload() {
             />
           </div>
 
-          {/* GROUP 2: Job target */}
+          {/* Job target */}
           <div className="border-t pt-5" style={{ borderColor: 'rgba(148,163,184,0.10)' }}>
             <JobDescriptionInput
               ref={jdRef}
               value={jd}
               onChange={handleJdChange}
+              submitError={jdSubmitError}
             />
           </div>
 
           <SubmitSection
-            isValid={isValid}
             isLoading={loading}
             showJdHint={hasFile && (!jd.trim().length || !jdQuality.isValid)}
             jdHintText={!jd.trim().length
@@ -440,16 +467,19 @@ export default function Upload() {
           href="mailto:support@gaslamar.com?subject=Bantuan%20Upload%20CV%20-%20GasLamar"
           className="block text-center mt-6 text-sm text-slate-400 hover:text-slate-600 transition-colors"
         >
-          📧 Butuh bantuan? Hubungi support
+          Butuh bantuan? Hubungi support
         </a>
       </main>
 
-      <footer className="text-center py-6 text-sm text-slate-400">
-        <a href="privacy.html" className="text-slate-400 underline hover:text-slate-600 mx-2">Kebijakan Privasi</a>
-        ·
-        <a href="terms.html" className="text-slate-400 underline hover:text-slate-600 mx-2">Syarat Layanan</a>
-        ·
-        <a href="accessibility.html" className="text-slate-400 underline hover:text-slate-600 mx-2">Aksesibilitas</a>
+      <footer className="text-center py-6 text-xs text-slate-400">
+        <p className="mb-2 text-slate-400">GasLamar · Bantu kamu lebih pede apply</p>
+        <div className="mt-1 space-x-1 text-slate-300">
+          <a href="privacy.html" className="hover:text-slate-500 hover:underline mx-1">Kebijakan Privasi</a>
+          ·
+          <a href="terms.html" className="hover:text-slate-500 hover:underline mx-1">Syarat Layanan</a>
+          ·
+          <a href="accessibility.html" className="hover:text-slate-500 hover:underline mx-1">Aksesibilitas</a>
+        </div>
       </footer>
     </div>
   );

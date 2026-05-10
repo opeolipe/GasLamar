@@ -1,5 +1,5 @@
 import { jsonResponse, jsonResponseWithCookie } from '../cors.js';
-import { clientIp, log } from '../utils.js';
+import { clientIp, log, sha256Full, hexToken } from '../utils.js';
 import { TIER_CREDITS, VALID_TIERS } from '../constants.js';
 import { checkRateLimitKV } from '../rateLimit.js';
 import { createSession } from '../sessions.js';
@@ -62,6 +62,11 @@ export async function handleBypassPayment(request, env) {
   const sessionId = `sess_${crypto.randomUUID()}`;
   const credits = TIER_CREDITS[tier] ?? 1;
 
+  // Generate a session secret so bypass sessions pass the same secret verification
+  // as real paid sessions. Returned in the response so callers can use it.
+  const testSecret = hexToken(16);
+  const secretHash = await sha256Full(testSecret);
+
   await env.GASLAMAR_SESSIONS.delete(cv_text_key);
 
   await createSession(env, sessionId, {
@@ -73,10 +78,11 @@ export async function handleBypassPayment(request, env) {
     total_credits: credits,
     ip,
     mayar_invoice_id: 'bypass_sandbox',
+    session_secret_hash: secretHash,
   });
 
   log('bypass_payment_created', { sessionId, tier, credits });
 
   const cookieHeader = makeSessionCookie(sessionId, credits > 1);
-  return jsonResponseWithCookie({ session_id: sessionId }, 200, cookieHeader, request, env);
+  return jsonResponseWithCookie({ session_id: sessionId, session_secret: testSecret }, 200, cookieHeader, request, env);
 }

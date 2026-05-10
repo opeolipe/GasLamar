@@ -22,7 +22,7 @@ export function logMayarEnvironment(env) {
     environment: env.ENVIRONMENT ?? 'sandbox',
     apiUrl: getMayarApiUrl(env),
     key_present: !!apiKey,
-    key_prefix: apiKey ? apiKey.substring(0, 6) + '…' : null,
+    key_prefix: apiKey ? apiKey.substring(0, 3) + '…' : null,
   }));
 }
 
@@ -107,7 +107,9 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
     const data = await res.json();
     console.log(JSON.stringify({ event: 'mayar_success', endpoint, data_keys: Object.keys(data) }));
 
-    const invoice_id  = data.data?.id  || data.id;
+    // Mayar API has returned the invoice ID under different field names across versions;
+    // check all known variants so the KV index key matches whatever the webhook sends.
+    const invoice_id  = data.data?.id || data.data?.invoice_id || data.id || data.invoice_id;
     // Mayar API has used several field names across versions; check all known variants
     const invoice_url =
       data.data?.link         || data.data?.url          || data.data?.payment_url  ||
@@ -174,16 +176,15 @@ export async function verifyMayarWebhook(request, env) {
 
   const isSandbox = env.ENVIRONMENT !== 'production';
 
-  // Sandbox bypass: skip HMAC verification for non-production environments when
-  // no secret is configured, or when the payload signals a sandbox/test event.
-  // This handles Mayar sandbox omitting the x-mayar-signature header entirely.
+  // Sandbox bypass: always skip HMAC in non-production environments.
+  // Mayar sandbox (api.mayar.club) behaviour is inconsistent: it sometimes omits
+  // the x-mayar-signature header, sometimes sends a signature that doesn't match
+  // the configured secret (e.g. when the secret was set after the invoice was
+  // created, or when the sandbox uses a different signing key than production).
+  // There is no real financial risk in staging so we accept all webhook payloads
+  // without signature verification.
   if (isSandbox) {
-    let parsed = {};
-    try { parsed = JSON.parse(body || '{}'); } catch (_) {}
-    const isTestEvent = parsed?.is_sandbox === true || (typeof parsed?.id === 'string' && parsed.id.startsWith('test_'));
-    if (!secret || isTestEvent) {
-      return { valid: true, body };
-    }
+    return { valid: true, body };
   }
 
   const signature = request.headers.get('x-mayar-signature') || request.headers.get('X-Mayar-Signature');

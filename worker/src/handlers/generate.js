@@ -221,23 +221,32 @@ export async function handleGenerate(request, env, ctx) {
       { expirationTtl: resultTtl }
     ).catch(e => { logError('cv_result_kv_write_failed', { session_id, error: e?.message }); });
 
+    log('generate_success', { session_id, tier, credits_remaining: newCreditsRemaining });
+
     if (newCreditsRemaining <= 0) {
-      // Last credit used — delete session
-      await deleteSession(env, session_id);
+      if (ctx && (score !== undefined || gaps !== undefined)) {
+        // sendCVReadyEmail reads the session KV entry to get the stored email address.
+        // Deleting the session first (as we did before) causes getSession() to return null
+        // and the email to be silently dropped. Chain deleteSession in .finally() so it
+        // runs after the send — whether the send succeeds or fails — without blocking the response.
+        ctx.waitUntil(
+          sendCVReadyEmail(session_id, score, gaps, env)
+            .catch(e => logError('cv_ready_email_failed', { session_id, error: e.message }))
+            .finally(() => deleteSession(env, session_id).catch(() => {}))
+        );
+      } else {
+        await deleteSession(env, session_id);
+      }
     } else {
       // Credits remain — reset to 'paid' for next generation, persist updated job_desc if changed
       const updates = { status: 'paid', credits_remaining: newCreditsRemaining };
       if (newJobDesc && newJobDesc.trim()) updates.job_desc = effectiveJobDesc;
       await updateSession(env, session_id, updates);
-    }
-
-    log('generate_success', { session_id, tier, credits_remaining: newCreditsRemaining });
-
-    // Fire post-generate email (non-blocking) if score/gaps provided by frontend
-    if (ctx && (score !== undefined || gaps !== undefined)) {
-      ctx.waitUntil(sendCVReadyEmail(session_id, score, gaps, env).catch((e) => {
-        logError('cv_ready_email_failed', { session_id, error: e.message });
-      }));
+      if (ctx && (score !== undefined || gaps !== undefined)) {
+        ctx.waitUntil(sendCVReadyEmail(session_id, score, gaps, env).catch(e => {
+          logError('cv_ready_email_failed', { session_id, error: e.message });
+        }));
+      }
     }
 
     const { job_title, company } = extractJobMetadata(effectiveJobDesc);
@@ -259,7 +268,13 @@ export async function handleGenerate(request, env, ctx) {
     await updateSession(env, session_id, { status: 'paid' }).catch((e2) => {
       logError('generate_recovery_failed', { session_id, error: e2.message });
     });
-    return jsonResponse({ message: e.message || 'Generate CV gagal. Coba lagi.' }, 500, request, env);
+    // Only pass through known user-facing messages from tailoring.js (size/content issues).
+    // All other errors (Claude auth, quota, network) get a generic fallback to avoid leaking internals.
+    const USER_FACING = /terlalu besar|terpotong|kosong|too large|truncated|empty/i;
+    const userMsg = (typeof e.message === 'string' && USER_FACING.test(e.message))
+      ? e.message
+      : 'Generate CV gagal. Coba lagi.';
+    return jsonResponse({ message: userMsg }, 500, request, env);
   } finally {
     await env.GASLAMAR_SESSIONS.delete(lockKey).catch(() => {});
   }

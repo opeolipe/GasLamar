@@ -4,14 +4,20 @@ import { MAX_JD_CHARS } from '@/lib/uploadValidation';
 import { evaluateJDQuality } from '@/utils/evaluateJDQuality';
 
 interface Props {
-  value:    string;
-  onChange: (value: string) => void;
+  value:       string;
+  onChange:    (value: string) => void;
+  submitError?: string;
 }
 
-const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobDescriptionInput({ value, onChange }, ref) {
+const JD_EXAMPLE = `Posisi: Digital Marketing Specialist
+Kualifikasi:
+- Social media marketing 2+ tahun
+- Google Analytics & Facebook Ads`;
+
+const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobDescriptionInput({ value, onChange, submitError }, ref) {
   const [showFetcher, setShowFetcher] = useState(false);
+  const [showExample, setShowExample] = useState(false);
   const internalRef = useRef<HTMLTextAreaElement>(null);
-  // Keep a ref to onChange so the native listener never goes stale without re-mounting.
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const trimmed = value.trim();
@@ -35,8 +41,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
     return () => el.removeEventListener('input', onNativeInput);
   }, []);
 
-  // Resize height when value changes via React state (URL fetcher, session restore) —
-  // these don't fire the native 'input' event so the listener above misses them.
+  // Resize height when value changes via React state (URL fetcher, session restore)
   useEffect(() => {
     const el = internalRef.current;
     if (!el) return;
@@ -45,9 +50,9 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
   }, [value]);
 
   const textareaCls = [
-    'block w-full max-w-full min-h-[160px] rounded-2xl border bg-transparent p-5',
+    'block w-full max-w-full min-h-[140px] rounded-2xl border bg-transparent p-4',
     'text-slate-900 resize-y outline-none text-sm font-sans transition-all',
-    'focus:ring-2 focus:ring-offset-2 border-slate-300 focus:border-blue-500/50 focus:ring-slate-200',
+    'focus:ring-2 focus:ring-offset-1 border-slate-200 focus:border-blue-400 focus:ring-blue-100',
   ].join(' ');
 
   function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
@@ -71,16 +76,14 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
           />
         ) : (
           <p className="text-sm text-slate-500">
-            Paste job description{' '}
-            <span className="text-slate-400">(requirements / tanggung jawab)</span>
-            {' '}atau{' '}
+            Paste job description atau{' '}
             <button
               type="button"
               onClick={() => setShowFetcher(true)}
               className="text-blue-600 underline hover:no-underline font-medium inline-flex items-center min-h-[44px] px-0.5"
               aria-label="Ambil job description dari URL loker seperti LinkedIn, Glints, atau JobStreet"
             >
-              ambil dari URL
+              tempel link loker →
             </button>
           </p>
         )}
@@ -99,27 +102,41 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
           value={value}
           onChange={handleChange}
           maxLength={MAX_JD_CHARS}
-          placeholder={`Contoh:\nPosisi: Digital Marketing Specialist\n\nKualifikasi:\n- Pengalaman 2+ tahun di social media marketing\n- Familiar dengan Google Analytics & Facebook Ads\n\nTanggung Jawab:\n- Kelola konten Instagram, TikTok, LinkedIn`}
+          placeholder="Paste isi loker di sini..."
           className={textareaCls}
           aria-label="Job description atau lowongan kerja yang kamu targetkan"
         />
-        <div className="text-right text-sm mt-1 text-slate-400">
-          {value.length.toLocaleString('id-ID')} / 5.000 karakter
+        <div className="flex items-center justify-between mt-1">
+          <button
+            type="button"
+            onClick={() => setShowExample(s => !s)}
+            className="text-xs text-slate-400 hover:text-slate-600 underline decoration-dotted transition-colors"
+          >
+            {showExample ? 'Sembunyikan contoh' : 'Lihat contoh job description'}
+          </button>
+          <span className="text-xs text-slate-400">
+            {value.length.toLocaleString('id-ID')} / 5.000 karakter
+          </span>
         </div>
+        {showExample && (
+          <div className="mt-2 p-3 bg-slate-50 rounded-xl text-xs text-slate-500 leading-relaxed border border-slate-100 font-mono max-w-full overflow-hidden" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
+            {JD_EXAMPLE}
+          </div>
+        )}
       </div>
 
-      {trimmed && quality.message && (
-        <p className="text-sm text-slate-500 mt-2">{quality.message}</p>
-      )}
-
-      {!trimmed && (
+      {submitError ? (
+        <div role="alert" className="mt-2 rounded-[10px] px-3 py-2.5 text-sm font-medium bg-red-50 border border-red-200 text-red-700">
+          ⚠️ {submitError}
+        </div>
+      ) : trimmed && quality.message ? (
+        <p className="text-sm text-slate-500 mt-2 break-words" style={{ overflowWrap: 'anywhere' }}>{quality.message}</p>
+      ) : trimmed && !quality.message ? (
+        <p className="text-sm text-emerald-600 mt-2 font-medium">✓ Job description siap</p>
+      ) : (
         <p className="text-sm text-slate-500 mt-2">
           Job description wajib diisi. Minimal berisi kualifikasi dan tanggung jawab utama.
         </p>
-      )}
-
-      {trimmed && !quality.message && (
-        <p className="text-sm text-emerald-600 mt-2">✓ Job description siap</p>
       )}
     </div>
   );

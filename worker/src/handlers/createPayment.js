@@ -80,7 +80,7 @@ export async function handleCreatePayment(request, env) {
   const credits = TIER_CREDITS[tier] ?? 1;
 
   // Compute secret hash — only store it if the client provided a secret
-  const secretHash = (rawSecret && typeof rawSecret === 'string' && rawSecret.length <= 256)
+  const secretHash = (rawSecret && typeof rawSecret === 'string' && rawSecret.length >= 16 && rawSecret.length <= 256)
     ? await sha256Full(rawSecret)
     : null;
 
@@ -107,12 +107,6 @@ export async function handleCreatePayment(request, env) {
     const { invoice_id, invoice_url } = await createMayarInvoice(sessionId, tier, env, redirectUrl, sessionEmail, couponCode);
 
     if (invoice_id) {
-      // Invoice was committed on Mayar's side (with or without a redirect URL).
-      // Consume cv_text_key immediately so a retry cannot create a second Mayar invoice
-      // for the same analysis session, which would spam the customer with duplicate
-      // "Transaksi telah dibuat" emails.
-      await env.GASLAMAR_SESSIONS.delete(cv_text_key);
-
       // Store session so the Mayar webhook can complete it even if we don't redirect now.
       const sessionData = {
         cv_text: stored.text,
@@ -139,6 +133,12 @@ export async function handleCreatePayment(request, env) {
         JSON.stringify({ session_id: sessionId }),
         { expirationTtl: credits > 1 ? 2592000 : 604800 }
       );
+
+      // Delete cv_text_key LAST — only after both the session and secondary index are
+      // persisted. If either write above throws (KV transient error), cv_text_key still
+      // exists so the user can retry after the invoice lock expires (60 s). Deleting first
+      // would orphan the Mayar invoice with no recoverable session if a write failed.
+      await env.GASLAMAR_SESSIONS.delete(cv_text_key);
     }
 
     if (!invoice_url) {

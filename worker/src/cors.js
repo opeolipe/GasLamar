@@ -3,7 +3,9 @@ import { PRODUCTION_ORIGINS, STAGING_ORIGINS } from './constants.js';
 export function getAllowedOrigins(env) {
   if (env.ENVIRONMENT === 'production') return PRODUCTION_ORIGINS;
   if (env.ENVIRONMENT === 'staging') return STAGING_ORIGINS;
-  if (env.ENVIRONMENT === 'sandbox') return PRODUCTION_ORIGINS; // local dev / CI tests
+  // Sandbox covers both CI (no browser, CORS irrelevant) and local browser dev (localhost:3000).
+  // Include both sets so wrangler dev with a localhost frontend works without CORS errors.
+  if (env.ENVIRONMENT === 'sandbox') return [...PRODUCTION_ORIGINS, ...STAGING_ORIGINS];
   // C1 FIX: Any value other than the three known environments is a misconfiguration.
   // Silently mirroring production for an unknown env (e.g. a typo like "prodution")
   // could grant unexpected CORS access without operator awareness. Fail closed so the
@@ -42,6 +44,8 @@ const SECURITY_HEADERS = {
   'X-Frame-Options': 'DENY',
   // Restrict browser feature access — API worker has no need for any of these
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+  // Prevent proxies and browsers from caching API responses that contain session data
+  'Cache-Control': 'no-store',
 };
 
 export function corsResponse(body, status, headers, request, env) {

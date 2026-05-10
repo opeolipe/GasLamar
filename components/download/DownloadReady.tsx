@@ -30,30 +30,6 @@ interface Props {
   isTrusted?:       boolean;
 }
 
-// ── DownloadSteps ────────────────────────────────────────────────────────────
-
-function DownloadSteps() {
-  return (
-    <div className="relative flex justify-between mb-0">
-      <div className="absolute top-[11px] left-0 right-0 h-px bg-slate-200 z-0" />
-      {[
-        { label: '1. Upload',   done: true,  active: false },
-        { label: '2. Hasil',    done: true,  active: false },
-        { label: '3. Download', done: false, active: true  },
-      ].map((s, i) => (
-        <div key={i} className="relative z-10 flex flex-col items-center text-center flex-1">
-          <span className={`block text-xs font-bold leading-none mb-1 ${s.done ? 'text-emerald-500' : 'text-slate-900'}`}>
-            {s.done ? '✓' : '●'}
-          </span>
-          <span className={`text-sm leading-tight ${s.done ? 'text-emerald-600 font-semibold' : 'text-slate-900 font-bold'}`}>
-            {s.label}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 // ── DownloadButton ────────────────────────────────────────────────────────────
 
 interface DownloadButtonProps {
@@ -258,22 +234,15 @@ export default function DownloadReady({
 
   return (
     <>
-      {/* Progress steps card */}
-      <div
-        className="rounded-[24px] p-5 mb-4"
-        style={{
-          background:     'rgba(255,255,255,0.88)',
-          border:         '1px solid rgba(148,163,184,0.14)',
-          boxShadow:      SHADOW,
-          backdropFilter: 'blur(14px)',
-        }}
-      >
-        <DownloadSteps />
+      {/* Breadcrumb — matches hasil page style */}
+      <div style={{ textAlign: 'center', marginBottom: '0.75rem', fontSize: '0.78rem', color: '#94A3B8', fontWeight: 500 }}>
+        Langkah 3 dari 3 &nbsp;·&nbsp; Download CV kamu
       </div>
 
-      {/* Main download card */}
+      {/* Main download card — only rendered when download grid is visible */}
+      {showDownloadGrid && (
       <div
-        className="rounded-[24px] p-6 sm:p-8 mb-5"
+        className="rounded-[24px] p-6 mb-5"
         style={{
           background:     'rgba(255,255,255,0.88)',
           border:         '1px solid rgba(148,163,184,0.14)',
@@ -281,8 +250,7 @@ export default function DownloadReady({
           backdropFilter: 'blur(14px)',
         }}
       >
-        {showDownloadGrid && (
-          <>
+        <>
             {/* Hidden CV text for E2E assertions */}
             <pre data-testid="cv-content" className="sr-only" aria-hidden="true">{cvTextId}</pre>
 
@@ -338,7 +306,7 @@ export default function DownloadReady({
 
             {/* Tips box */}
             <div className="rounded-[20px] p-4 mb-5" style={{ background: 'rgba(37,99,235,0.04)', borderLeft: '3px solid rgba(37,99,235,0.4)' }}>
-              <h4 className="flex items-center gap-2 font-semibold text-blue-900 mb-2">💡 Tips Submit CV</h4>
+              <h4 className="flex items-center gap-2 mb-2" style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0F172A', letterSpacing: '-0.01em', margin: '0 0 0.5rem' }}>💡 Tips Submit CV</h4>
               <ul className="text-sm text-slate-600 space-y-1 list-none">
                 <li>✅ Kirim PDF ke HRD via email — lebih rapi dari DOCX</li>
                 <li>✅ Gunakan format nama file: "Nama-Posisi-Perusahaan.pdf"</li>
@@ -350,7 +318,7 @@ export default function DownloadReady({
             {/* 5D full breakdown */}
             {dimensions && Object.keys(dimensions).length > 0 && (
               <div className="rounded-[20px] p-5 mb-5" style={{ background: 'rgba(248,250,252,0.8)', border: '1px solid rgba(148,163,184,0.18)' }}>
-                <h4 className="font-semibold text-slate-900 mb-4" style={{ fontSize: '0.95rem' }}>
+                <h4 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0F172A', margin: '0 0 1rem', lineHeight: 1.3, letterSpacing: '-0.01em' }}>
                   Ini yang paling dilihat HR — penjelasan lengkap
                 </h4>
                 <ScoreBars dimensions={dimensions} mode="full" primaryKey={primaryIssue ?? undefined} />
@@ -379,9 +347,9 @@ export default function DownloadReady({
                 </div>
               )}
             </div>
-          </>
-        )}
+        </>
       </div>
+      )}
 
       {/* Mobile fallback */}
       {showMobileFallback && (

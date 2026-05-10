@@ -28,12 +28,15 @@ interface ContentProps {
 
 function AnalyzingContent({ cvData, jobDesc, filename }: ContentProps) {
   const { progress, steps, timerText, error, isFileError, isComplete, retry, cancel } = useAnalysis(cvData, jobDesc);
-  const [showConfirm, setShowConfirm] = useState(false);
+  const [showConfirm,       setShowConfirm]       = useState(false);
+  const [showManualContinue, setShowManualContinue] = useState(false);
 
   useEffect(() => {
     if (!isComplete) return;
-    const t = setTimeout(() => { window.location.replace('hasil.html'); }, 800);
-    return () => clearTimeout(t);
+    const redirect = setTimeout(() => { window.location.replace('hasil.html'); }, 800);
+    // Fallback: if redirect hasn't fired within 3.5s, show a manual button
+    const fallback  = setTimeout(() => { setShowManualContinue(true); }, 3500);
+    return () => { clearTimeout(redirect); clearTimeout(fallback); };
   }, [isComplete]);
 
   function confirmBack() {
@@ -57,6 +60,23 @@ function AnalyzingContent({ cvData, jobDesc, filename }: ContentProps) {
             <AnalysisProgress progress={progress} timerText={timerText} filename={filename} />
             <StepList steps={steps} />
             <TrustRotator />
+
+            {showManualContinue && (
+              <div className="text-center mt-5">
+                <a
+                  href="hasil.html"
+                  className="inline-flex items-center gap-2 font-bold text-white px-8 py-3 rounded-2xl transition-all hover:-translate-y-0.5 min-h-[44px]"
+                  style={{
+                    background:  'linear-gradient(180deg,#3b82f6,#1d4ed8)',
+                    boxShadow:   '0 8px 24px rgba(37,99,235,0.35)',
+                  }}
+                >
+                  Lihat Hasil CV →
+                </a>
+                <p className="text-[0.72rem] text-slate-400 mt-2">Redirect otomatis tidak berjalan — klik untuk melanjutkan</p>
+              </div>
+            )}
+
             <div className="text-center mt-2">
               {showConfirm ? (
                 <div className="inline-flex flex-col items-center gap-2">
@@ -141,6 +161,9 @@ export default function Analyzing() {
 
         <p className="text-center mt-6 text-[0.72rem] text-slate-400">
           Data kamu tidak disimpan di server setelah analisis selesai.
+        </p>
+        <p className="text-center mt-3 text-[0.72rem] text-slate-400">
+          GasLamar · Biar CV kamu nggak tenggelam
         </p>
       </main>
     </div>

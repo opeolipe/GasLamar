@@ -50,7 +50,7 @@ export default function GeneratingCV({ progress, status, filename, tier, onCance
   const timerRef     = useRef<ReturnType<typeof setInterval> | null>(null);
   const trustRef     = useRef<ReturnType<typeof setInterval> | null>(null);
   const allDone      = status === 'done';
-  const tierLabel    = tier ? (TIER_LABELS[tier] ?? tier) : 'Single';
+  const tierLabel    = tier ? (TIER_LABELS[tier] ?? tier) : 'Bilingual';
 
   // Countdown timer
   useEffect(() => {

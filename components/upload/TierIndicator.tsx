@@ -12,25 +12,19 @@ const TIER_CLS: Record<ValidTier, string> = {
 export default function TierIndicator({ tier }: Props) {
   if (!tier || !(VALID_TIERS as readonly string[]).includes(tier)) {
     return (
-      <div className="mb-4">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium border bg-slate-50 border-slate-200 text-slate-600">
-          ℹ️&nbsp;Analisis gratis — pilih paket setelah lihat hasilnya
-        </div>
-        <p className="text-sm text-slate-400 mt-1">
-          Kamu bisa mulai dari sini. Konfirmasi paket dan bayar hanya setelah melihat hasil analisis CV kamu.{' '}
-          <a href="index.html#pricing" className="underline hover:text-slate-600">Lihat paket →</a>
-        </p>
-      </div>
+      <p className="text-xs text-slate-400 mb-5">
+        Gratis cek dulu. Bayar kalau mau lanjut.
+      </p>
     );
   }
   const t  = tier as ValidTier;
   const td = TIER_DISPLAY[t];
   return (
-    <div className="mb-4">
-      <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium border ${TIER_CLS[t]}`}>
-        {td.icon}&nbsp;Paket kamu: {td.name} — {td.desc}
+    <div className="mb-5">
+      <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${TIER_CLS[t]}`}>
+        {td.icon}&nbsp;Paket: {td.name} — {td.desc}
       </div>
-      <p className="text-sm text-slate-400 mt-1">
+      <p className="text-xs text-slate-400 mt-1">
         Analisis gratis dulu — konfirmasi dan bayar setelah lihat hasilnya.
       </p>
     </div>

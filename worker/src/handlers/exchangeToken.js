@@ -26,6 +26,7 @@ import { clientIp, log, logError } from '../utils.js';
 import { checkRateLimit, rateLimitResponse } from '../rateLimit.js';
 import { getSession } from '../sessions.js';
 import { makeSessionCookie } from '../cookies.js';
+import { KV_CV_RESULT_PREFIX } from '../constants.js';
 
 export async function handleExchangeToken(request, env) {
   const ip = clientIp(request);
@@ -60,14 +61,34 @@ export async function handleExchangeToken(request, env) {
     return jsonResponse({ message: 'Token tidak valid atau sudah kedaluwarsa' }, 404, request, env);
   }
 
-  // Delete immediately — single-use enforcement
+  // Delete immediately — single-use enforcement.
+  // Must happen before the session check so that two concurrent requests with the
+  // same token can't both pass and both receive a cookie (double-use race).
   await env.GASLAMAR_SESSIONS.delete(kvKey);
 
   // Verify the linked session still exists in KV
   const session = await getSession(env, stored.session_id);
   if (!session) {
-    logError('exchange_token_session_gone', { ip });
-    return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa' }, 404, request, env);
+    // Session may have been deleted after the last credit was used.
+    // The CV result record (cv_result_<session_id>) has its own TTL (7/30 days)
+    // and is still readable even after the session is gone. If it exists, set the
+    // cookie anyway so the frontend can call /get-result to retrieve the CV.
+    const result = await env.GASLAMAR_SESSIONS.get(
+      `${KV_CV_RESULT_PREFIX}${stored.session_id}`, { type: 'json' }
+    );
+    if (!result) {
+      logError('exchange_token_session_gone', { ip });
+      return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa' }, 404, request, env);
+    }
+    const isMulti = result.tier === '3pack' || result.tier === 'jobhunt';
+    log('exchange_token_result_only', { session_id: stored.session_id, ip });
+    return jsonResponseWithCookie(
+      { ok: true, session_id: stored.session_id },
+      200,
+      makeSessionCookie(stored.session_id, isMulti),
+      request,
+      env
+    );
   }
 
   log('exchange_token_success', { session_id: stored.session_id, ip });

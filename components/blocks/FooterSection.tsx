@@ -1,9 +1,9 @@
-import { forwardRef } from 'react';
+import React from 'react';
 
-const FooterSection = forwardRef<HTMLElement, Record<string, never>>(function FooterSection(_, ref) {
+export default function FooterSection({ ref }: { ref?: React.Ref<HTMLElement> }) {
   return (
     <footer ref={ref} className="border-t border-slate-100 py-12 text-center text-sm text-slate-500">
-      <p>© 2026 GasLamar — bantu kamu tahu peluang interview sebelum apply.</p>
+      <p>© 2026 GasLamar · Gas apply aja dulu</p>
       <p className="mt-3 leading-relaxed text-slate-400">
         Privasi utama: CV tidak disimpan permanen, tanpa registrasi, diproses otomatis dan dihapus sesuai masa aktif.
       </p>
@@ -38,6 +38,4 @@ const FooterSection = forwardRef<HTMLElement, Record<string, never>>(function Fo
       </p>
     </footer>
   );
-});
-
-export default FooterSection;
+}

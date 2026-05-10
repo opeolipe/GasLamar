@@ -128,7 +128,7 @@ export async function route(request, env, ctx) {
       return jsonResponse({ ok: false, message: 'Payload terlalu besar' }, 413, request, env);
     }
     const rawBody = contentType.includes('application/json')
-      ? (() => { try { return JSON.parse(bodyText); } catch { return {}; } })()
+      ? (() => { try { const p = JSON.parse(bodyText); return (p !== null && typeof p === 'object' && !Array.isArray(p)) ? p : {}; } catch { return {}; } })()
       : { raw: bodyText };
     // Sanitize all string values before writing to logs to prevent log injection
     const body = Object.fromEntries(
@@ -142,7 +142,13 @@ export async function route(request, env, ctx) {
     const ip = clientIp(request);
     const kvResult = await checkRateLimitKV(env, ip, 10, 60, 'feedback');
     if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60);
-    const body = await request.json().catch(() => ({}));
+    const feedbackText = await request.text().catch(() => '');
+    if (feedbackText.length > 4096) {
+      return jsonResponse({ ok: false, message: 'Payload terlalu besar' }, 413, request, env);
+    }
+    const body = feedbackText
+      ? (() => { try { return JSON.parse(feedbackText); } catch { return {}; } })()
+      : {};
     // Validate type against an allowlist — reject anything not in it to prevent log spam
     const VALID_FEEDBACK_TYPES = new Set(['interview_outcome', 'cv_quality', 'experience', 'other']);
     const type = typeof body.type === 'string' && VALID_FEEDBACK_TYPES.has(body.type) ? body.type : 'unknown';
