@@ -7,7 +7,6 @@ import RecommendationList                      from '@/components/result/Recomme
 import BeforeAfterProjection                   from '@/components/result/BeforeAfterProjection';
 import PricingSelector                         from '@/components/result/PricingSelector';
 import EmailCapture                            from '@/components/result/EmailCapture';
-import RewritePreview                          from '@/components/result/RewritePreview';
 import DetailAnalysis                          from '@/components/result/DetailAnalysis';
 import RedFlags                                from '@/components/result/RedFlags';
 import InfoStrip                               from '@/components/result/InfoStrip';
@@ -16,9 +15,11 @@ import PrimaryHighlight                        from '@/components/6d/PrimaryHigh
 import DimRewritePreview                       from '@/components/6d/RewritePreview';
 import { useResultData }                       from '@/hooks/useResultData';
 import { useSessionCountdown }                 from '@/hooks/useSessionCountdown';
-import { WORKER_URL, TIER_CONFIG, EMAIL_REGEX, buildResultData } from '@/lib/resultUtils';
-import { validateEmail }                                                        from '@/utils/emailValidation';
-import { suggestEmailFix }                                                      from '@/utils/emailTypo';
+import {
+  WORKER_URL, TIER_CONFIG, EMAIL_REGEX, buildResultData, DIM_LABELS,
+} from '@/lib/resultUtils';
+import { validateEmail }   from '@/utils/emailValidation';
+import { suggestEmailFix } from '@/utils/emailTypo';
 
 
 console.log(
@@ -51,25 +52,22 @@ const CARD_STYLE: React.CSSProperties = {
   padding:        '1.5rem',
   border:         '1px solid rgba(148,163,184,0.14)',
   backdropFilter: 'blur(14px)',
-  marginBottom:   '1.5rem',
+  marginBottom:   '1.25rem',
 };
 
-// Quiet section — no card, just breathing room between major blocks
-const QUIET: React.CSSProperties = {
-  marginBottom: '2rem',
-};
+const TABS = [
+  { key: 'hasil',     label: 'Hasil',     subtitle: 'Skor & kondisi sekarang' },
+  { key: 'gap',       label: 'Gap',       subtitle: 'Kenapa HR masih ragu' },
+  { key: 'perbaikan', label: 'Perbaikan', subtitle: 'Yang harus diubah' },
+] as const;
+
+type ActiveTab = typeof TABS[number]['key'];
 
 function scoreHeadline(score: number): string {
   if (score >= 75) return 'Peluang interview cukup tinggi';
   if (score >= 60) return 'Peluang interview masih bisa ditingkatkan';
   if (score >= 50) return 'Peluang interview perlu diperkuat';
   return 'Peluang interview masih rendah';
-}
-
-function scoreSentence(score: number): string {
-  if (score >= 75) return 'CV kamu sudah cukup kuat, tapi masih ada celah yang bisa ditingkatkan sebelum melamar.';
-  if (score >= 50) return 'Masih ada beberapa hal yang bikin HR ragu — perbaiki ini sebelum melamar.';
-  return 'Ada beberapa isu kritis yang perlu segera diperbaiki agar CV kamu bisa bersaing.';
 }
 
 export default function Result() {
@@ -80,7 +78,11 @@ export default function Result() {
     sessionStorage.getItem('gaslamar_sample_line') || '',
   );
 
-  const [selectedTier,         setSelectedTier]         = useState<string | null>(null);
+  const [activeTab,             setActiveTab]             = useState<ActiveTab>('hasil');
+  const [showAllDimensions,     setShowAllDimensions]     = useState(false);
+  const [showGapDetail,         setShowGapDetail]         = useState(false);
+  const [showMorePerbaikan,     setShowMorePerbaikan]     = useState(false);
+  const [selectedTier,          setSelectedTier]          = useState<string | null>(null);
   const [email,                 setEmail]                 = useState('');
   const [emailError,            setEmailError]            = useState('');
   const [emailSuggestion,       setEmailSuggestion]       = useState<string | null>(null);
@@ -94,8 +96,6 @@ export default function Result() {
   const [paymentError,          setPaymentError]          = useState<string | null>(null);
   const [sessionExpiredByPay,   setSessionExpiredByPay]   = useState(false);
   const [showExpiryToast,       setShowExpiryToast]       = useState(false);
-  const [showDetails,           setShowDetails]           = useState(false);
-  const [showAllDimensions,     setShowAllDimensions]     = useState(false);
 
   const toastShownRef   = useRef(false);
   const blurTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -167,16 +167,13 @@ export default function Result() {
   function handleEmailPaste(pastedValue: string) {
     const trimmed = pastedValue.trim();
     if (!trimmed) return;
-    // Clear any pending blur timer so we don't double-validate
     if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
-    // Sync state with pasted value
     setEmail(trimmed);
     setEmailError('');
     setEmailSuggestion(suggestEmailFix(trimmed));
     setEmailIsDisposable(false);
     setEmailIsConfirmed(false);
     setConfirmError('');
-    // Validate after paste settles, then auto-advance to confirm field if valid
     setTimeout(() => {
       const result = validateEmail(trimmed);
       setEmailError(result.error ?? '');
@@ -255,10 +252,6 @@ export default function Result() {
   async function proceedToPayment() {
     if (!selectedTier || paymentInProgress) return;
 
-    // If the user returned via browser back button after being redirected to Mayar,
-    // the cv_text_key was already consumed server-side and removed from sessionStorage.
-    // Resume the existing invoice — but only when the tier hasn't changed and the user
-    // hasn't re-uploaded their CV (which would produce a new cv_text_key).
     const currentCvKey = sessionStorage.getItem('gaslamar_cv_key');
     const pendingRaw = sessionStorage.getItem('gaslamar_pending_invoice');
     if (pendingRaw) {
@@ -270,16 +263,11 @@ export default function Result() {
           cv_key?:     string;
         };
         const notExpired  = (Date.now() - (pending.created_at || 0)) < 7200000;
-        // Old invoices (no tier field) are treated as matching for backwards compat.
         const tierMatches = !pending.tier || pending.tier === selectedTier;
-        // A new cv_key in sessionStorage means the user re-uploaded — don't resume old invoice.
         const noNewUpload = !currentCvKey || !pending.cv_key || pending.cv_key === currentCvKey;
 
         if (pending.invoice_url && notExpired) {
           if (tierMatches && noNewUpload) {
-            // Defence-in-depth: re-validate protocol even though the URL was
-            // already checked as HTTPS at storage time. Throws on failure so
-            // the outer catch clears the stale invoice and falls through.
             let urlSafe = false;
             try { urlSafe = new URL(pending.invoice_url).protocol === 'https:'; } catch (_) {}
             if (!urlSafe) throw new Error('invalid_invoice_url');
@@ -288,10 +276,6 @@ export default function Result() {
             return;
           }
           if (!tierMatches && !currentCvKey) {
-            // User changed tier but cv_text_key is already consumed — can't create a new invoice.
-            // Keep the pending invoice so they can still pay with the original tier by re-selecting it.
-            // Only use the label from the known-good TIER_CONFIG map — never
-            // render a raw sessionStorage string directly in the UI.
             const origLabel = (pending.tier && TIER_CONFIG[pending.tier])
               ? TIER_CONFIG[pending.tier].label
               : 'paket sebelumnya';
@@ -404,9 +388,6 @@ export default function Result() {
       try { const parsed = new URL(invoice_url); validUrl = parsed.protocol === 'https:'; } catch (_) {}
       if (!validUrl) throw new Error('URL pembayaran tidak valid. Coba lagi.');
 
-      // Persist the invoice URL so that if the user clicks browser-back from Mayar
-      // they can resume this invoice without needing cv_text_key again.
-      // Store tier + cv_key so we can detect tier changes or re-uploads on resume.
       try {
         sessionStorage.setItem('gaslamar_pending_invoice', JSON.stringify({
           invoice_url,
@@ -455,8 +436,7 @@ export default function Result() {
     countdown.variant === 'expired' ? 'expired' :
     countdown.variant === 'warning' ? 'warning' : 'info';
 
-  // ── InfoStrip content: countdown takes priority; role is secondary ────────
-  // JD mode note is intentionally omitted — too verbose for a status strip.
+  // ── InfoStrip content ─────────────────────────────────────────────────────
   const stripText: React.ReactNode | null = (() => {
     const parts: string[] = [];
     if (countdown.text) parts.push(countdown.text);
@@ -473,6 +453,19 @@ export default function Result() {
     }
     return parts.length > 0 ? parts.join(' • ') : null;
   })();
+
+  // ── Top 2 weakest dimensions for Hasil tab ────────────────────────────────
+  const priorityWeaknesses = result6d
+    ? Object.entries(DIM_LABELS)
+        .map(([key, meta]) => ({
+          key,
+          label: meta.label,
+          hint:  meta.hint,
+          score: Math.min(10, Math.max(0, Math.round(result6d.scores[key] ?? 0))),
+        }))
+        .sort((a, b) => a.score - b.score)
+        .slice(0, 2)
+    : [];
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -503,6 +496,7 @@ export default function Result() {
       </nav>
 
       <main id="main-content" className="max-w-2xl mx-auto px-4 sm:px-6 py-8 pb-20">
+
         {/* ── Loading ── */}
         {loading && (
           <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem 2rem' }}>
@@ -534,274 +528,505 @@ export default function Result() {
               </div>
             </header>
 
-            {/* Single status strip — countdown + role context */}
+            {/* Single status strip */}
             {stripText && (
               <InfoStrip type={stripType}>
                 {stripText}
               </InfoStrip>
             )}
 
-            {/* ── BLOCK 1: SCORE CARD ── */}
-            <div style={{ marginBottom: '2rem' }}>
-              <div
-                style={{ ...CARD_STYLE, marginBottom: 0, borderRadius: showDetails ? '24px 24px 0 0' : 24 }}
-                data-testid="result-score"
-              >
-                {/* Ring — purely the animated circle */}
-                <ScoreDisplay score={data.skor} />
+            {/* ── HERO CARD ── */}
+            <div style={CARD_STYLE} data-testid="result-score">
+              {/* Score ring */}
+              <ScoreDisplay score={data.skor} />
 
-                {/* Headline + sentence below ring — emotionally focused */}
-                <div style={{ textAlign: 'center', marginTop: '0.5rem' }}>
-                  <p style={{ fontSize: '1.05rem', fontWeight: 700, color: '#111827', margin: '0 0 0.3rem' }}>
-                    {scoreHeadline(data.skor)}
-                  </p>
-                  <p style={{ fontSize: '0.875rem', color: '#64748B', maxWidth: 320, margin: '0 auto 1rem', lineHeight: 1.6 }}>
-                    {scoreSentence(data.skor)}
-                  </p>
-                </div>
-
-                <div style={{ borderTop: '1px solid rgba(148,163,184,0.14)', paddingTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.65rem', alignItems: 'center' }}>
-                  <a
-                    href="#pricing-section"
-                    style={{ display: 'inline-block', background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', fontWeight: 700, fontSize: '0.95rem', padding: '0.7rem 1.75rem', borderRadius: 60, textDecoration: 'none', boxShadow: '0 6px 20px rgba(37,99,235,0.28)', width: '100%', textAlign: 'center', boxSizing: 'border-box' as const }}
-                  >
-                    Perbaiki CV sekarang →
-                  </a>
-                  <button
-                    onClick={() => setShowDetails(d => !d)}
-                    style={{ background: 'none', border: '1px solid #E2E8F0', borderRadius: 60, padding: '0.6rem 1.25rem', fontSize: '0.8rem', color: '#6B7280', cursor: 'pointer', fontFamily: 'inherit', minHeight: 44 }}
-                  >
-                    {showDetails ? 'Sembunyikan analisis ↑' : 'Lihat analisis lengkap ↓'}
-                  </button>
-                </div>
+              {/* Score context */}
+              <div style={{ textAlign: 'center', marginTop: '0.15rem', marginBottom: '0.85rem' }}>
+                <p style={{ fontSize: '0.95rem', fontWeight: 700, color: '#111827', margin: 0, lineHeight: 1.4 }}>
+                  {scoreHeadline(data.skor)}
+                </p>
               </div>
 
-              {/* Collapsible detail — expands flush below score card */}
-              {showDetails && (
-                <div style={{ background: '#F8FAFC', borderRadius: '0 0 24px 24px', border: '1px solid rgba(148,163,184,0.14)', borderTop: 'none', padding: '1.5rem' }}>
-                  {data.veredict && (
-                    <div style={{ marginBottom: '1rem' }}>
-                      <VerdictCard verdict={data.veredict as 'DO' | 'DO NOT' | 'TIMED'} timeboxWeeks={data.timebox_weeks} />
+              {/* Upgrade projection — the emotional core */}
+              {data.skor_sesudah !== undefined && (
+                <div style={{
+                  background:   'linear-gradient(135deg, rgba(34,197,94,0.07) 0%, rgba(16,185,129,0.05) 100%)',
+                  border:       '1px solid rgba(34,197,94,0.22)',
+                  borderRadius: 14,
+                  padding:      '0.85rem 1rem',
+                  marginBottom: '1rem',
+                  textAlign:    'center',
+                }}>
+                  <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.4rem' }}>
+                    Setelah diperbaiki
+                  </p>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
+                    <div>
+                      <span style={{ fontSize: '1.85rem', fontWeight: 800, color: '#6B7280', lineHeight: 1 }}>{data.skor}%</span>
+                      <span style={{ fontSize: '0.72rem', display: 'block', color: '#9CA3AF', marginTop: 2 }}>sekarang</span>
                     </div>
-                  )}
-                  <RedFlags redFlags={data.red_flags || []} />
-                  <GapList gaps={data.gap || []} />
-                  <RecommendationList recommendations={data.rekomendasi || []} />
-                  {(data.rekomendasi || []).length > 0 && (
-                    <p style={{ textAlign: 'center', fontSize: '0.875rem', color: '#065F46', margin: '0.25rem 0 0.75rem', fontWeight: 500 }}>
-                      ✨ Kamu sudah dekat — tinggal perbaiki ini sedikit lagi
-                    </p>
-                  )}
-                  {data.skor_sesudah !== undefined && (
-                    <BeforeAfterProjection beforeScore={data.skor} afterScore={data.skor_sesudah} />
-                  )}
-                  <DetailAnalysis
-                    strengths={data.kekuatan || []}
-                    hr7Data={data.hr_7_detik}
-                  />
+                    <div style={{ fontSize: '1.4rem', color: '#22C55E', fontWeight: 700 }}>→</div>
+                    <div>
+                      <span style={{ fontSize: '1.85rem', fontWeight: 800, color: '#15803D', lineHeight: 1 }}>{data.skor_sesudah}%</span>
+                      <span style={{ fontSize: '0.72rem', display: 'block', color: '#16A34A', marginTop: 2 }}>estimasi</span>
+                    </div>
+                  </div>
+                  <p style={{ fontSize: '0.72rem', color: '#6B7280', margin: '0.4rem 0 0', lineHeight: 1.4 }}>
+                    jika semua gap diperbaiki
+                  </p>
                 </div>
               )}
+
+              {/* Verdict badge */}
+              {data.veredict && (
+                <div style={{ marginBottom: '1rem' }}>
+                  <VerdictCard verdict={data.veredict as 'DO' | 'DO NOT' | 'TIMED'} timeboxWeeks={data.timebox_weeks} />
+                </div>
+              )}
+
+              {/* Primary CTA */}
+              <a
+                href="#pricing-section"
+                style={{
+                  display:      'block',
+                  background:   'linear-gradient(180deg,#3b82f6,#1d4ed8)',
+                  color:        'white',
+                  fontWeight:   700,
+                  fontSize:     '0.95rem',
+                  padding:      '0.8rem 1.75rem',
+                  borderRadius: 60,
+                  textDecoration: 'none',
+                  boxShadow:    '0 6px 20px rgba(37,99,235,0.28)',
+                  textAlign:    'center',
+                }}
+              >
+                Perbaiki CV sekarang →
+              </a>
             </div>
 
-            {/* ── BLOCK 2: KENAPA HR MASIH RAGU? (quiet section) ── */}
-            {(result6d?.primaryIssue || (data.gap || []).length > 0 || isValidRewrite || (data.rekomendasi || []).length > 0) && (
-              <div style={QUIET}>
-                {/* Section label */}
-                <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 0.75rem' }}>
-                  Kenapa HR masih ragu?
-                </p>
-
-                {/* Primary issue */}
-                {result6d?.primaryIssue ? (
-                  <div data-testid="primary-problem">
-                    <PrimaryHighlight issueKey={result6d.primaryIssue} />
+            {/* ── TAB BAR ── */}
+            <div style={{
+              display:      'flex',
+              gap:          4,
+              marginBottom: '0',
+              background:   '#F1F5F9',
+              borderRadius: '20px 20px 0 0',
+              padding:      4,
+            }}>
+              {TABS.map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  style={{
+                    flex:        1,
+                    padding:     '0.6rem 0.4rem',
+                    border:      'none',
+                    borderRadius: 16,
+                    cursor:      'pointer',
+                    fontFamily:  'inherit',
+                    background:  activeTab === tab.key ? 'white' : 'transparent',
+                    boxShadow:   activeTab === tab.key ? '0 1px 4px rgba(0,0,0,0.09)' : 'none',
+                    transition:  'all 0.18s',
+                    minHeight:   44,
+                  }}
+                  aria-selected={activeTab === tab.key}
+                >
+                  <div style={{
+                    fontSize:   '0.875rem',
+                    fontWeight: 700,
+                    color:      activeTab === tab.key ? '#1B4FE8' : '#64748B',
+                    lineHeight: 1.2,
+                  }}>
+                    {tab.label}
                   </div>
-                ) : (data.gap || []).length > 0 ? (
-                  <div data-testid="primary-problem" style={{ marginBottom: '1rem' }}>
-                    <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', margin: '0 0 0.4rem', lineHeight: 1.4 }}>
-                      {data.gap![0]}
+                  <div style={{
+                    fontSize:   '0.62rem',
+                    color:      activeTab === tab.key ? '#64748B' : '#94A3B8',
+                    marginTop:  2,
+                    lineHeight: 1.3,
+                    fontWeight: 500,
+                  }}>
+                    {tab.subtitle}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* ── TAB CONTENT ── */}
+            <div style={{
+              ...CARD_STYLE,
+              borderRadius:  '0 0 24px 24px',
+              marginBottom:  '2rem',
+            }}>
+
+              {/* ── HASIL TAB ── */}
+              {activeTab === 'hasil' && (
+                <>
+                  {/* Priority weaknesses */}
+                  {priorityWeaknesses.length > 0 ? (
+                    <>
+                      <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 0.75rem' }}>
+                        Prioritas utama
+                      </p>
+                      {priorityWeaknesses.map(dim => (
+                        <div key={dim.key} style={{
+                          padding:      '0.85rem 1rem',
+                          background:   dim.score < 4 ? '#FFF7F7' : '#FFFBEB',
+                          border:       `1px solid ${dim.score < 4 ? '#FECACA' : '#FDE68A'}`,
+                          borderRadius: 12,
+                          marginBottom: '0.65rem',
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                            <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#111827' }}>
+                              {dim.score < 4 ? '❌' : '⚠️'} {dim.label}
+                            </span>
+                            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: dim.score < 4 ? '#DC2626' : '#92400E', flexShrink: 0, marginLeft: 8 }}>
+                              {dim.score}/10
+                            </span>
+                          </div>
+                          <div style={{ background: dim.score < 4 ? '#FEE2E2' : '#FEF3C7', borderRadius: 3, height: 4, marginBottom: 8 }}>
+                            <div style={{
+                              width:        `${dim.score * 10}%`,
+                              background:   dim.score < 4 ? '#F87171' : '#F59E0B',
+                              borderRadius: 3,
+                              height:       4,
+                              transition:   'width 0.7s cubic-bezier(0.22,1,0.36,1)',
+                            }} />
+                          </div>
+                          <p style={{ fontSize: '0.8rem', color: '#64748B', margin: 0, lineHeight: 1.55 }}>
+                            {dim.hint}
+                          </p>
+                        </div>
+                      ))}
+                    </>
+                  ) : (data.gap || []).length > 0 && (
+                    <GapList gaps={(data.gap || []).slice(0, 2)} />
+                  )}
+
+                  {/* Accordion: all dimensions */}
+                  {result6d && (
+                    <>
+                      <button
+                        onClick={() => setShowAllDimensions(d => !d)}
+                        style={{
+                          width:          '100%',
+                          background:     '#F8FAFC',
+                          border:         '1px solid #E2E8F0',
+                          borderRadius:   10,
+                          padding:        '0.65rem 1rem',
+                          fontSize:       '0.83rem',
+                          fontWeight:     600,
+                          color:          '#1B4FE8',
+                          cursor:         'pointer',
+                          fontFamily:     'inherit',
+                          minHeight:      44,
+                          display:        'flex',
+                          alignItems:     'center',
+                          justifyContent: 'center',
+                          gap:            6,
+                          marginTop:      '0.5rem',
+                          transition:     'background 0.15s',
+                        }}
+                      >
+                        {showAllDimensions ? 'Sembunyikan ↑' : 'Lihat semua dimensi →'}
+                      </button>
+                      {showAllDimensions && (
+                        <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid rgba(148,163,184,0.14)' }}>
+                          <ScoreBars
+                            dimensions={result6d.scores}
+                            mode="full"
+                            primaryKey={result6d.primaryIssue ?? undefined}
+                          />
+                          <div style={{ marginTop: '1rem' }}>
+                            <DetailAnalysis
+                              strengths={data.kekuatan || []}
+                              hr7Data={data.hr_7_detik}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+
+              {/* ── GAP TAB ── */}
+              {activeTab === 'gap' && (
+                <>
+                  {/* Primary issue */}
+                  {result6d?.primaryIssue ? (
+                    <div data-testid="primary-problem">
+                      <PrimaryHighlight issueKey={result6d.primaryIssue} />
+                    </div>
+                  ) : (data.gap || []).length > 0 && (
+                    <div data-testid="primary-problem" style={{ marginBottom: '1rem' }}>
+                      <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', margin: '0 0 0.4rem', lineHeight: 1.4 }}>
+                        {data.gap![0]}
+                      </h3>
+                      <p style={{ fontSize: '0.875rem', color: '#64748B', margin: 0, lineHeight: 1.6 }}>
+                        Gap ini yang paling berpengaruh terhadap peluang kamu dipanggil interview — HR bisa langsung skip CV jika ini tidak terlihat.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Top gaps */}
+                  {(data.gap || []).length > 0 && (
+                    <GapList gaps={data.gap || []} />
+                  )}
+
+                  {/* Accordion: more detail */}
+                  {((data.red_flags || []).length > 0 || (data.rekomendasi || []).length > 0) && (
+                    <>
+                      <button
+                        onClick={() => setShowGapDetail(d => !d)}
+                        style={{
+                          width:          '100%',
+                          background:     '#F8FAFC',
+                          border:         '1px solid #E2E8F0',
+                          borderRadius:   10,
+                          padding:        '0.65rem 1rem',
+                          fontSize:       '0.83rem',
+                          fontWeight:     600,
+                          color:          '#1B4FE8',
+                          cursor:         'pointer',
+                          fontFamily:     'inherit',
+                          minHeight:      44,
+                          display:        'flex',
+                          alignItems:     'center',
+                          justifyContent: 'center',
+                          gap:            6,
+                          marginTop:      '0.5rem',
+                          transition:     'background 0.15s',
+                        }}
+                      >
+                        {showGapDetail ? 'Sembunyikan ↑' : 'Lihat detail recruiter →'}
+                      </button>
+                      {showGapDetail && (
+                        <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid rgba(148,163,184,0.14)' }}>
+                          <RedFlags redFlags={data.red_flags || []} />
+                          {(data.rekomendasi || []).length > 0 && (
+                            <div>
+                              <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 0.6rem' }}>
+                                Yang perlu diperbaiki:
+                              </p>
+                              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                                {(data.rekomendasi || []).slice(0, 3).map((r, i) => (
+                                  <li key={i} style={{ fontSize: '0.875rem', color: '#111827', display: 'flex', gap: '0.6rem', alignItems: 'flex-start', lineHeight: 1.5 }}>
+                                    <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 2 }}>→</span>
+                                    {r}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+
+              {/* ── PERBAIKAN TAB ── */}
+              {activeTab === 'perbaikan' && (
+                <>
+                  {/* Rewrite preview — the star */}
+                  {isValidRewrite ? (
+                    <div data-testid="fix-before-after">
+                      <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 0.75rem' }}>
+                        Contoh perbaikan dari CV kamu
+                      </p>
+                      <DimRewritePreview preview={result6d!.rewritePreview} />
+                      <p style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '-0.25rem', marginBottom: '0.75rem', lineHeight: 1.55 }}>
+                        Contoh ini diambil langsung dari CV kamu — rewrite lengkap mencakup semua bagian.
+                      </p>
+                    </div>
+                  ) : (data.rekomendasi || []).length > 0 && (
+                    <div data-testid="fix-before-after">
+                      <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 0.6rem' }}>
+                        Yang perlu diperbaiki:
+                      </p>
+                      <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.45rem', marginBottom: '0.75rem' }}>
+                        {(data.rekomendasi || []).slice(0, 2).map((r, i) => (
+                          <li key={i} style={{ fontSize: '0.875rem', color: '#111827', display: 'flex', gap: '0.6rem', alignItems: 'flex-start', lineHeight: 1.5 }}>
+                            <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 2 }}>→</span>
+                            {r}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Accordion: all fixes */}
+                  {(data.rekomendasi || []).length > 0 && (
+                    <>
+                      <button
+                        onClick={() => setShowMorePerbaikan(d => !d)}
+                        style={{
+                          width:          '100%',
+                          background:     '#F8FAFC',
+                          border:         '1px solid #E2E8F0',
+                          borderRadius:   10,
+                          padding:        '0.65rem 1rem',
+                          fontSize:       '0.83rem',
+                          fontWeight:     600,
+                          color:          '#1B4FE8',
+                          cursor:         'pointer',
+                          fontFamily:     'inherit',
+                          minHeight:      44,
+                          display:        'flex',
+                          alignItems:     'center',
+                          justifyContent: 'center',
+                          gap:            6,
+                          transition:     'background 0.15s',
+                        }}
+                      >
+                        {showMorePerbaikan ? 'Sembunyikan ↑' : `Lihat ${(data.rekomendasi || []).length} perbaikan lainnya →`}
+                      </button>
+                      {showMorePerbaikan && (
+                        <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid rgba(148,163,184,0.14)' }}>
+                          <RecommendationList recommendations={data.rekomendasi || []} />
+                          {data.skor_sesudah !== undefined && (
+                            <BeforeAfterProjection beforeScore={data.skor} afterScore={data.skor_sesudah} />
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Strong CTA */}
+                  <div style={{
+                    background:   'linear-gradient(135deg, rgba(37,99,235,0.05) 0%, rgba(27,79,232,0.03) 100%)',
+                    border:       '1px solid rgba(37,99,235,0.15)',
+                    borderRadius: 16,
+                    padding:      '1.25rem',
+                    marginTop:    '1.25rem',
+                  }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', margin: '0 0 0.75rem', lineHeight: 1.4 }}>
+                      Mau AI rewrite seluruh CV kamu?
                     </h3>
-                    <p style={{ fontSize: '0.875rem', color: '#64748B', margin: 0, lineHeight: 1.6 }}>
-                      Gap ini yang paling berpengaruh terhadap peluang kamu dipanggil interview — HR bisa langsung skip CV jika ini tidak terlihat.
-                    </p>
-                  </div>
-                ) : null}
-
-                {/* Example fix */}
-                {isValidRewrite ? (
-                  <div data-testid="fix-before-after">
-                    <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 0.6rem' }}>
-                      Contoh perbaikan
-                    </p>
-                    <DimRewritePreview preview={result6d!.rewritePreview} />
-                    <p style={{ fontSize: '0.8rem', color: '#64748B', marginTop: '0.4rem', lineHeight: 1.55 }}>
-                      💡 Contoh ini menggunakan baris dari CV kamu — rewrite lengkap mencakup semua bagian
-                    </p>
-                  </div>
-                ) : (data.rekomendasi || []).length > 0 ? (
-                  <div data-testid="fix-before-after">
-                    <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 0.6rem' }}>
-                      Yang perlu diperbaiki:
-                    </p>
-                    <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                      {(data.rekomendasi || []).slice(0, 3).map((r, i) => (
-                        <li key={i} style={{ fontSize: '0.875rem', color: '#111827', display: 'flex', gap: '0.6rem', alignItems: 'flex-start', lineHeight: 1.5 }}>
-                          <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 2 }}>→</span>
-                          {r}
+                    <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 1rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                      {[
+                        'ATS-friendly & relevan dengan posisi yang kamu lamar',
+                        'Bahasa Indonesia + English (bilingual)',
+                        'Siap kirim: PDF & DOCX langsung',
+                      ].map((b, i) => (
+                        <li key={i} style={{ fontSize: '0.875rem', color: '#1E3A8A', display: 'flex', gap: 8, alignItems: 'flex-start', lineHeight: 1.5 }}>
+                          <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 1 }}>✓</span>
+                          {b}
                         </li>
                       ))}
                     </ul>
+                    <button
+                      onClick={() => document.getElementById('pricing-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                      style={{
+                        width:        '100%',
+                        background:   'linear-gradient(180deg,#3b82f6,#1d4ed8)',
+                        color:        'white',
+                        border:       'none',
+                        borderRadius: 60,
+                        padding:      '0.85rem',
+                        fontWeight:   700,
+                        fontSize:     '1rem',
+                        cursor:       'pointer',
+                        fontFamily:   'inherit',
+                        boxShadow:    '0 6px 20px rgba(37,99,235,0.28)',
+                      }}
+                    >
+                      Rewrite CV Saya →
+                    </button>
                   </div>
-                ) : null}
-              </div>
-            )}
+                </>
+              )}
+            </div>
 
-            {/* ── BLOCK 3: SCORE BARS (quiet accordion) ── */}
-            {result6d && (
-              <div style={QUIET}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                  <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', margin: 0 }}>
-                    Ini yang paling dilihat HR dalam 7–10 detik
-                  </p>
-                </div>
-                <ScoreBars
-                  dimensions={result6d.scores}
-                  mode={showAllDimensions ? 'full' : 'preview'}
-                  primaryKey={result6d.primaryIssue ?? undefined}
-                />
-                <button
-                  onClick={() => setShowAllDimensions(d => !d)}
-                  style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 500, padding: '0.65rem 0', display: 'block', fontFamily: 'inherit', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3, minHeight: 44 }}
-                >
-                  {showAllDimensions ? 'Sembunyikan ↑' : 'Lihat semua dimensi →'}
-                </button>
-              </div>
-            )}
-
-            {/* ── BLOCK 4: CONVERSION ── */}
-            <div style={{ marginBottom: '2.5rem' }}>
-
-              {/* Outcome value prop — result-language, not feature-language */}
-              <div style={{ ...CARD_STYLE, background: 'rgba(239,246,255,0.7)', border: '1px solid #BFDBFE' }}>
-                <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', margin: '0 0 0.75rem' }}>
-                  Setelah bayar, kamu akan dapat:
-                </h3>
-                <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {[
-                    'CV yang lebih relevan dengan posisi yang kamu lamar',
-                    'Rewrite langsung dari pengalaman asli kamu — bukan template',
-                    'Format siap kirim: PDF + DOCX, bilingual ID & EN',
-                  ].map((b, i) => (
-                    <li key={i} style={{ fontSize: '0.875rem', color: '#1E3A8A', display: 'flex', gap: '0.55rem', alignItems: 'flex-start', lineHeight: 1.5 }}>
-                      <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 1 }}>✓</span>
-                      {b}
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  onClick={() => document.getElementById('pricing-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                  style={{ background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', border: 'none', borderRadius: 60, padding: '0.8rem 1.5rem', fontWeight: 700, cursor: 'pointer', width: '100%', fontSize: '0.95rem', fontFamily: 'inherit', boxShadow: '0 6px 20px rgba(37,99,235,0.22)' }}
-                >
-                  Lihat semua perbaikan &amp; CV rewrite →
-                </button>
-              </div>
-
-              {/* Blurred preview — reduced height */}
-              <RewritePreview
-                recommendations={data.rekomendasi || []}
-                gaps={data.gap || []}
+            {/* ── PRICING ── */}
+            <div id="pricing-section" style={{ scrollMarginTop: 80, ...CARD_STYLE }}>
+              <PricingSelector
+                selectedTier={selectedTier}
+                onSelect={handleTierSelect}
+                score={data.skor}
               />
 
-              {/* Pricing */}
-              <div id="pricing-section" style={{ scrollMarginTop: 80, ...CARD_STYLE }}>
-                <PricingSelector
-                  selectedTier={selectedTier}
-                  onSelect={handleTierSelect}
-                  score={data.skor}
-                />
+              <EmailCapture
+                selectedTier={selectedTier}
+                email={email}
+                onChange={handleEmailChange}
+                onBlur={handleEmailBlur}
+                onPaste={handleEmailPaste}
+                error={emailError}
+                suggestion={emailSuggestion}
+                onAcceptSuggestion={handleAcceptSuggestion}
+                isDisposable={emailIsDisposable}
+                isConfirmed={emailIsConfirmed}
+                confirmEmail={confirmEmail}
+                onConfirmChange={handleConfirmEmailChange}
+                onConfirmBlur={handleConfirmEmailBlur}
+                onConfirmPaste={handleConfirmEmailPaste}
+                confirmError={confirmError}
+                confirmRef={confirmEmailRef}
+                emailsMatch={emailsMatch}
+                confirmTouched={confirmTouched}
+              />
 
-                <EmailCapture
-                  selectedTier={selectedTier}
-                  email={email}
-                  onChange={handleEmailChange}
-                  onBlur={handleEmailBlur}
-                  onPaste={handleEmailPaste}
-                  error={emailError}
-                  suggestion={emailSuggestion}
-                  onAcceptSuggestion={handleAcceptSuggestion}
-                  isDisposable={emailIsDisposable}
-                  isConfirmed={emailIsConfirmed}
-                  confirmEmail={confirmEmail}
-                  onConfirmChange={handleConfirmEmailChange}
-                  onConfirmBlur={handleConfirmEmailBlur}
-                  onConfirmPaste={handleConfirmEmailPaste}
-                  confirmError={confirmError}
-                  confirmRef={confirmEmailRef}
-                  emailsMatch={emailsMatch}
-                  confirmTouched={confirmTouched}
-                />
+              {sessionExpiredByPay && (
+                <div style={{ marginBottom: '1rem', padding: '1rem', background: '#FFFBEB', border: '1px solid rgba(252,211,77,0.5)', borderRadius: 16, textAlign: 'center' }}>
+                  <p style={{ color: '#92400E', fontWeight: 600, fontSize: '0.88rem', margin: '0 0 0.5rem' }}>
+                    Sesi analisis sudah kedaluwarsa (30 menit)
+                  </p>
+                  <p style={{ color: '#78350F', fontSize: '0.875rem', margin: '0 0 0.75rem' }}>
+                    Upload ulang CV kamu untuk melanjutkan.
+                  </p>
+                  <a href="upload.html" style={{ display: 'inline-block', background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', fontWeight: 700, padding: '0.65rem 1.5rem', borderRadius: 60, textDecoration: 'none', fontSize: '0.88rem', boxShadow: '0 8px 24px rgba(37,99,235,0.25)' }}>
+                    Upload CV Lagi →
+                  </a>
+                </div>
+              )}
 
-                {sessionExpiredByPay && (
-                  <div style={{ marginBottom: '1rem', padding: '1rem', background: '#FFFBEB', border: '1px solid rgba(252,211,77,0.5)', borderRadius: 16, textAlign: 'center' }}>
-                    <p style={{ color: '#92400E', fontWeight: 600, fontSize: '0.88rem', margin: '0 0 0.5rem' }}>
-                      Sesi analisis sudah kedaluwarsa (30 menit)
-                    </p>
-                    <p style={{ color: '#78350F', fontSize: '0.875rem', margin: '0 0 0.75rem' }}>
-                      Upload ulang CV kamu untuk melanjutkan.
-                    </p>
-                    <a href="upload.html" style={{ display: 'inline-block', background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', fontWeight: 700, padding: '0.65rem 1.5rem', borderRadius: 60, textDecoration: 'none', fontSize: '0.88rem', boxShadow: '0 8px 24px rgba(37,99,235,0.25)' }}>
-                      Upload CV Lagi →
-                    </a>
-                  </div>
-                )}
+              <p style={{ fontSize: '0.8rem', color: '#94A3B8', fontStyle: 'italic', textAlign: 'center', margin: '1.25rem 0 0.75rem' }}>
+                Perbaikan ini bikin CV kamu standout di 7 detik pertama.
+              </p>
 
-                {/* Whitespace + microcopy before pay button */}
-                <p style={{ fontSize: '0.8rem', color: '#94A3B8', fontStyle: 'italic', textAlign: 'center', margin: '1.25rem 0 0.75rem' }}>
-                  Perbaikan ini bikin CV kamu standout di 7 detik pertama.
+              {/* Pay button */}
+              <button
+                data-testid="generate-cv-button"
+                onClick={proceedToPayment}
+                disabled={payBtnDisabled}
+                aria-label="Lihat CV hasil rewrite lengkap"
+                title={payBtnDisabled && payHint ? payHint : undefined}
+                style={{
+                  background:   payBtnDisabled ? '#CBD5E1' : 'linear-gradient(180deg,#3b82f6,#1d4ed8)',
+                  color:        'white',
+                  border:       'none',
+                  borderRadius: 60,
+                  padding:      '0.95rem 1.5rem',
+                  fontWeight:   700,
+                  cursor:       payBtnDisabled ? 'not-allowed' : 'pointer',
+                  width:        '100%',
+                  transition:   '0.2s',
+                  fontFamily:   'inherit',
+                  fontSize:     '1rem',
+                  opacity:      payBtnDisabled ? 0.55 : 1,
+                  boxShadow:    payBtnDisabled ? 'none' : '0 8px 28px rgba(37,99,235,0.30)',
+                }}
+              >
+                {payBtnLabel}
+              </button>
+
+              {emailIsConfirmed && !payHint && !sessionExpiredByPay && (
+                <p style={{ fontSize: '0.8rem', color: '#374151', textAlign: 'center', marginTop: '0.5rem' }}>
+                  📬 CV akan dikirim ke: <strong>{email.trim()}</strong>
                 </p>
-
-                {/* Pay button */}
-                <button
-                  data-testid="generate-cv-button"
-                  onClick={proceedToPayment}
-                  disabled={payBtnDisabled}
-                  aria-label="Lihat CV hasil rewrite lengkap"
-                  title={payBtnDisabled && payHint ? payHint : undefined}
-                  style={{
-                    background:   payBtnDisabled ? '#CBD5E1' : 'linear-gradient(180deg,#3b82f6,#1d4ed8)',
-                    color:        'white',
-                    border:       'none',
-                    borderRadius: 60,
-                    padding:      '0.95rem 1.5rem',
-                    fontWeight:   700,
-                    cursor:       payBtnDisabled ? 'not-allowed' : 'pointer',
-                    width:        '100%',
-                    transition:   '0.2s',
-                    fontFamily:   'inherit',
-                    fontSize:     '1rem',
-                    opacity:      payBtnDisabled ? 0.55 : 1,
-                    boxShadow:    payBtnDisabled ? 'none' : '0 8px 28px rgba(37,99,235,0.30)',
-                  }}
-                >
-                  {payBtnLabel}
-                </button>
-
-                {emailIsConfirmed && !payHint && !sessionExpiredByPay && (
-                  <p style={{ fontSize: '0.8rem', color: '#374151', textAlign: 'center', marginTop: '0.5rem' }}>
-                    📬 CV akan dikirim ke: <strong>{email.trim()}</strong>
-                  </p>
-                )}
-                {payHint && !sessionExpiredByPay && (
-                  <p style={{ fontSize: '0.8rem', color: '#DC2626', fontWeight: 500, textAlign: 'center', marginTop: '0.5rem' }}>
-                    ⚠️ {payHint}
-                  </p>
-                )}
-                {paymentError && (
-                  <div role="alert" style={{ marginTop: '0.75rem', padding: '0.75rem', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, color: '#B91C1C', fontSize: '0.875rem', textAlign: 'center' }}>
-                    {paymentError}
-                  </div>
-                )}
-              </div>
+              )}
+              {payHint && !sessionExpiredByPay && (
+                <p style={{ fontSize: '0.8rem', color: '#DC2626', fontWeight: 500, textAlign: 'center', marginTop: '0.5rem' }}>
+                  ⚠️ {payHint}
+                </p>
+              )}
+              {paymentError && (
+                <div role="alert" style={{ marginTop: '0.75rem', padding: '0.75rem', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, color: '#B91C1C', fontSize: '0.875rem', textAlign: 'center' }}>
+                  {paymentError}
+                </div>
+              )}
             </div>
 
             {/* Trust line */}
