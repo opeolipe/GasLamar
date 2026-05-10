@@ -2,8 +2,6 @@ import { useState, useEffect, useRef }       from 'react';
 import UploadSteps                             from '@/components/upload/UploadSteps';
 import ScoreDisplay                            from '@/components/result/ScoreDisplay';
 import GapList                                 from '@/components/result/GapList';
-import RecommendationList                      from '@/components/result/RecommendationList';
-import BeforeAfterProjection                   from '@/components/result/BeforeAfterProjection';
 import PricingSelector                         from '@/components/result/PricingSelector';
 import EmailCapture                            from '@/components/result/EmailCapture';
 import DetailAnalysis                          from '@/components/result/DetailAnalysis';
@@ -54,13 +52,14 @@ const CARD_STYLE: React.CSSProperties = {
   marginBottom:   '1.25rem',
 };
 
-const TABS = [
-  { key: 'hasil',     label: 'Hasil',     subtitle: 'Skor & kondisi sekarang' },
-  { key: 'gap',       label: 'Gap',       subtitle: 'Kenapa HR masih ragu' },
-  { key: 'perbaikan', label: 'Perbaikan', subtitle: 'Yang harus diubah' },
-] as const;
-
-type ActiveTab = typeof TABS[number]['key'];
+const SECTION_HEADING: React.CSSProperties = {
+  fontSize:     '1.05rem',
+  fontWeight:   700,
+  color:        '#0F172A',
+  margin:       '0 0 1rem',
+  lineHeight:   1.3,
+  letterSpacing: '-0.01em',
+};
 
 function scoreHeadline(score: number): string {
   if (score >= 75) return 'CV kamu sudah cukup kompetitif';
@@ -77,17 +76,14 @@ function verdictDesc(verdict: string | undefined, score: number): string {
 }
 
 export default function Result() {
-  const { data, cvKey, analyzeTime, loading, error, noSession } = useResultData();
+  const { data, analyzeTime, loading, error, noSession } = useResultData();
   const countdown = useSessionCountdown(analyzeTime);
   const [cvText]  = useState(() =>
     sessionStorage.getItem('gaslamar_cv_pending') ||
     sessionStorage.getItem('gaslamar_sample_line') || '',
   );
 
-  const [activeTab,             setActiveTab]             = useState<ActiveTab>('hasil');
   const [showAllDimensions,     setShowAllDimensions]     = useState(false);
-  const [showGapDetail,         setShowGapDetail]         = useState(false);
-  const [showMorePerbaikan,     setShowMorePerbaikan]     = useState(false);
   const [selectedTier,          setSelectedTier]          = useState<string | null>(null);
   const [email,                 setEmail]                 = useState('');
   const [emailError,            setEmailError]            = useState('');
@@ -460,7 +456,7 @@ export default function Result() {
     return parts.length > 0 ? parts.join(' • ') : null;
   })();
 
-  // ── Top 2 weakest dimensions for Hasil tab ────────────────────────────────
+  // ── Top 2 weakest dimensions (inside accordion) ───────────────────────────
   const priorityWeaknesses = result6d
     ? Object.entries(DIM_LABELS)
         .map(([key, meta]) => ({
@@ -556,7 +552,7 @@ export default function Result() {
                 </p>
               </div>
 
-              {/* Upgrade projection — focus only on the improvement, not the repeat */}
+              {/* Upgrade projection */}
               {data.skor_sesudah !== undefined && (
                 <div style={{
                   background:   'linear-gradient(135deg, rgba(34,197,94,0.08) 0%, rgba(16,185,129,0.05) 100%)',
@@ -581,7 +577,7 @@ export default function Result() {
 
               {/* Primary CTA */}
               <a
-                href="#pricing-section"
+                href="#gap-section"
                 style={{
                   display:        'block',
                   background:     'linear-gradient(180deg,#3b82f6,#1d4ed8)',
@@ -599,339 +595,186 @@ export default function Result() {
               </a>
             </div>
 
-            {/* ── TAB BAR ── */}
-            <div style={{
-              display:      'flex',
-              gap:          4,
-              marginBottom: '0',
-              background:   '#F1F5F9',
-              borderRadius: '20px 20px 0 0',
-              padding:      4,
-            }}>
-              {TABS.map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  style={{
-                    flex:        1,
-                    padding:     '0.6rem 0.4rem',
-                    border:      'none',
-                    borderRadius: 16,
-                    cursor:      'pointer',
-                    fontFamily:  'inherit',
-                    background:  activeTab === tab.key ? 'white' : 'transparent',
-                    boxShadow:   activeTab === tab.key ? '0 1px 4px rgba(0,0,0,0.09)' : 'none',
-                    transition:  'all 0.18s',
-                    minHeight:   44,
-                  }}
-                  aria-selected={activeTab === tab.key}
-                >
-                  <div style={{
-                    fontSize:   '0.875rem',
-                    fontWeight: 700,
-                    color:      activeTab === tab.key ? '#1B4FE8' : '#64748B',
-                    lineHeight: 1.2,
-                  }}>
-                    {tab.label}
-                  </div>
-                  <div style={{
-                    fontSize:   '0.62rem',
-                    color:      activeTab === tab.key ? '#64748B' : '#94A3B8',
-                    marginTop:  2,
-                    lineHeight: 1.3,
-                    fontWeight: 500,
-                  }}>
-                    {tab.subtitle}
-                  </div>
-                </button>
-              ))}
+            {/* ── SECTION 2: Kenapa HR masih ragu ── */}
+            <div id="gap-section" style={{ ...CARD_STYLE, scrollMarginTop: 80 }}>
+              <h2 style={SECTION_HEADING}>Kenapa HR masih ragu</h2>
+
+              {/* Primary issue */}
+              {result6d?.primaryIssue ? (
+                <div data-testid="primary-problem">
+                  <PrimaryHighlight issueKey={result6d.primaryIssue} />
+                </div>
+              ) : (data.gap || []).length > 0 && (
+                <div data-testid="primary-problem" style={{ marginBottom: '1rem' }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', margin: '0 0 0.4rem', lineHeight: 1.4 }}>
+                    {data.gap![0]}
+                  </h3>
+                  <p style={{ fontSize: '0.875rem', color: '#64748B', margin: 0, lineHeight: 1.6 }}>
+                    Gap ini yang paling berpengaruh terhadap peluang kamu dipanggil interview.
+                  </p>
+                </div>
+              )}
+
+              {/* Gap list */}
+              {(data.gap || []).length > 0 && (
+                <GapList gaps={data.gap || []} />
+              )}
+
+              {/* Red flags */}
+              <RedFlags redFlags={data.red_flags || []} />
+
+              {/* Accordion: full analysis */}
+              {result6d && (
+                <>
+                  <button
+                    onClick={() => setShowAllDimensions(d => !d)}
+                    style={{
+                      width:          '100%',
+                      background:     '#F8FAFC',
+                      border:         '1px solid #E2E8F0',
+                      borderRadius:   10,
+                      padding:        '0.65rem 1rem',
+                      fontSize:       '0.83rem',
+                      fontWeight:     600,
+                      color:          '#1B4FE8',
+                      cursor:         'pointer',
+                      fontFamily:     'inherit',
+                      minHeight:      44,
+                      display:        'flex',
+                      alignItems:     'center',
+                      justifyContent: 'center',
+                      gap:            6,
+                      marginTop:      '0.5rem',
+                      transition:     'background 0.15s',
+                    }}
+                  >
+                    {showAllDimensions ? 'Sembunyikan ↑' : 'Lihat analisis lengkap →'}
+                  </button>
+                  {showAllDimensions && (
+                    <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid rgba(148,163,184,0.14)' }}>
+                      {priorityWeaknesses.length > 0 && (
+                        <>
+                          <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 0.75rem' }}>
+                            Yang paling bikin HR ragu
+                          </p>
+                          {priorityWeaknesses.map(dim => (
+                            <div key={dim.key} style={{
+                              padding:      '0.85rem 1rem',
+                              background:   dim.score < 4 ? '#FFF7F7' : '#FFFBEB',
+                              border:       `1px solid ${dim.score < 4 ? '#FECACA' : '#FDE68A'}`,
+                              borderRadius: 12,
+                              marginBottom: '0.65rem',
+                            }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#111827' }}>
+                                  {dim.score < 4 ? '❌' : '⚠️'} {dim.label}
+                                </span>
+                                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: dim.score < 4 ? '#DC2626' : '#92400E', flexShrink: 0, marginLeft: 8 }}>
+                                  {dim.score}/10
+                                </span>
+                              </div>
+                              <div style={{ background: dim.score < 4 ? '#FEE2E2' : '#FEF3C7', borderRadius: 3, height: 4, marginBottom: 8 }}>
+                                <div style={{
+                                  width:        `${dim.score * 10}%`,
+                                  background:   dim.score < 4 ? '#F87171' : '#F59E0B',
+                                  borderRadius: 3,
+                                  height:       4,
+                                  transition:   'width 0.7s cubic-bezier(0.22,1,0.36,1)',
+                                }} />
+                              </div>
+                              <p style={{ fontSize: '0.8rem', color: '#64748B', margin: 0, lineHeight: 1.55 }}>
+                                {dim.hint}
+                              </p>
+                            </div>
+                          ))}
+                        </>
+                      )}
+                      <ScoreBars
+                        dimensions={result6d.scores}
+                        mode="full"
+                        primaryKey={result6d.primaryIssue ?? undefined}
+                      />
+                      <div style={{ marginTop: '1rem' }}>
+                        <DetailAnalysis
+                          strengths={data.kekuatan || []}
+                          hr7Data={data.hr_7_detik}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
 
-            {/* ── TAB CONTENT ── */}
-            <div style={{
-              ...CARD_STYLE,
-              borderRadius:  '0 0 24px 24px',
-              marginBottom:  '2rem',
-            }}>
+            {/* ── SECTION 3: Yang perlu diperbaiki ── */}
+            <div style={CARD_STYLE}>
+              <h2 style={SECTION_HEADING}>Yang perlu diperbaiki</h2>
 
-              {/* ── HASIL TAB ── */}
-              {activeTab === 'hasil' && (
-                <>
-                  {/* Priority weaknesses */}
-                  {priorityWeaknesses.length > 0 ? (
-                    <>
-                      <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 0.75rem' }}>
-                        Prioritas utama
-                      </p>
-                      {priorityWeaknesses.map(dim => (
-                        <div key={dim.key} style={{
-                          padding:      '0.85rem 1rem',
-                          background:   dim.score < 4 ? '#FFF7F7' : '#FFFBEB',
-                          border:       `1px solid ${dim.score < 4 ? '#FECACA' : '#FDE68A'}`,
-                          borderRadius: 12,
-                          marginBottom: '0.65rem',
-                        }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                            <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#111827' }}>
-                              {dim.score < 4 ? '❌' : '⚠️'} {dim.label}
-                            </span>
-                            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: dim.score < 4 ? '#DC2626' : '#92400E', flexShrink: 0, marginLeft: 8 }}>
-                              {dim.score}/10
-                            </span>
-                          </div>
-                          <div style={{ background: dim.score < 4 ? '#FEE2E2' : '#FEF3C7', borderRadius: 3, height: 4, marginBottom: 8 }}>
-                            <div style={{
-                              width:        `${dim.score * 10}%`,
-                              background:   dim.score < 4 ? '#F87171' : '#F59E0B',
-                              borderRadius: 3,
-                              height:       4,
-                              transition:   'width 0.7s cubic-bezier(0.22,1,0.36,1)',
-                            }} />
-                          </div>
-                          <p style={{ fontSize: '0.8rem', color: '#64748B', margin: 0, lineHeight: 1.55 }}>
-                            {dim.hint}
-                          </p>
-                        </div>
-                      ))}
-                    </>
-                  ) : (data.gap || []).length > 0 && (
-                    <GapList gaps={(data.gap || []).slice(0, 2)} />
-                  )}
-
-                  {/* Accordion: all dimensions */}
-                  {result6d && (
-                    <>
-                      <button
-                        onClick={() => setShowAllDimensions(d => !d)}
-                        style={{
-                          width:          '100%',
-                          background:     '#F8FAFC',
-                          border:         '1px solid #E2E8F0',
-                          borderRadius:   10,
-                          padding:        '0.65rem 1rem',
-                          fontSize:       '0.83rem',
-                          fontWeight:     600,
-                          color:          '#1B4FE8',
-                          cursor:         'pointer',
-                          fontFamily:     'inherit',
-                          minHeight:      44,
-                          display:        'flex',
-                          alignItems:     'center',
-                          justifyContent: 'center',
-                          gap:            6,
-                          marginTop:      '0.5rem',
-                          transition:     'background 0.15s',
-                        }}
-                      >
-                        {showAllDimensions ? 'Sembunyikan ↑' : 'Lihat semua dimensi →'}
-                      </button>
-                      {showAllDimensions && (
-                        <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid rgba(148,163,184,0.14)' }}>
-                          <ScoreBars
-                            dimensions={result6d.scores}
-                            mode="full"
-                            primaryKey={result6d.primaryIssue ?? undefined}
-                          />
-                          <div style={{ marginTop: '1rem' }}>
-                            <DetailAnalysis
-                              strengths={data.kekuatan || []}
-                              hr7Data={data.hr_7_detik}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </>
+              {isValidRewrite ? (
+                <div data-testid="fix-before-after">
+                  <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 0.75rem' }}>
+                    Contoh perbaikan dari CV kamu
+                  </p>
+                  <DimRewritePreview preview={result6d!.rewritePreview} />
+                  <p style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '-0.25rem', marginBottom: '0.75rem', lineHeight: 1.55 }}>
+                    Contoh ini diambil langsung dari CV kamu — rewrite lengkap mencakup semua bagian.
+                  </p>
+                </div>
+              ) : (data.rekomendasi || []).length > 0 && (
+                <div data-testid="fix-before-after" style={{ marginBottom: '1rem' }}>
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                    {(data.rekomendasi || []).slice(0, 3).map((r, i) => (
+                      <li key={i} style={{ fontSize: '0.875rem', color: '#111827', display: 'flex', gap: '0.6rem', alignItems: 'flex-start', lineHeight: 1.5 }}>
+                        <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 2 }}>→</span>
+                        {r}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
 
-              {/* ── GAP TAB ── */}
-              {activeTab === 'gap' && (
-                <>
-                  {/* Primary issue */}
-                  {result6d?.primaryIssue ? (
-                    <div data-testid="primary-problem">
-                      <PrimaryHighlight issueKey={result6d.primaryIssue} />
-                    </div>
-                  ) : (data.gap || []).length > 0 && (
-                    <div data-testid="primary-problem" style={{ marginBottom: '1rem' }}>
-                      <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', margin: '0 0 0.4rem', lineHeight: 1.4 }}>
-                        {data.gap![0]}
-                      </h3>
-                      <p style={{ fontSize: '0.875rem', color: '#64748B', margin: 0, lineHeight: 1.6 }}>
-                        Gap ini yang paling berpengaruh terhadap peluang kamu dipanggil interview — HR bisa langsung skip CV jika ini tidak terlihat.
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Top gaps */}
-                  {(data.gap || []).length > 0 && (
-                    <GapList gaps={data.gap || []} />
-                  )}
-
-                  {/* Accordion: more detail */}
-                  {((data.red_flags || []).length > 0 || (data.rekomendasi || []).length > 0) && (
-                    <>
-                      <button
-                        onClick={() => setShowGapDetail(d => !d)}
-                        style={{
-                          width:          '100%',
-                          background:     '#F8FAFC',
-                          border:         '1px solid #E2E8F0',
-                          borderRadius:   10,
-                          padding:        '0.65rem 1rem',
-                          fontSize:       '0.83rem',
-                          fontWeight:     600,
-                          color:          '#1B4FE8',
-                          cursor:         'pointer',
-                          fontFamily:     'inherit',
-                          minHeight:      44,
-                          display:        'flex',
-                          alignItems:     'center',
-                          justifyContent: 'center',
-                          gap:            6,
-                          marginTop:      '0.5rem',
-                          transition:     'background 0.15s',
-                        }}
-                      >
-                        {showGapDetail ? 'Sembunyikan ↑' : 'Lihat detail recruiter →'}
-                      </button>
-                      {showGapDetail && (
-                        <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid rgba(148,163,184,0.14)' }}>
-                          <RedFlags redFlags={data.red_flags || []} />
-                          {(data.rekomendasi || []).length > 0 && (
-                            <div>
-                              <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 0.6rem' }}>
-                                Yang perlu diperbaiki:
-                              </p>
-                              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                                {(data.rekomendasi || []).slice(0, 3).map((r, i) => (
-                                  <li key={i} style={{ fontSize: '0.875rem', color: '#111827', display: 'flex', gap: '0.6rem', alignItems: 'flex-start', lineHeight: 1.5 }}>
-                                    <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 2 }}>→</span>
-                                    {r}
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </>
-              )}
-
-              {/* ── PERBAIKAN TAB ── */}
-              {activeTab === 'perbaikan' && (
-                <>
-                  {/* Rewrite preview — the star */}
-                  {isValidRewrite ? (
-                    <div data-testid="fix-before-after">
-                      <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 0.75rem' }}>
-                        Contoh perbaikan dari CV kamu
-                      </p>
-                      <DimRewritePreview preview={result6d!.rewritePreview} />
-                      <p style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '-0.25rem', marginBottom: '0.75rem', lineHeight: 1.55 }}>
-                        Contoh ini diambil langsung dari CV kamu — rewrite lengkap mencakup semua bagian.
-                      </p>
-                    </div>
-                  ) : (data.rekomendasi || []).length > 0 && (
-                    <div data-testid="fix-before-after">
-                      <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 0.6rem' }}>
-                        Yang perlu diperbaiki:
-                      </p>
-                      <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.45rem', marginBottom: '0.75rem' }}>
-                        {(data.rekomendasi || []).slice(0, 2).map((r, i) => (
-                          <li key={i} style={{ fontSize: '0.875rem', color: '#111827', display: 'flex', gap: '0.6rem', alignItems: 'flex-start', lineHeight: 1.5 }}>
-                            <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 2 }}>→</span>
-                            {r}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Accordion: all fixes */}
-                  {(data.rekomendasi || []).length > 0 && (
-                    <>
-                      <button
-                        onClick={() => setShowMorePerbaikan(d => !d)}
-                        style={{
-                          width:          '100%',
-                          background:     '#F8FAFC',
-                          border:         '1px solid #E2E8F0',
-                          borderRadius:   10,
-                          padding:        '0.65rem 1rem',
-                          fontSize:       '0.83rem',
-                          fontWeight:     600,
-                          color:          '#1B4FE8',
-                          cursor:         'pointer',
-                          fontFamily:     'inherit',
-                          minHeight:      44,
-                          display:        'flex',
-                          alignItems:     'center',
-                          justifyContent: 'center',
-                          gap:            6,
-                          transition:     'background 0.15s',
-                        }}
-                      >
-                        {showMorePerbaikan ? 'Sembunyikan ↑' : `Lihat ${(data.rekomendasi || []).length} perbaikan lainnya →`}
-                      </button>
-                      {showMorePerbaikan && (
-                        <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid rgba(148,163,184,0.14)' }}>
-                          <RecommendationList recommendations={data.rekomendasi || []} />
-                          {data.skor_sesudah !== undefined && (
-                            <BeforeAfterProjection beforeScore={data.skor} afterScore={data.skor_sesudah} />
-                          )}
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  {/* Strong CTA */}
-                  <div style={{
-                    background:   'linear-gradient(135deg, rgba(37,99,235,0.05) 0%, rgba(27,79,232,0.03) 100%)',
-                    border:       '1px solid rgba(37,99,235,0.15)',
-                    borderRadius: 16,
-                    padding:      '1.25rem',
-                    marginTop:    '1.25rem',
-                  }}>
-                    <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', margin: '0 0 0.75rem', lineHeight: 1.4 }}>
-                      Mau AI rewrite seluruh CV kamu?
-                    </h3>
-                    <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 1rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                      {[
-                        'ATS-friendly & relevan dengan posisi yang kamu lamar',
-                        'Bahasa Indonesia + English (bilingual)',
-                        'Siap kirim: PDF & DOCX langsung',
-                      ].map((b, i) => (
-                        <li key={i} style={{ fontSize: '0.875rem', color: '#1E3A8A', display: 'flex', gap: 8, alignItems: 'flex-start', lineHeight: 1.5 }}>
-                          <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 1 }}>✓</span>
-                          {b}
-                        </li>
-                      ))}
-                    </ul>
-                    <button
-                      onClick={() => document.getElementById('pricing-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                      style={{
-                        width:        '100%',
-                        background:   'linear-gradient(180deg,#3b82f6,#1d4ed8)',
-                        color:        'white',
-                        border:       'none',
-                        borderRadius: 60,
-                        padding:      '0.85rem',
-                        fontWeight:   700,
-                        fontSize:     '1rem',
-                        cursor:       'pointer',
-                        fontFamily:   'inherit',
-                        boxShadow:    '0 6px 20px rgba(37,99,235,0.28)',
-                      }}
-                    >
-                      Rewrite CV Saya →
-                    </button>
-                  </div>
-                </>
-              )}
+              {/* AI Rewrite CTA */}
+              <div style={{
+                background:   'linear-gradient(135deg, rgba(37,99,235,0.05) 0%, rgba(27,79,232,0.03) 100%)',
+                border:       '1px solid rgba(37,99,235,0.15)',
+                borderRadius: 16,
+                padding:      '1.25rem',
+                marginTop:    '1.25rem',
+              }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', margin: '0 0 0.75rem', lineHeight: 1.4 }}>
+                  Mau AI rewrite seluruh CV kamu?
+                </h3>
+                <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 1rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  {[
+                    'ATS-friendly & relevan dengan posisi yang kamu lamar',
+                    'Bahasa Indonesia + English (bilingual)',
+                    'Siap kirim: PDF & DOCX langsung',
+                  ].map((b, i) => (
+                    <li key={i} style={{ fontSize: '0.875rem', color: '#1E3A8A', display: 'flex', gap: 8, alignItems: 'flex-start', lineHeight: 1.5 }}>
+                      <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 1 }}>✓</span>
+                      {b}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  onClick={() => document.getElementById('pricing-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                  style={{
+                    width:        '100%',
+                    background:   'linear-gradient(180deg,#3b82f6,#1d4ed8)',
+                    color:        'white',
+                    border:       'none',
+                    borderRadius: 60,
+                    padding:      '0.85rem',
+                    fontWeight:   700,
+                    fontSize:     '1rem',
+                    cursor:       'pointer',
+                    fontFamily:   'inherit',
+                    boxShadow:    '0 6px 20px rgba(37,99,235,0.28)',
+                  }}
+                >
+                  Rewrite CV Saya →
+                </button>
+              </div>
             </div>
 
             {/* ── PRICING ── */}
