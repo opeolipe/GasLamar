@@ -58,10 +58,14 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
     <div>
       <div
         data-testid="dropzone"
-        tabIndex={0}
-        role="button"
-        aria-label="Area upload CV — klik atau tekan Enter untuk memilih file"
-        className={`min-h-[110px] rounded-2xl border-2 border-dashed border-slate-200 bg-transparent grid place-items-center p-5 text-center transition-all hover:border-blue-300 hover:bg-blue-50/20 ${!fileName ? 'cursor-pointer' : ''}`}
+        tabIndex={fileName ? -1 : 0}
+        role={fileName ? undefined : 'button'}
+        aria-label={fileName ? undefined : 'Area upload CV — klik atau tekan Enter untuk memilih file'}
+        className={`rounded-2xl border transition-all ${
+          fileName
+            ? 'border-slate-200 bg-slate-50/40 px-4 py-3'
+            : 'min-h-[110px] border-2 border-dashed border-slate-200 bg-transparent grid place-items-center p-5 text-center hover:border-blue-300 hover:bg-blue-50/20 cursor-pointer'
+        }`}
         onClick={() => { if (!fileName) inputRef.current?.click(); }}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
@@ -71,19 +75,19 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
         {fileName ? (
           <div data-testid="file-preview" className="flex items-center justify-between gap-3 w-full text-left">
             <div className="flex items-center gap-3 flex-1 min-w-0">
-              <span className="text-xl flex-shrink-0" aria-hidden="true">📄</span>
+              <span className="text-base flex-shrink-0" aria-hidden="true">📄</span>
               <div className="min-w-0">
-                <div className="font-semibold text-sm text-slate-800 truncate">{fileName}</div>
-                {fileSize && <div className="text-sm text-slate-400 mt-0.5">{fileSize}</div>}
+                <div className="font-medium text-sm text-slate-800 truncate">{fileName}</div>
+                {fileSize && <div className="text-xs text-slate-400">{fileSize}</div>}
               </div>
             </div>
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onRemove(); }}
-              className="min-h-[44px] px-3 text-blue-600 font-medium text-sm whitespace-nowrap hover:underline"
+              className="min-h-[44px] px-3 text-blue-600 font-medium text-sm whitespace-nowrap hover:underline flex-shrink-0"
               aria-label="Ganti file CV yang sudah dipilih"
             >
-              Ganti file
+              Ganti
             </button>
           </div>
         ) : (
@@ -114,7 +118,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
       </div>
 
       <p className="text-xs text-slate-400 mt-2">
-        Gunakan CV yang teksnya bisa dicopy (bukan foto/scan) untuk hasil analisis terbaik.
+        Gunakan CV yang bisa dicopy, bukan foto/scan.
       </p>
 
       <div className="mt-4 w-full max-w-full">
@@ -161,7 +165,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
       )}
 
       {!error && !scanWarning && fileName && cvReady && (
-        <p className="text-sm text-emerald-600 mt-2 font-medium">✓ CV berhasil terbaca</p>
+        <p className="text-sm text-emerald-600 mt-2 font-medium">✓ CV berhasil dibaca</p>
       )}
     </div>
   );

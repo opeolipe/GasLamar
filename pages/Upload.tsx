@@ -52,9 +52,9 @@ export default function Upload() {
   // JD textarea ref — used for auto-scroll after CV upload
   const jdRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // Derived — JD is optional; button enables as soon as a valid CV is present.
   const hasFile: boolean = !!fileName && !!cvText;
-  const isValid: boolean = hasFile;
+  const hasJD:   boolean = evaluateJDQuality(jd).isValid;
+  const isValid: boolean = hasFile && hasJD;
 
   // Mount: read URL params + restore drafts
   useEffect(() => {
@@ -295,8 +295,7 @@ export default function Upload() {
       return;
     }
     const jobDesc = jd.trim();
-    // Only reject a non-empty JD that is too short/unstructured — empty JD runs general mode.
-    if (jobDesc.length > 0 && !evaluateJDQuality(jobDesc).isValid) return;
+    if (!evaluateJDQuality(jobDesc).isValid) return;
 
     setLoading(true);
     try {
@@ -356,20 +355,19 @@ export default function Upload() {
           </div>
         ))}
 
-        {/* ZONE 1: Hero — headline dominates everything */}
+        {/* ZONE 1: Hero */}
         <div className="text-center mb-10">
           <h1
-            className="font-bold leading-[1.08] text-slate-900 mb-0 max-w-[16ch] mx-auto"
+            className="font-bold leading-[1.1] text-slate-900 mb-0 mx-auto"
             style={{
               fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif',
               letterSpacing: '-0.03em',
               fontSize: 'clamp(2.6rem, 6vw, 4rem)',
             }}
           >
-            Tahu kenapa CV kamu{' '}
+            Cek peluang{' '}
             <span className="relative inline-block whitespace-nowrap">
-              belum dipanggil
-              {/* Marker-stroke underline — bridges the serif headline with the handwritten logo */}
+              interview
               <svg
                 className="absolute left-0 w-full overflow-visible pointer-events-none"
                 style={{ bottom: '-4px' }}
@@ -388,20 +386,21 @@ export default function Upload() {
                 />
               </svg>
             </span>
+            {' '}kamu
           </h1>
 
           <p className="text-[15px] text-slate-500 max-w-[44ch] mx-auto mt-5 leading-relaxed">
-            Upload CV + job description — analisis gratis dalam 30 detik.{' '}
-            <span className="text-slate-400">Bayar hanya kalau mau lanjut rewrite.</span>
+            Upload CV + job description —{' '}
+            lihat apa yang bikin HR masih ragu.
           </p>
 
-          {/* Emotional progression — journey, not a form stepper */}
+          {/* Progression strip */}
           <div className="mt-5 flex items-center justify-center gap-2 text-sm text-slate-500 flex-wrap">
             <span className="font-medium text-slate-700">Upload CV</span>
             <span className="text-slate-300" aria-hidden="true">→</span>
-            <span>Tahu masalahnya</span>
+            <span>Analisis</span>
             <span className="text-slate-300" aria-hidden="true">→</span>
-            <span>Benerin sebelum apply</span>
+            <span>Hasil</span>
           </div>
         </div>
 
@@ -444,7 +443,6 @@ export default function Upload() {
           <SubmitSection
             isValid={isValid}
             isLoading={loading}
-            showJdHint={hasFile && jd.trim().length === 0}
             onSubmit={handleSubmit}
           />
         </div>
@@ -457,13 +455,15 @@ export default function Upload() {
         </a>
       </main>
 
-      <footer className="text-center py-6 text-sm text-slate-400">
-        <p className="mb-3 text-slate-400">GasLamar · Bantu kamu lebih pede apply</p>
-        <a href="privacy.html" className="text-slate-400 underline hover:text-slate-600 mx-2">Kebijakan Privasi</a>
-        ·
-        <a href="terms.html" className="text-slate-400 underline hover:text-slate-600 mx-2">Syarat Layanan</a>
-        ·
-        <a href="accessibility.html" className="text-slate-400 underline hover:text-slate-600 mx-2">Aksesibilitas</a>
+      <footer className="text-center py-6 text-xs text-slate-400">
+        <p className="mb-2 text-slate-400">GasLamar · Bantu kamu lebih pede apply</p>
+        <div className="mt-1 space-x-1 text-slate-300">
+          <a href="privacy.html" className="hover:text-slate-500 hover:underline mx-1">Kebijakan Privasi</a>
+          ·
+          <a href="terms.html" className="hover:text-slate-500 hover:underline mx-1">Syarat Layanan</a>
+          ·
+          <a href="accessibility.html" className="hover:text-slate-500 hover:underline mx-1">Aksesibilitas</a>
+        </div>
       </footer>
     </div>
   );
