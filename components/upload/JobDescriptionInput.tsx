@@ -62,7 +62,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full max-w-full overflow-hidden">
       <label className="block text-sm font-semibold mb-2 mt-4" htmlFor="job-desc">
         Posisi yang kamu incar
       </label>
@@ -125,11 +125,11 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
       </div>
 
       {trimmed && quality.message && (
-        <p className="text-sm text-slate-500 mt-2">{quality.message}</p>
+        <p className="text-xs text-slate-500 mt-2 break-words" style={{ overflowWrap: 'anywhere' }}>{quality.message}</p>
       )}
 
       {trimmed && !quality.message && (
-        <p className="text-sm text-emerald-600 mt-2 font-medium">✓ Job description siap</p>
+        <p className="text-xs text-emerald-600 mt-2 font-medium">✓ Job description siap</p>
       )}
     </div>
   );
