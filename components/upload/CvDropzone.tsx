@@ -94,7 +94,6 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
           id="cv-tab-upload"
           role="tab"
           aria-selected={tab === 'upload'}
-          aria-controls="cv-panel-upload"
           onClick={() => switchTab('upload')}
           className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
             tab === 'upload'
@@ -109,7 +108,6 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
           id="cv-tab-paste"
           role="tab"
           aria-selected={tab === 'paste'}
-          aria-controls="cv-panel-paste"
           onClick={() => switchTab('paste')}
           className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
             tab === 'paste'

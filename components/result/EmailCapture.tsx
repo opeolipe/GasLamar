@@ -77,13 +77,14 @@ export default function EmailCapture({
         autoComplete="email"
         aria-label="Alamat email untuk konfirmasi pembayaran"
         aria-invalid={!!error}
+        aria-describedby={error ? 'email-error' : undefined}
         style={inputStyle}
       />
       <p style={{ fontSize: '0.8rem', color: '#374151', marginTop: '0.4rem', margin: '0.4rem 0 0' }}>
         {helper}
       </p>
       {error && (
-        <p role="alert" style={{ color: '#DC2626', fontSize: '0.875rem', marginTop: '0.4rem', fontWeight: 500 }}>
+        <p id="email-error" role="alert" style={{ color: '#DC2626', fontSize: '0.875rem', marginTop: '0.4rem', fontWeight: 500 }}>
           <span aria-hidden="true">⚠️</span> {error}
         </p>
       )}

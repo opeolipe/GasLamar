@@ -97,7 +97,7 @@ function PostDownloadCard({ creditsRemaining, onDismiss, onScrollToMulti, onShow
         <button
           onClick={onDismiss}
           aria-label="Tutup notifikasi"
-          className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 bg-transparent border-none cursor-pointer text-base leading-none p-1"
+          className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 bg-transparent border-none cursor-pointer text-base leading-none min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
         >
           ✕
         </button>
@@ -121,7 +121,7 @@ function PostDownloadCard({ creditsRemaining, onDismiss, onScrollToMulti, onShow
       <button
         onClick={onDismiss}
         aria-label="Tutup notifikasi"
-        className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 bg-transparent border-none cursor-pointer text-base leading-none p-1"
+        className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 bg-transparent border-none cursor-pointer text-base leading-none min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
       >
         ✕
       </button>

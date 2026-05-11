@@ -41,6 +41,7 @@ export default function PricingSelector({ selectedTier, onSelect, score, hasErro
               key={tier}
               data-testid="pricing-card"
               onClick={() => onSelect(tier)}
+              aria-pressed={selected}
               style={{
                 background:   selected ? '#EFF6FF' : 'white',
                 borderRadius: 16,
