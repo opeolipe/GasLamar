@@ -348,16 +348,16 @@ export default function Download() {
       {/* Main content */}
       <main
         id="download-main"
-        className="px-4 sm:px-6 py-8 pb-20"
-        style={{ paddingTop: countdownText ? 'calc(2rem + 34px)' : '2rem' }}
+        className="mx-auto px-5 sm:px-8 py-8 pb-20"
+        style={{ maxWidth: 1040, paddingTop: countdownText ? 'calc(2rem + 34px)' : '2rem' }}
       >
         {/* Delivery section — only shown after the waiting phase to prevent conflict
             with WaitingPayment. gaslamar_delivery is written at invoice-creation time
             (before payment), so it would otherwise appear simultaneously with the
             "Menunggu Konfirmasi" spinner. */}
         {delivery && view !== 'waiting' && (
-          <div className="max-w-[480px] mx-auto mb-8">
-            <div style={{ background: 'rgba(255,255,255,0.88)', border: '1px solid rgba(148,163,184,0.14)', borderRadius: 24, padding: '1.25rem 1.5rem', boxShadow: '0 18px 44px rgba(15,23,42,0.08)', backdropFilter: 'blur(14px)' }}>
+          <div style={{ maxWidth: 480, margin: '0 auto 2rem' }}>
+            <div style={{ background: 'rgba(255,255,255,0.92)', border: '1px solid rgba(148,163,184,0.14)', borderRadius: 24, padding: '1.25rem 1.5rem', boxShadow: '0 18px 44px rgba(15,23,42,0.07), 0 1px 2px rgba(15,23,42,0.04)', backdropFilter: 'blur(14px)' }}>
               <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
                 <h2 style={{ fontWeight: 700, fontSize: '1.15rem', color: '#0F172A', margin: '0 0 0.35rem' }}>
                   CV kamu sudah siap digunakan
@@ -374,7 +374,7 @@ export default function Download() {
         )}
 
         {view === 'error' && sessionError && !delivery && (
-          <div className="max-w-[480px] mx-auto">
+          <div style={{ maxWidth: 480, margin: '0 auto' }}>
             <SessionError
               title={sessionError.title}
               message={sessionError.message}
@@ -386,7 +386,7 @@ export default function Download() {
         )}
 
         {view === 'waiting' && (
-          <div className="max-w-[480px] mx-auto">
+          <div style={{ maxWidth: 480, margin: '0 auto' }}>
             <WaitingPayment
               statusText={session.statusText}
               showCheckButton={session.showCheckButton}
@@ -397,7 +397,7 @@ export default function Download() {
         )}
 
         {view === 'generating' && generate.status !== 'done' && (
-          <div className="max-w-[720px] mx-auto">
+          <div style={{ maxWidth: 720, margin: '0 auto' }}>
             <GeneratingCV
               progress={generate.progress}
               status="running"
@@ -409,7 +409,7 @@ export default function Download() {
         )}
 
         {(view === 'ready' || view === 'credits-dashboard') && (
-          <div className="max-w-[980px] mx-auto">
+          <div>
             <DownloadReady
               tier={tier ?? 'single'}
               filename={filename}
@@ -432,7 +432,7 @@ export default function Download() {
         )}
 
         {view === 'ready' && (
-          <div className="max-w-[980px] mx-auto">
+          <div>
             <InterviewKit
               sessionSecret={session.sessionSecret}
               isPreview={tier === 'coba'}
@@ -443,13 +443,20 @@ export default function Download() {
         )}
       </main>
 
+      {/* Back link */}
+      <div className="text-center mt-4 mb-2">
+        <a href="upload.html" className="text-sm text-slate-400 hover:text-slate-600 transition-colors no-underline">
+          ← Upload CV lain
+        </a>
+      </div>
+
       <footer className="text-center py-6 text-sm text-slate-400">
-        <p className="mb-3 text-slate-400">GasLamar · Bantu HR lebih notice kamu</p>
-        <a href="privacy.html"      className="text-slate-500 no-underline hover:underline mx-2">Kebijakan Privasi</a>
+        <p className="mb-3 text-slate-400">GasLamar · Karena nyari kerja udah cukup ribet</p>
+        <a href="privacy.html"       className="text-slate-400 no-underline hover:underline mx-2">Kebijakan Privasi</a>
         ·
-        <a href="terms.html"        className="text-slate-500 no-underline hover:underline mx-2">Syarat Layanan</a>
+        <a href="terms.html"         className="text-slate-400 no-underline hover:underline mx-2">Syarat Layanan</a>
         ·
-        <a href="accessibility.html" className="text-slate-500 no-underline hover:underline mx-2">Aksesibilitas</a>
+        <a href="accessibility.html" className="text-slate-400 no-underline hover:underline mx-2">Aksesibilitas</a>
       </footer>
     </div>
   );
