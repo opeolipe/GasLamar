@@ -365,16 +365,18 @@ export default function Access() {
                   </div>
 
                   {/* ── Confirm email — slides in once primary is valid ── */}
+                  {/* max-height transition used instead of grid-template-rows because
+                      iOS Safari's overflow:hidden doesn't clip grid children reliably,
+                      causing the label to bleed through while the input stays hidden */}
                   <div
                     aria-hidden={!showConfirmField}
                     style={{
-                      display: 'grid',
-                      gridTemplateRows: showConfirmField ? '1fr' : '0fr',
-                      transition: 'grid-template-rows 0.28s cubic-bezier(0.4,0,0.2,1)',
+                      maxHeight: showConfirmField ? '200px' : '0px',
+                      transition: 'max-height 0.28s cubic-bezier(0.4,0,0.2,1)',
                       overflow: 'hidden',
                     }}
                   >
-                    <div style={{ minHeight: 0 }} className="flex flex-col gap-1 mb-3">
+                    <div className="flex flex-col gap-1 mb-3">
                       <label htmlFor="access-email-confirm" className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
                         Ketik ulang email kamu
                         {showConfirmSuccess && (
