@@ -9,9 +9,6 @@ interface Props {
   onAcceptSuggestion?: () => void;
   isDisposable?:       boolean;
   isConfirmed?:        boolean;
-  confirmEmail?:       string;
-  onConfirmChange?:    (value: string) => void;
-  confirmError?:       string;
 }
 
 function getHelper(tier: string | null): string {
@@ -23,7 +20,6 @@ function getHelper(tier: string | null): string {
 export default function EmailCapture({
   selectedTier, email, onChange, onBlur, onPaste, error,
   suggestion, onAcceptSuggestion, isDisposable, isConfirmed,
-  confirmEmail, onConfirmChange, confirmError,
 }: Props) {
   const helper = getHelper(selectedTier);
 
@@ -76,35 +72,6 @@ export default function EmailCapture({
         aria-invalid={!!error}
         style={inputStyle}
       />
-      {onConfirmChange !== undefined && (
-        <div style={{ marginTop: '0.75rem' }}>
-          <label htmlFor="email-confirm-capture" style={labelStyle}>
-            Konfirmasi Email <span style={{ color: '#DC2626' }}>*</span>
-          </label>
-          <input
-            id="email-confirm-capture"
-            data-testid="email-confirm-input"
-            type="email"
-            inputMode="email"
-            autoCapitalize="off"
-            value={confirmEmail ?? ''}
-            onChange={e => onConfirmChange(e.target.value)}
-            placeholder="contoh@email.com"
-            autoComplete="email"
-            aria-label="Konfirmasi alamat email"
-            aria-invalid={!!confirmError}
-            style={{
-              ...inputStyle,
-              borderColor: confirmError ? '#DC2626' : (confirmEmail && confirmEmail === email) ? '#16A34A' : '#CBD5E1',
-            }}
-          />
-          {confirmError && (
-            <p role="alert" style={{ color: '#DC2626', fontSize: '0.875rem', marginTop: '0.4rem', fontWeight: 500 }}>
-              ⚠️ {confirmError}
-            </p>
-          )}
-        </div>
-      )}
       <p style={{ fontSize: '0.8rem', color: '#374151', marginTop: '0.4rem', margin: '0.4rem 0 0' }}>
         {helper}
       </p>

@@ -94,8 +94,6 @@ export default function Result() {
   const [emailSuggestion,       setEmailSuggestion]       = useState<string | null>(null);
   const [emailIsDisposable,     setEmailIsDisposable]     = useState(false);
   const [emailIsConfirmed,      setEmailIsConfirmed]      = useState(false);
-  const [confirmEmail,          setConfirmEmail]          = useState('');
-  const [confirmEmailError,     setConfirmEmailError]     = useState('');
   const [paymentInProgress,     setPaymentInProgress]     = useState(false);
   const [payBtnOverride,        setPayBtnOverride]        = useState<string | null>(null);
   const [paymentError,          setPaymentError]          = useState<string | null>(null);
@@ -149,12 +147,6 @@ export default function Result() {
     setEmailSuggestion(suggestEmailFix(value));
     setEmailIsDisposable(false);
     setEmailIsConfirmed(false);
-    setConfirmEmailError('');
-  }
-
-  function handleConfirmEmailChange(value: string) {
-    setConfirmEmail(value);
-    setConfirmEmailError('');
   }
 
   function handleEmailPaste(pastedValue: string) {
@@ -279,15 +271,6 @@ export default function Result() {
     }
     setEmailError('');
     setEmailSuggestion(null);
-
-    if (confirmEmail.trim() !== email.trim()) {
-      setConfirmEmailError('Email konfirmasi tidak cocok.');
-      const confirmEl = document.getElementById('email-confirm-capture');
-      confirmEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      setTimeout(() => { (confirmEl as HTMLElement | null)?.focus(); shakeEl(confirmEl); }, 300);
-      return;
-    }
-    setConfirmEmailError('');
 
     const capturedEmail = email.trim();
     try { sessionStorage.setItem('gaslamar_email', capturedEmail); } catch (_) {}
@@ -731,9 +714,6 @@ export default function Result() {
                   onAcceptSuggestion={handleAcceptSuggestion}
                   isDisposable={emailIsDisposable}
                   isConfirmed={emailIsConfirmed}
-                  confirmEmail={confirmEmail}
-                  onConfirmChange={handleConfirmEmailChange}
-                  confirmError={confirmEmailError}
                 />
 
                 {sessionExpiredByPay && (
