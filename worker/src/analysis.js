@@ -37,15 +37,15 @@ import { sha256Hex }     from './utils.js';
 // DEPLOY CHECKLIST: Bump ANALYSIS_CACHE_VERSION when changing pipeline/ or prompts/.
 //                   Bump EXTRACT_CACHE_VERSION when changing pipeline/extract.js or prompts/extract.js.
 // Stale KV entries with old version prefixes are ignored automatically.
-const EXTRACT_CACHE_VERSION  = 'v3'; // current key: extract_v3_<hash> (bumped: angka_di_cv now achievement-only, not calendar years)
-const ANALYSIS_CACHE_VERSION = 'v11'; // current key: analysis_v11_<hash> (bumped: synonym bridge, title-token splitting, risk English parity)
+const EXTRACT_CACHE_VERSION  = 'v4'; // current key: extract_v4_<hash> (bumped: full 64-char SHA-256 + null-byte separator)
+const ANALYSIS_CACHE_VERSION = 'v12'; // current key: analysis_v12_<hash> (bumped: full 64-char SHA-256 + null-byte separator)
 
 // ---- Orchestrator ----
 
 export async function analyzeCV(cvText, jobDesc, env) {
   // ── Cache check ───────────────────────────────────────────────────────────
   // Bump ANALYSIS_CACHE_VERSION (top of file) when changing pipeline/ or prompts/.
-  const cacheKey = `analysis_${ANALYSIS_CACHE_VERSION}_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
+  const cacheKey = `analysis_${ANALYSIS_CACHE_VERSION}_${await sha256Hex(cvText.trim() + '\x00' + jobDesc.trim())}`;
   const cached = await env.GASLAMAR_SESSIONS.get(cacheKey, { type: 'json' });
   if (cached) {
     // Cache entries written by v7+ always contain the correctly-penalised skor.
@@ -60,7 +60,7 @@ export async function analyzeCV(cvText, jobDesc, env) {
   // Extraction is cached independently so the LLM call is skipped on repeated
   // analysis of identical CV+JD content (e.g. user re-runs after payment).
   // Bump EXTRACT_CACHE_VERSION (top of file) when changing extract.js or prompts/extract.js.
-  const extractKey = `extract_${EXTRACT_CACHE_VERSION}_${await sha256Hex(cvText.trim() + '||' + jobDesc.trim())}`;
+  const extractKey = `extract_${EXTRACT_CACHE_VERSION}_${await sha256Hex(cvText.trim() + '\x00' + jobDesc.trim())}`;
   let extractedData = await env.GASLAMAR_SESSIONS.get(extractKey, { type: 'json' });
   if (!extractedData) {
     extractedData = await callExtract(cvText, jobDesc, env);

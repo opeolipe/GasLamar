@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 interface Props {
   selectedTier:        string | null;
@@ -24,11 +24,14 @@ export default function EmailCapture({
   suggestion, onAcceptSuggestion, isDisposable, isConfirmed,
 }: Props) {
   const helper = getHelper(selectedTier);
+  const [focused, setFocused] = useState(false);
 
   const borderColor = error ? '#DC2626' : isConfirmed ? '#16A34A' : '#CBD5E1';
 
   const showSuggestion = !error && !!suggestion;
   const showDisposable = !error && !suggestion && !!isDisposable;
+
+  const focusRingColor = error ? 'rgba(220,38,38,0.25)' : isConfirmed ? 'rgba(22,163,74,0.25)' : 'rgba(37,99,235,0.25)';
 
   const inputStyle: React.CSSProperties = {
     width:        '100%',
@@ -40,7 +43,8 @@ export default function EmailCapture({
     fontFamily:   'inherit',
     background:   'white',
     outline:      'none',
-    transition:   'border-color 0.2s',
+    transition:   'border-color 0.2s, box-shadow 0.2s',
+    boxShadow:    focused ? `0 0 0 3px ${focusRingColor}` : 'none',
   };
 
   const labelStyle: React.CSSProperties = {
@@ -66,19 +70,21 @@ export default function EmailCapture({
         autoCapitalize="off"
         value={email}
         onChange={e => onChange(e.target.value)}
-        onBlur={onBlur}
+        onFocus={() => setFocused(true)}
+        onBlur={() => { setFocused(false); onBlur?.(); }}
         onPaste={e => onPaste?.(e.clipboardData.getData('text'))}
         placeholder="contoh@email.com"
         autoComplete="email"
         aria-label="Alamat email untuk konfirmasi pembayaran"
         aria-invalid={!!error}
+        aria-describedby={error ? 'email-error' : undefined}
         style={inputStyle}
       />
       <p style={{ fontSize: '0.8rem', color: '#374151', marginTop: '0.4rem', margin: '0.4rem 0 0' }}>
         {helper}
       </p>
       {error && (
-        <p role="alert" style={{ color: '#DC2626', fontSize: '0.875rem', marginTop: '0.4rem', fontWeight: 500 }}>
+        <p id="email-error" role="alert" style={{ color: '#DC2626', fontSize: '0.875rem', marginTop: '0.4rem', fontWeight: 500 }}>
           <span aria-hidden="true">⚠️</span> {error}
         </p>
       )}

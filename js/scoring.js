@@ -29,6 +29,10 @@
   // as long as the 24h cvtext_ TTL has not expired.
   const cvKey = sessionStorage.getItem('gaslamar_cv_key');
 
+  // Always clear legacy blob upfront — prevents stale data from a prior session
+  // from being read later in the fallback path if the server fetch succeeds here.
+  try { sessionStorage.removeItem('gaslamar_scoring'); } catch (_) {}
+
   let scoring;
 
   if (cvKey && cvKey.startsWith('cvtext_')) {

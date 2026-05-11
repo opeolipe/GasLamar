@@ -44,21 +44,23 @@ export async function handleGenerate(request, env, ctx) {
   const VALID_ISSUES = new Set(['portfolio', 'recruiter_signal', 'north_star', 'effort', 'risk']);
   const primaryIssue  = typeof rawPrimaryIssue  === 'string' && VALID_ISSUES.has(rawPrimaryIssue)  ? rawPrimaryIssue  : null;
 
-  // H4 FIX: previewSample and previewAfter are user-controlled strings injected
-  // into LLM prompts. Validate for prompt injection before accepting.
+  // previewSample and previewAfter are user-controlled strings embedded verbatim into
+  // the tailored CV text. Strip HTML tags and entities in addition to injection patterns
+  // to prevent markup or script content from surviving into the generated document.
+  const stripHtml = s => s.replace(/<[^>]*>/g, '').replace(/&[a-zA-Z0-9#]{1,8};/g, '');
   let previewSample = null;
   if (typeof rawPreviewSample === 'string' && rawPreviewSample.length <= 500) {
     if (hasPromptInjection(rawPreviewSample)) {
       return jsonResponse({ message: 'Konten tidak valid' }, 400, request, env);
     }
-    previewSample = sanitizeForLLM(rawPreviewSample);
+    previewSample = sanitizeForLLM(stripHtml(rawPreviewSample));
   }
   let previewAfter = null;
   if (typeof rawPreviewAfter === 'string' && rawPreviewAfter.length <= 500) {
     if (hasPromptInjection(rawPreviewAfter)) {
       return jsonResponse({ message: 'Konten tidak valid' }, 400, request, env);
     }
-    previewAfter = sanitizeForLLM(rawPreviewAfter);
+    previewAfter = sanitizeForLLM(stripHtml(rawPreviewAfter));
   }
 
   // Optional entitas_klaim whitelist — claims already present in user's own CV
@@ -118,6 +120,10 @@ export async function handleGenerate(request, env, ctx) {
     if (newJobDesc.trim().length > 0 && newJobDesc.trim().length < 100) {
       return jsonResponse({ message: 'Job description pengganti terlalu pendek. Minimal 100 karakter.' }, 400, request, env);
     }
+    // Apply the same injection checks as /analyze — newJobDesc is user-supplied and injected into tailor prompts.
+    if (newJobDesc.trim().length > 0 && hasPromptInjection(newJobDesc)) {
+      return jsonResponse({ message: 'Konten tidak valid' }, 400, request, env);
+    }
   }
 
   // Verify session exists and has status 'generating' (set by /get-session)
@@ -138,7 +144,9 @@ export async function handleGenerate(request, env, ctx) {
   }
 
   const { cv_text, job_desc: storedJobDesc, tier, inferred_role: inferredRole } = session;
-  const effectiveJobDesc = (newJobDesc && newJobDesc.trim()) ? newJobDesc.trim() : storedJobDesc;
+  const effectiveJobDesc = (newJobDesc && newJobDesc.trim())
+    ? sanitizeForLLM(newJobDesc.trim())
+    : storedJobDesc;
 
   if (!cv_text || !effectiveJobDesc || !tier) {
     return jsonResponse({ message: 'Data sesi tidak lengkap' }, 400, request, env);
@@ -181,7 +189,10 @@ export async function handleGenerate(request, env, ctx) {
     // Cache it under kit_${session_id}_id so /interview-kit can serve it
     // immediately (even after the session is deleted for single-credit users).
     const kitPromise = generateInterviewKit(cv_text, effectiveJobDesc, 'id', env)
-      .then(kit => env.GASLAMAR_SESSIONS.put(`kit_${session_id}_id`, JSON.stringify(kit), { expirationTtl: 86400 }).then(() => kit))
+      .then(kit => {
+        const entry = { kit, session_secret_hash: session.session_secret_hash ?? null };
+        return env.GASLAMAR_SESSIONS.put(`kit_${session_id}_id`, JSON.stringify(entry), { expirationTtl: 86400 }).then(() => kit);
+      })
       .catch(() => null);
 
     let idResult, enResult;
@@ -281,10 +292,15 @@ export async function handleGenerate(request, env, ctx) {
     await updateSession(env, session_id, { status: rollbackStatus }).catch((e2) => {
       logError('generate_recovery_failed', { session_id, error: e2.message });
     });
-    // Only pass through known user-facing messages from tailoring.js (size/content issues).
-    // All other errors (Claude auth, quota, network) get a generic fallback to avoid leaking internals.
-    const USER_FACING = /terlalu besar|terpotong|kosong|too large|truncated|empty/i;
-    const userMsg = (typeof e.message === 'string' && USER_FACING.test(e.message))
+    // Only pass through exact messages thrown by tailoring.js — never arbitrary Claude/API errors.
+    const USER_FACING_MSGS = new Set([
+      'CV terlalu besar untuk diproses. Coba ringkas CV kamu.',
+      'CV Bahasa Indonesia kosong dari AI. Coba lagi.',
+      'CV is too large to process. Please shorten your CV.',
+      'English CV returned empty from AI. Please retry.',
+      'Respons AI terpotong. Coba lagi.',
+    ]);
+    const userMsg = (typeof e.message === 'string' && USER_FACING_MSGS.has(e.message))
       ? e.message
       : 'Generate CV gagal. Coba lagi.';
     return jsonResponse({ message: userMsg }, 500, request, env);

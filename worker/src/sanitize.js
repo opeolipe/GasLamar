@@ -59,6 +59,15 @@ const REJECTION_PATTERNS = [
   // Role-hijacking with LLM-specific framing
   /\byou\s+are\s+now\s+(?:a|an|the)\s+(?:different|unrestricted|free|uncensored|unfiltered)\s+(?:AI|assistant|model|bot|language model)\b/i,
   /\bact\s+as\s+(?:a|an)\s+(?:unrestricted|free|uncensored|evil|unfiltered|DAN)\s+(?:AI|assistant|model|version)\b/i,
+  // Indonesian equivalents — must be narrow to avoid false-positives on legitimate CVs
+  /\babaikan\s+(semua\s+)?(?:instruksi|perintah|arahan)\s+(?:sebelumnya|di\s+atas|sebelum\s+ini)\b/i,
+  /\blupakan\s+(semua\s+)?(?:instruksi|perintah|arahan|konteks)\s+(?:sebelumnya|di\s+atas|sebelum\s+ini)\b/i,
+  /\btidak\s+perlu\s+mengikuti\s+(?:instruksi|perintah|arahan)\s+(?:sebelumnya|sistem)\b/i,
+  /\bganti\s+(?:semua\s+)?(?:instruksi|perintah|sistem\s+prompt)\b/i,
+  /\bkamu\s+sekarang\s+adalah\s+(?:AI|asisten|model|bot)\s+(?:yang\s+)?(?:berbeda|bebas|tanpa\s+batasan|tidak\s+terkekang)\b/i,
+  /\bbertindak\s+sebagai\s+(?:AI|asisten|model)\s+(?:yang\s+)?(?:bebas|tanpa\s+batasan|tidak\s+terkekang|jahat)\b/i,
+  /\bsystem\s+prompt\s+baru\s*:/i,
+  /\binstruksi\s+baru\s*:/i,
 ];
 
 // ── Tier-2: Strip-only patterns ───────────────────────────────────────────────
@@ -91,6 +100,15 @@ const STRIP_PATTERNS = [
   /\bDAN\s+mode\b/gi,
   /\bjailbreak(?:ed|ing|ed\s+mode)?\b/gi,
   /\bprompt\s+injection\b/gi,
+  // Indonesian strip patterns (broader phrasing, lower confidence)
+  /\babaikan\s+(semua\s+)?(?:instruksi|perintah|arahan)/gi,
+  /\blupakan\s+(semua\s+)?(?:instruksi|perintah|arahan|konteks)/gi,
+  /\bkamu\s+sekarang\s+adalah\b/gi,
+  /\bbertindak\s+sebagai\s+(?:AI|asisten|model)\b/gi,
+  /\bberperan\s+sebagai\s+(?:AI|asisten|model)\b/gi,
+  /\bpura-pura\s+(?:menjadi|kamu\s+adalah)\b/gi,
+  /\bsystem\s+prompt\s+baru/gi,
+  /\binstruksi\s+baru\s*:/gi,
 ];
 
 // ── Public API ────────────────────────────────────────────────────────────────

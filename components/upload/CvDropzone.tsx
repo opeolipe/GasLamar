@@ -83,12 +83,15 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
 
   return (
     <div className="w-full max-w-full overflow-hidden">
-      <p className="text-sm font-semibold mb-2">CV kamu</p>
+      <label htmlFor={tab === 'paste' ? 'cv-paste' : 'cv-file'} className="text-sm font-semibold mb-2 block">
+        CV kamu
+      </label>
 
       {/* Tab switcher */}
       <div className="flex gap-1 p-1 bg-slate-100 rounded-xl mb-3" role="tablist" aria-label="Cara input CV">
         <button
           type="button"
+          id="cv-tab-upload"
           role="tab"
           aria-selected={tab === 'upload'}
           onClick={() => switchTab('upload')}
@@ -102,6 +105,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
         </button>
         <button
           type="button"
+          id="cv-tab-paste"
           role="tab"
           aria-selected={tab === 'paste'}
           onClick={() => switchTab('paste')}
@@ -117,7 +121,8 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
 
       {/* Upload tab */}
       {tab === 'upload' && (
-        isFileCv ? (
+        <div id="cv-panel-upload" role="tabpanel" aria-labelledby="cv-tab-upload">
+        {isFileCv ? (
           /* Compact success state */
           <div
             data-testid="file-preview"
@@ -170,21 +175,21 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
               </p>
             </div>
           </div>
-        )
+        )}
+        </div>
       )}
 
       {/* Paste tab */}
       {tab === 'paste' && (
-        <div className="w-full max-w-full">
+        <div id="cv-panel-paste" role="tabpanel" aria-labelledby="cv-tab-paste" className="w-full max-w-full">
           <textarea
             ref={pasteRef}
             id="cv-paste"
             value={manualCvText}
             onChange={(e) => onManualCvChange(e.target.value)}
             maxLength={MAX_CV_PASTE_CHARS}
-            className="block w-full max-w-full min-h-[140px] rounded-2xl border border-slate-200 bg-transparent p-4 text-sm text-slate-900 resize-y outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:ring-offset-1"
+            className="block w-full max-w-full min-h-[140px] rounded-2xl border border-slate-200 bg-transparent p-4 text-sm text-slate-900 resize-none sm:resize-y outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:ring-offset-1"
             placeholder="Paste isi CV kamu di sini..."
-            aria-label="Paste isi CV secara manual"
           />
           <div className="flex items-center justify-between flex-wrap gap-x-2 gap-y-1 mt-1 text-xs min-w-0">
             {pasteShort ? (

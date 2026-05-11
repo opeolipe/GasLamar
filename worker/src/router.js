@@ -39,7 +39,6 @@ export async function route(request, env, ctx) {
     return jsonResponse({
       status: 'ok',
       timestamp: new Date().toISOString(),
-      environment: env.ENVIRONMENT || 'unknown',
     }, 200, request, env);
   }
 
@@ -135,9 +134,15 @@ export async function route(request, env, ctx) {
     const rawBody = contentType.includes('application/json')
       ? (() => { try { const p = JSON.parse(bodyText); return (p !== null && typeof p === 'object' && !Array.isArray(p)) ? p : {}; } catch { return {}; } })()
       : { raw: bodyText };
-    // Sanitize all string values before writing to logs to prevent log injection
+    // Sanitize all string values before writing to logs to prevent log injection.
+    // Mask PII field names to avoid leaking sensitive data into Cloudflare log storage.
+    const PII_FIELDS = new Set(['email', 'session_id', 'token', 'secret', 'password', 'key', 'session_secret']);
     const body = Object.fromEntries(
-      Object.entries(rawBody).map(([k, v]) => [sanitizeLogValue(k, 100), sanitizeLogValue(v, 500)])
+      Object.entries(rawBody).map(([k, v]) => {
+        const safeKey = sanitizeLogValue(k, 100);
+        const safeVal = PII_FIELDS.has(String(safeKey).toLowerCase()) ? '[REDACTED]' : sanitizeLogValue(v, 500);
+        return [safeKey, safeVal];
+      })
     );
     log('client_log', { body, ip });
     return jsonResponse({ ok: true }, 200, request, env);

@@ -199,7 +199,7 @@ export default function Access() {
 
   return (
     <div
-      className="min-h-screen text-gray-900 font-sans"
+      className="min-h-dvh text-gray-900 font-sans"
       style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37,99,235,0.08), transparent)' }}
     >
       {/* Skip link */}
@@ -365,16 +365,18 @@ export default function Access() {
                   </div>
 
                   {/* ── Confirm email — slides in once primary is valid ── */}
+                  {/* max-height transition used instead of grid-template-rows because
+                      iOS Safari's overflow:hidden doesn't clip grid children reliably,
+                      causing the label to bleed through while the input stays hidden */}
                   <div
                     aria-hidden={!showConfirmField}
                     style={{
-                      display: 'grid',
-                      gridTemplateRows: showConfirmField ? '1fr' : '0fr',
-                      transition: 'grid-template-rows 0.28s cubic-bezier(0.4,0,0.2,1)',
+                      maxHeight: showConfirmField ? '200px' : '0px',
+                      transition: 'max-height 0.28s cubic-bezier(0.4,0,0.2,1)',
                       overflow: 'hidden',
                     }}
                   >
-                    <div style={{ minHeight: 0 }} className="flex flex-col gap-1 mb-3">
+                    <div className="flex flex-col gap-1 mb-3">
                       <label htmlFor="access-email-confirm" className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
                         Ketik ulang email kamu
                         {showConfirmSuccess && (
@@ -454,12 +456,12 @@ export default function Access() {
         </div>
       </main>
 
-      <footer className="text-center py-6 text-sm text-slate-400">
-        <a href="privacy.html"       className="text-slate-400 underline hover:text-slate-600 mx-2">Kebijakan Privasi</a>
+      <footer className="text-center py-6 text-sm text-slate-500">
+        <a href="privacy.html"       className="text-slate-600 underline hover:text-slate-800 mx-2">Kebijakan Privasi</a>
         ·
-        <a href="terms.html"         className="text-slate-400 underline hover:text-slate-600 mx-2">Syarat Layanan</a>
+        <a href="terms.html"         className="text-slate-600 underline hover:text-slate-800 mx-2">Syarat Layanan</a>
         ·
-        <a href="accessibility.html" className="text-slate-400 underline hover:text-slate-600 mx-2">Aksesibilitas</a>
+        <a href="accessibility.html" className="text-slate-600 underline hover:text-slate-800 mx-2">Aksesibilitas</a>
       </footer>
     </div>
   );

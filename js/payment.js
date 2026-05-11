@@ -221,10 +221,12 @@ async function proceedToPayment() {
       tier_price_idr: TIER_CONFIG[selectedTier].price,
     });
 
-    // Save session to localStorage (backup if user closes tab)
+    // Save session ID to localStorage (survives tab close; not sensitive — no auth value alone).
     localStorage.setItem('gaslamar_session', session_id);
-    // Bind secret to this session ID — used by download.js to authorize requests
-    localStorage.setItem('gaslamar_secret_' + session_id, sessionSecret);
+    // Secret stored in sessionStorage only (tab-scoped). Survives the Mayar redirect
+    // because sessionStorage persists within the same tab. After tab close, users must
+    // use their email link (?token=) to re-access — this is intentional security hardening.
+    sessionStorage.setItem('gaslamar_secret_' + session_id, sessionSecret);
     // Note: gaslamar_tier is intentionally NOT persisted to localStorage.
     // The authoritative tier is always read from the server (/check-session → data.tier)
     // and written to sessionStorage there. Client-side storage of tier is display-only.

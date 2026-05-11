@@ -19,7 +19,6 @@
     "clsx": "^2.1.1",
     "docx": "8.5.0",
     "jspdf": "2.5.1",
-    "lucide-react": "^1.8.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "tailwind-merge": "^3.5.0",

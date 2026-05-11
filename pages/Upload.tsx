@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import TierIndicator       from '@/components/upload/TierIndicator';
+import UploadSteps         from '@/components/upload/UploadSteps';
 import CvDropzone          from '@/components/upload/CvDropzone';
 import JobDescriptionInput from '@/components/upload/JobDescriptionInput';
 import SubmitSection       from '@/components/upload/SubmitSection';
@@ -98,7 +99,7 @@ export default function Upload() {
       const reason = params.get('reason');
       if (reason === 'no_session') {
         history.replaceState(null, '', location.pathname);
-        newNotices.push({ type: 'info', text: 'Sesi tidak ditemukan atau sudah kedaluwarsa (hasil analisis gratis aktif selama 2 jam). Silakan upload CV kembali untuk memulai analisis baru.' });
+        newNotices.push({ type: 'info', text: 'Sesi tidak ditemukan atau sudah kedaluwarsa (hasil analisis aktif 2 jam). Silakan upload CV kembali untuk memulai analisis baru.' });
       } else if (reason === 'missing_data') {
         history.replaceState(null, '', location.pathname);
         newNotices.push({ type: 'warning', text: 'Data sesi tidak lengkap. Silakan upload CV kamu untuk memulai.' });
@@ -344,7 +345,7 @@ export default function Upload() {
 
   return (
     <div
-      className="min-h-screen w-full overflow-x-hidden text-gray-900 font-sans"
+      className="min-h-dvh w-full overflow-x-hidden text-gray-900 font-sans"
       style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37,99,235,0.07), transparent)' }}
     >
       {/* Skip link */}
@@ -369,7 +370,7 @@ export default function Upload() {
 
         {/* Notices */}
         {notices.map((n, i) => (
-          <div key={i} className={`rounded-[16px] px-4 py-3 text-sm mb-4 ${noticeCls[n.type]}`} role="status">
+          <div key={i} className={`rounded-[16px] px-4 py-3 text-sm mb-4 ${noticeCls[n.type]}`} role={n.type === 'error' ? 'alert' : 'status'}>
             {n.text}
             {n.link && (
               <> <a href={n.link.href} className="font-semibold underline ml-1">{n.link.label}</a></>
@@ -434,6 +435,7 @@ export default function Upload() {
             backdropFilter: 'blur(14px)',
           }}
         >
+          <UploadSteps currentStep={1} />
           <TierIndicator tier={tier} />
 
           {/* CV upload */}
@@ -483,12 +485,12 @@ export default function Upload() {
 
       <footer className="text-center py-6 text-xs text-slate-400">
         <p className="mb-2 text-slate-400">GasLamar · Bantu kamu lebih pede apply</p>
-        <div className="mt-1 space-x-1 text-slate-300">
-          <a href="privacy.html" className="hover:text-slate-500 hover:underline mx-1">Kebijakan Privasi</a>
+        <div className="mt-1 space-x-1 text-slate-500">
+          <a href="privacy.html" className="hover:text-slate-700 hover:underline mx-1">Kebijakan Privasi</a>
           ·
-          <a href="terms.html" className="hover:text-slate-500 hover:underline mx-1">Syarat Layanan</a>
+          <a href="terms.html" className="hover:text-slate-700 hover:underline mx-1">Syarat Layanan</a>
           ·
-          <a href="accessibility.html" className="hover:text-slate-500 hover:underline mx-1">Aksesibilitas</a>
+          <a href="accessibility.html" className="hover:text-slate-700 hover:underline mx-1">Aksesibilitas</a>
         </div>
       </footer>
     </div>

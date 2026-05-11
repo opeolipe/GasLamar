@@ -1,6 +1,6 @@
 import { jsonResponse }                        from '../cors.js';
 import { getSession }                          from '../sessions.js';
-import { clientIp, log, logError, sha256Full } from '../utils.js';
+import { clientIp, log, logError, sha256Hex } from '../utils.js';
 import { checkRateLimitKV }                    from '../rateLimit.js';
 import { sendPaymentConfirmationEmail }        from '../email.js';
 
@@ -22,27 +22,27 @@ export async function handleResendAccess(request, env) {
   const email = rawEmail.toLowerCase();
   const ip    = clientIp(request);
 
+  // Hash email before using it as a rate-limit key (avoid plaintext PII in KV key space).
+  const emailHash = await sha256Hex(email);
   // Dual-layer rate limiting — silent on both to avoid enumeration.
   // Per-email: 2 per hour. Per-IP: 10 per hour (catches credential stuffing).
-  const rlEmail = await checkRateLimitKV(env, email, 2, 3600, 'resend_access');
+  const rlEmail = await checkRateLimitKV(env, emailHash, 2, 3600, 'resend_access');
   if (!rlEmail.allowed) {
-    log('resend_access_attempt', { email_hash: (await sha256Full(email)).slice(0, 16), rateLimited: true, ip });
+    log('resend_access_attempt', { email_hash: emailHash.slice(0, 16), rateLimited: true, ip });
     return jsonResponse(GENERIC_OK, 200, request, env);
   }
   const rlIp = await checkRateLimitKV(env, ip, 10, 3600, 'resend_access_ip');
   if (!rlIp.allowed) {
-    log('resend_access_attempt', { email_hash: (await sha256Full(email)).slice(0, 16), rateLimited: true, ip });
+    log('resend_access_attempt', { email_hash: emailHash.slice(0, 16), rateLimited: true, ip });
     return jsonResponse(GENERIC_OK, 200, request, env);
   }
 
-  const emailHash = (await sha256Full(email)).slice(0, 16);
-
-  const indexRaw = await env.GASLAMAR_SESSIONS.get(`email_session_${email}`, { type: 'json' });
+  const indexRaw = await env.GASLAMAR_SESSIONS.get(`email_session_${emailHash}`, { type: 'json' });
   // Support both old { session_id } and new { session_ids } format
   const sessionIds = indexRaw?.session_ids ?? (indexRaw?.session_id ? [indexRaw.session_id] : []);
 
   if (!sessionIds.length) {
-    log('resend_access_attempt', { email_hash: emailHash, hasSession: false, rateLimited: false, ip });
+    log('resend_access_attempt', { email_hash: emailHash.slice(0, 16), hasSession: false, rateLimited: false, ip });
     return jsonResponse(GENERIC_OK, 200, request, env);
   }
 
@@ -55,11 +55,11 @@ export async function handleResendAccess(request, env) {
   }
 
   if (!activeIds.length) {
-    log('resend_access_attempt', { email_hash: emailHash, hasSession: false, rateLimited: false, ip });
+    log('resend_access_attempt', { email_hash: emailHash.slice(0, 16), hasSession: false, rateLimited: false, ip });
     return jsonResponse(GENERIC_OK, 200, request, env);
   }
 
-  log('resend_access_attempt', { email_hash: emailHash, hasSession: true, count: activeIds.length, rateLimited: false, ip });
+  log('resend_access_attempt', { email_hash: emailHash.slice(0, 16), hasSession: true, count: activeIds.length, rateLimited: false, ip });
 
   for (const id of activeIds.slice(0, 3)) {
     try {
@@ -71,7 +71,7 @@ export async function handleResendAccess(request, env) {
       logError('resend_access_email_failed', { error: e.message });
     }
   }
-  log('resend_access_sent', { email_hash: emailHash, count: activeIds.length, ip });
+  log('resend_access_sent', { email_hash: emailHash.slice(0, 16), count: activeIds.length, ip });
 
   return jsonResponse(GENERIC_OK, 200, request, env);
 }

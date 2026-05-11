@@ -10,28 +10,28 @@ export default function FooterSection({ ref }: { ref?: React.Ref<HTMLElement> })
       <p className="mt-4 space-x-2">
         <a
           href="access.html"
-          className="text-slate-500 hover:text-slate-800 underline-offset-2 hover:underline font-medium"
+          className="text-slate-600 hover:text-slate-800 underline-offset-2 hover:underline font-medium"
         >
           Akses CV
         </a>
         <span className="text-slate-300" aria-hidden="true">•</span>
         <a
-          href="https://gaslamar.com/privacy.html"
-          className="text-slate-400 hover:text-slate-700 underline-offset-2 hover:underline"
+          href="privacy.html"
+          className="text-slate-600 hover:text-slate-800 underline-offset-2 hover:underline"
         >
           Kebijakan Privasi
         </a>
         <span className="text-slate-300" aria-hidden="true">•</span>
         <a
-          href="https://gaslamar.com/terms.html"
-          className="text-slate-400 hover:text-slate-700 underline-offset-2 hover:underline"
+          href="terms.html"
+          className="text-slate-600 hover:text-slate-800 underline-offset-2 hover:underline"
         >
           Syarat Layanan
         </a>
         <span className="text-slate-300" aria-hidden="true">•</span>
         <a
-          href="https://gaslamar.com/accessibility.html"
-          className="text-slate-400 hover:text-slate-700 underline-offset-2 hover:underline"
+          href="accessibility.html"
+          className="text-slate-600 hover:text-slate-800 underline-offset-2 hover:underline"
         >
           Aksesibilitas
         </a>

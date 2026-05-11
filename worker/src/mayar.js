@@ -51,10 +51,14 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
 
   // Try /invoice/create first (line items), fall back to /payment/create (flat amount)
   // Correct Mayar endpoint paths per Postman collection: /invoice/create and /payment/create
+  // Use a per-session fake mobile derived from the session shortId to avoid all
+  // invoices sharing a single phone number (which could trigger Mayar fraud detection).
+  const fakeMobile = '0800' + shortId.replace(/[^0-9]/g, '0').slice(0, 7).padStart(7, '0');
+
   const invoiceBody = {
     name: `GasLamar User ${shortId}`,
     email,
-    mobile: '08000000000',
+    mobile: fakeMobile,
     description: `${tierConfig.label} — GasLamar.com`,
     redirectUrl,
     items: [{
@@ -67,7 +71,7 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
   const paymentBody = {
     name: `GasLamar User ${shortId}`,
     email,
-    mobile: '08000000000',
+    mobile: fakeMobile,
     amount: tierConfig.amount,
     description: `${tierConfig.label} — GasLamar.com`,
     redirectUrl,
@@ -185,14 +189,11 @@ export async function verifyMayarWebhook(request, env) {
 
   const isSandbox = env.ENVIRONMENT !== 'production';
 
-  // Sandbox bypass: always skip HMAC in non-production environments.
-  // Mayar sandbox (api.mayar.club) behaviour is inconsistent: it sometimes omits
-  // the x-mayar-signature header, sometimes sends a signature that doesn't match
-  // the configured secret (e.g. when the secret was set after the invoice was
-  // created, or when the sandbox uses a different signing key than production).
-  // There is no real financial risk in staging so we accept all webhook payloads
-  // without signature verification.
-  if (isSandbox) {
+  // Sandbox bypass: only skip HMAC when the secret is absent (Mayar sandbox
+  // uses a different signing key and behaviour is inconsistent).  If a secret IS
+  // configured in staging we still verify — this prevents a compromised staging
+  // URL from being used to forge webhook payloads even when the secret is set.
+  if (isSandbox && !secret) {
     return { valid: true, body };
   }
 

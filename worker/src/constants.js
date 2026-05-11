@@ -8,7 +8,7 @@ export const PRODUCTION_ORIGINS = [
 
 export const STAGING_ORIGINS = [
   'https://staging.gaslamar.pages.dev',
-  'http://localhost:3000',
+  'https://localhost:3000',
 ];
 
 // ---- Tier Config ----

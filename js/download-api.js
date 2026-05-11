@@ -68,7 +68,10 @@ async function poll(sessionId) {
   try {
     // Session ID travels via the HttpOnly cookie set by /create-payment.
     // credentials:'include' sends it cross-origin.
-    const res = await fetch(WORKER_URL + '/check-session', { credentials: 'include' });
+    const res = await fetch(WORKER_URL + '/check-session', {
+      credentials: 'include',
+      headers: getSecretHeaders(),
+    });
 
     if (res.status === 400) {
       showSessionError(
