@@ -347,7 +347,7 @@ export default function ResendEmail({ sessionSecret }: Props) {
           {/* Validation messages — one at a time */}
           {emailError && (
             <p role="alert" style={{ margin: '0.35rem 0 0', color: '#DC2626', fontSize: '0.875rem', fontWeight: 500 }}>
-              ⚠️ {emailError}
+              <span aria-hidden="true">⚠️</span> {emailError}
             </p>
           )}
           {!emailError && emailSuggestion && (
@@ -371,17 +371,17 @@ export default function ResendEmail({ sessionSecret }: Props) {
                 width:        '100%',
               }}
             >
-              💡 Maksud kamu <strong>{emailSuggestion}</strong>? Klik untuk pakai alamat ini.
+              <span aria-hidden="true">💡</span><span className="sr-only">Saran: </span> Maksud kamu <strong>{emailSuggestion}</strong>? Klik untuk pakai alamat ini.
             </button>
           )}
           {!emailError && !emailSuggestion && emailIsDisposable && (
             <p style={{ margin: '0.35rem 0 0', color: '#D97706', fontSize: '0.875rem' }}>
-              ⚠️ Gunakan email aktif agar kamu bisa menerima CV hasil perbaikan.
+              <span aria-hidden="true">⚠️</span><span className="sr-only">Peringatan: </span> Gunakan email aktif agar kamu bisa menerima CV hasil perbaikan.
             </p>
           )}
           {!emailError && !emailSuggestion && !emailIsDisposable && emailIsConfirmed && (
             <p style={{ margin: '0.35rem 0 0', color: '#16A34A', fontSize: '0.875rem' }}>
-              ✓ Email terlihat valid
+              <span aria-hidden="true">✓</span><span className="sr-only">Sukses: </span> Email terlihat valid
             </p>
           )}
         </form>
@@ -390,12 +390,12 @@ export default function ResendEmail({ sessionSecret }: Props) {
       {/* Status messages */}
       {successMsg && (
         <p role="status" aria-live="polite" style={{ margin: '0.6rem 0 0', color: '#15803D', fontWeight: 500 }}>
-          ✓ {successMsg}
+          <span aria-hidden="true">✓</span> {successMsg}
         </p>
       )}
       {errorMsg && (
         <p role="alert" style={{ margin: '0.6rem 0 0', color: '#B91C1C', fontWeight: 500 }}>
-          ⚠️ {errorMsg}
+          <span aria-hidden="true">⚠️</span> {errorMsg}
         </p>
       )}
     </div>

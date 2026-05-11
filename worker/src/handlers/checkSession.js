@@ -4,13 +4,7 @@ import { getSession, getSessionTtl } from '../sessions.js';
 import { getSessionIdFromCookie } from '../cookies.js';
 
 export async function handleCheckSession(request, env) {
-  const url = new URL(request.url);
-
-  // Cookie is the primary source. The ?session= query param is a backward-
-  // compatibility fallback for old links/bookmarks. Session IDs in URLs leak
-  // into browser history, Referer headers, and CF access logs — this fallback
-  // should be removed once all pre-cookie links have expired (after 2026-06-01).
-  const sessionId = getSessionIdFromCookie(request) || url.searchParams.get('session');
+  const sessionId = getSessionIdFromCookie(request);
 
   if (!sessionId || !sessionId.startsWith('sess_')) {
     return jsonResponse({ message: 'Session tidak ditemukan. Pastikan browser mengizinkan cookies.', reason: 'no_cookie' }, 401, request, env);

@@ -238,10 +238,7 @@ a, button, input, textarea, select,
    FOCUS RING
    ===================================================== */
 
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-textarea:focus-visible {
+*:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }

@@ -52,7 +52,7 @@ export default function ResultPreview() {
           <span className="inline-flex items-center rounded-full px-[10px] py-[5px] text-sm font-bold bg-amber-100 text-amber-900">5D ringkas</span>
         </div>
         <div className="mb-3">
-          <span className="inline-flex items-center rounded-full px-[14px] py-[8px] text-sm font-extrabold bg-amber-100 text-amber-900">🔮 Status: TIMED</span>
+          <span className="inline-flex items-center rounded-full px-[14px] py-[8px] text-sm font-extrabold bg-amber-100 text-amber-900"><span aria-hidden="true">🔮</span><span className="sr-only">Status analisis: </span> TIMED</span>
         </div>
         <h2 className="m-0 text-[clamp(1.4rem,2.5vw,2.2rem)] leading-tight mb-2" style={SERIF}>
           Peluang interview masih rendah — butuh ±8 minggu untuk siap
@@ -82,7 +82,7 @@ export default function ResultPreview() {
           <div>
             {PRIORITY.length > 0 && (
               <div className="mb-5 rounded-[14px] px-4 py-3" style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.12)" }}>
-                <p className="text-sm font-bold text-red-700 mb-2">🔥 Perlu diperbaiki dulu:</p>
+                <p className="text-sm font-bold text-red-700 mb-2"><span aria-hidden="true">🔥</span> Perlu diperbaiki dulu:</p>
                 <ul className="space-y-1">
                   {PRIORITY.map((d) => (
                     <li key={d.label} className="text-sm text-red-600">• {d.label} ({d.score})</li>
@@ -127,8 +127,8 @@ export default function ResultPreview() {
         {tab === "Perbaikan" && (
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500 mb-4">Cara memperbaiki CV kamu (langsung bisa dipakai)</p>
-            <div className="text-sm mb-3" style={{ color: "#94a3b8", textDecoration: "line-through" }}>❌ "Bertanggung jawab mengelola tugas harian."</div>
-            <div className="text-sm font-bold mb-2" style={{ color: "#0f172a" }}>✅ "Mengelola operasional harian untuk memastikan proses berjalan lancar dan efisien."</div>
+            <div className="text-sm mb-3" style={{ color: "#94a3b8", textDecoration: "line-through" }}><span aria-hidden="true">❌</span><span className="sr-only">Sebelum: </span> "Bertanggung jawab mengelola tugas harian."</div>
+            <div className="text-sm font-bold mb-2" style={{ color: "#0f172a" }}><span aria-hidden="true">✅</span><span className="sr-only">Sesudah: </span> "Mengelola operasional harian untuk memastikan proses berjalan lancar dan efisien."</div>
             <p className="text-sm text-slate-400 mb-5">Jika ada data, tambahkan hasil konkret, misalnya: "Meningkatkan efisiensi proses sebesar X%"</p>
             <a
               href="upload.html"

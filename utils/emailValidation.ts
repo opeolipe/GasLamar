@@ -51,8 +51,12 @@ export function validateEmail(raw: string): EmailValidation {
   const email      = raw.trim();
   const normalized = email.toLowerCase();
 
+  if (!email) {
+    return { valid: false, error: 'Email diperlukan untuk melanjutkan.', suggestion: null, isDisposable: false };
+  }
+
   if (!EMAIL_REGEX.test(email)) {
-    return { valid: false, error: 'Email tidak valid.', suggestion: null, isDisposable: false };
+    return { valid: false, error: 'Format email tidak valid. Contoh: nama@domain.com', suggestion: null, isDisposable: false };
   }
 
   const atIdx     = normalized.indexOf('@');

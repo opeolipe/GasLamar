@@ -1,3 +1,5 @@
+import React from 'react';
+
 interface Props {
   selectedTier:        string | null;
   email:               string;
@@ -11,10 +13,10 @@ interface Props {
   isConfirmed?:        boolean;
 }
 
-function getHelper(tier: string | null): string {
-  if (tier === '3pack')   return '🔒 Link berlaku 30 hari — bisa dipakai untuk 3 CV berbeda';
-  if (tier === 'jobhunt') return '⚡ Link berlaku 30 hari — bisa dipakai untuk 10 CV berbeda';
-  return '🔒 Link download dikirim ke email ini setelah pembayaran';
+function getHelper(tier: string | null): React.ReactNode {
+  if (tier === '3pack')   return <><span aria-hidden="true">🔒</span><span className="sr-only">Aman: </span> Link berlaku 30 hari — bisa dipakai untuk 3 CV berbeda</>;
+  if (tier === 'jobhunt') return <><span aria-hidden="true">⚡</span><span className="sr-only">Aktif: </span> Link berlaku 30 hari — bisa dipakai untuk 10 CV berbeda</>;
+  return <><span aria-hidden="true">🔒</span><span className="sr-only">Aman: </span> Link download dikirim ke email ini setelah pembayaran</>;
 }
 
 export default function EmailCapture({
@@ -77,7 +79,7 @@ export default function EmailCapture({
       </p>
       {error && (
         <p role="alert" style={{ color: '#DC2626', fontSize: '0.875rem', marginTop: '0.4rem', fontWeight: 500 }}>
-          ⚠️ {error}
+          <span aria-hidden="true">⚠️</span> {error}
         </p>
       )}
       {showSuggestion && (
@@ -101,12 +103,12 @@ export default function EmailCapture({
             fontFamily:   'inherit',
           }}
         >
-          💡 Maksud kamu: <strong>{suggestion}</strong>? <span style={{ textDecoration: 'underline' }}>Pakai ini</span>
+          <span aria-hidden="true">💡</span><span className="sr-only">Saran: </span> Maksud kamu: <strong>{suggestion}</strong>? <span style={{ textDecoration: 'underline' }}>Pakai ini</span>
         </button>
       )}
       {showDisposable && (
-        <p style={{ color: '#D97706', fontSize: '0.875rem', marginTop: '0.4rem', fontWeight: 500 }}>
-          ⚠️ Gunakan email aktif agar kamu bisa menerima CV hasil perbaikan.
+        <p role="alert" style={{ color: '#D97706', fontSize: '0.875rem', marginTop: '0.4rem', fontWeight: 500 }}>
+          <span aria-hidden="true">⚠️</span><span className="sr-only">Peringatan: </span> Gunakan email pribadi, bukan email sementara.
         </p>
       )}
     </div>

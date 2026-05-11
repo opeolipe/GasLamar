@@ -123,11 +123,11 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
               </div>
             </div>
             <div className="flex items-center gap-3 flex-shrink-0">
-              <span className="text-sm text-emerald-600 font-medium">✓ Siap</span>
+              <span className="text-sm text-emerald-600 font-medium"><span aria-hidden="true">✓</span> Siap</span>
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onRemove(); }}
-                className="min-h-[36px] px-3 text-blue-600 font-medium text-sm whitespace-nowrap hover:underline"
+                className="min-h-[44px] px-3 text-blue-600 font-medium text-sm whitespace-nowrap hover:underline inline-flex items-center"
                 aria-label="Ganti file CV yang sudah dipilih"
               >
                 Ganti
@@ -181,10 +181,10 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
           <div className="flex items-center justify-between flex-wrap gap-x-2 gap-y-1 mt-1 text-xs min-w-0">
             {pasteShort ? (
               <span className="text-amber-600 font-medium min-w-0 break-words" style={{ overflowWrap: 'anywhere' }}>
-                ⚠️ Terlalu singkat — tambahkan detail pengalaman &amp; skill
+                <span aria-hidden="true">⚠️</span><span className="sr-only">Peringatan: </span> Terlalu singkat — tambahkan detail pengalaman &amp; skill
               </span>
             ) : pasteReady ? (
-              <span className="text-emerald-600 font-medium">✓ CV siap</span>
+              <span className="text-emerald-600 font-medium"><span aria-hidden="true">✓</span> CV siap</span>
             ) : (
               <span />
             )}
@@ -218,13 +218,13 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
 
       {scanWarning && (
         <div className="mt-2 rounded-[10px] px-3 py-2.5 text-sm font-medium bg-amber-50 border border-amber-200 text-amber-800">
-          ⚠️ PDF ini sepertinya hasil scan atau gambar — teks tidak bisa dibaca. Coba upload versi DOCX atau PDF yang bisa di-copy.
+          <span aria-hidden="true">⚠️</span><span className="sr-only">Peringatan: </span> PDF ini sepertinya hasil scan atau gambar — teks tidak bisa dibaca. Coba upload versi DOCX atau PDF yang bisa di-copy.
         </div>
       )}
 
       {error && (
         <div role="alert" className="mt-3 rounded-[10px] px-3 py-2.5 text-sm font-medium bg-red-50 border border-red-200 text-red-700">
-          ⚠️ {error}
+          <span aria-hidden="true">⚠️</span> {error}
         </div>
       )}
     </div>

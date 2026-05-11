@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef }       from 'react';
+import PaymentTransition                       from '@/components/payment/PaymentTransition';
 import ScoreDisplay                            from '@/components/result/ScoreDisplay';
 import GapList                                 from '@/components/result/GapList';
 import PricingSelector                         from '@/components/result/PricingSelector';
@@ -97,6 +98,7 @@ export default function Result() {
   const [paymentInProgress,     setPaymentInProgress]     = useState(false);
   const [payBtnOverride,        setPayBtnOverride]        = useState<string | null>(null);
   const [paymentError,          setPaymentError]          = useState<string | null>(null);
+  const [transitionInvoiceUrl,  setTransitionInvoiceUrl]  = useState<string | null>(null);
   const [sessionExpiredByPay,   setSessionExpiredByPay]   = useState(false);
   const [showExpiryToast,       setShowExpiryToast]       = useState(false);
   const [tierError,             setTierError]             = useState(false);
@@ -231,8 +233,9 @@ export default function Result() {
             let urlSafe = false;
             try { urlSafe = new URL(pending.invoice_url).protocol === 'https:'; } catch (_) {}
             if (!urlSafe) throw new Error('invalid_invoice_url');
+            setPaymentInProgress(true);
             setPayBtnOverride('Mengalihkan ke halaman pembayaran...');
-            window.location.href = pending.invoice_url;
+            setTransitionInvoiceUrl(pending.invoice_url);
             return;
           }
           if (!tierMatches && !currentCvKey) {
@@ -353,7 +356,7 @@ export default function Result() {
 
       sessionStorage.removeItem('gaslamar_cv_key');
       setPayBtnOverride('Mengalihkan ke halaman pembayaran...');
-      window.location.href = invoice_url;
+      setTransitionInvoiceUrl(invoice_url);
 
     } catch (err) {
       clearTimeout(timeout);
@@ -463,7 +466,7 @@ export default function Result() {
         {/* ── Error ── */}
         {error && !loading && (
           <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem 2rem' }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>⚠️</div>
+            <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }} aria-hidden="true">⚠️</div>
             <h2 style={{ fontWeight: 600, fontSize: '1.2rem', margin: '0 0 0.5rem', fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>Analisis Gagal</h2>
             <p style={{ color: '#64748B', fontSize: '0.875rem', margin: '0 0 1.5rem' }}>{error}</p>
             <a href="upload.html" style={{ display: 'inline-block', background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', fontWeight: 700, padding: '0.75rem 1.5rem', borderRadius: 60, textDecoration: 'none', boxShadow: '0 8px 24px rgba(37,99,235,0.25)' }}>
@@ -578,7 +581,7 @@ export default function Result() {
                             }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                                 <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#111827' }}>
-                                  {dim.score < 4 ? '❌' : '⚠️'} {dim.label}
+                                  <span aria-hidden="true">{dim.score < 4 ? '❌' : '⚠️'}</span><span className="sr-only">{dim.score < 4 ? 'Kritis: ' : 'Perlu perbaikan: '}</span> {dim.label}
                                 </span>
                                 <span style={{ fontSize: '0.8rem', fontWeight: 700, color: dim.score < 4 ? '#DC2626' : '#92400E', flexShrink: 0, marginLeft: 8 }}>
                                   {dim.score}/10
@@ -757,7 +760,7 @@ export default function Result() {
 
                 {emailIsConfirmed && !sessionExpiredByPay && (
                   <p style={{ fontSize: '0.8rem', color: '#374151', textAlign: 'center', marginTop: '0.5rem' }}>
-                    📬 CV akan dikirim ke: <strong>{email.trim()}</strong>
+                    <span aria-hidden="true">📬</span> CV akan dikirim ke: <strong>{email.trim()}</strong>
                   </p>
                 )}
                 {paymentError && (
@@ -770,7 +773,7 @@ export default function Result() {
 
             {/* Trust line */}
             <div style={{ textAlign: 'center', padding: '0.5rem 0 0.5rem', fontSize: '0.8rem', color: '#94A3B8', lineHeight: 1.7 }}>
-              🔒 Data kamu aman &nbsp;·&nbsp; Bayar via QRIS, VA, e-wallet
+              <span aria-hidden="true">🔒</span><span className="sr-only">Aman: </span> Data kamu aman &nbsp;·&nbsp; Bayar via QRIS, VA, e-wallet
             </div>
 
             {/* Back link */}
@@ -803,6 +806,8 @@ export default function Result() {
         }
         .gaslamar-shake { animation: gaslamarShake 0.4s ease-in-out; }
       `}</style>
+
+      <PaymentTransition invoiceUrl={transitionInvoiceUrl} />
     </div>
   );
 }

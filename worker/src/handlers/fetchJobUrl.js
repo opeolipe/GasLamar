@@ -151,7 +151,10 @@ export async function handleFetchJobUrl(request, env) {
     );
   }
 
-  const isLinkedIn = hostname === 'linkedin.com' || hostname.endsWith('.linkedin.com');
+  const isLinkedIn  = hostname === 'linkedin.com'      || hostname.endsWith('.linkedin.com');
+  const isIndeed    = hostname === 'indeed.com'         || hostname.endsWith('.indeed.com');
+  const isGlassdoor = hostname === 'glassdoor.com'      || hostname.endsWith('.glassdoor.com');
+  const isJobStreet = hostname === 'jobstreet.co.id'    || hostname.endsWith('.jobstreet.co.id');
 
   // ── Step 5: Fetch the page ───────────────────────────────────────────────────
   // All SSRF checks have passed; make the outbound request.
@@ -235,13 +238,27 @@ export async function handleFetchJobUrl(request, env) {
     return jsonResponse({ message: 'Tidak bisa mengakses URL tersebut. Coba copy-paste manual.' }, 422, request, env);
   }
 
-  // LinkedIn redirects unauthenticated requests to /authwall — detect the redirect
-  // before wasting CPU on HTMLRewriter extraction.
-  // currentUrl holds the final resolved URL after manual redirect chain.
+  // Detect auth-gate redirects via the final resolved URL — checked before HTMLRewriter
+  // extraction to avoid wasting CPU on pages that clearly have no JD content.
   if (isLinkedIn && (currentUrl.includes('/authwall') || currentUrl.includes('/login'))) {
     return jsonResponse({
       message: 'LinkedIn membutuhkan login untuk melihat lowongan ini. Silakan copy-paste deskripsi pekerjaan secara manual.',
       linkedin_auth_required: true,
+    }, 422, request, env);
+  }
+  if (isIndeed && (currentUrl.includes('/account/login') || currentUrl.includes('/auth/login'))) {
+    return jsonResponse({
+      message: 'Indeed memerlukan login untuk melihat lowongan ini. Silakan copy-paste deskripsi pekerjaan secara manual.',
+    }, 422, request, env);
+  }
+  if (isGlassdoor && (currentUrl.includes('/profile/login_input') || currentUrl.includes('/signin'))) {
+    return jsonResponse({
+      message: 'Glassdoor memerlukan login untuk melihat lowongan ini. Silakan copy-paste deskripsi pekerjaan secara manual.',
+    }, 422, request, env);
+  }
+  if (isJobStreet && currentUrl.includes('/oauth/')) {
+    return jsonResponse({
+      message: 'JobStreet memerlukan login untuk melihat lowongan ini. Silakan copy-paste deskripsi pekerjaan secara manual.',
     }, 422, request, env);
   }
 
@@ -321,6 +338,32 @@ export async function handleFetchJobUrl(request, env) {
       message: 'Tidak dapat mengambil job posting dari LinkedIn. Silakan copy-paste bagian Requirements & Responsibilities secara manual.',
       linkedin_auth_required: true,
     }, 422, request, env);
+  }
+
+  // Content-based auth-gate detection for other platforms.
+  // Only triggered after content extraction — catches HTTP-200 login walls that
+  // don't redirect (URL-based checks above cover redirect-based gates).
+  const OTHER_PLATFORM_GATES = [
+    {
+      active: isIndeed,
+      markers: ['Sign in to Indeed', 'Log in to Indeed', 'Create an Indeed account', '/account/login'],
+      message: 'Indeed memerlukan login untuk melihat lowongan ini. Silakan copy-paste deskripsi pekerjaan secara manual.',
+    },
+    {
+      active: isGlassdoor,
+      markers: ['Sign In | Glassdoor', 'Sign in to Glassdoor', 'glassdoor.com/profile/login_input'],
+      message: 'Glassdoor memerlukan login untuk melihat lowongan ini. Silakan copy-paste deskripsi pekerjaan secara manual.',
+    },
+    {
+      active: isJobStreet,
+      markers: ['Sign in to JobStreet', 'Masuk ke JobStreet', 'jobstreet.co.id/oauth/'],
+      message: 'JobStreet memerlukan login untuk melihat lowongan ini. Silakan copy-paste deskripsi pekerjaan secara manual.',
+    },
+  ];
+  for (const { active, markers, message } of OTHER_PLATFORM_GATES) {
+    if (active && markers.some(m => raw.toLowerCase().includes(m.toLowerCase()))) {
+      return jsonResponse({ message }, 422, request, env);
+    }
   }
 
   // LinkedIn-specific: JD content appears after significant nav text.

@@ -16,9 +16,9 @@ export default function UpgradeNudge({ showUpsell = false }: Props) {
         }}
       >
         <div className="text-sm font-bold inline-block px-3 py-1 rounded-full mb-4" style={{ background: '#FEF3C7', color: '#92400E' }}>
-          💰 Hemat 40% vs beli satuan
+          <span aria-hidden="true">💰</span> Hemat 40% vs beli satuan
         </div>
-        <h3 className="text-base font-semibold text-slate-900 mb-2">🎯 Lagi banyak lamaran?</h3>
+        <h3 className="text-base font-semibold text-slate-900 mb-2"><span aria-hidden="true">🎯</span> Lagi banyak lamaran?</h3>
         <p className="text-sm text-blue-700 mb-5">
           Upgrade ke <strong>3-Pack</strong> — Rp 149.000 untuk 3 CV bilingual.
           <br />Lebih hemat, lebih banyak pilihan.

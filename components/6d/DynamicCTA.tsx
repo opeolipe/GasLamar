@@ -30,7 +30,7 @@ export default function DynamicCTA({ issueKey, score }: Props) {
         className="w-full rounded-full bg-blue-600 hover:bg-blue-700 text-white py-3 font-medium transition-colors cursor-pointer text-sm"
         style={{ fontFamily: 'inherit' }}
       >
-        🔓 {label}
+        <span aria-hidden="true">🔓</span> {label}
       </button>
       {urgency && (
         <p className="text-sm text-slate-500 text-center mt-2">

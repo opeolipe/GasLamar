@@ -778,24 +778,29 @@ describe('POST /session/ping', () => {
 });
 
 describe('GET /check-session', () => {
-  it('returns 401 when no session cookie or query param present', async () => {
+  it('returns 401 when no session cookie is present', async () => {
     const res = await get('/check-session');
     expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.reason).toBe('no_cookie');
   });
 
-  it('returns 401 when session query param lacks sess_ prefix (backward compat path)', async () => {
-    const res = await get('/check-session?session=invalid_id');
+  it('rejects ?session= URL param — must use cookie (no_cookie when cookie absent)', async () => {
+    // Session IDs must never be accepted via URL query params.
+    const res = await get('/check-session?session=sess_some_valid_looking_id');
     expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.reason).toBe('no_cookie');
   });
 
-  it('returns 404 for unknown session', async () => {
-    const res = await get('/check-session?session=sess_nonexistent_id');
+  it('returns 404 for unknown session_id in cookie', async () => {
+    const res = await get('/check-session', sessionCookie('sess_nonexistent_id'));
     expect(res.status).toBe(404);
   });
 
-  it('returns current status for known session', async () => {
+  it('returns current status for known session via cookie', async () => {
     const sessionId = await seedSession('pending', 'coba');
-    const res = await get(`/check-session?session=${encodeURIComponent(sessionId)}`);
+    const res = await get('/check-session', sessionCookie(sessionId));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.status).toBe('pending');
@@ -1209,8 +1214,8 @@ describe('POST /webhook/mayar', () => {
     expect(session).toBeNull();
   });
 
-  it('rejects malformed session ID on GET /check-session', async () => {
-    // ?session=invalid does not start with 'sess_' — should be rejected
+  it('rejects request to GET /check-session with no cookie', async () => {
+    // No cookie → 401; ?session= URL param is no longer accepted
     const res = await SELF.fetch('https://gaslamar.com/check-session?session=invalid_id');
     expect(res.status).toBe(401);
     const body = await res.json();
