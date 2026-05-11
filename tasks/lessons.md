@@ -1,3 +1,20 @@
+## Scoring false positives from Indonesian CV artefacts (2026-05-11)
+
+Education degree codes (D1, D3, S1, S2, S3) and bare career-tenure strings ("14 tahun pengalaman") are not achievement metrics. LLMs regularly include them in `angka_di_cv` despite prompt instructions, because the examples and exclusion list were incomplete.
+
+**Patterns to guard against:**
+- `angka_di_cv` containing degree codes → `has_numbers = true` → `portfolio` inflated to 5+
+- `angka_di_cv` containing inferred tenure like "14 tahun pengalaman" → same inflation
+- `sertifikat` containing formal education ("D1 Business Mgmt") → `has_certs = true` → `portfolio += 2`
+- `sertifikat = null` (LLM omits field) → `null !== 'TIDAK ADA'` → `has_certs = true`
+
+**Fixes needed every time the extract prompt or analyze.js changes:**
+1. Bump `EXTRACT_CACHE_VERSION` AND `ANALYSIS_CACHE_VERSION` — they are independent cache tiers. Missing ANALYSIS_CACHE_VERSION means returning users get stale scores from the old logic forever (until 48h TTL).
+2. Add stripping in `stripNonAchievementNumbers` as defence-in-depth even after tightening the prompt — LLMs drift.
+3. Coerce null/missing `sertifikat`/`entitas_klaim` in `validateExtractOutput()` before any downstream code touches them.
+
+---
+
 ## Lesson: Update ALL tests when removing a legacy code path
 
 **Pattern:** When a refactor removes a handler path (e.g., the `?session=` URL fallback in
