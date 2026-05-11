@@ -298,7 +298,12 @@ export default function Upload() {
 
   function handleSubmit() {
     if (!hasFile) {
-      setFileError('Masukkan CV dulu ya');
+      const pasteHasContent = manualCvText.trim().length > 0;
+      setFileError(
+        pasteHasContent
+          ? 'Terlalu singkat — tambahkan detail pengalaman & skill'
+          : 'Masukkan CV dulu ya'
+      );
       cvSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
