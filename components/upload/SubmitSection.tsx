@@ -32,9 +32,6 @@ export default function SubmitSection({ isLoading, showJdHint, jdHintText, onSub
         </p>
       )}
 
-      <p className="text-center text-sm text-slate-400 mt-4">
-        CV tidak disimpan • tanpa registrasi • rata-rata selesai {'<'} 1 menit • hasil gratis aktif 2 jam
-      </p>
     </div>
   );
 }
