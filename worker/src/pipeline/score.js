@@ -45,10 +45,34 @@ function hasTypos(text) {
  * @param {object} analysisResult — Stage 2 output
  * @returns {object} skor_6d with keys matching the schema
  */
+// Stop-words excluded when splitting a JD title into match tokens.
+const TITLE_STOP_WORDS = new Set([
+  'and', 'the', 'of', 'for', 'in', 'at', 'to', 'a', 'an',
+  'dan', 'di', 'ke', 'dari', 'untuk', 'dengan', 'yang', 'atau', 'pada',
+]);
+
+/**
+ * Splits a JD title into meaningful keyword tokens (min 3 chars, no stop-words).
+ * "Senior Marketing Manager" → ["senior", "marketing", "manager"]
+ * Used for north_star and recruiter_signal bonuses so a partial title match
+ * (e.g. CV says "Marketing" when JD says "Senior Marketing Manager") still scores.
+ */
+function titleTokens(judulRole) {
+  return (judulRole || '')
+    .toLowerCase()
+    .split(/[\s\/\-,()]+/)
+    .filter(t => t.length >= 3 && !TITLE_STOP_WORDS.has(t));
+}
+
 export function calculateScores(extractedData, analysisResult) {
   const { cv, jd } = extractedData;
   const { skill_match, format_ok, has_numbers, number_count, has_certs } = analysisResult;
   const matchRatio = skill_match.match_ratio;
+  const expLower   = cv.pengalaman_mentah.toLowerCase();
+
+  // Pre-compute title tokens once — reused in north_star and recruiter_signal.
+  const tokens      = titleTokens(jd.judul_role);
+  const titleInExp  = tokens.length > 0 && tokens.some(t => expLower.includes(t));
 
   // --- north_star: how well CV content aligns with target role ---
   let north_star = 0;
@@ -56,17 +80,17 @@ export function calculateScores(extractedData, analysisResult) {
   else if (matchRatio >= 0.4) north_star += 4;
   else                        north_star += 2;
 
-  // Bonus: role title appears in experience text
-  if (cv.pengalaman_mentah.toLowerCase().includes(jd.judul_role.toLowerCase())) north_star += 2;
+  // Bonus: any role-title keyword appears in experience text
+  if (titleInExp) north_star += 2;
   // Bonus: industry appears in experience text (only meaningful when JD names an industry)
-  if (jd.industri !== 'UMUM' && cv.pengalaman_mentah.toLowerCase().includes(jd.industri.toLowerCase())) north_star += 2;
+  if (jd.industri !== 'UMUM' && expLower.includes(jd.industri.toLowerCase())) north_star += 2;
   north_star = Math.min(north_star, 10);
 
   // --- recruiter_signal: first-7-second impression ---
   let recruiter_signal = 0;
-  if (format_ok) recruiter_signal += 5;                                    // clean ATS layout
-  if (!hasTypos(cv.pengalaman_mentah)) recruiter_signal += 3;              // no informal writing
-  if (cv.pengalaman_mentah.toLowerCase().includes(jd.judul_role.toLowerCase())) recruiter_signal += 2; // role keyword in headline/exp
+  if (format_ok) recruiter_signal += 5;               // clean ATS layout
+  if (!hasTypos(cv.pengalaman_mentah)) recruiter_signal += 3;  // no informal writing
+  if (titleInExp) recruiter_signal += 2;              // role keyword in exp
   recruiter_signal = Math.min(recruiter_signal, 10);
 
   // --- effort: time needed to close all gaps (10 = fast, 0 = months away) ---
@@ -82,8 +106,22 @@ export function calculateScores(extractedData, analysisResult) {
 
   // --- risk: will these skills still be in demand in 2-3 years? ---
   let risk = 5; // neutral baseline
-  const fundamentalSkills = ['excel', 'komunikasi', 'manajemen proyek', 'leadership'];
-  if (jd.skills_diminta.some(s => fundamentalSkills.includes(s.toLowerCase()))) risk += 3;
+  // Fundamental/durable skills listed in both Indonesian and English so JDs in
+  // either language both receive the stability bonus (Set for O(1) lookup).
+  const fundamentalSkills = new Set([
+    'excel', 'spreadsheet',
+    'komunikasi', 'communication',
+    'kepemimpinan', 'leadership',
+    'manajemen proyek', 'project management',
+    'kerja tim', 'kerjasama', 'teamwork', 'collaboration',
+    'pemecahan masalah', 'problem solving',
+    'presentasi', 'presentation',
+    'negosiasi', 'negotiation',
+    'manajemen', 'management',
+    'analisis', 'analysis', 'analitik', 'analytics',
+    'layanan pelanggan', 'customer service',
+  ]);
+  if (jd.skills_diminta.some(s => fundamentalSkills.has(s.toLowerCase()))) risk += 3;
   // Stable-demand industries get a bonus
   if (['FMCG', 'Finance', 'Pemerintahan'].includes(jd.industri)) risk += 2;
   risk = Math.min(risk, 10);

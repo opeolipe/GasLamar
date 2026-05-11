@@ -72,6 +72,49 @@ describe('runAnalysis — skill matching', () => {
     expect(r.skill_match.matched).toEqual([]);
     expect(r.skill_match.missing).toEqual([]);
   });
+
+  // Synonym bridge: ID ↔ EN
+  it('JD "communication" matches CV "komunikasi" via synonym', () => {
+    const r = runAnalysis(extracted({
+      skills_mentah: 'komunikasi presentasi kerja tim',
+      skills_diminta: ['communication'],
+    }));
+    expect(r.skill_match.match_ratio).toBe(1);
+    expect(r.skill_match.missing).toEqual([]);
+  });
+
+  it('JD "leadership" matches CV "kepemimpinan" via synonym', () => {
+    const r = runAnalysis(extracted({
+      skills_mentah: 'kepemimpinan manajemen',
+      skills_diminta: ['leadership'],
+    }));
+    expect(r.skill_match.match_ratio).toBe(1);
+  });
+
+  it('JD "komunikasi" matches CV "communication" via synonym', () => {
+    const r = runAnalysis(extracted({
+      skills_mentah: 'communication leadership teamwork',
+      skills_diminta: ['komunikasi'],
+    }));
+    expect(r.skill_match.match_ratio).toBe(1);
+  });
+
+  it('JD "project management" matches CV "manajemen proyek" via synonym', () => {
+    const r = runAnalysis(extracted({
+      skills_mentah: 'manajemen proyek Excel',
+      skills_diminta: ['project management'],
+    }));
+    expect(r.skill_match.match_ratio).toBe(1);
+  });
+
+  it('synonym match keeps non-matching skills in missing array', () => {
+    const r = runAnalysis(extracted({
+      skills_mentah: 'komunikasi',
+      skills_diminta: ['communication', 'SQL'],
+    }));
+    expect(r.skill_match.match_ratio).toBeCloseTo(0.5);
+    expect(r.skill_match.missing).toEqual(['SQL']);
+  });
 });
 
 // ── runAnalysis — format and signals ─────────────────────────────────────────
@@ -184,14 +227,14 @@ describe('calculateScores — north_star thresholds', () => {
     expect(calculateScores(ext, runAnalysis(ext)).north_star).toBeGreaterThanOrEqual(6);
   });
 
-  it('matchRatio 0.4–0.69 → north_star = 4 (no bonuses)', () => {
-    // 2 of 4 = 0.5, role/industry not in exp text
+  it('matchRatio 0.4–0.69 → north_star = 4 (no title/industry bonuses)', () => {
+    // 2 of 4 = 0.5; exp text contains no token from "Purchasing Specialist" and industri is Xyz
     const ext = extracted({
       skills_mentah: 'Node.js React',
       skills_diminta: ['Node.js', 'React', 'SQL', 'TypeScript'],
-      pengalaman_mentah: 'Developer backend tanpa skill yang relevan sekali',
+      pengalaman_mentah: 'Staff administrasi tanpa skill yang relevan sekali',
       industri: 'Xyz',
-      judul_role: 'Backend Developer',
+      judul_role: 'Purchasing Specialist',
     });
     const analysis = runAnalysis(ext);
     expect(analysis.skill_match.match_ratio).toBe(0.5);
@@ -209,6 +252,47 @@ describe('calculateScores — north_star thresholds', () => {
     const analysis = runAnalysis(ext);
     expect(analysis.skill_match.match_ratio).toBe(0);
     expect(calculateScores(ext, analysis).north_star).toBe(2);
+  });
+});
+
+// ── calculateScores — north_star title-token splitting ────────────────────────
+
+describe('calculateScores — north_star title-token bonus', () => {
+  it('partial title match "Marketing" scores bonus for JD "Senior Marketing Manager"', () => {
+    // matchRatio 0.5 → base 4. Title token "marketing" is in exp → +2 = 6.
+    const ext = extracted({
+      skills_mentah: 'Node.js React',
+      skills_diminta: ['Node.js', 'React', 'SQL', 'TypeScript'],
+      pengalaman_mentah: 'Marketing Specialist 3 tahun di perusahaan retail',
+      industri: 'Xyz',
+      judul_role: 'Senior Marketing Manager',
+    });
+    const analysis = runAnalysis(ext);
+    expect(calculateScores(ext, analysis).north_star).toBe(6);
+  });
+
+  it('no title token in exp → no bonus', () => {
+    const ext = extracted({
+      skills_mentah: 'Word Excel',
+      skills_diminta: ['Node.js', 'React', 'SQL', 'AWS', 'Docker'],
+      pengalaman_mentah: 'Staff admin perkantoran biasa',
+      industri: 'Xyz',
+      judul_role: 'DevOps Engineer',
+    });
+    const analysis = runAnalysis(ext);
+    expect(calculateScores(ext, analysis).north_star).toBe(2);
+  });
+
+  it('single-token title still works', () => {
+    const ext = extracted({
+      skills_mentah: 'Node.js React SQL',
+      skills_diminta: ['Node.js', 'React', 'SQL'],
+      pengalaman_mentah: 'Developer backend solid 3 tahun',
+      judul_role: 'Developer',
+    });
+    const analysis = runAnalysis(ext);
+    // matchRatio 1.0 → base 6, "developer" in exp → +2 = 8
+    expect(calculateScores(ext, analysis).north_star).toBeGreaterThanOrEqual(8);
   });
 });
 
@@ -295,6 +379,21 @@ describe('calculateScores — portfolio', () => {
 describe('calculateScores — risk', () => {
   it('fundamental skill "excel" in JD → risk = 8 (base 5 + 3)', () => {
     const ext = extracted({ skills_diminta: ['excel', 'reporting'] });
+    expect(calculateScores(ext, runAnalysis(ext)).risk).toBe(8);
+  });
+
+  it('English fundamental "communication" in JD → risk = 8 (EN parity)', () => {
+    const ext = extracted({ skills_diminta: ['communication', 'teamwork'] });
+    expect(calculateScores(ext, runAnalysis(ext)).risk).toBe(8);
+  });
+
+  it('English "leadership" in JD → risk = 8 (EN parity)', () => {
+    const ext = extracted({ skills_diminta: ['leadership', 'presentation'] });
+    expect(calculateScores(ext, runAnalysis(ext)).risk).toBe(8);
+  });
+
+  it('English "project management" in JD → risk = 8 (EN parity)', () => {
+    const ext = extracted({ skills_diminta: ['project management'] });
     expect(calculateScores(ext, runAnalysis(ext)).risk).toBe(8);
   });
 
