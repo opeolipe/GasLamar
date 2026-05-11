@@ -188,7 +188,7 @@ export default function Home() {
             type="button"
             aria-label="Tutup banner"
             onClick={() => { setShowStickyBar(false); setStickyDismissed(true); }}
-            style={{ flexShrink: 0, minWidth: 36, minHeight: 36, borderRadius: '50%', border: 'none', background: 'rgba(148,163,184,0.15)', color: '#64748b', fontSize: '1.1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ flexShrink: 0, minWidth: 44, minHeight: 44, borderRadius: '50%', border: 'none', background: 'rgba(148,163,184,0.15)', color: '#64748b', fontSize: '1.1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             ×
           </button>

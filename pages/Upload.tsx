@@ -370,7 +370,7 @@ export default function Upload() {
 
         {/* Notices */}
         {notices.map((n, i) => (
-          <div key={i} className={`rounded-[16px] px-4 py-3 text-sm mb-4 ${noticeCls[n.type]}`} role="status">
+          <div key={i} className={`rounded-[16px] px-4 py-3 text-sm mb-4 ${noticeCls[n.type]}`} role={n.type === 'error' ? 'alert' : 'status'}>
             {n.text}
             {n.link && (
               <> <a href={n.link.href} className="font-semibold underline ml-1">{n.link.label}</a></>
@@ -485,12 +485,12 @@ export default function Upload() {
 
       <footer className="text-center py-6 text-xs text-slate-400">
         <p className="mb-2 text-slate-400">GasLamar · Bantu kamu lebih pede apply</p>
-        <div className="mt-1 space-x-1 text-slate-300">
-          <a href="privacy.html" className="hover:text-slate-500 hover:underline mx-1">Kebijakan Privasi</a>
+        <div className="mt-1 space-x-1 text-slate-500">
+          <a href="privacy.html" className="hover:text-slate-700 hover:underline mx-1">Kebijakan Privasi</a>
           ·
-          <a href="terms.html" className="hover:text-slate-500 hover:underline mx-1">Syarat Layanan</a>
+          <a href="terms.html" className="hover:text-slate-700 hover:underline mx-1">Syarat Layanan</a>
           ·
-          <a href="accessibility.html" className="hover:text-slate-500 hover:underline mx-1">Aksesibilitas</a>
+          <a href="accessibility.html" className="hover:text-slate-700 hover:underline mx-1">Aksesibilitas</a>
         </div>
       </footer>
     </div>

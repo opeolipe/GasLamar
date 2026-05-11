@@ -462,13 +462,13 @@ export default function Download() {
           </a>
         </div>
 
-        <footer className="text-center py-6 text-sm text-slate-400">
-          <p className="mb-3 text-slate-400">GasLamar · Karena nyari kerja udah cukup ribet</p>
-          <a href="privacy.html"       className="text-slate-400 no-underline hover:underline mx-2">Kebijakan Privasi</a>
+        <footer className="text-center py-6 text-sm text-slate-500">
+          <p className="mb-3 text-slate-500">GasLamar · Karena nyari kerja udah cukup ribet</p>
+          <a href="privacy.html"       className="text-slate-600 no-underline hover:underline mx-2">Kebijakan Privasi</a>
           ·
-          <a href="terms.html"         className="text-slate-400 no-underline hover:underline mx-2">Syarat Layanan</a>
+          <a href="terms.html"         className="text-slate-600 no-underline hover:underline mx-2">Syarat Layanan</a>
           ·
-          <a href="accessibility.html" className="text-slate-400 no-underline hover:underline mx-2">Aksesibilitas</a>
+          <a href="accessibility.html" className="text-slate-600 no-underline hover:underline mx-2">Aksesibilitas</a>
         </footer>
       </main>
     </div>

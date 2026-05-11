@@ -454,12 +454,12 @@ export default function Access() {
         </div>
       </main>
 
-      <footer className="text-center py-6 text-sm text-slate-400">
-        <a href="privacy.html"       className="text-slate-400 underline hover:text-slate-600 mx-2">Kebijakan Privasi</a>
+      <footer className="text-center py-6 text-sm text-slate-500">
+        <a href="privacy.html"       className="text-slate-600 underline hover:text-slate-800 mx-2">Kebijakan Privasi</a>
         ·
-        <a href="terms.html"         className="text-slate-400 underline hover:text-slate-600 mx-2">Syarat Layanan</a>
+        <a href="terms.html"         className="text-slate-600 underline hover:text-slate-800 mx-2">Syarat Layanan</a>
         ·
-        <a href="accessibility.html" className="text-slate-400 underline hover:text-slate-600 mx-2">Aksesibilitas</a>
+        <a href="accessibility.html" className="text-slate-600 underline hover:text-slate-800 mx-2">Aksesibilitas</a>
       </footer>
     </div>
   );
