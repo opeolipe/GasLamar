@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { TIER_LABELS } from '@/lib/downloadUtils';
+import { TIER_LABELS } from '@/lib/sessionUtils';
 
 const SHADOW = '0 18px 44px rgba(15, 23, 42, 0.08)';
 
@@ -45,16 +45,16 @@ interface Props {
 export default function GeneratingCV({ progress, status, filename, tier, onCancel }: Props) {
   const [trustIdx,   setTrustIdx]   = useState(0);
   const [trustFade,  setTrustFade]  = useState(false);
-  const [timerText,  setTimerText]  = useState('⏱️ Estimasi sisa: ~22 detik');
+  const [timerText,  setTimerText]  = useState('⏱️ Estimasi sisa: sekitar 35 detik');
   const startRef     = useRef(Date.now());
   const timerRef     = useRef<ReturnType<typeof setInterval> | null>(null);
   const trustRef     = useRef<ReturnType<typeof setInterval> | null>(null);
   const allDone      = status === 'done';
-  const tierLabel    = tier ? (TIER_LABELS[tier] ?? tier) : 'Single';
+  const tierLabel    = tier ? (TIER_LABELS[tier] ?? tier) : 'Bilingual';
 
   // Countdown timer
   useEffect(() => {
-    const EST = 22;
+    const EST = 35;
     timerRef.current = setInterval(() => {
       const elapsed = (Date.now() - startRef.current) / 1000;
       const rem     = Math.max(0, Math.ceil(EST - elapsed));
@@ -62,7 +62,7 @@ export default function GeneratingCV({ progress, status, filename, tier, onCance
         setTimerText('✅ CV siap! Memuat file...');
         if (timerRef.current) clearInterval(timerRef.current);
       } else {
-        setTimerText(`⏱️ Estimasi sisa: ~${rem} detik`);
+        setTimerText(`⏱️ Estimasi sisa: sekitar ${rem} detik`);
       }
     }, 1000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
@@ -95,10 +95,12 @@ export default function GeneratingCV({ progress, status, filename, tier, onCance
 
       {/* File badge */}
       <div
-        className="inline-flex items-center gap-2 text-sm font-medium rounded-full px-4 py-2 mb-7"
-        style={{ background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.18)', color: '#1D4ED8' }}
+        className="inline-flex items-center gap-2 text-sm font-medium rounded-full px-4 py-2 mb-7 max-w-full"
+        style={{ background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.18)', color: '#1D4ED8', overflow: 'hidden' }}
       >
-        📄 <strong>{filename}</strong> · Paket: {tierLabel}
+        <span style={{ flexShrink: 0 }}>📄</span>
+        <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{filename}</strong>
+        <span style={{ flexShrink: 0 }}>· Paket: {tierLabel}</span>
       </div>
 
       {/* Pulse icon + headline */}
@@ -107,7 +109,7 @@ export default function GeneratingCV({ progress, status, filename, tier, onCance
           ✍️✨
         </div>
         <h3 className="font-semibold text-lg text-slate-900" style={{ fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>AI sedang menulis CV tailored untuk kamu…</h3>
-        <p className="text-sm text-slate-500 mt-1">Biasanya 15–25 detik · Jangan tutup halaman</p>
+        <p className="text-sm text-slate-500 mt-1">Rata-rata kurang dari 1 menit · Jangan tutup halaman</p>
       </div>
 
       {/* Progress bar */}

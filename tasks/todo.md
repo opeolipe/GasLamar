@@ -145,3 +145,25 @@
 - [ ] **analyze.js:115 / generate.js:262** — Both catch blocks return `e.message` directly in the 500 response: `return jsonResponse({ message: e.message || '...' }, 500)`. If `callClaude` or the Mayar client throws with an internal error string (e.g. `"Claude API error: authentication failed (401)"` or `"Mayar error: 500"`), that detail reaches the browser. Fix: whitelist the specific user-facing error strings that are safe to surface (truncation, CV-too-large), and replace everything else with a generic fallback.
 
 - [ ] **resendEmail.js:60** — Rate limit key is `resend_${sessionId.slice(0, 16)}`, making the 5-req/min window per *(session, IP)* pair rather than per IP globally. A user with two active sessions (e.g. 3-Pack + re-purchased Single) gets two independent 5-req/min buckets from the same IP, effectively doubling the send rate. Fix: use a global per-IP key (`resend_ip`) so the 5-req/min limit applies to all resend attempts from the same IP regardless of session count.
+
+---
+
+# Session State Machine — Architecture (2026-05-10)
+
+## New states
+`pending_payment` | `paid` | `generating` | `ready` | `exhausted`
+
+## Checklist
+- [ ] `worker/src/sessionStates.js` — SESSION_STATES + VALID_TRANSITIONS
+- [ ] `worker/src/handlers/createPayment.js` — pending_payment
+- [ ] `worker/src/handlers/mayarWebhook.js` — handle both pending + pending_payment
+- [ ] `worker/src/handlers/generate.js` — ready/exhausted instead of paid/delete
+- [ ] `worker/src/handlers/getSession.js` — allow paid, ready, generating
+- [ ] `worker/src/handlers/analyze.js` — store scoring in cvtext_ KV entry
+- [ ] `worker/src/handlers/getScoring.js` — new GET /get-scoring endpoint
+- [ ] `worker/src/router.js` — add GET /get-scoring route
+- [ ] `js/analyzing-page.js` — stop storing gaslamar_scoring blob
+- [ ] `js/scoring.js` — fetch scoring from server by key
+- [ ] `js/hasil-guard.js` — simplified (remove blob validation)
+- [ ] `js/session-controller.js` — shared state constants + helpers
+- [ ] `js/download-api.js` — handle pending_payment, ready, exhausted

@@ -52,9 +52,18 @@ export function useResultData(): ResultDataState {
     // URL session must match storage
     if (urlSession && urlSession !== cvKeyVal) { fail('expired'); return; }
 
-    // Persist 6D scores separately so Download page can access them (scoring key kept for refresh)
+    // Persist 6D scores + summary data so Download page can access them after gaslamar_scoring is cleared
     if (parsed.skor_6d) {
       try { sessionStorage.setItem('gaslamar_6d_scores', JSON.stringify(parsed.skor_6d)); } catch (_) {}
+    }
+    if (typeof parsed.skor === 'number') {
+      try { sessionStorage.setItem('gaslamar_skor', String(parsed.skor)); } catch (_) {}
+    }
+    if (typeof parsed.skor_sesudah === 'number') {
+      try { sessionStorage.setItem('gaslamar_skor_sesudah', String(parsed.skor_sesudah)); } catch (_) {}
+    }
+    if (Array.isArray(parsed.gap) && parsed.gap.length > 0) {
+      try { sessionStorage.setItem('gaslamar_gap', JSON.stringify((parsed.gap as string[]).slice(0, 5))); } catch (_) {}
     }
 
     // Clear CV text fragments no longer needed on this page
@@ -82,7 +91,7 @@ export function useResultData(): ResultDataState {
         .then((result: { valid: boolean }) => {
           if (!result.valid) {
             sessionStorage.removeItem('gaslamar_cv_key');
-            window.location.replace('access.html?expired=1');
+            window.location.replace('access.html?expired=1&source=hasil');
           }
         })
         .catch(() => {}); // network unavailable — fail open

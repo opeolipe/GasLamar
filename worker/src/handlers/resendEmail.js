@@ -9,7 +9,7 @@ import { sendPaymentConfirmationEmail }      from '../email.js';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Statuses that indicate the session has been paid and an email should exist.
-const PAID_STATUSES = new Set(['paid', 'generating', 'done']);
+const PAID_STATUSES = new Set(['paid', 'generating']);
 
 export async function handleResendEmail(request, env) {
   const sessionId = getSessionIdFromCookie(request);

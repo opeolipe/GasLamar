@@ -6,6 +6,7 @@ import { TIER_CREDITS, SESSION_TTL_MULTI, VALID_TIERS } from '../constants.js';
 import { createMayarInvoice, logMayarEnvironment } from '../mayar.js';
 import { createSession } from '../sessions.js';
 import { makeSessionCookie } from '../cookies.js';
+import { SESSION_STATES } from '../sessionStates.js';
 
 export async function handleCreatePayment(request, env) {
   const ip = clientIp(request);
@@ -107,12 +108,6 @@ export async function handleCreatePayment(request, env) {
     const { invoice_id, invoice_url } = await createMayarInvoice(sessionId, tier, env, redirectUrl, sessionEmail, couponCode);
 
     if (invoice_id) {
-      // Invoice was committed on Mayar's side (with or without a redirect URL).
-      // Consume cv_text_key immediately so a retry cannot create a second Mayar invoice
-      // for the same analysis session, which would spam the customer with duplicate
-      // "Transaksi telah dibuat" emails.
-      await env.GASLAMAR_SESSIONS.delete(cv_text_key);
-
       // Store session so the Mayar webhook can complete it even if we don't redirect now.
       const sessionData = {
         cv_text: stored.text,
@@ -120,7 +115,7 @@ export async function handleCreatePayment(request, env) {
         // Carry inferred_role through to /generate so it can choose tailoring mode.
         inferred_role: stored.inferred_role ?? null,
         tier,
-        status: 'pending',
+        status: SESSION_STATES.PENDING_PAYMENT,
         mayar_invoice_id: invoice_id,
         credits_remaining: credits,
         total_credits: credits,
@@ -134,11 +129,20 @@ export async function handleCreatePayment(request, env) {
       // The Mayar webhook identifies payments by invoice ID; without the ?session= query
       // param in the redirect URL we need this index to correlate the webhook to a session.
       // TTL matches the session (7d single / 30d multi).
+      // IMPORTANT: log the exact KV key so we can compare against candidateInvoiceIds in
+      // the webhook logs if a webhook_no_session error appears.
+      console.log(JSON.stringify({ event: 'mayar_session_index_stored', kv_key: `mayar_session_${invoice_id}`, sessionId, invoice_id }));
       await env.GASLAMAR_SESSIONS.put(
         `mayar_session_${invoice_id}`,
         JSON.stringify({ session_id: sessionId }),
         { expirationTtl: credits > 1 ? 2592000 : 604800 }
       );
+
+      // Delete cv_text_key LAST — only after both the session and secondary index are
+      // persisted. If either write above throws (KV transient error), cv_text_key still
+      // exists so the user can retry after the invoice lock expires (60 s). Deleting first
+      // would orphan the Mayar invoice with no recoverable session if a write failed.
+      await env.GASLAMAR_SESSIONS.delete(cv_text_key);
     }
 
     if (!invoice_url) {

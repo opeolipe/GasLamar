@@ -25,7 +25,7 @@
   <link rel="alternate" type="application/ld+json" href="/assets/structured-data-hasil.json">
   <!-- Session guard — must run synchronously before body renders to prevent auth flash.
        Source of truth: js/hasil-guard.js — keep in sync when editing. -->
-  <script>(function(){var i=["gaslamar_scoring","gaslamar_cv_key","gaslamar_analyze_time"];function e(r){i.forEach(function(g){sessionStorage.removeItem(g)}),window.location.replace("upload.html?reason="+r)}var c=new URLSearchParams(location.search),s=c.get("session")||c.get("sessionId");if(s!==null&&!s.startsWith("cvtext_")){e("session_expired");return}var l=sessionStorage.getItem("gaslamar_scoring"),a=sessionStorage.getItem("gaslamar_cv_key")||"",n=parseInt(sessionStorage.getItem("gaslamar_analyze_time")||"0"),m=7200;if(!l){e("no_session");return}var t;try{t=JSON.parse(l)}catch(r){e("no_session");return}var o=parseInt(t&&t.skor);if(isNaN(o)||o<0||o>100){e("no_session");return}if(a&&!a.startsWith("cvtext_")){e("session_expired");return}var _=n>0&&(Date.now()-n)/1e3>m;if(_){i.forEach(function(r){sessionStorage.removeItem(r)}),window.location.replace("access.html?expired=1");return}if(!n){e("no_session");return}if(s&&s!==a){e("session_expired");return}})();</script>
+  <script>(function(){var n=["gaslamar_cv_key","gaslamar_analyze_time"];function e(t){n.forEach(function(l){sessionStorage.removeItem(l)}),window.location.replace("upload.html?reason="+t)}var i=new URLSearchParams(location.search),a=i.get("session")||i.get("sessionId");if(a!==null&&!a.startsWith("cvtext_")){e("session_expired");return}var s=sessionStorage.getItem("gaslamar_cv_key")||"",r=parseInt(sessionStorage.getItem("gaslamar_analyze_time")||"0"),o=7200;if(!s||!s.startsWith("cvtext_")){e("no_session");return}var c=r>0&&(Date.now()-r)/1e3>o;if(c){n.forEach(function(t){sessionStorage.removeItem(t)}),window.location.replace("access.html?expired=1&source=hasil");return}if(!r){e("no_session");return}if(a&&a!==s){e("session_expired");return}})();</script>
   <!-- Cloudflare Web Analytics -->
   <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "f9c97d82f2a04b9f95e051946eb0525e"}'></script>
   <link rel="stylesheet" href="css/tailwind.css">
@@ -40,7 +40,7 @@
   <!-- Analytics + PostHog init -->
   <script defer src="js/dist/analytics-init.bundle.js?v=b1082947"></script>
   <!-- Result React bundle -->
-  <script defer src="js/dist/hasil-react.bundle.js?v=895ece4f"></script>
+  <script defer src="js/dist/hasil-react.bundle.js?v=df303a10"></script>
   <!-- PostHog array.js — loaded after init so posthog.init() flags are queued first -->
   <script defer src="https://eu-assets.i.posthog.com/static/array.js" crossorigin="anonymous"></script>
 </body>

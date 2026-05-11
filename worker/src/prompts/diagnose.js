@@ -20,6 +20,7 @@ TUGASMU:
 3. Tulis alasan_skor: satu kalimat ringkas mengapa skor keseluruhan rendah/sedang/tinggi.
 4. Tentukan hr_7_detik: 2 hal yang langsung terlihat kuat, 2 hal yang diabaikan karena tidak relevan.
 5. Tentukan red_flags: hanya jika ada hal serius seperti job hopping ekstrem (pindah kerja >3x dalam 2 tahun), atau indikasi lain yang tidak tercakup sistem. Jika tidak ada, hilangkan field ini.
+6. Pilih satu baris dari pengalaman_mentah CV yang paling perlu diperbaiki berdasarkan gap pertama. Tulis sebagai preview_before (baris asli, jangan parafrase) dan preview_after (versi yang sudah diperbaiki — hanya ubah kata-kata, JANGAN tambahkan angka atau klaim baru). Lewati field ini jika pengalaman_mentah kosong.
 
 PENTING:
 - Jangan mengarang angka. Jika CV tidak punya angka, beri saran deskriptif tanpa placeholder bracket. Jangan pernah menulis placeholder dalam bracket.
@@ -34,7 +35,9 @@ OUTPUT WAJIB JSON:
   "kekuatan": ["string", "string"],
   "konfidensitas": "<Rendah | Sedang | Tinggi>",
   "hr_7_detik": { "kuat": ["string", "string"], "diabaikan": ["string", "string"] },
-  "red_flags": ["string"]
+  "red_flags": ["string"],
+  "preview_before": "satu baris pengalaman dari CV asli (opsional)",
+  "preview_after": "baris yang sudah diperbaiki tanpa angka baru (opsional)"
 }
 
 JANGAN TULIS APAPUN SELAIN JSON INI.`;

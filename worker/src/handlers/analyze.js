@@ -30,8 +30,7 @@ export async function handleAnalyze(request, env) {
     return jsonResponse({ message: 'Request body tidak valid' }, 400, request, env);
   }
 
-  // rawJobDesc defaults to '' so omitting it triggers general-mode analysis.
-  const { cv, job_desc: rawJobDesc = '' } = body;
+  const { cv, job_desc: rawJobDesc } = body;
 
   if (!cv) {
     return jsonResponse({ message: 'CV wajib diisi' }, 400, request, env);
@@ -50,6 +49,11 @@ export async function handleAnalyze(request, env) {
     return jsonResponse({ message: 'CV terlalu besar (maks 2MB). Coba kompres atau konversi ke format teks.' }, 413, request, env);
   }
 
+  if (rawJobDesc === undefined || rawJobDesc === null) {
+    logError('analyze_invalid_input', { reason: 'jd_missing', ip });
+    return jsonResponse({ message: 'Job description wajib diisi.' }, 400, request, env);
+  }
+
   if (typeof rawJobDesc !== 'string' || rawJobDesc.length > 5000) {
     return jsonResponse({ message: 'Job description terlalu panjang (maks 5.000 karakter)' }, 400, request, env);
   }
@@ -66,8 +70,12 @@ export async function handleAnalyze(request, env) {
 
   const job_desc = sanitizeForLLM(rawJobDescStripped);
 
-  // Enforce minimum length only when JD is non-empty — empty JD is valid (general mode).
-  if (job_desc.length > 0 && job_desc.length < 100) {
+  if (!job_desc.length) {
+    logError('analyze_invalid_input', { reason: 'jd_missing', ip });
+    return jsonResponse({ message: 'Job description wajib diisi.' }, 400, request, env);
+  }
+
+  if (job_desc.length < 100) {
     logError('analyze_invalid_input', { reason: 'jd_too_short', trimLen: job_desc.length, ip });
     return jsonResponse({ message: 'Job description terlalu pendek. Tulis minimal 100 karakter.' }, 400, request, env);
   }
@@ -92,6 +100,10 @@ export async function handleAnalyze(request, env) {
     // targeted enumeration. Also bind to the requesting IP so the key cannot be
     // used from a different network if leaked from client storage.
     const cvTextKey = `cvtext_${hexToken(32)}`;
+
+    // Store the full scoring result alongside cv_text so GET /get-scoring can serve
+    // it to hasil.html without the client carrying the entire blob in sessionStorage.
+    // cv_text is only returned by /get-session (after payment) — never by /get-scoring.
     await env.GASLAMAR_SESSIONS.put(cvTextKey, JSON.stringify({
       text: extraction.text,
       job_desc: job_desc.slice(0, 5000),
@@ -99,6 +111,7 @@ export async function handleAnalyze(request, env) {
       // enabling /generate to switch between targeted and inferred tailoring mode.
       inferred_role: scoring.inferred_role ?? null,
       ip,
+      scoring, // used by GET /get-scoring; cv_text is never exposed via that endpoint
     }), { expirationTtl: 86400 }); // 24 hours — gives users time to review hasil before paying
 
     return jsonResponse({ ...scoring, cv_text_key: cvTextKey }, 200, request, env);

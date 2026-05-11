@@ -7,6 +7,7 @@
 import { SELF, env, fetchMock } from 'cloudflare:test';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { getCorsHeaders, isOriginAllowed } from '../src/cors.js';
+import { verifyMayarWebhook } from '../src/mayar.js';
 
 // ---- Test helpers ----
 
@@ -389,10 +390,11 @@ describe('POST /analyze — validation', () => {
     expect(res.status).toBe(400);
   });
 
-  it('accepts missing job_desc as general-mode analysis — not rejected at validation level', async () => {
-    // JD is optional — omitting it triggers general (role-inferred) scoring, not a 400.
+  it('rejects missing job_desc → 400', async () => {
     const res = await post('/analyze', { cv: VALID_PDF_CV }, {}, nextIp());
-    expect(res.status).not.toBe(400); // passes validation; may fail downstream (no Claude key in tests)
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/job description wajib/i);
   });
 
   it('rejects job_desc > 5000 chars → 400', async () => {
@@ -456,10 +458,11 @@ describe('POST /analyze — validation', () => {
     expect(body.message).toMatch(/terlalu pendek|100 karakter/i);
   });
 
-  it('accepts whitespace-only job_desc as general-mode analysis — not rejected at validation level', async () => {
-    // 200 spaces trims to empty — treated as no JD (general mode), not a 400 validation error.
+  it('rejects whitespace-only job_desc → 400', async () => {
     const res = await post('/analyze', { cv: VALID_PDF_CV, job_desc: ' '.repeat(200) }, {}, nextIp());
-    expect(res.status).not.toBe(400); // passes validation; may fail downstream (no Claude key in tests)
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/job description wajib/i);
   });
 
   it('rejects cv as a non-string (object) → 400', async () => {
@@ -1011,9 +1014,11 @@ describe('POST /generate — happy path (mocked Claude)', () => {
     expect(body.job_title).toBeNull();
     expect(body.company).toBeNull();
 
-    // Session deleted after use (one-time)
+    // Session marked exhausted after last credit consumed (not deleted — keeps status for auditing)
     const session = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
-    expect(session).toBeNull();
+    expect(session).not.toBeNull();
+    expect(session.status).toBe('exhausted');
+    expect(session.credits_remaining).toBe(0);
   });
 
   it('generates ID-only CV for coba tier — cv_en is null', async () => {
@@ -1257,6 +1262,140 @@ describe('POST /webhook/mayar', () => {
     expect(res.status).toBe(200);
     const session = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
     expect(session?.status).toBe('paid');
+  });
+});
+
+describe('POST /webhook/mayar — multi-candidate invoice ID fallback', () => {
+  it('finds session via data.id when payload.id is a non-matching event ID', async () => {
+    // Regression: Mayar sometimes puts a webhook-event UUID at payload.id and the
+    // actual invoice ID at payload.data.id. The handler must try all candidates.
+    const sessionId = await seedSession('pending', 'single');
+    const invoiceId = 'inv_real_invoice_001';
+    const eventId   = 'evt_non_matching_uuid_999';
+
+    await env.GASLAMAR_SESSIONS.put(
+      `mayar_session_${invoiceId}`,
+      JSON.stringify({ session_id: sessionId }),
+      { expirationTtl: 604800 },
+    );
+
+    const payload = JSON.stringify({
+      id:     eventId,            // top-level id is the WEBHOOK EVENT id — won't match KV
+      status: 'paid',
+      data:   { id: invoiceId },  // invoice id is nested under data — this one matches
+    });
+
+    const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'any_sig' },
+      body:    payload,
+    });
+
+    expect(res.status).toBe(200);
+    const updated = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
+    expect(updated?.status).toBe('paid');
+  });
+
+  it('finds session via invoice_id field when id and data.id are absent', async () => {
+    const sessionId = await seedSession('pending', 'single');
+    const invoiceId = 'inv_via_invoice_id_field';
+
+    await env.GASLAMAR_SESSIONS.put(
+      `mayar_session_${invoiceId}`,
+      JSON.stringify({ session_id: sessionId }),
+      { expirationTtl: 604800 },
+    );
+
+    const payload = JSON.stringify({ invoice_id: invoiceId, status: 'paid' });
+
+    const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'any_sig' },
+      body:    payload,
+    });
+
+    expect(res.status).toBe(200);
+    const updated = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
+    expect(updated?.status).toBe('paid');
+  });
+});
+
+describe('verifyMayarWebhook — production HMAC path', () => {
+  // These tests call verifyMayarWebhook directly with a production-like env object
+  // so we can verify the crypto path that SELF.fetch tests cannot reach
+  // (SELF always runs in sandbox mode where HMAC is bypassed).
+
+  it('accepts webhook with correct HMAC in production', async () => {
+    const secret  = 'prod_webhook_secret_abc123';
+    const payload = JSON.stringify({ id: 'inv_prod_hmac_ok', status: 'paid' });
+    const sig     = await hmacSign(secret, payload);
+
+    const req = new Request('https://gaslamar.com/webhook/mayar', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': sig },
+      body:    payload,
+    });
+
+    const result = await verifyMayarWebhook(req, { ENVIRONMENT: 'production', MAYAR_WEBHOOK_SECRET: secret });
+    expect(result.valid).toBe(true);
+    expect(result.body).toBe(payload);
+  });
+
+  it('rejects webhook with wrong HMAC in production', async () => {
+    const secret  = 'prod_webhook_secret_abc123';
+    const payload = JSON.stringify({ id: 'inv_prod_hmac_bad', status: 'paid' });
+
+    const req = new Request('https://gaslamar.com/webhook/mayar', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'dead_wrong_sig' },
+      body:    payload,
+    });
+
+    const result = await verifyMayarWebhook(req, { ENVIRONMENT: 'production', MAYAR_WEBHOOK_SECRET: secret });
+    expect(result.valid).toBe(false);
+  });
+
+  it('rejects webhook with missing x-mayar-signature in production', async () => {
+    const payload = JSON.stringify({ id: 'inv_prod_no_sig', status: 'paid' });
+
+    const req = new Request('https://gaslamar.com/webhook/mayar', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    payload,
+    });
+
+    const result = await verifyMayarWebhook(req, { ENVIRONMENT: 'production', MAYAR_WEBHOOK_SECRET: 'any_secret' });
+    expect(result.valid).toBe(false);
+  });
+
+  it('rejects when ENVIRONMENT is undefined (fail-closed)', async () => {
+    const payload = JSON.stringify({ id: 'inv_no_env', status: 'paid' });
+
+    const req = new Request('https://gaslamar.com/webhook/mayar', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'sig' },
+      body:    payload,
+    });
+
+    const result = await verifyMayarWebhook(req, {}); // no ENVIRONMENT
+    expect(result.valid).toBe(false);
+  });
+
+  it('accepts in non-production regardless of signature (bypass)', async () => {
+    // staging / sandbox must always bypass HMAC — Mayar sandbox behaviour is inconsistent
+    const payload = JSON.stringify({ id: 'inv_staging_bypass', status: 'paid' });
+
+    const req = new Request('https://gaslamar.com/webhook/mayar', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'totally_wrong' },
+      body:    payload,
+    });
+
+    const stagingResult = await verifyMayarWebhook(req.clone(), { ENVIRONMENT: 'staging',  MAYAR_WEBHOOK_SECRET: 'some_secret' });
+    expect(stagingResult.valid).toBe(true);
+
+    const sandboxResult = await verifyMayarWebhook(req.clone(), { ENVIRONMENT: 'sandbox' });
+    expect(sandboxResult.valid).toBe(true);
   });
 });
 

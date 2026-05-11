@@ -37,8 +37,8 @@ import { sha256Hex }     from './utils.js';
 // DEPLOY CHECKLIST: Bump ANALYSIS_CACHE_VERSION when changing pipeline/ or prompts/.
 //                   Bump EXTRACT_CACHE_VERSION when changing pipeline/extract.js or prompts/extract.js.
 // Stale KV entries with old version prefixes are ignored automatically.
-const EXTRACT_CACHE_VERSION  = 'v2'; // current key: extract_v2_<hash>
-const ANALYSIS_CACHE_VERSION = 'v7'; // current key: analysis_v7_<hash> (bumped: red-flag penalty now applied at write time; old v6 entries must be invalidated to prevent double-penalty on cache hits)
+const EXTRACT_CACHE_VERSION  = 'v3'; // current key: extract_v3_<hash> (bumped: angka_di_cv now achievement-only, not calendar years)
+const ANALYSIS_CACHE_VERSION = 'v11'; // current key: analysis_v11_<hash> (bumped: synonym bridge, title-token splitting, risk English parity)
 
 // ---- Orchestrator ----
 
@@ -111,6 +111,9 @@ export async function analyzeCV(cvText, jobDesc, env) {
   if (analysisResult.red_flag_types.very_short) {
     codeFlags.push('Bagian pengalaman CV terlalu singkat — kurang detail');
   }
+  if (analysisResult.red_flag_types.experience_gap) {
+    codeFlags.push('Pengalaman kerja belum memenuhi minimum yang diminta JD');
+  }
 
   const llmFlags = Array.isArray(diagnoseResult.red_flags)
     ? diagnoseResult.red_flags.filter(s => typeof s === 'string' && s.trim())
@@ -144,6 +147,8 @@ export async function analyzeCV(cvText, jobDesc, env) {
     inferred_industry:    roleInferenceResult.industry,
     primary_issue_dim,
     jd_mode,
+    preview_before:       typeof diagnoseResult.preview_before === 'string' && diagnoseResult.preview_before.trim() ? diagnoseResult.preview_before.trim() : undefined,
+    preview_after:        typeof diagnoseResult.preview_after  === 'string' && diagnoseResult.preview_after.trim()  ? diagnoseResult.preview_after.trim()  : undefined,
   };
 
   if (!scoring.hr_7_detik) delete scoring.hr_7_detik;

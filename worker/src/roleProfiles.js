@@ -7,6 +7,33 @@
 
 /** Keyword sets used to classify the candidate's primary role from CV text. */
 export const ROLE_KEYWORDS = {
+  teknik: [
+    'teknik', 'mechanical', 'civil', 'electrical', 'chemical', 'industrial',
+    'manufaktur', 'manufacturing', 'produksi', 'production', 'maintenance',
+    'quality control', 'quality assurance', 'plant', 'process', 'welding',
+    'fabrication', 'structural', 'geodesi', 'k3', 'safety engineer',
+  ],
+  creative: [
+    'design', 'desain', 'designer', 'graphic', 'ui', 'ux', 'creative',
+    'visual', 'fotografer', 'photographer', 'videografer', 'videographer',
+    'animator', 'illustrator', 'content creator', 'branding', 'adobe',
+    'figma', 'sketch', 'motion graphic', 'art director',
+  ],
+  kesehatan: [
+    'dokter', 'perawat', 'nurse', 'apoteker', 'farmasi', 'fisioterapi',
+    'bidan', 'radiologi', 'medical', 'healthcare', 'klinik', 'rumah sakit',
+    'hospital', 'laboratorium', 'tenaga medis', 'kesehatan', 'analis kesehatan',
+  ],
+  pendidikan: [
+    'guru', 'teacher', 'dosen', 'trainer', 'instruktur', 'tutor', 'pengajar',
+    'pendidik', 'fasilitator', 'kurikulum', 'curriculum', 'teaching',
+    'learning', 'training', 'education', 'sekolah', 'universitas',
+  ],
+  hospitality: [
+    'hotel', 'restoran', 'restaurant', 'chef', 'barista', 'waiter', 'waitress',
+    'bartender', 'housekeeping', 'concierge', 'catering', 'food', 'beverage',
+    'front office', 'guest', 'hospitality', 'kitchen', 'kuliner', 'sommelier',
+  ],
   customer_service: [
     'customer', 'service', 'passenger', 'client', 'hospitality', 'attendant',
     'pelayanan', 'pelanggan', 'complaint', 'helpdesk', 'support', 'call center',
@@ -159,6 +186,65 @@ export const ROLE_PROFILES = {
     weightBias: {
       north_star: 1.0, recruiter_signal: 1.0, effort: 1.0,
       opportunity_cost: 1.0, risk: 0.9, portfolio: 0.9,
+    },
+  },
+  teknik: {
+    label:                   'Teknik/Manufaktur',
+    keyStrengths:            ['technical expertise', 'process optimization', 'quality management'],
+    commonResponsibilities:  ['maintain equipment and production systems', 'ensure quality standards are met', 'optimize manufacturing processes'],
+    actionVerbs:             ['Designed', 'Implemented', 'Optimized', 'Maintained', 'Inspected', 'Merancang', 'Mengoptimalkan', 'Memelihara'],
+    skillCluster:            ['AutoCAD', 'SOP', 'Quality Control', 'K3', 'Lean Manufacturing'],
+    weightBias: {
+      // north_star heavily weighted — technical role fit is the primary signal
+      north_star: 1.2, recruiter_signal: 0.9, effort: 1.1,
+      opportunity_cost: 1.0, risk: 1.0, portfolio: 1.1,
+    },
+  },
+  creative: {
+    label:                   'Kreatif/Desain',
+    keyStrengths:            ['visual communication', 'creative problem-solving', 'brand consistency'],
+    commonResponsibilities:  ['create visual assets and design materials', 'design user-centric interfaces', 'maintain brand identity standards'],
+    actionVerbs:             ['Designed', 'Created', 'Developed', 'Illustrated', 'Produced', 'Merancang', 'Menciptakan', 'Mengembangkan'],
+    skillCluster:            ['Adobe Creative Suite', 'Figma', 'Typography', 'Branding', 'UI/UX'],
+    weightBias: {
+      // portfolio highest — work evidence is the primary hiring signal for creative roles
+      north_star: 1.1, recruiter_signal: 1.2, effort: 0.9,
+      opportunity_cost: 0.9, risk: 0.9, portfolio: 1.4,
+    },
+  },
+  kesehatan: {
+    label:                   'Kesehatan/Medis',
+    keyStrengths:            ['clinical expertise', 'patient care', 'medical protocols'],
+    commonResponsibilities:  ['provide patient care and assessment', 'follow clinical and safety protocols', 'maintain accurate medical records'],
+    actionVerbs:             ['Treated', 'Assessed', 'Managed', 'Monitored', 'Administered', 'Menangani', 'Merawat', 'Mengelola'],
+    skillCluster:            ['Patient Care', 'Medical Records', 'Clinical Skills', 'K3RS', 'SOP Medis'],
+    weightBias: {
+      // north_star highest — credentials and specialization matter most; portfolio lower (hard to quantify care)
+      north_star: 1.3, recruiter_signal: 0.9, effort: 1.0,
+      opportunity_cost: 1.0, risk: 1.1, portfolio: 0.8,
+    },
+  },
+  pendidikan: {
+    label:                   'Pendidikan/Pelatihan',
+    keyStrengths:            ['curriculum development', 'knowledge transfer', 'learner engagement'],
+    commonResponsibilities:  ['design and deliver training or lessons', 'evaluate and track learning outcomes', 'develop curriculum and instructional materials'],
+    actionVerbs:             ['Taught', 'Trained', 'Developed', 'Facilitated', 'Mentored', 'Mengajar', 'Melatih', 'Mengembangkan'],
+    skillCluster:            ['Curriculum Design', 'LMS', 'Facilitation', 'Assessment', 'Komunikasi'],
+    weightBias: {
+      north_star: 1.1, recruiter_signal: 1.0, effort: 0.9,
+      opportunity_cost: 0.9, risk: 0.9, portfolio: 1.0,
+    },
+  },
+  hospitality: {
+    label:                   'Hospitality/F&B',
+    keyStrengths:            ['guest experience', 'service excellence', 'operational standards'],
+    commonResponsibilities:  ['deliver exceptional guest or customer service', 'maintain food & beverage operational standards', 'coordinate front-of-house or kitchen operations'],
+    actionVerbs:             ['Served', 'Managed', 'Coordinated', 'Delivered', 'Maintained', 'Melayani', 'Mengelola', 'Mengkoordinasikan'],
+    skillCluster:            ['Guest Service', 'F&B Operations', 'POS System', 'HACCP', 'Hospitality Standards'],
+    weightBias: {
+      // risk lower — hospitality roles face higher disruption from automation and economic shifts
+      north_star: 1.1, recruiter_signal: 1.2, effort: 0.9,
+      opportunity_cost: 0.9, risk: 0.8, portfolio: 1.0,
     },
   },
 };

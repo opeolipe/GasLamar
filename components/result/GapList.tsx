@@ -1,23 +1,51 @@
-import Tooltip from '@/components/result/Tooltip';
+import { useState } from 'react';
 
 interface Props { gaps: string[] }
 
 export default function GapList({ gaps }: Props) {
+  const [expanded, setExpanded] = useState(true);
   if (!gaps.length) return null;
 
-  const visible = gaps.slice(0, 3);
+  const visible = gaps.slice(0, 4);
 
   return (
-    <div style={{ background: 'rgba(248,250,252,0.8)', borderRadius: 20, padding: '1.2rem', border: '1px solid rgba(148,163,184,0.14)', marginBottom: '1.25rem' }}>
-      <h4 style={{ fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, margin: '0 0 0.75rem' }}>
-        ⚠️ Yang bikin HR ragu
-        <Tooltip text="Gap = hal yang dicari rekruter tapi belum terlihat di CV-mu. Tambahkan ini untuk naikkan skor." />
-      </h4>
-      <ul style={{ paddingLeft: '1.2rem', fontSize: '0.875rem', color: '#374151', margin: 0 }}>
+    <div style={{ marginBottom: '1rem' }}>
+      <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
         {visible.map((g, i) => (
-          <li key={i} style={{ margin: '0.5rem 0' }}>{g}</li>
+          <li key={i} style={{ fontSize: '0.875rem', color: '#374151', display: 'flex', gap: '0.5rem', alignItems: 'flex-start', overflow: 'hidden' }}>
+            <span style={{ color: '#64748B', flexShrink: 0, marginTop: 3 }}>•</span>
+            <span style={{
+              minWidth:          0,
+              overflow:          'hidden',
+              display:           '-webkit-box',
+              WebkitLineClamp:   expanded ? 'unset' : 1,
+              WebkitBoxOrient:   'vertical',
+              lineHeight:        1.5,
+              overflowWrap:      'break-word',
+              wordBreak:         'break-word',
+            } as React.CSSProperties}>
+              {g}
+            </span>
+          </li>
         ))}
       </ul>
+      <button
+        onClick={() => setExpanded(e => !e)}
+        style={{
+          background:  'none',
+          border:      'none',
+          padding:     '0.35rem 0',
+          fontSize:    '0.82rem',
+          color:       '#2563EB',
+          fontWeight:  600,
+          cursor:      'pointer',
+          fontFamily:  'inherit',
+          marginTop:   '0.4rem',
+          display:     'block',
+        }}
+      >
+        {expanded ? 'Sembunyikan ↑' : 'Lihat detail analisis →'}
+      </button>
     </div>
   );
 }

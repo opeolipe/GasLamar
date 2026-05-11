@@ -1,5 +1,5 @@
-import { useState, useRef }      from 'react';
-import { WORKER_URL }             from '@/lib/downloadUtils';
+import { useState, useRef, useEffect } from 'react';
+import { WORKER_URL }             from '@/lib/sessionUtils';
 import { validateEmail, EMAIL_REGEX } from '@/utils/emailValidation';
 import { suggestEmailFix }        from '@/utils/emailTypo';
 
@@ -20,6 +20,12 @@ function isSameOriginUrl(url: string): boolean {
 export default function Access() {
   const params = new URLSearchParams(window.location.search);
   const showExpiredBanner = params.get('expired') === '1';
+  const source = params.get('source');
+  const sourceLabel = source === 'download'
+    ? 'halaman download'
+    : source === 'hasil'
+    ? 'halaman hasil analisis'
+    : null;
 
   if (params.has('return_url')) {
     const raw = params.get('return_url') ?? '';
@@ -45,8 +51,9 @@ export default function Access() {
   const confirmEmailRef = useRef<HTMLInputElement>(null);
 
   // ── Derived ──────────────────────────────────────────────────────────────
-  const emailValid  = EMAIL_REGEX.test(email.trim());
-  const emailsMatch = email.trim().toLowerCase() === confirmEmail.trim().toLowerCase();
+  const emailValid       = EMAIL_REGEX.test(email.trim());
+  const emailsMatch      = email.trim().toLowerCase() === confirmEmail.trim().toLowerCase();
+  const showConfirmField = emailValid && !emailError && !emailSuggestion;
 
   const isSubmitDisabled =
     status === 'loading'
@@ -58,10 +65,10 @@ export default function Access() {
     || !emailsMatch;
 
   const hint: string | null =
-      !!emailSuggestion      ? 'Periksa email kamu sebelum lanjut'
-    : !emailValid && !!email  ? 'Masukkan email yang valid'
-    : !confirmEmail.trim()    ? 'Ketik ulang email kamu untuk lanjut'
-    : !emailsMatch            ? 'Email konfirmasi tidak sama'
+      !!emailSuggestion                         ? 'Periksa email kamu sebelum lanjut'
+    : !emailValid && !!email                    ? 'Masukkan email yang valid'
+    : showConfirmField && !confirmEmail.trim()  ? 'Ketik ulang email kamu untuk lanjut'
+    : showConfirmField && !emailsMatch          ? 'Email konfirmasi tidak sama'
     : null;
 
   // ── Handlers ─────────────────────────────────────────────────────────────
@@ -72,6 +79,10 @@ export default function Access() {
     setEmailIsDisposable(false);
     setEmailIsConfirmed(false);
     setConfirmError('');
+    if (!EMAIL_REGEX.test(value.trim())) {
+      setConfirmEmail('');
+      setConfirmTouched(false);
+    }
   }
 
   function handleEmailBlur() {
@@ -83,11 +94,6 @@ export default function Access() {
       setEmailIsDisposable(result.isDisposable);
       setEmailIsConfirmed(result.valid && !result.suggestion);
     }, 200);
-  }
-
-  function handleEmailPaste() {
-    // Security: force user to manually type the confirm field
-    setTimeout(() => confirmEmailRef.current?.focus(), 0);
   }
 
   function handleConfirmEmailChange(value: string) {
@@ -132,7 +138,6 @@ export default function Access() {
     setEmailIsDisposable(false);
     setEmailIsConfirmed(true);
     setConfirmError('');
-    setTimeout(() => confirmEmailRef.current?.focus(), 0);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -177,6 +182,17 @@ export default function Access() {
   const showConfirmed       = !emailError && !emailSuggestion && !emailIsDisposable && emailIsConfirmed;
   const showConfirmError    = !emailError && !emailSuggestion && !!confirmError;
   const showConfirmSuccess  = !emailError && !emailSuggestion && emailIsConfirmed && emailsMatch && confirmTouched;
+
+  // Auto-focus confirm input when it slides into view
+  const prevShowConfirmField = useRef(false);
+  useEffect(() => {
+    if (showConfirmField && !prevShowConfirmField.current) {
+      const t = setTimeout(() => confirmEmailRef.current?.focus(), 280);
+      prevShowConfirmField.current = true;
+      return () => clearTimeout(t);
+    }
+    if (!showConfirmField) prevShowConfirmField.current = false;
+  }, [showConfirmField]);
 
   const primaryBorderClass  = emailError ? 'border-red-400 ring-red-200' : showConfirmed ? 'border-green-400 ring-green-100' : 'border-slate-200';
   const confirmBorderClass  = showConfirmError ? 'border-red-400 ring-red-200' : showConfirmSuccess ? 'border-green-400 ring-green-100' : 'border-slate-200';
@@ -234,7 +250,7 @@ export default function Access() {
               className="rounded-[16px] px-4 py-3 text-sm mb-4 text-amber-800"
               style={{ background: 'rgba(255,251,235,0.9)', border: '1px solid rgba(253,230,138,0.8)' }}
             >
-              ⏰ Link kamu sudah kadaluarsa, tapi tenang — kamu masih bisa akses CV kamu.
+              ⏰ Sesi dari {sourceLabel || 'halaman sebelumnya'} sudah berakhir, tapi tenang — kamu tetap bisa akses CV melalui email.
             </div>
           )}
 
@@ -315,7 +331,6 @@ export default function Access() {
                       value={email}
                       onChange={e => handleEmailChange(e.target.value)}
                       onBlur={handleEmailBlur}
-                      onPaste={handleEmailPaste}
                       placeholder="email@kamu.com"
                       required
                       disabled={status === 'loading'}
@@ -349,46 +364,57 @@ export default function Access() {
                     )}
                   </div>
 
-                  {/* ── Confirm email ── */}
-                  <div className="flex flex-col gap-1 mb-3">
-                    <label htmlFor="access-email-confirm" className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
-                      Ketik ulang email kamu
-                      {showConfirmSuccess && (
-                        <span className="ml-1 text-green-600" aria-label="Email konfirmasi cocok">✓</span>
+                  {/* ── Confirm email — slides in once primary is valid ── */}
+                  <div
+                    aria-hidden={!showConfirmField}
+                    style={{
+                      display: 'grid',
+                      gridTemplateRows: showConfirmField ? '1fr' : '0fr',
+                      transition: 'grid-template-rows 0.28s cubic-bezier(0.4,0,0.2,1)',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <div style={{ minHeight: 0 }} className="flex flex-col gap-1 mb-3">
+                      <label htmlFor="access-email-confirm" className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                        Ketik ulang email kamu
+                        {showConfirmSuccess && (
+                          <span className="ml-1 text-green-600" aria-label="Email konfirmasi cocok">✓</span>
+                        )}
+                      </label>
+                      <input
+                        id="access-email-confirm"
+                        ref={confirmEmailRef}
+                        type="email"
+                        inputMode="email"
+                        autoCapitalize="off"
+                        autoComplete="email"
+                        data-testid="email-confirm-input"
+                        value={confirmEmail}
+                        onChange={e => handleConfirmEmailChange(e.target.value)}
+                        onBlur={handleConfirmEmailBlur}
+                        onPaste={handleConfirmEmailPaste}
+                        placeholder="email@kamu.com"
+                        required={showConfirmField}
+                        tabIndex={showConfirmField ? undefined : -1}
+                        disabled={status === 'loading'}
+                        aria-label="Konfirmasi alamat email"
+                        aria-invalid={showConfirmError}
+                        aria-describedby={showConfirmError ? 'confirm-email-error' : undefined}
+                        className={`min-h-[48px] px-4 rounded-[14px] border text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 transition-colors ${confirmBorderClass}`}
+                      />
+
+                      {showConfirmError && (
+                        <p id="confirm-email-error" role="alert" className="text-xs text-red-500 font-medium mt-0.5">
+                          ⚠️ {confirmError}
+                        </p>
                       )}
-                    </label>
-                    <input
-                      id="access-email-confirm"
-                      ref={confirmEmailRef}
-                      type="email"
-                      inputMode="email"
-                      autoCapitalize="off"
-                      autoComplete="email"
-                      data-testid="email-confirm-input"
-                      value={confirmEmail}
-                      onChange={e => handleConfirmEmailChange(e.target.value)}
-                      onBlur={handleConfirmEmailBlur}
-                      onPaste={handleConfirmEmailPaste}
-                      placeholder="email@kamu.com"
-                      required
-                      disabled={status === 'loading'}
-                      aria-label="Konfirmasi alamat email"
-                      aria-invalid={showConfirmError}
-                      aria-describedby={showConfirmError ? 'confirm-email-error' : undefined}
-                      className={`min-h-[48px] px-4 rounded-[14px] border text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 transition-colors ${confirmBorderClass}`}
-                    />
 
-                    {showConfirmError && (
-                      <p id="confirm-email-error" role="alert" className="text-xs text-red-500 font-medium mt-0.5">
-                        ⚠️ {confirmError}
-                      </p>
-                    )}
-
-                    {showConfirmSuccess && (
-                      <p className="text-xs text-green-600 font-medium mt-0.5">
-                        ✓ Email sudah cocok
-                      </p>
-                    )}
+                      {showConfirmSuccess && (
+                        <p className="text-xs text-green-600 font-medium mt-0.5">
+                          ✓ Email sudah cocok
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   {/* ── Hint line ── */}

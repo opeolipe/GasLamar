@@ -10,18 +10,105 @@ import { detectArchetype } from './archetypes.js';
 // ---- Private helpers ----
 
 /**
+ * Bidirectional Indonesian ↔ English synonym map for common CV/JD skill terms.
+ * Both directions are listed explicitly so lookups are O(1) regardless of
+ * which language the JD or CV uses.
+ */
+const SKILL_SYNONYMS = {
+  // Communication / soft skills
+  'komunikasi':          'communication',
+  'communication':       'komunikasi',
+  'kepemimpinan':        'leadership',
+  'leadership':          'kepemimpinan',
+  'kerja tim':           'teamwork',
+  'kerjasama':           'teamwork',
+  'teamwork':            'kerja tim',
+  'pemecahan masalah':   'problem solving',
+  'problem solving':     'pemecahan masalah',
+  'berpikir kritis':     'critical thinking',
+  'critical thinking':   'berpikir kritis',
+  'presentasi':          'presentation',
+  'presentation':        'presentasi',
+  'negosiasi':           'negotiation',
+  'negotiation':         'negosiasi',
+  'kreativitas':         'creativity',
+  'creativity':          'kreativitas',
+  'inovasi':             'innovation',
+  'innovation':          'inovasi',
+  'adaptasi':            'adaptability',
+  'adaptability':        'adaptasi',
+  // Business / functional skills
+  'manajemen proyek':    'project management',
+  'project management':  'manajemen proyek',
+  'pemasaran':           'marketing',
+  'marketing':           'pemasaran',
+  'penjualan':           'sales',
+  'sales':               'penjualan',
+  'keuangan':            'finance',
+  'finance':             'keuangan',
+  'akuntansi':           'accounting',
+  'accounting':          'akuntansi',
+  'pengembangan bisnis': 'business development',
+  'business development':'pengembangan bisnis',
+  'layanan pelanggan':   'customer service',
+  'pelayanan pelanggan': 'customer service',
+  'customer service':    'layanan pelanggan',
+  'manajemen':           'management',
+  'management':          'manajemen',
+  'pengadaan':           'procurement',
+  'procurement':         'pengadaan',
+  'perekrutan':          'recruitment',
+  'rekrutmen':           'recruitment',
+  'recruitment':         'perekrutan',
+  'pelatihan':           'training',
+  'training':            'pelatihan',
+  'analisis':            'analysis',
+  'analysis':            'analisis',
+  'analitik':            'analytics',
+  'analytics':           'analitik',
+  'pelaporan':           'reporting',
+  'reporting':           'pelaporan',
+  'kepuasan pelanggan':  'customer satisfaction',
+  'customer satisfaction':'kepuasan pelanggan',
+  'keselamatan kerja':   'occupational safety',
+  'occupational safety': 'keselamatan kerja',
+};
+
+/**
  * Case-insensitive substring matching of JD skills against the CV skills string.
- * The CV skills field is a free-text string (e.g. "Node.js, React, SQL"), so
- * we test whether each JD skill token appears anywhere in that string.
+ * Falls back to a synonym lookup when a direct match is not found, bridging
+ * Indonesian ↔ English skill terms (e.g. JD "communication" matches CV "komunikasi").
  */
 function matchSkills(cvSkillsStr, jdSkills) {
   const cv = (cvSkillsStr || '').toLowerCase();
   const total = jdSkills.length;
-  if (total === 0) return { matched: [], missing: [], match_ratio: 0 };
+  // No skills specified → vacuous truth: all (zero) requirements are met. Avoids
+  // unfairly penalising candidates whose JD simply didn't list skill keywords.
+  if (total === 0) return { matched: [], missing: [], match_ratio: 1 };
 
-  const matched = jdSkills.filter(s => cv.includes(s.toLowerCase()));
-  const missing  = jdSkills.filter(s => !cv.includes(s.toLowerCase()));
+  function skillFound(s) {
+    const term = s.toLowerCase();
+    if (cv.includes(term)) return true;
+    const synonym = SKILL_SYNONYMS[term];
+    return synonym ? cv.includes(synonym) : false;
+  }
+
+  const matched = jdSkills.filter(s => skillFound(s));
+  const missing  = jdSkills.filter(s => !skillFound(s));
   return { matched, missing, match_ratio: matched.length / total };
+}
+
+/**
+ * Strips calendar years (1900–2099) and phone-like sequences (9+ digits) from
+ * angka_di_cv so they don't inflate has_numbers / number_count.
+ * The raw string is still used by extractExperienceYears for "X tahun" parsing.
+ */
+function stripNonAchievementNumbers(angkaDiCv) {
+  if (!angkaDiCv || angkaDiCv === 'NOL ANGKA') return angkaDiCv;
+  return angkaDiCv
+    .replace(/\b(19|20)\d{2}\b/g, '')  // calendar years: 2022, 2013, 1999 …
+    .replace(/\b\d{9,}\b/g, '')        // phone / ID numbers (9+ consecutive digits)
+    .trim();
 }
 
 /**
@@ -69,9 +156,10 @@ export function runAnalysis(extractedData) {
     ? true
     : (experienceYears !== null && experienceYears >= jd.pengalaman_minimal);
 
-  const has_numbers  = cv.angka_di_cv !== 'NOL ANGKA';
-  const number_count = has_numbers
-    ? (cv.angka_di_cv.match(/\d+/g) || []).length
+  const angkaFiltered = stripNonAchievementNumbers(cv.angka_di_cv);
+  const has_numbers   = angkaFiltered !== 'NOL ANGKA' && /\d/.test(angkaFiltered);
+  const number_count  = has_numbers
+    ? (angkaFiltered.match(/\d+/g) || []).length
     : 0;
 
   const format_ok   = !!(cv.format_cv.satu_kolom && !cv.format_cv.ada_tabel);
@@ -81,9 +169,12 @@ export function runAnalysis(extractedData) {
   const expWordCount = (cv.pengalaman_mentah || '').split(/\s+/).filter(Boolean).length;
 
   const red_flag_types = {
-    multi_column: !format_ok,
-    no_numbers:   !has_numbers,
-    very_short:   expWordCount < 30,
+    multi_column:   !format_ok,
+    no_numbers:     !has_numbers,
+    very_short:     expWordCount < 30,
+    // Explicit experience requirement exists in the JD but candidate doesn't meet it.
+    // Only fires when pengalaman_minimal is a concrete number (not null).
+    experience_gap: jd.pengalaman_minimal !== null && !experience_ok,
   };
 
   return {

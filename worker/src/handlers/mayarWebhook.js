@@ -2,6 +2,7 @@ import { log, logError } from '../utils.js';
 import { verifyMayarWebhook } from '../mayar.js';
 import { getSession, updateSession } from '../sessions.js';
 import { sendPaymentConfirmationEmail } from '../email.js';
+import { SESSION_STATES, PENDING_LEGACY } from '../sessionStates.js';
 
 export async function handleMayarWebhook(request, env, ctx) {
   const { valid, body } = await verifyMayarWebhook(request, env);
@@ -26,19 +27,36 @@ export async function handleMayarWebhook(request, env, ctx) {
   // Extract session ID from Mayar's invoice data.
   // Mayar sends the invoice data — find our session by:
   //   KV secondary index `mayar_session_{invoiceId}` (set by /create-payment)
-  const invoiceId = payload.id || payload.invoice_id || payload.data?.id;
+  //
+  // Mayar's webhook structure varies across API versions and event types:
+  //   Flat:   { id: <invoiceId>, status: '...', ... }
+  //   Nested: { event: '...', data: { id: <txnId>, productId: <invoiceId>, ... } }
+  //
+  // CRITICAL: in Mayar sandbox (and production), the webhook `data.id` is the
+  // TRANSACTION ID created at payment time — NOT the payment-link ID stored
+  // during /invoice/create.  The payment-link ID appears in `data.productId`.
+  // We must try both so the KV secondary index (keyed by payment-link ID) is found.
+  const candidateInvoiceIds = [
+    payload.id,
+    payload.invoice_id,
+    payload.data?.id,
+    payload.data?.productId,    // payment-link ID — matches the index set by /create-payment
+    payload.data?.invoice_id,   // alternate field name used in some API versions
+    payload.data?.transactionId, // belt-and-suspenders for reverse mapping
+  ].filter((id, i, arr) => id && typeof id === 'string' && arr.indexOf(id) === i); // dedupe
+
   const redirectUrl = payload.redirect_url || payload.data?.redirect_url || '';
   const status = payload.status || payload.data?.status;
 
   console.log(JSON.stringify({
     event: 'webhook_payload',
-    invoiceId,
+    candidateInvoiceIds,
     status,
     topLevelKeys: Object.keys(payload),
     dataKeys: payload.data ? Object.keys(payload.data) : null,
   }));
 
-  if (!invoiceId && !redirectUrl) {
+  if (!candidateInvoiceIds.length && !redirectUrl) {
     // C4 FIX: Return 400 so Mayar retries and the operator can see the drop.
     // A silent 200 here permanently swallows the webhook with no telemetry.
     console.error(JSON.stringify({
@@ -50,21 +68,24 @@ export async function handleMayarWebhook(request, env, ctx) {
     return new Response('Bad Request: missing invoiceId and redirectUrl', { status: 400 });
   }
 
-  // Primary: KV secondary index (set by /create-payment)
+  // Primary: KV secondary index (set by /create-payment).
+  // Try each candidate ID in order; the first one that resolves to a valid session wins.
+  // This handles Mayar placing the webhook-event ID at payload.id while the actual
+  // invoice ID is at payload.data.id.
   let sessionId = null;
-  if (invoiceId) {
-    const mapping = await env.GASLAMAR_SESSIONS.get(`mayar_session_${invoiceId}`, { type: 'json' });
+  let invoiceId = candidateInvoiceIds[0] ?? null; // best candidate for logging
+  for (const candidateId of candidateInvoiceIds) {
+    const mapping = await env.GASLAMAR_SESSIONS.get(`mayar_session_${candidateId}`, { type: 'json' });
     const sid = mapping?.session_id;
     // Validate that the KV-stored session_id has the expected format before using it.
-    // This is defence-in-depth: the KV entry is written by /create-payment which already
-    // generates a valid sess_ UUID, but we guard against any future KV corruption.
     // Full format: "sess_" + 36-char lowercase UUID (e.g. sess_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
-    // Normalize to lowercase before testing — crypto.randomUUID() is lowercase in V8/Workers,
-    // but defensive normalization avoids silent rejection if a KV entry was written differently.
     if (typeof sid === 'string' && /^sess_[0-9a-f-]{36}$/.test(sid.toLowerCase())) {
       sessionId = sid;
-    } else if (sid !== undefined) {
-      console.error(JSON.stringify({ event: 'webhook_invalid_session_id_format', invoiceId, sid: String(sid).slice(0, 20) }));
+      invoiceId = candidateId; // use the ID that found the session for downstream logging
+      break;
+    }
+    if (sid !== undefined) {
+      console.error(JSON.stringify({ event: 'webhook_invalid_session_id_format', candidateId, sid: String(sid).slice(0, 20) }));
     }
   }
 
@@ -75,7 +96,11 @@ export async function handleMayarWebhook(request, env, ctx) {
   }
 
   // Check if payment is successful — covers all known Mayar status variants across API versions and sandbox
-  const isPaid = ['paid', 'settlement', 'capture', 'PAID', 'SETTLEMENT', 'CAPTURE', 'success', 'SUCCESS'].includes(status);
+  const isPaid = ['paid', 'settlement', 'capture', 'PAID', 'SETTLEMENT', 'CAPTURE', 'success', 'SUCCESS', 'completed', 'COMPLETED', 'confirmed', 'CONFIRMED'].includes(status);
+
+  if (!isPaid) {
+    console.log(JSON.stringify({ event: 'webhook_status_not_paid', sessionId, invoiceId, status }));
+  }
 
   if (isPaid) {
     // Idempotency sentinel: a dedicated KV key that persists longer than any Mayar retry
@@ -89,9 +114,12 @@ export async function handleMayarWebhook(request, env, ctx) {
       return new Response('OK', { status: 200 });
     }
 
-    // Belt-and-suspenders: also check session status (catches retries after KV propagates)
+    // Belt-and-suspenders: also check session status (catches retries after KV propagates).
+    // Accept both 'pending_payment' (new) and 'pending' (legacy sessions created before rename).
     const existing = await getSession(env, sessionId);
-    if (existing && existing.status !== 'pending') {
+    const isPendingPayment = existing &&
+      (existing.status === SESSION_STATES.PENDING_PAYMENT || existing.status === PENDING_LEGACY);
+    if (existing && !isPendingPayment) {
       return new Response('OK', { status: 200 });
     }
 
@@ -100,8 +128,18 @@ export async function handleMayarWebhook(request, env, ctx) {
     // read→check→write→send sequence.
     await env.GASLAMAR_SESSIONS.put(processedKey, '1', { expirationTtl: 172800 }); // 48 h
 
-    const updated = await updateSession(env, sessionId, { status: 'paid', paid_at: Date.now() });
+    let updated = false;
+    try {
+      updated = await updateSession(env, sessionId, { status: 'paid', paid_at: Date.now() });
+    } catch (e) {
+      // Transient KV error — remove the sentinel so Mayar's next retry can succeed.
+      await env.GASLAMAR_SESSIONS.delete(processedKey).catch(() => {});
+      logError('webhook_update_threw', { sessionId, invoiceId, error: e.message });
+      return new Response('Internal Error', { status: 500 });
+    }
     if (!updated) {
+      // Session is permanently gone (expired/deleted before payment confirmed).
+      // Keep the sentinel to stop infinite Mayar retries; log for operator.
       console.error(JSON.stringify({ event: 'webhook_session_update_failed', sessionId, invoiceId, environment: env.ENVIRONMENT ?? 'sandbox' }));
       return new Response('OK', { status: 200 });
     }

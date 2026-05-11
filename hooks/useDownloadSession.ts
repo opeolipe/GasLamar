@@ -4,7 +4,7 @@ import {
   clearClientSessionData,
   getSessionSecret,
   buildSecretHeaders,
-} from '@/lib/downloadUtils';
+} from '@/lib/sessionUtils';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -272,7 +272,9 @@ export function useDownloadSession(): UseDownloadSessionReturn {
   // ── Manual check-now ──────────────────────────────────────────────────────
 
   const onCheckNow = useCallback(() => {
-    const sId = sessionIdRef.current || sessionStorage.getItem('gaslamar_session');
+    const sId = sessionIdRef.current
+             || sessionStorage.getItem('gaslamar_session')
+             || localStorage.getItem('gaslamar_session');
     if (!sId) {
       showError('Sesi tidak ditemukan', 'Link download tidak valid.');
       return;

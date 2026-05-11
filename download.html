@@ -23,12 +23,11 @@
   <meta name="twitter:image"       content="https://gaslamar.com/assets/og-image.png" />
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg?v=2" />
   <link rel="alternate" type="application/ld+json" href="/assets/structured-data-download.json">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <!-- Cloudflare Web Analytics -->
   <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "f9c97d82f2a04b9f95e051946eb0525e"}'></script>
   <link rel="stylesheet" href="css/tailwind.css">
   <style>
-    body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    body { margin: 0; }
     #download-root { min-height: 100vh; }
   </style>
   <!-- Session guard: synchronous (no defer) — runs before body renders -->
@@ -38,7 +37,7 @@
 <div id="download-root"></div>
 
   <script defer src="js/dist/analytics-init.bundle.js?v=b1082947"></script>
-  <script defer src="js/dist/download-react.bundle.js?v=0fa86c90"></script>
+  <script defer src="js/dist/download-react.bundle.js?v=9a8c0fcd"></script>
   <!-- PostHog array.js — loaded after the bundle so posthog.init() with all disable flags
        is queued before PostHog library processes it (defer execution order guarantee). -->
   <script defer src="https://eu-assets.i.posthog.com/static/array.js" crossorigin="anonymous"></script>

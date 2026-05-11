@@ -45,7 +45,7 @@ export function useSessionCountdown(analyzeTime: number): SessionCountdown {
   if (remaining <= 300) {
     return {
       text: `⚠️ Preview berakhir dalam ${m}m ${s}s — selesaikan pembayaran sekarang!`,
-      variant: 'expired',
+      variant: 'warning',
       isExpiringSoon: true,
       isExpired: false,
     };
@@ -54,8 +54,8 @@ export function useSessionCountdown(analyzeTime: number): SessionCountdown {
   if (remaining <= 1800) {
     return {
       text: h > 0
-        ? `⏰ Preview analisis berlaku ${h}j ${m}m lagi — bayar sebelum kedaluwarsa`
-        : `⏰ Preview analisis berlaku ${m}m ${s}s lagi — bayar sebelum kedaluwarsa`,
+        ? `Preview aktif ${h}j ${m}m lagi`
+        : `Preview aktif ${m}m lagi`,
       variant: 'warning',
       isExpiringSoon: false,
       isExpired: false,
@@ -64,8 +64,8 @@ export function useSessionCountdown(analyzeTime: number): SessionCountdown {
 
   return {
     text: h > 0
-      ? `⏰ Preview analisis berlaku ${h}j ${m}m lagi`
-      : `⏰ Preview analisis berlaku ${m}m ${s}s lagi`,
+      ? `Preview aktif ${h}j ${m}m lagi`
+      : `Preview aktif ${m}m lagi`,
     variant: 'default',
     isExpiringSoon: false,
     isExpired: false,
