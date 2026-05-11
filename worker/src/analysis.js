@@ -38,7 +38,7 @@ import { sha256Hex }     from './utils.js';
 //                   Bump EXTRACT_CACHE_VERSION when changing pipeline/extract.js or prompts/extract.js.
 // Stale KV entries with old version prefixes are ignored automatically.
 const EXTRACT_CACHE_VERSION  = 'v3'; // current key: extract_v3_<hash> (bumped: angka_di_cv now achievement-only, not calendar years)
-const ANALYSIS_CACHE_VERSION = 'v9'; // current key: analysis_v9_<hash> (bumped: empty-JD match_ratio fix, experience_gap flag, skor_sesudah clamp, cabin crew archetype)
+const ANALYSIS_CACHE_VERSION = 'v10'; // current key: analysis_v10_<hash> (bumped: 5 new archetypes, IT engineer fix, role weight profiles for teknik/creative/kesehatan/pendidikan/hospitality)
 
 // ---- Orchestrator ----
 

@@ -9,6 +9,7 @@ import { validateExtractOutput, validateDiagnoseOutput } from '../src/pipeline/v
 import { detectArchetype } from '../src/pipeline/archetypes.js';
 import { addsNewNumbers, addsNewClaims, validateRewrite, postProcessCV } from '../src/rewriteGuard.js';
 import { inferRole, applyRoleWeights, computePrimaryIssue, isJDQualityHigh } from '../src/pipeline/roleInference.js';
+import { getRoleProfile } from '../src/roleProfiles.js';
 import { generateInterviewKitPdf } from '../src/interviewKitPdf.js';
 
 // ── Fixture helpers ───────────────────────────────────────────────────────────
@@ -500,24 +501,52 @@ describe('validateDiagnoseOutput', () => {
 
 describe('detectArchetype', () => {
   it.each([
-    ['Software Engineer',    'IT/Software'],
-    ['Data Analyst',         'IT/Software'],
-    ['Marketing Manager',    'Marketing/Sales'],
-    ['Sales Executive',      'Marketing/Sales'],
-    ['Akuntan Senior',       'Finance/Akuntansi'],
-    ['Finance Controller',   'Finance/Akuntansi'],
-    ['Staff Administrasi',   'Administrasi/GA'],
-    ['General Affair',       'Administrasi/GA'],
-    ['HRD Specialist',       'HRD'],
-    ['Supervisor Gudang',    'Operasional/Logistik'],
-    ['Customer Service Rep', 'Customer Service'],
-    ['Cabin Crew',           'Customer Service'],
-    ['Flight Attendant',     'Customer Service'],
-    ['Pramugari',            'Customer Service'],
-    ['Senior Manager',       'Manajemen/Leader'],
-    ['Head of Product',      'Manajemen/Leader'],
-    ['Magang UI/UX',         'Fresh Graduate (trainee)'],
-    ['Penulis Konten',       'Lainnya'],
+    // Existing archetypes
+    ['Software Engineer',       'IT/Software'],
+    ['Data Analyst',            'IT/Software'],
+    ['Developer Backend',       'IT/Software'],
+    ['DevOps Engineer',         'IT/Software'],
+    ['Product Manager',         'IT/Software'],
+    ['Marketing Manager',       'Marketing/Sales'],
+    ['Sales Executive',         'Marketing/Sales'],
+    ['Copywriter',              'Marketing/Sales'],
+    ['Akuntan Senior',          'Finance/Akuntansi'],
+    ['Finance Controller',      'Finance/Akuntansi'],
+    ['Staff Administrasi',      'Administrasi/GA'],
+    ['General Affair',          'Administrasi/GA'],
+    ['HRD Specialist',          'HRD'],
+    ['Supervisor Gudang',       'Operasional/Logistik'],
+    ['Customer Service Rep',    'Customer Service'],
+    ['Cabin Crew',              'Customer Service'],
+    ['Flight Attendant',        'Customer Service'],
+    ['Pramugari',               'Customer Service'],
+    ['Senior Manager',          'Manajemen/Leader'],
+    ['Head of Product',         'Manajemen/Leader'],
+    ['Magang UI/UX',            'Fresh Graduate (trainee)'],
+    // New archetypes
+    ['Teknik Sipil',            'Teknik/Manufaktur'],
+    ['Mechanical Engineer',     'Teknik/Manufaktur'],
+    ['Operator Produksi',       'Teknik/Manufaktur'],
+    ['Quality Control Staff',   'Teknik/Manufaktur'],
+    ['Maintenance Technician',  'Teknik/Manufaktur'],
+    ['UI/UX Designer',          'Kreatif/Desain'],
+    ['Graphic Designer',        'Kreatif/Desain'],
+    ['Content Creator',         'Kreatif/Desain'],
+    ['Fotografer',              'Kreatif/Desain'],
+    ['Dokter Umum',             'Kesehatan'],
+    ['Perawat ICU',             'Kesehatan'],
+    ['Apoteker',                'Kesehatan'],
+    ['Guru Matematika',         'Pendidikan/Pelatihan'],
+    ['Corporate Trainer',       'Pendidikan/Pelatihan'],
+    ['Chef De Partie',          'Hospitality/F&B'],
+    ['Barista',                 'Hospitality/F&B'],
+    ['Front Office Hotel',      'Hospitality/F&B'],
+    // False-positive guards: non-IT engineers must NOT hit IT/Software
+    ['Civil Engineer',          'Teknik/Manufaktur'],
+    ['Electrical Engineer',     'Teknik/Manufaktur'],
+    ['Chemical Engineer',       'Teknik/Manufaktur'],
+    // Fallthrough
+    ['Penulis Konten',          'Lainnya'],
   ])('%s → %s', (title, expected) => {
     expect(detectArchetype(title)).toBe(expected);
   });
@@ -785,6 +814,45 @@ describe('applyRoleWeights', () => {
     const profile = { weightBias: { north_star: 0, recruiter_signal: 1.0, effort: 1.0, opportunity_cost: 1.0, risk: 1.0, portfolio: 1.0 } };
     const weighted = applyRoleWeights(raw, profile);
     expect(weighted.north_star).toBe(0);
+  });
+});
+
+describe('new role profiles — weight bias sanity checks', () => {
+  const DIMS = ['north_star', 'recruiter_signal', 'effort', 'opportunity_cost', 'risk', 'portfolio'];
+
+  it('teknik: north_star has highest bias (technical fit is primary signal)', () => {
+    const p = getRoleProfile('teknik');
+    expect(p).not.toBeNull();
+    const maxBias = Math.max(...Object.values(p.weightBias));
+    expect(p.weightBias.north_star).toBe(maxBias);
+  });
+
+  it('creative: portfolio has highest weight bias', () => {
+    const p = getRoleProfile('creative');
+    const maxBias = Math.max(...Object.values(p.weightBias));
+    expect(p.weightBias.portfolio).toBe(maxBias);
+  });
+
+  it('kesehatan: north_star has highest weight bias', () => {
+    const p = getRoleProfile('kesehatan');
+    const maxBias = Math.max(...Object.values(p.weightBias));
+    expect(p.weightBias.north_star).toBe(maxBias);
+  });
+
+  it('hospitality: risk is lowest weight bias (automation/economic disruption risk)', () => {
+    const p = getRoleProfile('hospitality');
+    const minBias = Math.min(...Object.values(p.weightBias));
+    expect(p.weightBias.risk).toBe(minBias);
+  });
+
+  it('all 5 new profiles exist and have complete weightBias', () => {
+    for (const key of ['teknik', 'creative', 'kesehatan', 'pendidikan', 'hospitality']) {
+      const p = getRoleProfile(key);
+      expect(p).not.toBeNull();
+      for (const dim of DIMS) {
+        expect(typeof p.weightBias[dim]).toBe('number');
+      }
+    }
   });
 });
 
