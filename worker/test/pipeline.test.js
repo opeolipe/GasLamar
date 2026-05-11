@@ -152,6 +152,22 @@ describe('runAnalysis — format and signals', () => {
     expect(runAnalysis(extracted({ angka_di_cv: '2022-Present 30% peningkatan' })).has_numbers).toBe(true);
   });
 
+  it('angka_di_cv with only education degree code D1 → has_numbers = false', () => {
+    expect(runAnalysis(extracted({ angka_di_cv: 'D1 Business Computer App' })).has_numbers).toBe(false);
+  });
+
+  it('angka_di_cv with only education degree code S1 → has_numbers = false', () => {
+    expect(runAnalysis(extracted({ angka_di_cv: 'S1 Teknik Informatika' })).has_numbers).toBe(false);
+  });
+
+  it('angka_di_cv with degree + calendar years only → has_numbers = false', () => {
+    expect(runAnalysis(extracted({ angka_di_cv: 'D1 2022 2020 2013' })).has_numbers).toBe(false);
+  });
+
+  it('angka_di_cv with degree + real metric → has_numbers = true', () => {
+    expect(runAnalysis(extracted({ angka_di_cv: 'S1, 30% peningkatan penjualan' })).has_numbers).toBe(true);
+  });
+
   it('sertifikat !== "TIDAK ADA" → has_certs = true', () => {
     expect(runAnalysis(extracted({ sertifikat: 'AWS Certified Developer' })).has_certs).toBe(true);
   });
@@ -371,6 +387,11 @@ describe('calculateScores — portfolio', () => {
   it('no numbers + certs → portfolio = 4 (2 + 2)', () => {
     const ext = extracted({ angka_di_cv: 'NOL ANGKA', sertifikat: 'AWS Certified' });
     expect(calculateScores(ext, runAnalysis(ext)).portfolio).toBe(4);
+  });
+
+  it('education degree only (D1), no certs → portfolio = 2 (not inflated by degree code)', () => {
+    const ext = extracted({ angka_di_cv: 'D1 Business Computer App 2022 2020', sertifikat: 'TIDAK ADA' });
+    expect(calculateScores(ext, runAnalysis(ext)).portfolio).toBe(2);
   });
 });
 

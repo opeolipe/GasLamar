@@ -108,6 +108,7 @@ function stripNonAchievementNumbers(angkaDiCv) {
   return angkaDiCv
     .replace(/\b(19|20)\d{2}\b/g, '')  // calendar years: 2022, 2013, 1999 …
     .replace(/\b\d{9,}\b/g, '')        // phone / ID numbers (9+ consecutive digits)
+    .replace(/\b[DS][1-4]\b/gi, '')    // Indonesian education degrees: D1–D4, S1–S3
     .trim();
 }
 

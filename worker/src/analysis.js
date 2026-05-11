@@ -37,7 +37,7 @@ import { sha256Hex }     from './utils.js';
 // DEPLOY CHECKLIST: Bump ANALYSIS_CACHE_VERSION when changing pipeline/ or prompts/.
 //                   Bump EXTRACT_CACHE_VERSION when changing pipeline/extract.js or prompts/extract.js.
 // Stale KV entries with old version prefixes are ignored automatically.
-const EXTRACT_CACHE_VERSION  = 'v4'; // current key: extract_v4_<hash> (bumped: full 64-char SHA-256 + null-byte separator)
+const EXTRACT_CACHE_VERSION  = 'v5'; // current key: extract_v5_<hash> (bumped: exclude degree codes from angka_di_cv + tighten sertifikat prompt)
 const ANALYSIS_CACHE_VERSION = 'v12'; // current key: analysis_v12_<hash> (bumped: full 64-char SHA-256 + null-byte separator)
 
 // ---- Orchestrator ----
