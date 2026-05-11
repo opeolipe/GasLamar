@@ -415,14 +415,6 @@ export default function Upload() {
             Lihat apa yang bikin HR masih ragu.
           </p>
 
-          {/* Progression strip */}
-          <div className="mt-5 flex items-center justify-center gap-2 text-sm text-slate-500 flex-wrap">
-            <span className="font-medium text-slate-700">Upload CV</span>
-            <span className="text-slate-300" aria-hidden="true">→</span>
-            <span>Tahu masalahnya</span>
-            <span className="text-slate-300" aria-hidden="true">→</span>
-            <span>Benerin</span>
-          </div>
         </div>
 
         {/* ZONE 2: Form panel */}

@@ -1,6 +1,6 @@
 const STEPS = [
   { n: 1 as const, label: '1. Upload CV', desc: 'PDF / DOCX / TXT · maks 5MB' },
-  { n: 2 as const, label: '2. Job Desc',  desc: 'wajib · naikkan akurasi 3×'  },
+  { n: 2 as const, label: '2. Isi Job desc',  desc: 'wajib · naikkan akurasi 3×'  },
   { n: 3 as const, label: '3. Analisis',  desc: 'rata-rata < 1 menit'          },
 ];
 
