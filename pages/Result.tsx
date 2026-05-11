@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef }       from 'react';
+import PaymentTransition                       from '@/components/payment/PaymentTransition';
 import ScoreDisplay                            from '@/components/result/ScoreDisplay';
 import GapList                                 from '@/components/result/GapList';
 import PricingSelector                         from '@/components/result/PricingSelector';
@@ -97,6 +98,7 @@ export default function Result() {
   const [paymentInProgress,     setPaymentInProgress]     = useState(false);
   const [payBtnOverride,        setPayBtnOverride]        = useState<string | null>(null);
   const [paymentError,          setPaymentError]          = useState<string | null>(null);
+  const [transitionInvoiceUrl,  setTransitionInvoiceUrl]  = useState<string | null>(null);
   const [sessionExpiredByPay,   setSessionExpiredByPay]   = useState(false);
   const [showExpiryToast,       setShowExpiryToast]       = useState(false);
   const [tierError,             setTierError]             = useState(false);
@@ -231,8 +233,9 @@ export default function Result() {
             let urlSafe = false;
             try { urlSafe = new URL(pending.invoice_url).protocol === 'https:'; } catch (_) {}
             if (!urlSafe) throw new Error('invalid_invoice_url');
+            setPaymentInProgress(true);
             setPayBtnOverride('Mengalihkan ke halaman pembayaran...');
-            window.location.href = pending.invoice_url;
+            setTransitionInvoiceUrl(pending.invoice_url);
             return;
           }
           if (!tierMatches && !currentCvKey) {
@@ -353,7 +356,7 @@ export default function Result() {
 
       sessionStorage.removeItem('gaslamar_cv_key');
       setPayBtnOverride('Mengalihkan ke halaman pembayaran...');
-      window.location.href = invoice_url;
+      setTransitionInvoiceUrl(invoice_url);
 
     } catch (err) {
       clearTimeout(timeout);
@@ -803,6 +806,8 @@ export default function Result() {
         }
         .gaslamar-shake { animation: gaslamarShake 0.4s ease-in-out; }
       `}</style>
+
+      <PaymentTransition invoiceUrl={transitionInvoiceUrl} />
     </div>
   );
 }
