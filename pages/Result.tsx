@@ -88,7 +88,7 @@ export default function Result() {
   );
 
   const [showAllDimensions,     setShowAllDimensions]     = useState(false);
-  const [showAllRekomendasi,    setShowAllRekomendasi]    = useState(true);
+  const [showAllRekomendasi,    setShowAllRekomendasi]    = useState(false);
   const [selectedTier,          setSelectedTier]          = useState<string | null>(null);
   const [email,                 setEmail]                 = useState('');
   const [emailError,            setEmailError]            = useState('');
@@ -269,7 +269,8 @@ export default function Result() {
       ;(window as any).Analytics?.track?.('email_validation_failed', { reason: emailValidation.suggestion ? 'typo_domain' : 'invalid_format' });
       const emailEl = document.getElementById('email-capture');
       emailEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      setTimeout(() => { emailEl?.focus(); shakeEl(emailEl); }, 300);
+      const inputEl = (emailEl?.querySelector('input') ?? emailEl) as HTMLElement | null;
+      setTimeout(() => { inputEl?.focus(); shakeEl(emailEl); }, 300);
       return;
     }
     setEmailError('');
@@ -426,13 +427,20 @@ export default function Result() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div
-      className="min-h-screen text-gray-900 font-sans"
+      className="min-h-dvh text-gray-900 font-sans"
       style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37,99,235,0.08), transparent)' }}
     >
-      {/* 5-minute expiry toast */}
+      {/* 5-minute expiry toast — bottom-right, non-blocking */}
       {showExpiryToast && (
-        <div role="alert" aria-live="assertive" className="fixed top-0 left-0 right-0 z-[9000] bg-red-600 text-white text-center text-sm font-semibold px-4 py-2.5">
-          ⏳ Sesi analisis akan berakhir dalam 5 menit. Lanjutkan ke pembayaran.
+        <div
+          role="alert"
+          aria-live="polite"
+          className="fixed bottom-6 right-4 z-[9000] max-w-[280px] rounded-[14px] px-4 py-3 text-sm font-semibold shadow-lg"
+          style={{ background: '#FEF3C7', border: '1px solid #FDE68A', color: '#92400E' }}
+        >
+          <span aria-hidden="true">⏳</span>{' '}
+          <span className="sr-only">Peringatan: </span>
+          Sesi analisis berakhir dalam 5 menit.
         </div>
       )}
 
@@ -491,14 +499,10 @@ export default function Result() {
             )}
 
             {/* ── SECTION 1: Score Hero ── */}
-            <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '2.5rem 2rem 2rem' }} data-testid="result-score">
-
-            {/* ── BLOCK 1: RESULT ── */}
-            <div style={{ marginBottom: '2.5rem' }}>
-              <div
-                style={{ ...CARD_STYLE, marginBottom: 0, borderRadius: 24 }}
-                data-testid="result-score"
-              >
+            <div
+              style={{ ...CARD_STYLE, textAlign: 'center', padding: '2.5rem 2rem 2rem' }}
+              data-testid="result-score"
+            >
                 <ScoreDisplay
                   score={data.skor}
                 />
@@ -523,9 +527,6 @@ export default function Result() {
                     </div>
                   )}
                 </div>
-              </div>
-
-            </div>
             </div>
 
             {/* ── SECTION 2: Kenapa HR masih ragu ── */}
@@ -805,6 +806,9 @@ export default function Result() {
           40%, 80% { transform: translateX(5px); }
         }
         .gaslamar-shake { animation: gaslamarShake 0.4s ease-in-out; }
+        @media (prefers-reduced-motion: reduce) {
+          .gaslamar-shake { animation: none; }
+        }
       `}</style>
 
       <PaymentTransition invoiceUrl={transitionInvoiceUrl} />

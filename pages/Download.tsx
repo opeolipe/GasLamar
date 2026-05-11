@@ -60,6 +60,8 @@ export default function Download() {
 
   const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const viewRef           = useRef<PageView>('waiting');
+  const bannerRef         = useRef<HTMLDivElement>(null);
+  const [bannerHeight,    setBannerHeight]    = useState(0);
   viewRef.current         = view;
 
   // ── Redirect guard ────────────────────────────────────────────────────────
@@ -165,6 +167,16 @@ export default function Download() {
       setCountdownWarn(info.variant === 'warning');
     }
   }
+
+  // Measure countdown banner height so nav top + main paddingTop stay in sync
+  useEffect(() => {
+    const el = bannerRef.current;
+    if (!el) { setBannerHeight(0); return; }
+    const ro = new ResizeObserver(() => setBannerHeight(el.offsetHeight));
+    ro.observe(el);
+    setBannerHeight(el.offsetHeight);
+    return () => ro.disconnect();
+  }, [countdownText]);
 
   // Cleanup
   useEffect(() => {
@@ -301,7 +313,7 @@ export default function Download() {
 
   return (
     <div
-      className="min-h-screen text-gray-900 font-sans"
+      className="min-h-dvh text-gray-900 font-sans"
       style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37,99,235,0.08), transparent)' }}
     >
       {/* Skip link */}
@@ -315,6 +327,7 @@ export default function Download() {
       {/* Countdown banner */}
       {countdownText && (
         <div
+          ref={bannerRef}
           role="status"
           aria-live="polite"
           className="fixed top-0 left-0 right-0 z-[60] text-center text-sm font-medium px-4 py-[7px]"
@@ -333,7 +346,7 @@ export default function Download() {
       <nav
         className="sticky z-50 flex items-center px-6 py-4"
         style={{
-          top:          countdownText ? '34px' : '0',
+          top:          bannerHeight > 0 ? `${bannerHeight}px` : '0',
           background:   'rgba(255,255,255,0.88)',
           borderBottom: '1px solid rgba(148,163,184,0.18)',
           backdropFilter: 'blur(14px)',
@@ -349,7 +362,7 @@ export default function Download() {
       <main
         id="download-main"
         className="mx-auto px-5 sm:px-8 py-8 pb-20"
-        style={{ maxWidth: 1040, paddingTop: countdownText ? 'calc(2rem + 34px)' : '2rem' }}
+        style={{ maxWidth: 1040, paddingTop: bannerHeight > 0 ? `calc(2rem + ${bannerHeight}px)` : '2rem' }}
       >
         {/* Delivery section — only shown after the waiting phase to prevent conflict
             with WaitingPayment. gaslamar_delivery is written at invoice-creation time
@@ -441,23 +454,23 @@ export default function Download() {
             />
           </div>
         )}
+
+        {/* Back link */}
+        <div className="text-center mt-4 mb-2">
+          <a href="upload.html" className="text-sm text-slate-400 hover:text-slate-600 transition-colors no-underline">
+            ← Upload CV lain
+          </a>
+        </div>
+
+        <footer className="text-center py-6 text-sm text-slate-400">
+          <p className="mb-3 text-slate-400">GasLamar · Karena nyari kerja udah cukup ribet</p>
+          <a href="privacy.html"       className="text-slate-400 no-underline hover:underline mx-2">Kebijakan Privasi</a>
+          ·
+          <a href="terms.html"         className="text-slate-400 no-underline hover:underline mx-2">Syarat Layanan</a>
+          ·
+          <a href="accessibility.html" className="text-slate-400 no-underline hover:underline mx-2">Aksesibilitas</a>
+        </footer>
       </main>
-
-      {/* Back link */}
-      <div className="text-center mt-4 mb-2">
-        <a href="upload.html" className="text-sm text-slate-400 hover:text-slate-600 transition-colors no-underline">
-          ← Upload CV lain
-        </a>
-      </div>
-
-      <footer className="text-center py-6 text-sm text-slate-400">
-        <p className="mb-3 text-slate-400">GasLamar · Karena nyari kerja udah cukup ribet</p>
-        <a href="privacy.html"       className="text-slate-400 no-underline hover:underline mx-2">Kebijakan Privasi</a>
-        ·
-        <a href="terms.html"         className="text-slate-400 no-underline hover:underline mx-2">Syarat Layanan</a>
-        ·
-        <a href="accessibility.html" className="text-slate-400 no-underline hover:underline mx-2">Aksesibilitas</a>
-      </footer>
     </div>
   );
 }

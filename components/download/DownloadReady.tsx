@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import MobileFallback       from '@/components/download/MobileFallback';
 import UpgradeNudge         from '@/components/download/UpgradeNudge';
 import MultiCreditSection   from '@/components/download/MultiCreditSection';
@@ -152,6 +152,32 @@ function PostDownloadCard({ creditsRemaining, onDismiss, onScrollToMulti, onShow
 // ── InterviewTipsModal ────────────────────────────────────────────────────────
 
 function InterviewTipsModal({ onClose }: { onClose: () => void }) {
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Auto-focus close button on open
+  useEffect(() => {
+    closeRef.current?.focus();
+  }, []);
+
+  // Trap focus within modal + close on Escape
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Escape') { onClose(); return; }
+    if (e.key !== 'Tab') return;
+    const panel = panelRef.current;
+    if (!panel) return;
+    const focusable = Array.from(
+      panel.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+    ).filter(el => !el.hasAttribute('disabled'));
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last  = focusable[focusable.length - 1];
+    if (e.shiftKey ? document.activeElement === first : document.activeElement === last) {
+      e.preventDefault();
+      (e.shiftKey ? last : first).focus();
+    }
+  }
+
   return (
     <div
       className="fixed inset-0 z-[1000] flex items-center justify-center p-4"
@@ -160,9 +186,11 @@ function InterviewTipsModal({ onClose }: { onClose: () => void }) {
       aria-modal="true"
       aria-labelledby="tips-modal-heading"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      onKeyDown={handleKeyDown}
     >
-      <div className="bg-white rounded-[20px] p-7 max-w-[480px] w-full max-h-[80vh] overflow-y-auto relative">
+      <div ref={panelRef} className="bg-white rounded-[20px] p-7 max-w-[480px] w-full max-h-[80vh] overflow-y-auto relative">
         <button
+          ref={closeRef}
           onClick={onClose}
           aria-label="Tutup tips interview"
           className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 bg-transparent border-none cursor-pointer text-xl"
@@ -366,7 +394,9 @@ export default function DownloadReady({
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                     <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#111827' }}>
-                      {dim.score < 4 ? '❌' : '⚠️'} {dim.label}
+                      <span aria-hidden="true">{dim.score < 4 ? '❌' : '⚠️'}</span>
+                      <span className="sr-only">{dim.score < 4 ? 'Kritis: ' : 'Perlu perbaikan: '}</span>
+                      {dim.label}
                     </span>
                     <span style={{ fontSize: '0.8rem', fontWeight: 700, color: dim.score < 4 ? '#DC2626' : '#92400E', flexShrink: 0, marginLeft: 8 }}>
                       {dim.score}/10
@@ -451,7 +481,7 @@ export default function DownloadReady({
 
             {/* English — bilingual tiers only */}
             {bilingual && cvTextEn && (
-              <div className="rounded-[20px] p-4" style={{ background: 'rgba(248,250,252,0.8)', border: '1px solid rgba(148,163,184,0.18)' }}>
+              <div lang="en" className="rounded-[20px] p-4" style={{ background: 'rgba(248,250,252,0.8)', border: '1px solid rgba(148,163,184,0.18)' }}>
                 <div className="text-base font-semibold flex items-center gap-2 mb-3 text-slate-900">
                   🇬🇧 English
                 </div>

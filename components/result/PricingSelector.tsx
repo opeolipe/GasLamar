@@ -29,7 +29,7 @@ export default function PricingSelector({ selectedTier, onSelect, score, hasErro
       </p>
 
       {/* Pricing grid */}
-      <div id="tier-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', margin: '1.5rem 0 0', borderRadius: 16, outline: hasError ? '2px solid #EF4444' : 'none', outlineOffset: 4 }}>
+      <div id="tier-grid" className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: '1rem', margin: '1.5rem 0 0', borderRadius: 16, outline: hasError ? '2px solid #EF4444' : 'none', outlineOffset: 4 }}>
         {TIERS.map(tier => {
           const info     = TIER_CONFIG[tier];
           const copy     = TIER_COPY[tier];

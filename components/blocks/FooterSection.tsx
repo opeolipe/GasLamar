@@ -16,21 +16,21 @@ export default function FooterSection({ ref }: { ref?: React.Ref<HTMLElement> })
         </a>
         <span className="text-slate-300" aria-hidden="true">•</span>
         <a
-          href="https://gaslamar.com/privacy.html"
+          href="privacy.html"
           className="text-slate-400 hover:text-slate-700 underline-offset-2 hover:underline"
         >
           Kebijakan Privasi
         </a>
         <span className="text-slate-300" aria-hidden="true">•</span>
         <a
-          href="https://gaslamar.com/terms.html"
+          href="terms.html"
           className="text-slate-400 hover:text-slate-700 underline-offset-2 hover:underline"
         >
           Syarat Layanan
         </a>
         <span className="text-slate-300" aria-hidden="true">•</span>
         <a
-          href="https://gaslamar.com/accessibility.html"
+          href="accessibility.html"
           className="text-slate-400 hover:text-slate-700 underline-offset-2 hover:underline"
         >
           Aksesibilitas

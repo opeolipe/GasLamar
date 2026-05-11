@@ -182,7 +182,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
             value={manualCvText}
             onChange={(e) => onManualCvChange(e.target.value)}
             maxLength={MAX_CV_PASTE_CHARS}
-            className="block w-full max-w-full min-h-[140px] rounded-2xl border border-slate-200 bg-transparent p-4 text-sm text-slate-900 resize-y outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:ring-offset-1"
+            className="block w-full max-w-full min-h-[140px] rounded-2xl border border-slate-200 bg-transparent p-4 text-sm text-slate-900 resize-none sm:resize-y outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:ring-offset-1"
             placeholder="Paste isi CV kamu di sini..."
             aria-label="Paste isi CV secara manual"
           />
