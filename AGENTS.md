@@ -26,14 +26,15 @@ GasLamar is an AI-powered CV tailoring web app for Indonesian job seekers. Users
 │   ├── worker.js           # Entry point — thin CORS wrapper
 │   └── src/
 │       ├── router.js       # Route dispatch — add new endpoints here
-│       ├── constants.js    # TIER_PRICES, SESSION_TTL, ALLOWED_ORIGINS
+│       ├── constants.js    # TIER_PRICES, TIER_CREDITS, VALID_TIERS, SESSION_TTL, PRODUCTION_ORIGINS, KV_CV_RESULT_PREFIX
 │       ├── claude.js       # callClaude() — Anthropic API wrapper, 40s timeout
 │       ├── sessions.js     # KV session CRUD
 │       ├── cookies.js      # Cookie set/clear utilities for session management
 │       ├── sanitize.js     # Input sanitization (XSS, control chars, Latin-1)
 │       ├── interviewKitPdf.js # pdf-lib PDF generation for interview kit
+│       ├── sessionStates.js # Canonical session state machine — states, transitions, helper functions
 │       ├── handlers/       # One file per API endpoint
-│       ├── pipeline/       # extract.js, analyze.js, score.js, diagnose.js, validate.js
+│       ├── pipeline/       # extract.js, analyze.js, score.js, diagnose.js, validate.js, roleInference.js
 │       └── prompts/        # LLM prompts: extract.js, analyze.js, diagnose.js, interviewKit.js, tailorId.js, tailorEn.js
 ├── scripts/                # build.js (esbuild), vendor.js (Tailwind + lib copy)
 ├── package.json            # Root — frontend build scripts
@@ -57,6 +58,10 @@ POST /analyze
   ├─ Stage 2: ANALYZE (pure JS — pipeline/analyze.js)
   │    Skill matching, format detection, archetype detection, red flags.
   │
+  ├─ Stage 2.5: ROLE INFERENCE (pure JS — pipeline/roleInference.js)
+  │    Classifies role, seniority, industry from Stage 1+2 output.
+  │    Feeds scoring weights (Stage 3), diagnose context (Stage 4), tailoring guidance (Stage 5).
+  │
   ├─ Stage 3: SCORE (formula — pipeline/score.js)
   │    6-dimension scoring: north_star, recruiter_signal, effort,
   │    opportunity_cost, risk, portfolio.
@@ -79,6 +84,18 @@ POST /analyze
 
 **Cache key versioning:** Bump the version suffix (`v2_`, `v6_`, `v3_`, etc.) whenever a prompt or scoring formula changes significantly to avoid stale cache hits. Versions live in `analysis.js` (extract/analyze) and `tailoring.js` (gen). Do not bump in the pipeline files themselves.
 
+**Session state machine** (defined in `sessionStates.js`):
+
+| State | Meaning |
+|---|---|
+| `pending_payment` | Created, awaiting Mayar webhook (old sessions may carry `'pending'`) |
+| `paid` | Payment confirmed, no generation started yet |
+| `generating` | CV tailoring in progress (lock held) |
+| `ready` | Generation succeeded; result stored; credits remain |
+| `exhausted` | All credits consumed; session preserved (not deleted) for audit/recovery |
+
+`/get-session` accepts `paid`, `ready`, or `generating` (retry). `/generate` transitions to `ready` (credits remain) or `exhausted` (last credit).
+
 ---
 
 ## API Routes
@@ -92,7 +109,8 @@ POST /analyze
 | GET, POST | /session/ping (alias: /api/session/ping) | handlers/sessionPing.js | Keepalive |
 | GET | /check-session | handlers/checkSession.js | |
 | GET | /validate-session | handlers/validateSession.js | |
-| POST | /get-session | handlers/getSession.js | Requires `paid` status |
+| GET | /get-scoring | handlers/getScoring.js | Returns scoring snapshot for a cvtext_ key; rate: 10/min |
+| POST | /get-session | handlers/getSession.js | Requires `paid` or `ready` status |
 | POST | /generate | handlers/generate.js | Rate: 5/min |
 | POST | /get-result | handlers/getResult.js | |
 | POST | /submit-email | handlers/submitEmail.js | |
@@ -118,9 +136,13 @@ cd worker && npm run dev         # local dev via wrangler
 cd worker && npm run tail        # stream live production logs
 
 # Frontend build (from repo root)
-npm run build          # all: vendor + JS bundles + Tailwind CSS
+npm run build          # all: CSP hash + vendor + JS bundles + React + bundle hash
 npm run build:vendor   # docx.js, jsPDF, Tailwind CSS only
 npm run build:js       # esbuild bundles only (js/dist/)
+npm run build:react    # React build only (hasil page)
+npm run build:csp      # update CSP hash in _headers after HTML changes
+npm run build:hash     # update bundle hashes in HTML after JS build
+npm run check:cache    # verify cache version strings are consistent
 npm run dev            # watch mode for JS bundles
 ```
 
@@ -155,7 +177,7 @@ npm run dev            # watch mode for JS bundles
 
 Do not break these:
 - Webhook HMAC-SHA256 verification (Mayar) in `mayarWebhook.js`
-- CORS: only `gaslamar.com` and `www.gaslamar.com` allowed
+- CORS: `gaslamar.com`, `www.gaslamar.com`, and `gaslamar.pages.dev` (Pages canonical) — defined in `constants.js` `PRODUCTION_ORIGINS`
 - Server-side file validation: magic bytes (PDF: `%PDF`, DOCX: `PK`) + 5MB limit
 - `cv_text_key` is IP-bound — reject if request IP doesn't match
 - `/get-session` rejects sessions without `paid` status

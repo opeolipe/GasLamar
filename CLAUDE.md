@@ -24,14 +24,18 @@ LLM = extraction + text only. All scoring is pure JS.
 - `ANALYSIS_CACHE_VERSION` (`analysis_v6_*`) — bump when changing anything else in `pipeline/` or `prompts/`
 - Tailoring: bump `gen_id_v3_` / `gen_en_v3_` prefix in `tailoring.js` when changing tailor prompts
 
-**Session state machine:**
+**Session state machine** (`worker/src/sessionStates.js`):
 
 | Transition | Trigger |
 |---|---|
-| `pending → paid` | `POST /webhook/mayar` confirms payment |
-| `paid → generating` | First `POST /get-session` call |
-| `generating → paid` | `POST /generate` completes with credits remaining |
-| `generating → deleted` | `POST /generate` uses last credit |
+| `pending_payment → paid` | `POST /webhook/mayar` confirms payment |
+| `paid → generating` | `POST /get-session` (first generation) |
+| `ready → generating` | `POST /get-session` (subsequent generation, multi-credit) |
+| `generating → paid` | `POST /generate` fails — rollback (no result written yet) |
+| `generating → ready` | `POST /generate` succeeds with credits remaining |
+| `generating → exhausted` | `POST /generate` uses last credit (session preserved, not deleted) |
+
+Backward compat: old sessions may carry `'pending'` (`PENDING_LEGACY`) instead of `'pending_payment'` — `mayarWebhook.js` accepts both.
 
 ---
 
@@ -44,8 +48,9 @@ Routes → `router.js`. Handlers → `worker/src/handlers/<endpoint>.js`. Pipeli
 | `worker/src/analysis.js` | Cache key versions live here (`extract_v2`, `analysis_v6`) — bump here, not in pipeline files |
 | `worker/src/tailoring.js` | Gen key prefixes live here (`gen_id_v3_`, `gen_en_v3_`) — bump here when changing tailor prompts |
 | `worker/src/roleProfiles.js` | Role-weighted scoring inputs — not in `score.js` |
+| `worker/src/sessionStates.js` | Canonical session state machine (states, transitions, `canStartGeneration()`, `isTerminal()`). Import from here — do not hardcode state strings in handlers. |
 | `worker/src/pipeline/archetypes.js` | Archetype detection called from `analyze.js` |
-| `worker/src/pipeline/roleInference.js` | Role inference called from `analyze.js` |
+| `worker/src/pipeline/roleInference.js` | Role inference (Stage 2.5) — classifies role, seniority, industry from Stage 1+2 output; feeds scoring weights, diagnose context, and tailoring guidance. |
 | `js/config.js` | Staging vs prod worker URL selected by hostname at runtime |
 | `js/hasil-guard.js` | NOT bundled — must stay as synchronous inline `<script>` or auth flash occurs |
 | `worker/src/rewriteGuard.js` | Hallucination guard — called by `postProcessCV()` in `tailoring.js`; severity-grades every rewritten bullet (high/medium/low fallback). Adding/removing patterns here affects both ID and EN rewrites |
@@ -58,6 +63,7 @@ Routes → `router.js`. Handlers → `worker/src/handlers/<endpoint>.js`. Pipeli
 | `js/download-guard.js` | Blocking external `<script>` loaded in download.html `<head>` (not inline). Three valid entry paths: `?token=` (email link), localStorage `gaslamar_session` (post-payment), localStorage `gaslamar_delivery` (email-delivery flow). All others → `window.location.replace('/')`. |
 | `worker/src/handlers/validateCoupon.js` | `POST /validate-coupon` — pre-payment coupon validation. Calls Mayar `GET /coupon/validate` as a query-string request (GET with body is forbidden by Fetch spec). Rate-limited 10 req/min per IP to block enumeration. Returns discount amount so the frontend can show a live discounted price before redirecting to Mayar. |
 | `worker/src/handlers/resendAccess.js` | `POST /resend-access` — re-sends a download link to a registered email. Dual-layer rate limiting: 2 req/hour per email + 10 req/hour per IP (prevents enumeration and credential stuffing). Always returns a generic success message regardless of whether the email exists. |
+| `worker/src/handlers/getScoring.js` | `GET /get-scoring?key=cvtext_<token>` — returns the scoring snapshot stored alongside the `cvtext_` entry at analyze time. Lets `hasil.html` fetch analysis data after a tab refresh or new-tab open without re-running the pipeline. Returns only `scoring` — never `cv_text` or `job_desc`. Rate-limited 10 req/min per IP. |
 
 ---
 
@@ -141,7 +147,7 @@ npm start                       # serve frontend locally on :3000
 
 - Scoring/verdict logic stays in pure JS (`pipeline/analyze.js` + `pipeline/score.js`) — never in LLM prompts.
 - Webhook HMAC-SHA256 (Mayar) must always be verified.
-- CORS: only `gaslamar.com` + `www.gaslamar.com`.
+- CORS: `gaslamar.com`, `www.gaslamar.com`, and `gaslamar.pages.dev` (Pages canonical) — see `constants.js` `PRODUCTION_ORIGINS`.
 - File validation: magic bytes (PDF `%PDF`, DOCX `PK`) + 5MB — server-side.
 - Rate limiting: Cloudflare native binding + KV fallback — **both** must allow.
 - `bypassPayment.js` must always return 404 in production — the `ENVIRONMENT === 'production'` guard must never be removed.
@@ -159,7 +165,7 @@ npm start                       # serve frontend locally on :3000
 - **PDF beta header prod-only** — `anthropic-beta: pdfs-2024-09-25` is sent only for Sonnet (prod). On staging (Haiku), PDFs are pre-converted to text — PDF document blocks are never sent.
 - **CV download is client-side** — DOCX/PDF files are generated entirely in the browser (docx.js + jsPDF from `cvDataCache`). The worker never serves file bytes.
 - **Webhook idempotency sentinel** — `payment_processed_<session_id>` (48h TTL) is written BEFORE the session update in `mayarWebhook.js`. Removing it breaks Mayar retry safety.
-- **`gaslamar_scoring` deleted after render** — `scoring.js` deletes it from sessionStorage immediately after reading. This is intentional security hardening, not a bug.
+- **`gaslamar_scoring` is now server-side** — `analyzing-page.js` no longer writes a scoring blob to sessionStorage. `scoring.js` fetches from `GET /get-scoring` instead, falling back to a legacy sessionStorage blob only for old sessions. If scoring data seems missing, check the `cvtext_` KV entry rather than sessionStorage.
 - **`konfidensitas` discarded from LLM** — `diagnose.js` returns a `konfidensitas` field but the orchestrator (`analysis.js`) ignores it. Stage 2 (pure JS) is always authoritative for confidence level.
 - **`opportunity_cost` is derived, not scored** — always 5 or 10, computed from `effort`. It is never independently scored. Don't add scoring logic here.
 - **`skor_sesudah` is deterministic JS** — not LLM-generated. Formula: `skor + 10 + improvement`, rounded to nearest 5, clamped to [skor+10, 95]. Improvement = min(25, min(20, missing_skills × 3) + 5 if no numbers). The +10 minimum headroom is always added before improvement.

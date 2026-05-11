@@ -158,6 +158,14 @@ POST /analyze
                              │
                              ▼
 ┌─────────────────────────────────────────────────────────────────────┐
+│ Stage 2.5 · ROLE INFERENCE (pure JavaScript — no AI)                │
+│ pipeline/roleInference.js: classifies role, seniority, industry.    │
+│ Feeds scoring weights (Stage 3), diagnose context (Stage 4),        │
+│ and tailoring guidance (Stage 5).                                   │
+└────────────────────────────┬────────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────────┐
 │ Stage 3 · SCORE (formula — no AI)                                   │
 │ pipeline/score.js: 6 dimensi (north_star, recruiter_signal, effort, │
 │ opportunity_cost, risk, portfolio), total skor, veredict DO/TIMED/  │
@@ -192,6 +200,7 @@ POST /analyze
 **Caching strategy:**
 - `extract_v2_<hash>` — hasil Stage 1 (TTL 24 jam); bump versi di `analysis.js` jika SKILL_EXTRACT berubah
 - `analysis_v6_<hash>` — hasil final lengkap (TTL 48 jam); bump versi di `analysis.js` jika scoring berubah
+- `cvtext_<token>` — menyimpan scoring snapshot bersama CV text (TTL 24 jam); diambil oleh `GET /get-scoring` sehingga hasil.html bisa di-refresh tanpa kehilangan data
 - `gen_id_v3_<hash>` / `gen_en_v3_<hash>` — hasil tailoring CV (TTL 48 jam); bump prefix di `tailoring.js`
 - `kit_<session_id>_<language>` — interview kit (TTL 24 jam)
 
@@ -300,12 +309,15 @@ npm run tail
 # Di root project (bukan di /worker)
 npm install
 
-# Build semua — vendor libs + Tailwind CSS + JS bundles
+# Build semua — CSP hash + vendor libs + Tailwind CSS + JS bundles + React + bundle hashes
 npm run build
 
 # Atau step by step:
 npm run build:vendor   # Copy docx.js, jspdf, build Tailwind CSS dari tailwind.input.css
 npm run build:js       # Bundle per-page JS ke js/dist/ menggunakan esbuild
+npm run build:react    # Build React components (hasil page)
+npm run build:csp      # Update CSP hash di _headers (run setelah ubah HTML inline scripts)
+npm run build:hash     # Update bundle hashes di HTML (run setelah build:js / build:react)
 
 # Watch mode untuk development
 npm run dev            # Rebuild otomatis saat file js/*.js berubah (debounce 120ms)
@@ -317,6 +329,9 @@ npm run dev            # Rebuild otomatis saat file js/*.js berubah (debounce 12
 |---|---|
 | `build:vendor` | `js/vendor/docx.js`, `js/vendor/jspdf.umd.min.js`, `css/tailwind.css` (regenerated) |
 | `build:js` | `js/dist/index.bundle.js`, `upload.bundle.js`, `hasil.bundle.js`, `download.bundle.js`, `analyzing.bundle.js` |
+| `build:react` | React component bundle for `hasil.html` |
+| `build:csp` | Updates `integrity` / CSP hash values in `_headers` |
+| `build:hash` | Updates `?v=<hash>` cache-busting params in HTML |
 
 > **Note:** `js/hasil-guard.js` **tidak** di-bundle — ia harus berjalan sebagai `<script>` sync di mid-body untuk mencegah flash of unauthenticated content. Bundle lain menggunakan `defer`.
 
@@ -434,7 +449,7 @@ fetchMock.reply(200, MOCK_DIAGNOSE_JSON)
 - [x] Session UUID: `crypto.randomUUID()` + 256-bit hex token untuk `cv_text_key`
 - [x] `/get-session` tolak status selain `paid` (harus bayar dulu)
 - [x] Session lock (`lock_<session_id>`, TTL 120s) — cegah double-generation race condition
-- [x] Session one-time use: hapus setelah kredit habis
+- [x] Credit exhaustion: sesi ditandai `exhausted` (bukan dihapus) sehingga `/check-session` bisa membedakan "habis" vs "tidak ditemukan"
 - [x] Session TTL: 7 hari (single) atau 30 hari (multi-credit), bukan 30 menit
 - [x] CV text minimum check (< 100 karakter = error)
 - [x] Job description max 5.000 karakter
