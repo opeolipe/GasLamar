@@ -42,8 +42,10 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
   if (!apiKey) throw new Error('Mayar API key tidak tersedia');
 
   const shortId = sessionId.replace('sess_', '').substring(0, 8);
-  // Use the customer's real email if provided, otherwise fall back to a session-scoped address.
-  const email = (customerEmail && typeof customerEmail === 'string' && customerEmail.includes('@'))
+  // Mayar enforces a 55-char maximum on the email field. Fall back to a session-scoped
+  // address when the customer's email exceeds that limit rather than letting Mayar
+  // reject the entire invoice creation with a 400 Validation Error.
+  const email = (customerEmail && typeof customerEmail === 'string' && customerEmail.includes('@') && customerEmail.length <= 55)
     ? customerEmail
     : `user+${shortId}@gaslamar.com`;
 

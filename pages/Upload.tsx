@@ -41,6 +41,7 @@ export default function Upload() {
   const [manualCvText, setManualCvText] = useState('');
   const [fileError,   setFileError]   = useState('');
   const [scanWarning, setScanWarning] = useState(false);
+  const [cvTab,       setCvTab]       = useState<'upload' | 'paste'>('upload');
 
   // JD state
   const [jd, setJd] = useState('');
@@ -163,7 +164,8 @@ export default function Upload() {
     (async () => {
       try {
         const res = await fetch(`${WORKER_URL}/check-session?session=${encodeURIComponent(sId)}`, { credentials: 'include' });
-        const isTerminal = !res.ok || (res.ok && (await res.json() as { status?: string }).status === 'deleted');
+        const data = res.ok ? await res.json() as { status?: string } : null;
+        const isTerminal = !res.ok || data?.status === 'deleted' || data?.status === 'pending';
         if (isTerminal) {
           clearClientSessionData(sId);
           setNotices(prev => prev.filter(n => !n.link?.href.includes('download.html')));
@@ -297,7 +299,12 @@ export default function Upload() {
 
   function handleSubmit() {
     if (!hasFile) {
-      setFileError('Masukkan CV dulu ya');
+      const pasteIsTooShort = cvTab === 'paste' && manualCvText.trim().length > 0;
+      setFileError(
+        pasteIsTooShort
+          ? 'Terlalu singkat — tambahkan detail pengalaman & skill'
+          : 'Masukkan CV dulu ya'
+      );
       cvSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
@@ -441,6 +448,7 @@ export default function Upload() {
               onManualCvChange={handleManualCvChange}
               onFileSelect={handleFileSelect}
               onRemove={handleRemove}
+              onTabChange={setCvTab}
             />
           </div>
 
