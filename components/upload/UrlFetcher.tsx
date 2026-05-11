@@ -20,6 +20,13 @@ export default function UrlFetcher({ onFetchSuccess, onClose }: Props) {
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  // Auto-clear error after 8 s so the user can try again without distraction
+  useEffect(() => {
+    if (!error) return;
+    const t = setTimeout(() => setError(''), 8000);
+    return () => clearTimeout(t);
+  }, [error]);
+
   async function handleFetch() {
     if (!url.trim()) { setError('Masukkan URL loker terlebih dahulu'); inputRef.current?.focus(); return; }
     setLoading(true);
@@ -30,14 +37,24 @@ export default function UrlFetcher({ onFetchSuccess, onClose }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ url: url.trim() }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data?.message || 'Gagal mengambil, coba manual');
+        setError(
+          data?.message ||
+          `URL tidak dapat diambil (error ${res.status}). Coba lagi atau paste manual.`
+        );
+        inputRef.current?.focus();
       } else {
         onFetchSuccess(data.job_desc);
       }
-    } catch {
-      setError('Gagal mengambil, coba manual');
+    } catch (err) {
+      const isNetwork = err instanceof TypeError;
+      setError(
+        isNetwork
+          ? 'Tidak dapat terhubung ke server. Cek koneksi internet kamu.'
+          : 'Gagal mengambil konten. Coba paste manual.'
+      );
+      inputRef.current?.focus();
     } finally {
       setLoading(false);
     }

@@ -127,7 +127,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onRemove(); }}
-                className="min-h-[36px] px-3 text-blue-600 font-medium text-sm whitespace-nowrap hover:underline"
+                className="min-h-[44px] px-3 text-blue-600 font-medium text-sm whitespace-nowrap hover:underline inline-flex items-center"
                 aria-label="Ganti file CV yang sudah dipilih"
               >
                 Ganti
