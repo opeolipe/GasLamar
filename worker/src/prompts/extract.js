@@ -8,8 +8,8 @@ TUGAS: Ekstrak informasi berikut PERSIS seperti yang tertulis. Jika tidak ada, t
    - pengalaman_mentah: Salin 3-5 bullet point pengalaman terbaru. Jangan paraphrase.
    - pendidikan: Gelar, Universitas, Tahun Lulus.
    - skills_mentah: Daftar skill yang tertulis eksplisit.
-   - sertifikat: Daftar jika ada.
-   - angka_di_cv: Angka PENCAPAIAN yang muncul di CV — metrik, persentase, kuantitas, durasi kontribusi, nilai uang (contoh: "30% peningkatan penjualan", "tim 5 orang", "Rp 2M revenue", "3 tahun pengalaman"). JANGAN masukkan: tahun kalender (2020, 2022), nomor telepon, nomor urut, atau tahun di riwayat pendidikan/pekerjaan. Jika tidak ada angka pencapaian, tulis "NOL ANGKA".
+   - sertifikat: Sertifikasi profesional/vokasional saja (contoh: Microsoft Office Specialist, K3 Umum, SIM A, Brevet Pajak, AWS Certified). JANGAN masukkan gelar pendidikan formal (D1, D2, D3, D4, S1, S2, S3, dan sejenisnya). Jika tidak ada, tulis "TIDAK ADA".
+   - angka_di_cv: Angka PENCAPAIAN yang muncul di CV — metrik, persentase, kuantitas, durasi kontribusi spesifik, nilai uang (contoh: "30% peningkatan penjualan", "tim 5 orang", "Rp 2M revenue", "3 tahun mengelola tim"). JANGAN masukkan: tahun kalender (2020, 2022), nomor telepon, nomor urut, tahun di riwayat pendidikan/pekerjaan, gelar pendidikan formal (D1, D2, D3, D4, S1, S2, S3), atau total tahun karir yang dihitung dari tanggal (bukan yang tertulis eksplisit di CV). Jika tidak ada angka pencapaian, tulis "NOL ANGKA".
    - format_cv: Apakah layout 1 kolom? (YA/TIDAK). Apakah ada tabel/kolom ganda? (YA/TIDAK).
    - entitas_klaim: Daftar SEMUA nama tool, teknologi, sertifikasi, dan klaim spesifik yang EKSPLISIT disebut di CV (maks 20 item). Hanya yang benar-benar tertulis. Jika tidak ada, kembalikan array kosong [].
 

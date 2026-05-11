@@ -106,8 +106,10 @@ function matchSkills(cvSkillsStr, jdSkills) {
 function stripNonAchievementNumbers(angkaDiCv) {
   if (!angkaDiCv || angkaDiCv === 'NOL ANGKA') return angkaDiCv;
   return angkaDiCv
-    .replace(/\b(19|20)\d{2}\b/g, '')  // calendar years: 2022, 2013, 1999 …
-    .replace(/\b\d{9,}\b/g, '')        // phone / ID numbers (9+ consecutive digits)
+    .replace(/\b(19|20)\d{2}\b/g, '')               // calendar years: 2022, 2013, 1999 …
+    .replace(/\b\d{9,}\b/g, '')                      // phone / ID numbers (9+ consecutive digits)
+    .replace(/\b[DS][1-4]\b/gi, '')                  // Indonesian education degrees: D1–D4, S1–S3
+    .replace(/\b\d{1,2}\+?\s*tahun\s+pengalaman\b/gi, '') // bare tenure: "14 tahun pengalaman", "14+ tahun pengalaman"
     .trim();
 }
 
@@ -163,7 +165,12 @@ export function runAnalysis(extractedData) {
     : 0;
 
   const format_ok   = !!(cv.format_cv.satu_kolom && !cv.format_cv.ada_tabel);
-  const has_certs   = cv.sertifikat !== 'TIDAK ADA';
+
+  // Normalize sertifikat before checking: strip degree codes the LLM may include
+  // despite prompt instructions (e.g. "D1 Business Management"), and guard against
+  // null/undefined if the field is missing from a malformed extraction.
+  const sertifikatNorm = (cv.sertifikat || '').replace(/\b[DS][1-4]\b/gi, '').trim();
+  const has_certs = sertifikatNorm.length > 0 && sertifikatNorm !== 'TIDAK ADA';
 
   // Word count of the experience section (proxy for CV completeness)
   const expWordCount = (cv.pengalaman_mentah || '').split(/\s+/).filter(Boolean).length;

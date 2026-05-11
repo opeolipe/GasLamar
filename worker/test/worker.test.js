@@ -187,7 +187,7 @@ const MOCK_EXTRACT_JSON = {
       pendidikan: 'S1 Teknik Informatika UI 2020',
       skills_mentah: 'Node.js React SQL',
       sertifikat: 'TIDAK ADA',
-      angka_di_cv: '5 tahun pengalaman',
+      angka_di_cv: '30% peningkatan performa, tim 5 orang',
       format_cv: { satu_kolom: true, ada_tabel: false },
     },
     jd: {
