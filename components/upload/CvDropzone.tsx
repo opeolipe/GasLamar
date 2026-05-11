@@ -11,15 +11,23 @@ interface Props {
   onManualCvChange: (value: string) => void;
   onFileSelect:     (file: File) => void;
   onRemove:         () => void;
+  onTabChange?:     (tab: 'upload' | 'paste') => void;
 }
 
-export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWarning, manualCvText, onManualCvChange, onFileSelect, onRemove }: Props) {
+export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWarning, manualCvText, onManualCvChange, onFileSelect, onRemove, onTabChange }: Props) {
   const inputRef    = useRef<HTMLInputElement>(null);
   const pasteRef    = useRef<HTMLTextAreaElement>(null);
-  const onChangeRef = useRef(onManualCvChange);
-  onChangeRef.current = onManualCvChange;
+  const onChangeRef    = useRef(onManualCvChange);
+  onChangeRef.current  = onManualCvChange;
+  const onTabChangeRef = useRef(onTabChange);
+  onTabChangeRef.current = onTabChange;
 
   const [tab, setTab] = useState<'upload' | 'paste'>('upload');
+
+  function switchTab(next: 'upload' | 'paste') {
+    setTab(next);
+    onTabChangeRef.current?.(next);
+  }
 
   const isPastedCv = fileSize === '(teks ditempel)';
   const isFileCv   = !!fileName && !isPastedCv && cvReady;
@@ -41,12 +49,12 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
 
   // Follow the active CV source when it changes externally (e.g. session restore).
   useEffect(() => {
-    if (isPastedCv) setTab('paste');
-    else if (isFileCv) setTab('upload');
+    if (isPastedCv) switchTab('paste');
+    else if (isFileCv) switchTab('upload');
   }, [isPastedCv, isFileCv]);
 
   function handleFileSelect(file: File) {
-    setTab('upload');
+    switchTab('upload');
     onFileSelect(file);
   }
 
@@ -83,7 +91,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
           type="button"
           role="tab"
           aria-selected={tab === 'upload'}
-          onClick={() => setTab('upload')}
+          onClick={() => switchTab('upload')}
           className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
             tab === 'upload'
               ? 'bg-white shadow-sm text-slate-900'
@@ -96,7 +104,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
           type="button"
           role="tab"
           aria-selected={tab === 'paste'}
-          onClick={() => setTab('paste')}
+          onClick={() => switchTab('paste')}
           className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
             tab === 'paste'
               ? 'bg-white shadow-sm text-slate-900'
