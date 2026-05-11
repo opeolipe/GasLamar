@@ -41,6 +41,7 @@ export default function Upload() {
   const [manualCvText, setManualCvText] = useState('');
   const [fileError,   setFileError]   = useState('');
   const [scanWarning, setScanWarning] = useState(false);
+  const [cvTab,       setCvTab]       = useState<'upload' | 'paste'>('upload');
 
   // JD state
   const [jd, setJd] = useState('');
@@ -298,9 +299,9 @@ export default function Upload() {
 
   function handleSubmit() {
     if (!hasFile) {
-      const pasteHasContent = manualCvText.trim().length > 0;
+      const pasteIsTooShort = cvTab === 'paste' && manualCvText.trim().length > 0;
       setFileError(
-        pasteHasContent
+        pasteIsTooShort
           ? 'Terlalu singkat — tambahkan detail pengalaman & skill'
           : 'Masukkan CV dulu ya'
       );
@@ -447,6 +448,7 @@ export default function Upload() {
               onManualCvChange={handleManualCvChange}
               onFileSelect={handleFileSelect}
               onRemove={handleRemove}
+              onTabChange={setCvTab}
             />
           </div>
 
