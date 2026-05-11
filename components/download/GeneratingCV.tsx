@@ -95,10 +95,12 @@ export default function GeneratingCV({ progress, status, filename, tier, onCance
 
       {/* File badge */}
       <div
-        className="inline-flex items-center gap-2 text-sm font-medium rounded-full px-4 py-2 mb-7"
-        style={{ background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.18)', color: '#1D4ED8' }}
+        className="inline-flex items-center gap-2 text-sm font-medium rounded-full px-4 py-2 mb-7 max-w-full"
+        style={{ background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.18)', color: '#1D4ED8', overflow: 'hidden' }}
       >
-        📄 <strong>{filename}</strong> · Paket: {tierLabel}
+        <span style={{ flexShrink: 0 }}>📄</span>
+        <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{filename}</strong>
+        <span style={{ flexShrink: 0 }}>· Paket: {tierLabel}</span>
       </div>
 
       {/* Pulse icon + headline */}

@@ -234,7 +234,7 @@ export default function ResendEmail({ sessionSecret }: Props) {
                 cursor:       cooldown > 0 || sending ? 'not-allowed' : 'pointer',
                 fontSize: '0.875rem',
                 fontFamily:   'inherit',
-                whiteSpace:   'nowrap' as const,
+                wordBreak:    'break-all' as const,
               }}
             >
               {`Resend ke ${delivery.email}`}
