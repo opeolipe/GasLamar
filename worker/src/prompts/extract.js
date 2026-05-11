@@ -9,7 +9,7 @@ TUGAS: Ekstrak informasi berikut PERSIS seperti yang tertulis. Jika tidak ada, t
    - pendidikan: Gelar, Universitas, Tahun Lulus.
    - skills_mentah: Daftar skill yang tertulis eksplisit.
    - sertifikat: Daftar jika ada.
-   - angka_di_cv: Semua angka yang muncul di CV (contoh: "3 tahun", "Rp 2M", "tim 5 orang"). Jika tidak ada, tulis "NOL ANGKA".
+   - angka_di_cv: Angka PENCAPAIAN yang muncul di CV — metrik, persentase, kuantitas, durasi kontribusi, nilai uang (contoh: "30% peningkatan penjualan", "tim 5 orang", "Rp 2M revenue", "3 tahun pengalaman"). JANGAN masukkan: tahun kalender (2020, 2022), nomor telepon, nomor urut, atau tahun di riwayat pendidikan/pekerjaan. Jika tidak ada angka pencapaian, tulis "NOL ANGKA".
    - format_cv: Apakah layout 1 kolom? (YA/TIDAK). Apakah ada tabel/kolom ganda? (YA/TIDAK).
    - entitas_klaim: Daftar SEMUA nama tool, teknologi, sertifikasi, dan klaim spesifik yang EKSPLISIT disebut di CV (maks 20 item). Hanya yang benar-benar tertulis. Jika tidak ada, kembalikan array kosong [].
 

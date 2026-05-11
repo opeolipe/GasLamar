@@ -9,6 +9,7 @@ import { validateExtractOutput, validateDiagnoseOutput } from '../src/pipeline/v
 import { detectArchetype } from '../src/pipeline/archetypes.js';
 import { addsNewNumbers, addsNewClaims, validateRewrite, postProcessCV } from '../src/rewriteGuard.js';
 import { inferRole, applyRoleWeights, computePrimaryIssue, isJDQualityHigh } from '../src/pipeline/roleInference.js';
+import { getRoleProfile } from '../src/roleProfiles.js';
 import { generateInterviewKitPdf } from '../src/interviewKitPdf.js';
 
 // ── Fixture helpers ───────────────────────────────────────────────────────────
@@ -65,10 +66,54 @@ describe('runAnalysis — skill matching', () => {
     expect(r.skill_match.match_ratio).toBe(1);
   });
 
-  it('empty JD skills → match_ratio = 0', () => {
+  it('empty JD skills → match_ratio = 1 (no requirements = all met)', () => {
     const r = runAnalysis(extracted({ skills_diminta: [] }));
-    expect(r.skill_match.match_ratio).toBe(0);
+    expect(r.skill_match.match_ratio).toBe(1);
     expect(r.skill_match.matched).toEqual([]);
+    expect(r.skill_match.missing).toEqual([]);
+  });
+
+  // Synonym bridge: ID ↔ EN
+  it('JD "communication" matches CV "komunikasi" via synonym', () => {
+    const r = runAnalysis(extracted({
+      skills_mentah: 'komunikasi presentasi kerja tim',
+      skills_diminta: ['communication'],
+    }));
+    expect(r.skill_match.match_ratio).toBe(1);
+    expect(r.skill_match.missing).toEqual([]);
+  });
+
+  it('JD "leadership" matches CV "kepemimpinan" via synonym', () => {
+    const r = runAnalysis(extracted({
+      skills_mentah: 'kepemimpinan manajemen',
+      skills_diminta: ['leadership'],
+    }));
+    expect(r.skill_match.match_ratio).toBe(1);
+  });
+
+  it('JD "komunikasi" matches CV "communication" via synonym', () => {
+    const r = runAnalysis(extracted({
+      skills_mentah: 'communication leadership teamwork',
+      skills_diminta: ['komunikasi'],
+    }));
+    expect(r.skill_match.match_ratio).toBe(1);
+  });
+
+  it('JD "project management" matches CV "manajemen proyek" via synonym', () => {
+    const r = runAnalysis(extracted({
+      skills_mentah: 'manajemen proyek Excel',
+      skills_diminta: ['project management'],
+    }));
+    expect(r.skill_match.match_ratio).toBe(1);
+  });
+
+  it('synonym match keeps non-matching skills in missing array', () => {
+    const r = runAnalysis(extracted({
+      skills_mentah: 'komunikasi',
+      skills_diminta: ['communication', 'SQL'],
+    }));
+    expect(r.skill_match.match_ratio).toBeCloseTo(0.5);
+    expect(r.skill_match.missing).toEqual(['SQL']);
   });
 });
 
@@ -95,6 +140,18 @@ describe('runAnalysis — format and signals', () => {
     expect(runAnalysis(extracted({ angka_di_cv: 'NOL ANGKA' })).has_numbers).toBe(false);
   });
 
+  it('angka_di_cv with only calendar years → has_numbers = false', () => {
+    expect(runAnalysis(extracted({ angka_di_cv: '2022 2020 2013' })).has_numbers).toBe(false);
+  });
+
+  it('angka_di_cv with only phone number → has_numbers = false', () => {
+    expect(runAnalysis(extracted({ angka_di_cv: '082247932645' })).has_numbers).toBe(false);
+  });
+
+  it('angka_di_cv with years and a real metric → has_numbers = true', () => {
+    expect(runAnalysis(extracted({ angka_di_cv: '2022-Present 30% peningkatan' })).has_numbers).toBe(true);
+  });
+
   it('sertifikat !== "TIDAK ADA" → has_certs = true', () => {
     expect(runAnalysis(extracted({ sertifikat: 'AWS Certified Developer' })).has_certs).toBe(true);
   });
@@ -111,6 +168,21 @@ describe('runAnalysis — format and signals', () => {
 
   it('red_flag_types.very_short = true for very short experience text', () => {
     expect(runAnalysis(extracted({ pengalaman_mentah: 'Admin kantor' })).red_flag_types.very_short).toBe(true);
+  });
+
+  it('red_flag_types.experience_gap = true when years < pengalaman_minimal', () => {
+    const r = runAnalysis(extracted({ angka_di_cv: '1 tahun', pengalaman_minimal: 3 }));
+    expect(r.red_flag_types.experience_gap).toBe(true);
+  });
+
+  it('red_flag_types.experience_gap = false when years meet pengalaman_minimal', () => {
+    const r = runAnalysis(extracted({ angka_di_cv: '5 tahun', pengalaman_minimal: 3 }));
+    expect(r.red_flag_types.experience_gap).toBe(false);
+  });
+
+  it('red_flag_types.experience_gap = false when pengalaman_minimal is null', () => {
+    const r = runAnalysis(extracted({ pengalaman_minimal: null }));
+    expect(r.red_flag_types.experience_gap).toBe(false);
   });
 });
 
@@ -155,14 +227,14 @@ describe('calculateScores — north_star thresholds', () => {
     expect(calculateScores(ext, runAnalysis(ext)).north_star).toBeGreaterThanOrEqual(6);
   });
 
-  it('matchRatio 0.4–0.69 → north_star = 4 (no bonuses)', () => {
-    // 2 of 4 = 0.5, role/industry not in exp text
+  it('matchRatio 0.4–0.69 → north_star = 4 (no title/industry bonuses)', () => {
+    // 2 of 4 = 0.5; exp text contains no token from "Purchasing Specialist" and industri is Xyz
     const ext = extracted({
       skills_mentah: 'Node.js React',
       skills_diminta: ['Node.js', 'React', 'SQL', 'TypeScript'],
-      pengalaman_mentah: 'Developer backend tanpa skill yang relevan sekali',
+      pengalaman_mentah: 'Staff administrasi tanpa skill yang relevan sekali',
       industri: 'Xyz',
-      judul_role: 'Backend Developer',
+      judul_role: 'Purchasing Specialist',
     });
     const analysis = runAnalysis(ext);
     expect(analysis.skill_match.match_ratio).toBe(0.5);
@@ -180,6 +252,47 @@ describe('calculateScores — north_star thresholds', () => {
     const analysis = runAnalysis(ext);
     expect(analysis.skill_match.match_ratio).toBe(0);
     expect(calculateScores(ext, analysis).north_star).toBe(2);
+  });
+});
+
+// ── calculateScores — north_star title-token splitting ────────────────────────
+
+describe('calculateScores — north_star title-token bonus', () => {
+  it('partial title match "Marketing" scores bonus for JD "Senior Marketing Manager"', () => {
+    // matchRatio 0.5 → base 4. Title token "marketing" is in exp → +2 = 6.
+    const ext = extracted({
+      skills_mentah: 'Node.js React',
+      skills_diminta: ['Node.js', 'React', 'SQL', 'TypeScript'],
+      pengalaman_mentah: 'Marketing Specialist 3 tahun di perusahaan retail',
+      industri: 'Xyz',
+      judul_role: 'Senior Marketing Manager',
+    });
+    const analysis = runAnalysis(ext);
+    expect(calculateScores(ext, analysis).north_star).toBe(6);
+  });
+
+  it('no title token in exp → no bonus', () => {
+    const ext = extracted({
+      skills_mentah: 'Word Excel',
+      skills_diminta: ['Node.js', 'React', 'SQL', 'AWS', 'Docker'],
+      pengalaman_mentah: 'Staff admin perkantoran biasa',
+      industri: 'Xyz',
+      judul_role: 'DevOps Engineer',
+    });
+    const analysis = runAnalysis(ext);
+    expect(calculateScores(ext, analysis).north_star).toBe(2);
+  });
+
+  it('single-token title still works', () => {
+    const ext = extracted({
+      skills_mentah: 'Node.js React SQL',
+      skills_diminta: ['Node.js', 'React', 'SQL'],
+      pengalaman_mentah: 'Developer backend solid 3 tahun',
+      judul_role: 'Developer',
+    });
+    const analysis = runAnalysis(ext);
+    // matchRatio 1.0 → base 6, "developer" in exp → +2 = 8
+    expect(calculateScores(ext, analysis).north_star).toBeGreaterThanOrEqual(8);
   });
 });
 
@@ -250,6 +363,11 @@ describe('calculateScores — portfolio', () => {
     expect(calculateScores(ext, runAnalysis(ext)).portfolio).toBe(8);
   });
 
+  it('calendar years only (no real metrics), no certs → portfolio = 2', () => {
+    const ext = extracted({ angka_di_cv: '2022 2020 2013 2015', sertifikat: 'TIDAK ADA' });
+    expect(calculateScores(ext, runAnalysis(ext)).portfolio).toBe(2);
+  });
+
   it('no numbers + certs → portfolio = 4 (2 + 2)', () => {
     const ext = extracted({ angka_di_cv: 'NOL ANGKA', sertifikat: 'AWS Certified' });
     expect(calculateScores(ext, runAnalysis(ext)).portfolio).toBe(4);
@@ -261,6 +379,21 @@ describe('calculateScores — portfolio', () => {
 describe('calculateScores — risk', () => {
   it('fundamental skill "excel" in JD → risk = 8 (base 5 + 3)', () => {
     const ext = extracted({ skills_diminta: ['excel', 'reporting'] });
+    expect(calculateScores(ext, runAnalysis(ext)).risk).toBe(8);
+  });
+
+  it('English fundamental "communication" in JD → risk = 8 (EN parity)', () => {
+    const ext = extracted({ skills_diminta: ['communication', 'teamwork'] });
+    expect(calculateScores(ext, runAnalysis(ext)).risk).toBe(8);
+  });
+
+  it('English "leadership" in JD → risk = 8 (EN parity)', () => {
+    const ext = extracted({ skills_diminta: ['leadership', 'presentation'] });
+    expect(calculateScores(ext, runAnalysis(ext)).risk).toBe(8);
+  });
+
+  it('English "project management" in JD → risk = 8 (EN parity)', () => {
+    const ext = extracted({ skills_diminta: ['project management'] });
     expect(calculateScores(ext, runAnalysis(ext)).risk).toBe(8);
   });
 
@@ -354,6 +487,18 @@ describe('computeSkorSesudah', () => {
     const analysis = { skill_match: { missing: [] }, has_numbers: true };
     // raw=70, round(14)*5=70
     expect(computeSkorSesudah(60, analysis)).toBeGreaterThanOrEqual(70);
+  });
+
+  it('skor_sesudah >= skor+10 even when rounding would push below (skor%5 = 2)', () => {
+    // skor=37, raw=47, Math.round(47/5)*5 = Math.round(9.4)*5 = 45 — but min is 47
+    const analysis = { skill_match: { missing: [] }, has_numbers: true };
+    expect(computeSkorSesudah(37, analysis)).toBeGreaterThanOrEqual(47);
+  });
+
+  it('skor_sesudah >= skor+10 even when rounding would push below (skor%5 = 3)', () => {
+    // skor=32, raw=42, Math.round(42/5)*5 = Math.round(8.4)*5 = 40 — but min is 42
+    const analysis = { skill_match: { missing: [] }, has_numbers: true };
+    expect(computeSkorSesudah(32, analysis)).toBeGreaterThanOrEqual(42);
   });
 
   it('result capped at 95', () => {
@@ -455,21 +600,52 @@ describe('validateDiagnoseOutput', () => {
 
 describe('detectArchetype', () => {
   it.each([
-    ['Software Engineer',    'IT/Software'],
-    ['Data Analyst',         'IT/Software'],
-    ['Marketing Manager',    'Marketing/Sales'],
-    ['Sales Executive',      'Marketing/Sales'],
-    ['Akuntan Senior',       'Finance/Akuntansi'],
-    ['Finance Controller',   'Finance/Akuntansi'],
-    ['Staff Administrasi',   'Administrasi/GA'],
-    ['General Affair',       'Administrasi/GA'],
-    ['HRD Specialist',       'HRD'],
-    ['Supervisor Gudang',    'Operasional/Logistik'],
-    ['Customer Service Rep', 'Customer Service'],
-    ['Senior Manager',       'Manajemen/Leader'],
-    ['Head of Product',      'Manajemen/Leader'],
-    ['Magang UI/UX',         'Fresh Graduate (trainee)'],
-    ['Penulis Konten',       'Lainnya'],
+    // Existing archetypes
+    ['Software Engineer',       'IT/Software'],
+    ['Data Analyst',            'IT/Software'],
+    ['Developer Backend',       'IT/Software'],
+    ['DevOps Engineer',         'IT/Software'],
+    ['Product Manager',         'IT/Software'],
+    ['Marketing Manager',       'Marketing/Sales'],
+    ['Sales Executive',         'Marketing/Sales'],
+    ['Copywriter',              'Marketing/Sales'],
+    ['Akuntan Senior',          'Finance/Akuntansi'],
+    ['Finance Controller',      'Finance/Akuntansi'],
+    ['Staff Administrasi',      'Administrasi/GA'],
+    ['General Affair',          'Administrasi/GA'],
+    ['HRD Specialist',          'HRD'],
+    ['Supervisor Gudang',       'Operasional/Logistik'],
+    ['Customer Service Rep',    'Customer Service'],
+    ['Cabin Crew',              'Customer Service'],
+    ['Flight Attendant',        'Customer Service'],
+    ['Pramugari',               'Customer Service'],
+    ['Senior Manager',          'Manajemen/Leader'],
+    ['Head of Product',         'Manajemen/Leader'],
+    ['Magang UI/UX',            'Fresh Graduate (trainee)'],
+    // New archetypes
+    ['Teknik Sipil',            'Teknik/Manufaktur'],
+    ['Mechanical Engineer',     'Teknik/Manufaktur'],
+    ['Operator Produksi',       'Teknik/Manufaktur'],
+    ['Quality Control Staff',   'Teknik/Manufaktur'],
+    ['Maintenance Technician',  'Teknik/Manufaktur'],
+    ['UI/UX Designer',          'Kreatif/Desain'],
+    ['Graphic Designer',        'Kreatif/Desain'],
+    ['Content Creator',         'Kreatif/Desain'],
+    ['Fotografer',              'Kreatif/Desain'],
+    ['Dokter Umum',             'Kesehatan'],
+    ['Perawat ICU',             'Kesehatan'],
+    ['Apoteker',                'Kesehatan'],
+    ['Guru Matematika',         'Pendidikan/Pelatihan'],
+    ['Corporate Trainer',       'Pendidikan/Pelatihan'],
+    ['Chef De Partie',          'Hospitality/F&B'],
+    ['Barista',                 'Hospitality/F&B'],
+    ['Front Office Hotel',      'Hospitality/F&B'],
+    // False-positive guards: non-IT engineers must NOT hit IT/Software
+    ['Civil Engineer',          'Teknik/Manufaktur'],
+    ['Electrical Engineer',     'Teknik/Manufaktur'],
+    ['Chemical Engineer',       'Teknik/Manufaktur'],
+    // Fallthrough
+    ['Penulis Konten',          'Lainnya'],
   ])('%s → %s', (title, expected) => {
     expect(detectArchetype(title)).toBe(expected);
   });
@@ -737,6 +913,45 @@ describe('applyRoleWeights', () => {
     const profile = { weightBias: { north_star: 0, recruiter_signal: 1.0, effort: 1.0, opportunity_cost: 1.0, risk: 1.0, portfolio: 1.0 } };
     const weighted = applyRoleWeights(raw, profile);
     expect(weighted.north_star).toBe(0);
+  });
+});
+
+describe('new role profiles — weight bias sanity checks', () => {
+  const DIMS = ['north_star', 'recruiter_signal', 'effort', 'opportunity_cost', 'risk', 'portfolio'];
+
+  it('teknik: north_star has highest bias (technical fit is primary signal)', () => {
+    const p = getRoleProfile('teknik');
+    expect(p).not.toBeNull();
+    const maxBias = Math.max(...Object.values(p.weightBias));
+    expect(p.weightBias.north_star).toBe(maxBias);
+  });
+
+  it('creative: portfolio has highest weight bias', () => {
+    const p = getRoleProfile('creative');
+    const maxBias = Math.max(...Object.values(p.weightBias));
+    expect(p.weightBias.portfolio).toBe(maxBias);
+  });
+
+  it('kesehatan: north_star has highest weight bias', () => {
+    const p = getRoleProfile('kesehatan');
+    const maxBias = Math.max(...Object.values(p.weightBias));
+    expect(p.weightBias.north_star).toBe(maxBias);
+  });
+
+  it('hospitality: risk is lowest weight bias (automation/economic disruption risk)', () => {
+    const p = getRoleProfile('hospitality');
+    const minBias = Math.min(...Object.values(p.weightBias));
+    expect(p.weightBias.risk).toBe(minBias);
+  });
+
+  it('all 5 new profiles exist and have complete weightBias', () => {
+    for (const key of ['teknik', 'creative', 'kesehatan', 'pendidikan', 'hospitality']) {
+      const p = getRoleProfile(key);
+      expect(p).not.toBeNull();
+      for (const dim of DIMS) {
+        expect(typeof p.weightBias[dim]).toBe('number');
+      }
+    }
   });
 });
 
