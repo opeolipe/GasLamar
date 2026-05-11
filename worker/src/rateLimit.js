@@ -1,6 +1,11 @@
 import { corsResponse } from './cors.js';
 import { log, logError } from './utils.js';
 
+// In-memory fallback for KV rate limiting. Scoped to the Worker isolate — does
+// not persist across restarts, but prevents a complete bypass during KV outages.
+// Keys are evicted lazily on access; the Map is bounded by Worker memory limits.
+const _memRateLimit = new Map();
+
 // ---- Rate Limiting ----
 //
 // Uses Cloudflare Workers Rate Limiting API (atomic, no TOCTOU race).
@@ -67,7 +72,19 @@ export async function checkRateLimitKV(env, ip, limit = 3, windowSecs = 60, pref
     return { allowed: true };
   } catch (e) {
     logError('rate_limit_kv_error', { prefix, ip, error: e.message });
-    return { allowed: true }; // fail open — don't block legitimate users on KV errors
+    // Fallback to in-memory counter — survives KV outages within the same isolate.
+    const memKey = `${prefix}:${ip}`;
+    const now    = Math.floor(Date.now() / 1000);
+    const entry  = _memRateLimit.get(memKey);
+    if (entry && now - entry.start < windowSecs) {
+      if (entry.count >= limit) {
+        return { allowed: false, retryAfter: windowSecs - (now - entry.start) };
+      }
+      entry.count++;
+    } else {
+      _memRateLimit.set(memKey, { start: now, count: 1 });
+    }
+    return { allowed: true };
   }
 }
 

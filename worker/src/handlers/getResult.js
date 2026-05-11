@@ -1,9 +1,14 @@
 import { jsonResponse } from '../cors.js';
 import { getSessionIdFromCookie } from '../cookies.js';
-import { log, logError, sha256Full } from '../utils.js';
+import { log, logError, sha256Full, clientIp } from '../utils.js';
 import { KV_CV_RESULT_PREFIX } from '../constants.js';
+import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
 
 export async function handleGetResult(request, env) {
+  const ip = clientIp(request);
+  const rl = await checkRateLimitKV(env, ip, 30, 60, 'get_result');
+  if (!rl.allowed) return rateLimitResponse(request, env, rl.retryAfter ?? 60);
+
   const session_id = getSessionIdFromCookie(request);
   if (!session_id) {
     return jsonResponse({ message: 'Sesi tidak ditemukan.' }, 401, request, env);

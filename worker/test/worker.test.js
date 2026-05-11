@@ -231,7 +231,7 @@ const MOCK_CV_EN = { content: [{ text: 'PROFESSIONAL SUMMARY\nExperienced develo
 // ============================================================
 
 describe('/health', () => {
-  it('returns 200 with status, timestamp, and environment', async () => {
+  it('returns 200 with status and timestamp', async () => {
     const before = Date.now();
     const res = await get('/health');
     const after = Date.now();
@@ -241,13 +241,12 @@ describe('/health', () => {
     expect(typeof body.timestamp).toBe('string');
     expect(new Date(body.timestamp).getTime()).toBeGreaterThanOrEqual(before);
     expect(new Date(body.timestamp).getTime()).toBeLessThanOrEqual(after);
-    expect(typeof body.environment).toBe('string');
   });
 
-  it('response contains exactly status, timestamp, environment keys', async () => {
+  it('response contains exactly status and timestamp keys (no environment leakage)', async () => {
     const res = await get('/health');
     const body = await res.json();
-    expect(Object.keys(body).sort()).toEqual(['environment', 'status', 'timestamp']);
+    expect(Object.keys(body).sort()).toEqual(['status', 'timestamp']);
   });
 });
 
@@ -338,8 +337,8 @@ describe('CORS — environment-specific origin allowlists', () => {
   });
 
   it('staging: allows localhost:3000', () => {
-    const h = getCorsHeaders(makeReq('http://localhost:3000'), { ENVIRONMENT: 'staging' });
-    expect(h['Access-Control-Allow-Origin']).toBe('http://localhost:3000');
+    const h = getCorsHeaders(makeReq('https://localhost:3000'), { ENVIRONMENT: 'staging' });
+    expect(h['Access-Control-Allow-Origin']).toBe('https://localhost:3000');
   });
 
   it('staging: blocks localhost:8080', () => {
@@ -374,7 +373,7 @@ describe('CORS — environment-specific origin allowlists', () => {
 
   it('staging: allows preflight only from explicit staging origins', () => {
     expect(isOriginAllowed(makeReq('https://staging.gaslamar.pages.dev'), { ENVIRONMENT: 'staging' })).toBe(true);
-    expect(isOriginAllowed(makeReq('http://localhost:3000'), { ENVIRONMENT: 'staging' })).toBe(true);
+    expect(isOriginAllowed(makeReq('https://localhost:3000'), { ENVIRONMENT: 'staging' })).toBe(true);
     expect(isOriginAllowed(makeReq('https://evil.com'), { ENVIRONMENT: 'staging' })).toBe(false);
   });
 });
@@ -800,7 +799,7 @@ describe('GET /check-session', () => {
 
   it('returns current status for known session via cookie', async () => {
     const sessionId = await seedSession('pending', 'coba');
-    const res = await get('/check-session', sessionCookie(sessionId));
+    const res = await get('/check-session', { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.status).toBe('pending');
@@ -1386,8 +1385,10 @@ describe('verifyMayarWebhook — production HMAC path', () => {
     expect(result.valid).toBe(false);
   });
 
-  it('accepts in non-production regardless of signature (bypass)', async () => {
-    // staging / sandbox must always bypass HMAC — Mayar sandbox behaviour is inconsistent
+  it('bypasses HMAC in non-production only when no webhook secret is configured', async () => {
+    // C1 FIX: bypass only applies when sandbox AND no secret is configured.
+    // Staging WITH a secret now verifies HMAC — prevents a compromised staging URL
+    // from accepting forged webhooks when a secret is explicitly set.
     const payload = JSON.stringify({ id: 'inv_staging_bypass', status: 'paid' });
 
     const req = new Request('https://gaslamar.com/webhook/mayar', {
@@ -1396,11 +1397,17 @@ describe('verifyMayarWebhook — production HMAC path', () => {
       body:    payload,
     });
 
-    const stagingResult = await verifyMayarWebhook(req.clone(), { ENVIRONMENT: 'staging',  MAYAR_WEBHOOK_SECRET: 'some_secret' });
-    expect(stagingResult.valid).toBe(true);
+    // staging without secret → bypass → valid regardless of signature
+    const stagingNoSecretResult = await verifyMayarWebhook(req.clone(), { ENVIRONMENT: 'staging' });
+    expect(stagingNoSecretResult.valid).toBe(true);
 
+    // sandbox without secret → bypass → valid regardless of signature
     const sandboxResult = await verifyMayarWebhook(req.clone(), { ENVIRONMENT: 'sandbox' });
     expect(sandboxResult.valid).toBe(true);
+
+    // staging WITH secret → HMAC verified → wrong sig = invalid (C1 fix)
+    const stagingWithSecretResult = await verifyMayarWebhook(req.clone(), { ENVIRONMENT: 'staging', MAYAR_WEBHOOK_SECRET: 'some_secret' });
+    expect(stagingWithSecretResult.valid).toBe(false);
   });
 });
 
@@ -1663,15 +1670,16 @@ async function sha256HexLocal(text) {
 }
 
 /**
- * Pre-populate tailoring KV cache (gen_id_v3_ / gen_en_v3_) so tailorCVID/tailorCVEN
+ * Pre-populate tailoring KV cache (gen_id_v4_ / gen_en_v4_) so tailorCVID/tailorCVEN
  * short-circuit without making real Claude API calls.
  * Use this instead of fetchMock for generate success-path tests — avoids an
  * unreliable interaction between MockPool and concurrent parallel fetch calls.
+ * Key format must stay in sync with GEN_KEY_PREFIX_ID/EN in tailoring.js.
  */
 async function preTailorCache(cvText, jobDesc) {
-  const h = await sha256HexLocal(cvText + '||' + jobDesc);
-  await env.GASLAMAR_SESSIONS.put(`gen_id_v3_${h}`, MOCK_CV_ID.content[0].text, { expirationTtl: 172800 });
-  await env.GASLAMAR_SESSIONS.put(`gen_en_v3_${h}`, MOCK_CV_EN.content[0].text, { expirationTtl: 172800 });
+  const h = await sha256Full(cvText + '\x00' + jobDesc);
+  await env.GASLAMAR_SESSIONS.put(`gen_id_v4_${h}`, MOCK_CV_ID.content[0].text, { expirationTtl: 172800 });
+  await env.GASLAMAR_SESSIONS.put(`gen_en_v4_${h}`, MOCK_CV_EN.content[0].text, { expirationTtl: 172800 });
 }
 
 /**
@@ -2152,7 +2160,7 @@ describe('POST /bypass-payment — sandbox bypass', () => {
 
   it('happy path — creates paid session and returns session_id with cookie', async () => {
     const key = await seedCVKey();
-    const res = await post('/bypass-payment', { tier: 'single', cv_text_key: key }, {}, '5.5.5.5');
+    const res = await post('/bypass-payment', { tier: 'single', cv_text_key: key, bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
     expect(res.status).toBe(200);
 
     const body = await res.json();
@@ -2170,10 +2178,10 @@ describe('POST /bypass-payment — sandbox bypass', () => {
 
   it('consumes cv_text_key — second call returns 400 (key not found)', async () => {
     const key = await seedCVKey();
-    const res1 = await post('/bypass-payment', { tier: 'single', cv_text_key: key }, {}, '5.5.5.5');
+    const res1 = await post('/bypass-payment', { tier: 'single', cv_text_key: key, bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
     expect(res1.status).toBe(200);
 
-    const res2 = await post('/bypass-payment', { tier: 'single', cv_text_key: key }, {}, '5.5.5.5');
+    const res2 = await post('/bypass-payment', { tier: 'single', cv_text_key: key, bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
     expect(res2.status).toBe(400);
     const body2 = await res2.json();
     expect(body2.message).toMatch(/kedaluwarsa|analisis/i);
@@ -2181,27 +2189,27 @@ describe('POST /bypass-payment — sandbox bypass', () => {
 
   it('rejects missing tier → 400', async () => {
     const key = await seedCVKey();
-    const res = await post('/bypass-payment', { cv_text_key: key }, {}, '5.5.5.5');
+    const res = await post('/bypass-payment', { cv_text_key: key, bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
     expect(res.status).toBe(400);
   });
 
   it('rejects invalid tier → 400', async () => {
     const key = await seedCVKey();
-    const res = await post('/bypass-payment', { tier: 'premium', cv_text_key: key }, {}, '5.5.5.5');
+    const res = await post('/bypass-payment', { tier: 'premium', cv_text_key: key, bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.message).toMatch(/tier/i);
   });
 
   it('rejects cv_text_key without cvtext_ prefix → 400', async () => {
-    const res = await post('/bypass-payment', { tier: 'single', cv_text_key: 'sess_abc123' }, {}, '5.5.5.5');
+    const res = await post('/bypass-payment', { tier: 'single', cv_text_key: 'sess_abc123', bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.message).toMatch(/cv_text_key/i);
   });
 
   it('rejects unknown cv_text_key → 400', async () => {
-    const res = await post('/bypass-payment', { tier: 'single', cv_text_key: 'cvtext_nonexistent' }, {}, '5.5.5.5');
+    const res = await post('/bypass-payment', { tier: 'single', cv_text_key: 'cvtext_nonexistent', bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.message).toMatch(/kedaluwarsa|analisis/i);
@@ -2209,7 +2217,7 @@ describe('POST /bypass-payment — sandbox bypass', () => {
 
   it('sets correct credits for 3pack tier', async () => {
     const key = await seedCVKey();
-    const res = await post('/bypass-payment', { tier: '3pack', cv_text_key: key }, {}, '5.5.5.5');
+    const res = await post('/bypass-payment', { tier: '3pack', cv_text_key: key, bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
     expect(res.status).toBe(200);
     const { session_id } = await res.json();
     const session = await env.GASLAMAR_SESSIONS.get(session_id, { type: 'json' });

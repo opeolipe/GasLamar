@@ -59,7 +59,8 @@ function downloadFile(lang, format) {
         if (data.session_id) {
           localStorage.setItem('gaslamar_session', data.session_id);
           sessionIdCache     = data.session_id;
-          sessionSecretCache = localStorage.getItem('gaslamar_secret_' + data.session_id);
+          // Token-exchange flow: no secret was set — session_secret_hash is null server-side
+          sessionSecretCache = sessionStorage.getItem('gaslamar_secret_' + data.session_id) || null;
         }
         history.replaceState(null, '', location.pathname);
         startPolling(sessionIdCache);
@@ -89,7 +90,10 @@ function downloadFile(lang, format) {
   }
 
   sessionIdCache     = sessionId;
-  sessionSecretCache = localStorage.getItem('gaslamar_secret_' + sessionId);
+  // Secret is stored in sessionStorage (tab-scoped). Null after tab close — in that
+  // case requests proceed without X-Session-Secret (server accepts for legacy sessions
+  // without a hash; users with a secret must use their email link to re-access).
+  sessionSecretCache = sessionStorage.getItem('gaslamar_secret_' + sessionId) || null;
 
   showState('waiting-payment');
   startPolling(sessionId);
