@@ -14,7 +14,7 @@ export default function StepList({ steps }: Props) {
         >
           <span className="w-5 flex-shrink-0 flex items-center justify-center mt-0.5">
             {step.status === 'done'
-              ? <span className="text-emerald-500 font-bold text-sm">✓</span>
+              ? <span className="text-emerald-500 font-bold text-sm" aria-label="Selesai">✓</span>
               : step.status === 'active'
               ? (
                 <span

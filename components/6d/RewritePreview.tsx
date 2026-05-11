@@ -15,10 +15,10 @@ export default function RewritePreview({ preview }: Props) {
     <div className="mb-5 px-1">
       <p className="text-sm font-semibold text-slate-400 uppercase tracking-widest mb-2">Contoh perbaikan CV kamu</p>
       <div className="text-sm text-slate-400 line-through leading-relaxed">
-        ❌ {preview.before}
+        <span aria-hidden="true">❌</span><span className="sr-only">Sebelum: </span> {preview.before}
       </div>
       <div data-testid="rewrite-after" className="text-sm text-slate-800 mt-2 leading-relaxed font-medium">
-        ✅ {preview.after}
+        <span aria-hidden="true">✅</span><span className="sr-only">Sesudah: </span> {preview.after}
       </div>
       {preview.note && (
         <p className="text-sm text-slate-500 mt-1">{preview.note}</p>

@@ -250,7 +250,7 @@ export default function Access() {
               className="rounded-[16px] px-4 py-3 text-sm mb-4 text-amber-800"
               style={{ background: 'rgba(255,251,235,0.9)', border: '1px solid rgba(253,230,138,0.8)' }}
             >
-              ⏰ Sesi dari {sourceLabel || 'halaman sebelumnya'} sudah berakhir, tapi tenang — kamu tetap bisa akses CV melalui email.
+              <span aria-hidden="true">⏰</span><span className="sr-only">Perhatian: </span> Sesi dari {sourceLabel || 'halaman sebelumnya'} sudah berakhir, tapi tenang — kamu tetap bisa akses CV melalui email.
             </div>
           )}
 
@@ -342,7 +342,7 @@ export default function Access() {
 
                     {emailError && (
                       <p id="email-error" role="alert" className="text-xs text-red-500 font-medium mt-0.5">
-                        ⚠️ {emailError}
+                        <span aria-hidden="true">⚠️</span> {emailError}
                       </p>
                     )}
 
@@ -352,14 +352,14 @@ export default function Access() {
                         onClick={handleAcceptSuggestion}
                         className="w-full min-h-[44px] mt-1 px-3 py-2 text-left text-sm font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-[10px] hover:bg-blue-100 transition-colors"
                       >
-                        💡 Maksud kamu: <strong>{emailSuggestion}</strong>?{' '}
+                        <span aria-hidden="true">💡</span><span className="sr-only">Saran: </span> Maksud kamu: <strong>{emailSuggestion}</strong>?{' '}
                         <span className="underline">Pakai ini</span>
                       </button>
                     )}
 
                     {showDisposable && (
                       <p className="text-xs text-amber-600 font-medium mt-0.5">
-                        ⚠️ Gunakan email aktif agar link akses bisa diterima.
+                        <span aria-hidden="true">⚠️</span><span className="sr-only">Peringatan: </span> Gunakan email aktif agar link akses bisa diterima.
                       </p>
                     )}
                   </div>
@@ -405,13 +405,13 @@ export default function Access() {
 
                       {showConfirmError && (
                         <p id="confirm-email-error" role="alert" className="text-xs text-red-500 font-medium mt-0.5">
-                          ⚠️ {confirmError}
+                          <span aria-hidden="true">⚠️</span> {confirmError}
                         </p>
                       )}
 
                       {showConfirmSuccess && (
                         <p className="text-xs text-green-600 font-medium mt-0.5">
-                          ✓ Email sudah cocok
+                          <span aria-hidden="true">✓</span> Email sudah cocok
                         </p>
                       )}
                     </div>
@@ -449,7 +449,7 @@ export default function Access() {
             href="mailto:support@gaslamar.com"
             className="block text-center mt-6 text-sm text-slate-400 hover:text-slate-600 transition-colors"
           >
-            📧 Butuh bantuan? Hubungi support
+            <span aria-hidden="true">📧</span> Butuh bantuan? Hubungi support
           </a>
         </div>
       </main>

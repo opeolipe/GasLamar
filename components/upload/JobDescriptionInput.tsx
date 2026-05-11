@@ -127,12 +127,12 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
 
       {submitError ? (
         <div role="alert" className="mt-2 rounded-[10px] px-3 py-2.5 text-sm font-medium bg-red-50 border border-red-200 text-red-700">
-          ⚠️ {submitError}
+          <span aria-hidden="true">⚠️</span> {submitError}
         </div>
       ) : trimmed && quality.message ? (
         <p className="text-sm text-slate-500 mt-2 break-words" style={{ overflowWrap: 'anywhere' }}>{quality.message}</p>
       ) : trimmed && !quality.message ? (
-        <p className="text-sm text-emerald-600 mt-2 font-medium">✓ Job description siap</p>
+        <p className="text-sm text-emerald-600 mt-2 font-medium"><span aria-hidden="true">✓</span> Job description siap</p>
       ) : (
         <p className="text-sm text-slate-500 mt-2">
           Job description wajib diisi. Minimal berisi kualifikasi dan tanggung jawab utama.

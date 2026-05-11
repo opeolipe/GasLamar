@@ -103,16 +103,16 @@ export default function Upload() {
         newNotices.push({ type: 'warning', text: 'Data sesi tidak lengkap. Silakan upload CV kamu untuk memulai.' });
       } else if (reason === 'interrupted') {
         history.replaceState(null, '', location.pathname);
-        newNotices.push({ type: 'warning', text: '⚠️ Analisis terputus — silakan upload ulang CV kamu untuk memulai.' });
+        newNotices.push({ type: 'warning', text: 'Analisis terputus — silakan upload ulang CV kamu untuk memulai.' });
       } else if (reason === 'session_expired') {
         history.replaceState(null, '', location.pathname);
-        newNotices.push({ type: 'info', text: '⏰ Sesi analisis sudah berakhir. Silakan upload CV kembali untuk analisis baru.' });
+        newNotices.push({ type: 'info', text: 'Sesi analisis sudah berakhir. Silakan upload CV kembali untuk analisis baru.' });
       }
 
       const uploadErr = sessionStorage.getItem('gaslamar_upload_error');
       if (uploadErr) {
         sessionStorage.removeItem('gaslamar_upload_error');
-        newNotices.push({ type: 'error', text: '⚠️ Analisis gagal: ' + uploadErr });
+        newNotices.push({ type: 'error', text: 'Analisis gagal: ' + uploadErr });
       }
 
       const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
@@ -123,7 +123,7 @@ export default function Upload() {
           const m = Math.floor((remaining % 3600) / 60);
           newNotices.push({
             type: 'info',
-            text: `⏰ Kamu masih punya hasil analisis aktif (${h > 0 ? `${h}j ${m}m` : `${m} menit`} tersisa).`,
+            text: `Kamu masih punya hasil analisis aktif (${h > 0 ? `${h}j ${m}m` : `${m} menit`} tersisa).`,
             link: { href: 'hasil.html', label: 'Lihat hasil →' },
           });
         }

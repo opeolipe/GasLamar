@@ -10,13 +10,14 @@ export default function AnalysisProgress({ progress, timerText, filename }: Prop
   return (
     <>
       <div className="inline-flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-full px-4 py-2 text-[0.78rem] text-slate-600 font-medium mb-6">
-        📄 <span className="font-semibold text-slate-800">{formatFilename(filename)}</span>
+        <span aria-hidden="true">📄</span> <span className="font-semibold text-slate-800">{formatFilename(filename)}</span>
       </div>
 
       <div className="text-center my-4">
         <span
           className="text-5xl leading-none"
           style={{ display: 'inline-block', animation: 'gasAnalysisPulse 1.2s infinite ease-in-out' }}
+          aria-hidden="true"
         >
           🧠✨
         </span>

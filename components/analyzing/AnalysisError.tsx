@@ -7,7 +7,7 @@ interface Props {
 export default function AnalysisError({ message, onRetry, isFileError = false }: Props) {
   return (
     <div data-testid="error-message" className="text-center py-8">
-      <div className="text-4xl mb-3">⚠️</div>
+      <div className="text-4xl mb-3" aria-hidden="true">⚠️</div>
       <h3
         className="font-semibold text-lg text-slate-900 mb-2"
         style={{ fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}
@@ -19,7 +19,7 @@ export default function AnalysisError({ message, onRetry, isFileError = false }:
       </p>
       {isFileError && (
         <p className="text-amber-600 text-[0.8rem] mb-4 max-w-xs mx-auto">
-          💡 Tip: Klik "Ganti CV / Job" untuk upload ulang dalam format DOCX atau TXT agar bisa dibaca.
+          <span aria-hidden="true">💡</span><span className="sr-only">Tip: </span> Klik "Ganti CV / Job" untuk upload ulang dalam format DOCX atau TXT agar bisa dibaca.
         </p>
       )}
       <div className="flex gap-3 justify-center flex-wrap">
