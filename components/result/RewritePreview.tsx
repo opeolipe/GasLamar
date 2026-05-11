@@ -24,14 +24,14 @@ export default function RewritePreview({ recommendations, gaps }: Props) {
       </div>
 
       <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0F172A', margin: '0 0 0.15rem' }}>
-        ✨ Pratinjau perbaikan CV kamu
+        <span aria-hidden="true">✨</span> Pratinjau perbaikan CV kamu
       </h3>
       <p style={{ fontSize: '0.8rem', color: '#6B7280', margin: '0 0 0.85rem' }}>
         AI akan terapkan semua perbaikan ini ke CV kamu secara langsung
       </p>
 
       {/* First item — fully visible */}
-      <PreviewItem label="✅ Perbaikan #1 — contoh gratis" text={first} />
+      <PreviewItem label="Perbaikan #1 — contoh gratis" text={first} />
 
       {/* Remaining — blurred with lock overlay */}
       <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden' }}>
@@ -45,7 +45,7 @@ export default function RewritePreview({ recommendations, gaps }: Props) {
         </div>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(248,250,252,0.75)', padding: '0.5rem' }}>
           <div style={{ background: '#1E40AF', color: 'white', borderRadius: 60, padding: '0.55rem 1rem', fontSize: '0.8rem', fontWeight: 700, textAlign: 'center', lineHeight: 1.4, maxWidth: 260, boxShadow: '0 4px 14px rgba(37,99,235,0.25)' }}>
-            🔒 Lihat semua {totalCount} perbaikan + CV rewrite lengkap (ID &amp; EN) setelah pilih paket
+            <span aria-hidden="true">🔒</span><span className="sr-only">Terkunci: </span> Lihat semua {totalCount} perbaikan + CV rewrite lengkap (ID &amp; EN) setelah pilih paket
           </div>
         </div>
       </div>

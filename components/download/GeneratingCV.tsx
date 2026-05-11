@@ -1,12 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TIER_LABELS } from '@/lib/sessionUtils';
 
 const SHADOW = '0 18px 44px rgba(15, 23, 42, 0.08)';
 
-const TRUST_MSGS = [
-  '🔒 CV tidak disimpan — data aman',
-  '🎯 Setiap bullet disesuaikan dengan lowonganmu',
-  '📧 Link download akan dikirim ke email kamu',
+const TRUST_MSGS: React.ReactNode[] = [
+  <><span aria-hidden="true">🔒</span> CV tidak disimpan — data aman</>,
+  <><span aria-hidden="true">🎯</span> Setiap bullet disesuaikan dengan lowonganmu</>,
+  <><span aria-hidden="true">📧</span> Link download akan dikirim ke email kamu</>,
 ];
 
 const STEP_DEFS = [
@@ -98,14 +98,14 @@ export default function GeneratingCV({ progress, status, filename, tier, onCance
         className="inline-flex items-center gap-2 text-sm font-medium rounded-full px-4 py-2 mb-7 max-w-full"
         style={{ background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.18)', color: '#1D4ED8', overflow: 'hidden' }}
       >
-        <span style={{ flexShrink: 0 }}>📄</span>
+        <span style={{ flexShrink: 0 }} aria-hidden="true">📄</span>
         <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{filename}</strong>
         <span style={{ flexShrink: 0 }}>· Paket: {tierLabel}</span>
       </div>
 
       {/* Pulse icon + headline */}
       <div className="text-center mb-4">
-        <div className="text-5xl mb-3" style={{ animation: 'gasDownloadPulse 1.2s infinite ease-in-out', display: 'inline-block' }}>
+        <div className="text-5xl mb-3" style={{ animation: 'gasDownloadPulse 1.2s infinite ease-in-out', display: 'inline-block' }} aria-hidden="true">
           ✍️✨
         </div>
         <h3 className="font-semibold text-lg text-slate-900" style={{ fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>AI sedang menulis CV tailored untuk kamu…</h3>
@@ -197,7 +197,10 @@ function DownloadSteps() {
       <div className="absolute top-[11px] left-0 right-0 h-px bg-slate-200 z-0" />
       {steps.map((s, i) => (
         <div key={i} className="relative z-10 flex flex-col items-center text-center flex-1">
-          <span className={`block text-[0.7rem] font-bold leading-none mb-1 ${s.done ? 'text-emerald-500' : s.active ? 'text-slate-900' : 'text-slate-300'}`}>
+          <span
+            className={`block text-[0.7rem] font-bold leading-none mb-1 ${s.done ? 'text-emerald-500' : s.active ? 'text-slate-900' : 'text-slate-300'}`}
+            aria-label={s.done ? 'Selesai' : s.active ? 'Aktif' : 'Menunggu'}
+          >
             {s.done ? '✓' : s.active ? '●' : '○'}
           </span>
           <span className={`text-[0.82rem] leading-tight ${s.done ? 'text-emerald-600 font-semibold' : s.active ? 'text-slate-900 font-bold' : 'text-slate-400'}`}>

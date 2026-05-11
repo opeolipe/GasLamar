@@ -8,7 +8,7 @@ export default function RecommendationList({ recommendations }: Props) {
   return (
     <div style={{ borderLeft: '3px solid #10B981', borderRadius: 12, padding: '1rem 1.25rem', marginBottom: '1.25rem', background: '#F0FDF4' }}>
       <h4 style={{ fontWeight: 700, color: '#065F46', fontSize: '0.9rem', margin: '0 0 0.6rem', display: 'flex', alignItems: 'center', gap: 6 }}>
-        🔥 Perbaiki ini dulu
+        <span aria-hidden="true">🔥</span> Perbaiki ini dulu
       </h4>
       <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
         {visible.map((r, i) => (

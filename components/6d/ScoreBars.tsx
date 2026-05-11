@@ -35,7 +35,7 @@ export default function ScoreBars({ dimensions, mode, primaryKey }: Props) {
             {mode === 'full' && (
               <div style={{ marginTop: '0.5rem' }}>
                 <p style={{ fontSize: '0.8rem', color: '#64748B', lineHeight: 1.6, margin: '0 0 0.25rem' }}>{desc}</p>
-                <p style={{ fontSize: '0.8rem', color: '#2563EB', fontWeight: 500, margin: 0, lineHeight: 1.5 }}>💡 {hint}</p>
+                <p style={{ fontSize: '0.8rem', color: '#2563EB', fontWeight: 500, margin: 0, lineHeight: 1.5 }}><span aria-hidden="true">💡</span><span className="sr-only">Saran: </span> {hint}</p>
               </div>
             )}
           </div>

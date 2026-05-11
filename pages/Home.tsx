@@ -33,7 +33,17 @@ export default function Home() {
     function onScroll() {
       if (barEnabledRef.current || window.scrollY <= 200) return;
       barEnabledRef.current = true;
-      timer = setTimeout(() => setShowStickyBar(true), 2000);
+      timer = setTimeout(() => {
+        // Guard: don't show if the footer is already in the viewport — avoids
+        // the race where the timer fires after the IntersectionObserver already
+        // determined the footer is visible and set showStickyBar to false.
+        const footer = footerRef.current;
+        if (footer) {
+          const rect = footer.getBoundingClientRect();
+          if (rect.top < window.innerHeight) return;
+        }
+        setShowStickyBar(true);
+      }, 2000);
     }
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => { window.removeEventListener('scroll', onScroll); clearTimeout(timer); };
@@ -51,7 +61,7 @@ export default function Home() {
           setShowStickyBar(true);
         }
       },
-      { threshold: 0, rootMargin: '0px 0px 80px 0px' },
+      { threshold: 0, rootMargin: '0px 0px 100px 0px' },
     );
     obs.observe(footerRef.current);
     return () => obs.disconnect();
