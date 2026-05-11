@@ -12,6 +12,7 @@ export async function handleMayarWebhook(request, env, ctx) {
       event: 'webhook_unauthorized',
       environment: env.ENVIRONMENT ?? 'sandbox',
       has_signature: !!request.headers.get('x-mayar-signature'),
+      has_callback_token: !!request.headers.get('x-callback-token'),
       has_secret: !!env.MAYAR_WEBHOOK_SECRET,
     }));
     return new Response('Unauthorized', { status: 401 });

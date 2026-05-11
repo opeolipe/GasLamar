@@ -1409,6 +1409,32 @@ describe('verifyMayarWebhook — production HMAC path', () => {
     const stagingWithSecretResult = await verifyMayarWebhook(req.clone(), { ENVIRONMENT: 'staging', MAYAR_WEBHOOK_SECRET: 'some_secret' });
     expect(stagingWithSecretResult.valid).toBe(false);
   });
+
+  it('accepts x-callback-token in sandbox when it matches the secret', async () => {
+    // Mayar sandbox sends x-callback-token instead of x-mayar-signature.
+    // When MAYAR_WEBHOOK_SECRET equals the token value, the webhook must be accepted.
+    const secret = 'my-staging-callback-token';
+    const payload = JSON.stringify({ id: 'inv_callback_token_test', status: 'paid' });
+
+    const reqMatch = new Request('https://gaslamar.com/webhook/mayar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-callback-token': secret },
+      body: payload,
+    });
+    const result = await verifyMayarWebhook(reqMatch, { ENVIRONMENT: 'staging', MAYAR_WEBHOOK_SECRET: secret });
+    expect(result.valid).toBe(true);
+  });
+
+  it('rejects x-callback-token in sandbox when it does not match the secret', async () => {
+    const payload = JSON.stringify({ id: 'inv_callback_token_mismatch', status: 'paid' });
+    const req = new Request('https://gaslamar.com/webhook/mayar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-callback-token': 'wrong-token' },
+      body: payload,
+    });
+    const result = await verifyMayarWebhook(req, { ENVIRONMENT: 'staging', MAYAR_WEBHOOK_SECRET: 'correct-secret' });
+    expect(result.valid).toBe(false);
+  });
 });
 
 describe('404 for unknown routes', () => {
