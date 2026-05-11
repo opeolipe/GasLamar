@@ -24,6 +24,16 @@ export async function handleBypassPayment(request, env) {
     return jsonResponse({ message: 'Not found' }, 404, request, env);
   }
 
+  // Defense-in-depth: require a pre-shared secret even in sandbox/staging so that
+  // a misconfigured ENVIRONMENT alone cannot expose this endpoint.  Set
+  // BYPASS_PAYMENT_SECRET via `wrangler secret put BYPASS_PAYMENT_SECRET` for any
+  // non-production environment that needs this endpoint.  When absent, the endpoint
+  // is still unreachable even if ENVIRONMENT is wrong.
+  const bypassSecret = env.BYPASS_PAYMENT_SECRET;
+  if (!bypassSecret) {
+    return jsonResponse({ message: 'Not found' }, 404, request, env);
+  }
+
   // Defense-in-depth rate limit — protects against accidental misconfiguration where
   // ENVIRONMENT is not 'production' on a live environment. 20 req/min is generous
   // enough for automated E2E suites but limits any unintended exposure.
@@ -40,7 +50,18 @@ export async function handleBypassPayment(request, env) {
     return jsonResponse({ message: 'Request body tidak valid' }, 400, request, env);
   }
 
-  const { tier, cv_text_key } = body;
+  const { tier, cv_text_key, bypass_secret: providedBypassSecret } = body;
+
+  // Constant-time comparison for bypass secret to prevent timing attacks.
+  const encoder = new TextEncoder();
+  const envBytes = encoder.encode(bypassSecret);
+  const reqBytes = encoder.encode(typeof providedBypassSecret === 'string' ? providedBypassSecret : '');
+  let secretDiff = envBytes.length ^ reqBytes.length;
+  const maxLen = Math.max(envBytes.length, reqBytes.length);
+  for (let i = 0; i < maxLen; i++) secretDiff |= (envBytes[i] ?? 0) ^ (reqBytes[i] ?? 0);
+  if (secretDiff !== 0) {
+    return jsonResponse({ message: 'Not found' }, 404, request, env);
+  }
 
   if (!tier || !cv_text_key) {
     return jsonResponse({ message: 'Data tidak lengkap' }, 400, request, env);
@@ -62,12 +83,14 @@ export async function handleBypassPayment(request, env) {
   const sessionId = `sess_${crypto.randomUUID()}`;
   const credits = TIER_CREDITS[tier] ?? 1;
 
-  // Generate a session secret so bypass sessions pass the same secret verification
-  // as real paid sessions. Returned in the response so callers can use it.
-  const testSecret = hexToken(16);
+  // Accept a caller-supplied session secret so the caller controls and already knows it
+  // (never needs to be returned in the response body where it might be logged).
+  // Falls back to a server-generated secret if not supplied.
+  const rawTestSecret = typeof body.session_secret === 'string' && body.session_secret.length >= 16
+    ? body.session_secret
+    : hexToken(16);
+  const testSecret = rawTestSecret;
   const secretHash = await sha256Full(testSecret);
-
-  await env.GASLAMAR_SESSIONS.delete(cv_text_key);
 
   await createSession(env, sessionId, {
     cv_text: stored.text,
@@ -80,9 +103,14 @@ export async function handleBypassPayment(request, env) {
     mayar_invoice_id: 'bypass_sandbox',
     session_secret_hash: secretHash,
   });
+  // Delete cv_text_key AFTER createSession succeeds — mirrors production payment flow.
+  // If createSession throws, cv_text_key is still intact and the user can retry.
+  await env.GASLAMAR_SESSIONS.delete(cv_text_key);
 
   log('bypass_payment_created', { sessionId, tier, credits });
 
   const cookieHeader = makeSessionCookie(sessionId, credits > 1);
-  return jsonResponseWithCookie({ session_id: sessionId, session_secret: testSecret }, 200, cookieHeader, request, env);
+  // Do not return the secret in the response — callers supply their own or handle
+  // the server-generated one by passing it in the request (avoiding logging of secrets).
+  return jsonResponseWithCookie({ session_id: sessionId }, 200, cookieHeader, request, env);
 }

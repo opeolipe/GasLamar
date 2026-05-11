@@ -34,7 +34,7 @@ function clearClientSessionData(sessionId) {
   sessionStorage.removeItem('gaslamar_score_summary'); // set by scoring.js, consumed by download-generation.js
   localStorage.removeItem('gaslamar_session');
   localStorage.removeItem('gaslamar_tier');            // legacy belt-and-suspenders
-  if (sessionId) localStorage.removeItem('gaslamar_secret_' + sessionId);
+  if (sessionId) sessionStorage.removeItem('gaslamar_secret_' + sessionId);
 }
 
 // ── getSecretHeaders ──────────────────────────────────────────────────────────

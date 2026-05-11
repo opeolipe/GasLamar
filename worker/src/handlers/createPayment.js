@@ -1,6 +1,6 @@
 import { jsonResponseWithCookie } from '../cors.js';
 import { jsonResponse } from '../cors.js';
-import { clientIp, sha256Full, log } from '../utils.js';
+import { clientIp, sha256Full, sha256Hex, log } from '../utils.js';
 import { checkRateLimit, rateLimitResponse } from '../rateLimit.js';
 import { TIER_CREDITS, SESSION_TTL_MULTI, VALID_TIERS } from '../constants.js';
 import { createMayarInvoice, logMayarEnvironment } from '../mayar.js';
@@ -153,15 +153,19 @@ export async function handleCreatePayment(request, env) {
     }
 
     // Email → session index for access recovery (/resend-access).
-    // Stored as an array so repeat buyers don't lose access to earlier sessions.
-    // No TTL on the index — sessions expire on their own; this just maps email → [ids].
+    // Key uses SHA-256 of the email (not plaintext) to avoid PII exposure in KV key space.
+    // Array capped at 10 entries (oldest dropped) to bound O(n) reads in resendAccess.
+    // TTL = 30 days (max session lifetime) so PII is not retained after sessions expire.
     if (sessionEmail) {
-      const indexKey = `email_session_${sessionEmail}`;
+      const emailKeyHash = await sha256Hex(sessionEmail);
+      const indexKey = `email_session_${emailKeyHash}`;
       const existing = await env.GASLAMAR_SESSIONS.get(indexKey, { type: 'json' });
       // Support old single-id format from before this change
       const ids = existing?.session_ids ?? (existing?.session_id ? [existing.session_id] : []);
       if (!ids.includes(sessionId)) ids.push(sessionId);
-      await env.GASLAMAR_SESSIONS.put(indexKey, JSON.stringify({ session_ids: ids }));
+      // Cap at 10 — drop the oldest entries first
+      const cappedIds = ids.length > 10 ? ids.slice(ids.length - 10) : ids;
+      await env.GASLAMAR_SESSIONS.put(indexKey, JSON.stringify({ session_ids: cappedIds }), { expirationTtl: 2592000 });
     }
 
     // Set HttpOnly session cookie — eliminates session_id from URLs (browser history,

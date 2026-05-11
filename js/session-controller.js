@@ -33,8 +33,12 @@
  *
  * localStorage (persistent across tabs):
  *   gaslamar_session         session_id ('sess_<uuid>') — set by payment.js
- *   gaslamar_secret_<id>     Session secret — sent as X-Session-Secret header
  *   gaslamar_delivery        Truthy when email delivery was confirmed (delivery flow)
+ *
+ * sessionStorage (tab-scoped — cleared on tab close):
+ *   gaslamar_secret_<id>     Session secret — sent as X-Session-Secret header.
+ *                            Tab-scoped intentionally: limits XSS exposure window.
+ *                            After tab close, users re-access via email link (?token=).
  */
 
 // ── State name constants ──────────────────────────────────────────────────────
@@ -132,7 +136,7 @@ function clearDownloadSession(sessionId) {
     sessionStorage.removeItem('gaslamar_score_summary');
     localStorage.removeItem('gaslamar_session');
     localStorage.removeItem('gaslamar_delivery');
-    if (sessionId) localStorage.removeItem('gaslamar_secret_' + sessionId);
+    if (sessionId) sessionStorage.removeItem('gaslamar_secret_' + sessionId);
   } catch (_) {}
 }
 
