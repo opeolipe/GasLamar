@@ -4,9 +4,10 @@ import { MAX_JD_CHARS } from '@/lib/uploadValidation';
 import { evaluateJDQuality } from '@/utils/evaluateJDQuality';
 
 interface Props {
-  value:       string;
-  onChange:    (value: string) => void;
+  value:        string;
+  onChange:     (value: string) => void;
   submitError?: string;
+  onSubmit?:    () => void;
 }
 
 const JD_EXAMPLE = `Posisi: Digital Marketing Specialist
@@ -14,7 +15,7 @@ Kualifikasi:
 - Social media marketing 2+ tahun
 - Google Analytics & Facebook Ads`;
 
-const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobDescriptionInput({ value, onChange, submitError }, ref) {
+const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobDescriptionInput({ value, onChange, submitError, onSubmit }, ref) {
   const [showFetcher, setShowFetcher] = useState(false);
   const [showExample, setShowExample] = useState(false);
   const internalRef = useRef<HTMLTextAreaElement>(null);
@@ -105,6 +106,12 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
           placeholder="Paste isi loker di sini..."
           className={textareaCls}
           aria-label="Job description atau lowongan kerja yang kamu targetkan"
+          onKeyDown={(e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+              e.preventDefault();
+              onSubmit?.();
+            }
+          }}
         />
         <div className="flex items-center justify-between mt-1">
           <button

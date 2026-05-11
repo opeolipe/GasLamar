@@ -451,6 +451,7 @@ export default function Upload() {
               value={jd}
               onChange={handleJdChange}
               submitError={jdSubmitError}
+              onSubmit={handleSubmit}
             />
           </div>
 

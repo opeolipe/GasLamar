@@ -107,8 +107,8 @@ export default function EmailCapture({
         </button>
       )}
       {showDisposable && (
-        <p style={{ color: '#D97706', fontSize: '0.875rem', marginTop: '0.4rem', fontWeight: 500 }}>
-          <span aria-hidden="true">⚠️</span><span className="sr-only">Peringatan: </span> Gunakan email aktif agar kamu bisa menerima CV hasil perbaikan.
+        <p role="alert" style={{ color: '#D97706', fontSize: '0.875rem', marginTop: '0.4rem', fontWeight: 500 }}>
+          <span aria-hidden="true">⚠️</span><span className="sr-only">Peringatan: </span> Gunakan email pribadi, bukan email sementara.
         </p>
       )}
     </div>
