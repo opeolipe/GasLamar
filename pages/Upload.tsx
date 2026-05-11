@@ -163,7 +163,8 @@ export default function Upload() {
     (async () => {
       try {
         const res = await fetch(`${WORKER_URL}/check-session?session=${encodeURIComponent(sId)}`, { credentials: 'include' });
-        const isTerminal = !res.ok || (res.ok && (await res.json() as { status?: string }).status === 'deleted');
+        const data = res.ok ? await res.json() as { status?: string } : null;
+        const isTerminal = !res.ok || data?.status === 'deleted' || data?.status === 'pending';
         if (isTerminal) {
           clearClientSessionData(sId);
           setNotices(prev => prev.filter(n => !n.link?.href.includes('download.html')));
