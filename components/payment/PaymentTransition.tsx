@@ -2,12 +2,28 @@ import { useEffect, useRef } from 'react';
 
 const REDIRECT_DELAY_MS = 1800;
 
+function isSafeHttpsUrl(url: string): boolean {
+  try {
+    return new URL(url).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 interface Props {
   invoiceUrl: string | null;
 }
 
 export default function PaymentTransition({ invoiceUrl }: Props) {
   const redirectedRef = useRef(false);
+  const cardRef       = useRef<HTMLDivElement>(null);
+
+  // Auto-focus card so screen readers announce the dialog heading on open.
+  useEffect(() => {
+    if (invoiceUrl && cardRef.current) {
+      cardRef.current.focus();
+    }
+  }, [invoiceUrl]);
 
   useEffect(() => {
     if (!invoiceUrl) return;
@@ -19,6 +35,8 @@ export default function PaymentTransition({ invoiceUrl }: Props) {
 
     const timer = setTimeout(() => {
       if (redirectedRef.current) return;
+      // Defense-in-depth: verify https before redirect even though parent already checked.
+      if (!isSafeHttpsUrl(invoiceUrl)) return;
       redirectedRef.current = true;
       (window as any).Analytics?.track?.('payment_redirect_executed');
       window.location.href = invoiceUrl;
@@ -37,8 +55,8 @@ export default function PaymentTransition({ invoiceUrl }: Props) {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Mengarahkan ke pembayaran aman"
-      aria-live="assertive"
+      aria-labelledby="pt-heading"
+      aria-describedby="pt-body"
       style={{
         position:           'fixed',
         inset:              0,
@@ -54,6 +72,8 @@ export default function PaymentTransition({ invoiceUrl }: Props) {
       }}
     >
       <div
+        ref={cardRef}
+        tabIndex={-1}
         style={{
           background:     'rgba(255,255,255,0.96)',
           borderRadius:   24,
@@ -64,6 +84,7 @@ export default function PaymentTransition({ invoiceUrl }: Props) {
           boxShadow:      '0 24px 64px rgba(15, 23, 42, 0.20), 0 1px 2px rgba(15, 23, 42, 0.06)',
           border:         '1px solid rgba(148,163,184,0.16)',
           backdropFilter: 'blur(16px)',
+          outline:        'none',
           animation:      prefersReducedMotion ? 'none' : 'ptSlideUp 0.22s cubic-bezier(0.22, 1, 0.36, 1)',
         }}
       >
@@ -103,6 +124,7 @@ export default function PaymentTransition({ invoiceUrl }: Props) {
 
         {/* Heading */}
         <h2
+          id="pt-heading"
           style={{
             fontFamily:    '"Plus Jakarta Sans", sans-serif',
             fontSize:      '1.15rem',
@@ -117,6 +139,7 @@ export default function PaymentTransition({ invoiceUrl }: Props) {
         </h2>
 
         <p
+          id="pt-body"
           style={{
             fontSize:   '0.875rem',
             color:      '#64748B',
@@ -127,17 +150,17 @@ export default function PaymentTransition({ invoiceUrl }: Props) {
           Kamu akan diarahkan ke halaman pembayaran Mayar dalam sebentar.
         </p>
 
-        {/* Spinner */}
+        {/* Spinner — static ring when reduced-motion is preferred */}
         <div
           aria-hidden="true"
           style={{
-            width:        32,
-            height:       32,
-            border:       '3px solid #DBEAFE',
-            borderTopColor: '#1B4FE8',
-            borderRadius: '50%',
-            animation:    'ptSpin 0.75s linear infinite',
-            margin:       '0 auto 1.5rem',
+            width:          32,
+            height:         32,
+            border:         prefersReducedMotion ? '3px solid #1B4FE8' : '3px solid #DBEAFE',
+            borderTopColor: prefersReducedMotion ? '#1B4FE8' : '#1B4FE8',
+            borderRadius:   '50%',
+            animation:      prefersReducedMotion ? 'none' : 'ptSpin 0.75s linear infinite',
+            margin:         '0 auto 1.5rem',
           }}
         />
 
