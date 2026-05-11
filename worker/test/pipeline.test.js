@@ -65,10 +65,11 @@ describe('runAnalysis — skill matching', () => {
     expect(r.skill_match.match_ratio).toBe(1);
   });
 
-  it('empty JD skills → match_ratio = 0', () => {
+  it('empty JD skills → match_ratio = 1 (no requirements = all met)', () => {
     const r = runAnalysis(extracted({ skills_diminta: [] }));
-    expect(r.skill_match.match_ratio).toBe(0);
+    expect(r.skill_match.match_ratio).toBe(1);
     expect(r.skill_match.matched).toEqual([]);
+    expect(r.skill_match.missing).toEqual([]);
   });
 });
 
@@ -123,6 +124,21 @@ describe('runAnalysis — format and signals', () => {
 
   it('red_flag_types.very_short = true for very short experience text', () => {
     expect(runAnalysis(extracted({ pengalaman_mentah: 'Admin kantor' })).red_flag_types.very_short).toBe(true);
+  });
+
+  it('red_flag_types.experience_gap = true when years < pengalaman_minimal', () => {
+    const r = runAnalysis(extracted({ angka_di_cv: '1 tahun', pengalaman_minimal: 3 }));
+    expect(r.red_flag_types.experience_gap).toBe(true);
+  });
+
+  it('red_flag_types.experience_gap = false when years meet pengalaman_minimal', () => {
+    const r = runAnalysis(extracted({ angka_di_cv: '5 tahun', pengalaman_minimal: 3 }));
+    expect(r.red_flag_types.experience_gap).toBe(false);
+  });
+
+  it('red_flag_types.experience_gap = false when pengalaman_minimal is null', () => {
+    const r = runAnalysis(extracted({ pengalaman_minimal: null }));
+    expect(r.red_flag_types.experience_gap).toBe(false);
   });
 });
 
@@ -373,6 +389,18 @@ describe('computeSkorSesudah', () => {
     expect(computeSkorSesudah(60, analysis)).toBeGreaterThanOrEqual(70);
   });
 
+  it('skor_sesudah >= skor+10 even when rounding would push below (skor%5 = 2)', () => {
+    // skor=37, raw=47, Math.round(47/5)*5 = Math.round(9.4)*5 = 45 — but min is 47
+    const analysis = { skill_match: { missing: [] }, has_numbers: true };
+    expect(computeSkorSesudah(37, analysis)).toBeGreaterThanOrEqual(47);
+  });
+
+  it('skor_sesudah >= skor+10 even when rounding would push below (skor%5 = 3)', () => {
+    // skor=32, raw=42, Math.round(42/5)*5 = Math.round(8.4)*5 = 40 — but min is 42
+    const analysis = { skill_match: { missing: [] }, has_numbers: true };
+    expect(computeSkorSesudah(32, analysis)).toBeGreaterThanOrEqual(42);
+  });
+
   it('result capped at 95', () => {
     const analysis = { skill_match: { missing: new Array(10).fill('x') }, has_numbers: false };
     // raw=120, min(95,120)=95
@@ -483,6 +511,9 @@ describe('detectArchetype', () => {
     ['HRD Specialist',       'HRD'],
     ['Supervisor Gudang',    'Operasional/Logistik'],
     ['Customer Service Rep', 'Customer Service'],
+    ['Cabin Crew',           'Customer Service'],
+    ['Flight Attendant',     'Customer Service'],
+    ['Pramugari',            'Customer Service'],
     ['Senior Manager',       'Manajemen/Leader'],
     ['Head of Product',      'Manajemen/Leader'],
     ['Magang UI/UX',         'Fresh Graduate (trainee)'],

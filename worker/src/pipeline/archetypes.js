@@ -13,7 +13,7 @@ export const ARCHETYPE_MAP = [
   [/software|engineer|developer|programmer|\bit\b|data\s*(analyst|engineer|scientist|science)|devops|frontend|back[-\s]?end|fullstack|mobile\s*dev/i, 'IT/Software'],
   [/\bhrd\b|\bhrga\b|\bhr\b|human\s*resource|rekrut|talent|people\s*ops/i,      'HRD'],
   [/logistik|supply\s*chain|operasional|warehouse|gudang|procurement|purchasing/i, 'Operasional/Logistik'],
-  [/customer\s*service|\bcs\b|call\s*center|technical\s*support|helpdesk/i,     'Customer Service'],
+  [/customer\s*service|\bcs\b|call\s*center|technical\s*support|helpdesk|cabin\s*crew|flight\s*attendant|pramugari|pramugara|aviasi\b/i, 'Customer Service'],
   [/manager|manajer|direktur|kepala\s|head\s*of|\blead\b|supervisor|\bvp\b|chief/i, 'Manajemen/Leader'],
 ];
 

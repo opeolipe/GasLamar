@@ -38,7 +38,7 @@ import { sha256Hex }     from './utils.js';
 //                   Bump EXTRACT_CACHE_VERSION when changing pipeline/extract.js or prompts/extract.js.
 // Stale KV entries with old version prefixes are ignored automatically.
 const EXTRACT_CACHE_VERSION  = 'v3'; // current key: extract_v3_<hash> (bumped: angka_di_cv now achievement-only, not calendar years)
-const ANALYSIS_CACHE_VERSION = 'v8'; // current key: analysis_v8_<hash> (bumped: added optional preview_before/preview_after fields from diagnose stage)
+const ANALYSIS_CACHE_VERSION = 'v9'; // current key: analysis_v9_<hash> (bumped: empty-JD match_ratio fix, experience_gap flag, skor_sesudah clamp, cabin crew archetype)
 
 // ---- Orchestrator ----
 
@@ -110,6 +110,9 @@ export async function analyzeCV(cvText, jobDesc, env) {
   }
   if (analysisResult.red_flag_types.very_short) {
     codeFlags.push('Bagian pengalaman CV terlalu singkat — kurang detail');
+  }
+  if (analysisResult.red_flag_types.experience_gap) {
+    codeFlags.push('Pengalaman kerja belum memenuhi minimum yang diminta JD');
   }
 
   const llmFlags = Array.isArray(diagnoseResult.red_flags)

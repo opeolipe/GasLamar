@@ -144,5 +144,6 @@ export function computeSkorSesudah(skor, analysisResult) {
   const numberPotential   = analysisResult.has_numbers ? 0 : 5;
   const improvementTotal  = Math.min(25, gapPotential + numberPotential);
   const raw = skor + 10 + improvementTotal;
-  return Math.min(95, Math.round(raw / 5) * 5);
+  // Math.round can push below skor+10 when skor%5 ∈ {2,3,4}. Clamp explicitly.
+  return Math.min(95, Math.max(skor + 10, Math.round(raw / 5) * 5));
 }

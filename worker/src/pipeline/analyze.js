@@ -17,7 +17,9 @@ import { detectArchetype } from './archetypes.js';
 function matchSkills(cvSkillsStr, jdSkills) {
   const cv = (cvSkillsStr || '').toLowerCase();
   const total = jdSkills.length;
-  if (total === 0) return { matched: [], missing: [], match_ratio: 0 };
+  // No skills specified → vacuous truth: all (zero) requirements are met. Avoids
+  // unfairly penalising candidates whose JD simply didn't list skill keywords.
+  if (total === 0) return { matched: [], missing: [], match_ratio: 1 };
 
   const matched = jdSkills.filter(s => cv.includes(s.toLowerCase()));
   const missing  = jdSkills.filter(s => !cv.includes(s.toLowerCase()));
@@ -95,9 +97,12 @@ export function runAnalysis(extractedData) {
   const expWordCount = (cv.pengalaman_mentah || '').split(/\s+/).filter(Boolean).length;
 
   const red_flag_types = {
-    multi_column: !format_ok,
-    no_numbers:   !has_numbers,
-    very_short:   expWordCount < 30,
+    multi_column:   !format_ok,
+    no_numbers:     !has_numbers,
+    very_short:     expWordCount < 30,
+    // Explicit experience requirement exists in the JD but candidate doesn't meet it.
+    // Only fires when pengalaman_minimal is a concrete number (not null).
+    experience_gap: jd.pengalaman_minimal !== null && !experience_ok,
   };
 
   return {
