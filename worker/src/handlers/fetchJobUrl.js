@@ -351,12 +351,12 @@ export async function handleFetchJobUrl(request, env) {
     },
     {
       active: isGlassdoor,
-      markers: ['Sign In | Glassdoor', 'Sign in to Glassdoor', 'glassdoor.com/profile/login_input', 'GD_API_TOKEN'],
+      markers: ['Sign In | Glassdoor', 'Sign in to Glassdoor', 'glassdoor.com/profile/login_input'],
       message: 'Glassdoor memerlukan login untuk melihat lowongan ini. Silakan copy-paste deskripsi pekerjaan secara manual.',
     },
     {
       active: isJobStreet,
-      markers: ['Sign in to JobStreet', 'Masuk ke JobStreet', 'Daftar dan lamar sekarang', 'jobstreet.co.id/oauth/'],
+      markers: ['Sign in to JobStreet', 'Masuk ke JobStreet', 'jobstreet.co.id/oauth/'],
       message: 'JobStreet memerlukan login untuk melihat lowongan ini. Silakan copy-paste deskripsi pekerjaan secara manual.',
     },
   ];
