@@ -322,4 +322,4 @@ Before shipping a new section:
 
 ---
 
-*Last updated: 2026-05-08 | gstack /design-consultation*
+*Last updated: 2026-05-11 | gstack /design-consultation*
