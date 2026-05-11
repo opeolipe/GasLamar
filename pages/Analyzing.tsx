@@ -18,6 +18,11 @@ const KEYFRAMES = `
     from { transform: rotate(0deg); }
     to   { transform: rotate(360deg); }
   }
+  @media (prefers-reduced-motion: reduce) {
+    [style*="gasAnalysisPulse"], [style*="gasStepSpin"] {
+      animation: none !important;
+    }
+  }
 `;
 
 interface ContentProps {
@@ -134,7 +139,7 @@ export default function Analyzing() {
 
   return (
     <div
-      className="min-h-screen text-gray-900 font-sans"
+      className="min-h-dvh text-gray-900 font-sans"
       style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -20%,rgba(37,99,235,0.08),transparent)' }}
     >
       <style>{KEYFRAMES}</style>

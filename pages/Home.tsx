@@ -69,7 +69,7 @@ export default function Home() {
 
   return (
     <div
-      className="min-h-screen text-gray-900 font-sans"
+      className="min-h-dvh text-gray-900 font-sans"
       style={{ background: "radial-gradient(ellipse 80% 50% at 50% -20%,rgba(37,99,235,0.08),transparent)" }}
     >
       {/* Skip link — visible on keyboard focus only */}
@@ -175,7 +175,7 @@ export default function Home() {
       {showStickyBar && !stickyDismissed && (
         <div
           className="md:hidden"
-          style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100, background: 'rgba(255,255,255,0.96)', borderTop: '1px solid rgba(148,163,184,0.18)', backdropFilter: 'blur(14px)', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100, background: 'rgba(255,255,255,0.96)', borderTop: '1px solid rgba(148,163,184,0.18)', backdropFilter: 'blur(14px)', padding: '0.75rem 1rem', paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
         >
           <a
             href="upload.html"
@@ -188,7 +188,7 @@ export default function Home() {
             type="button"
             aria-label="Tutup banner"
             onClick={() => { setShowStickyBar(false); setStickyDismissed(true); }}
-            style={{ flexShrink: 0, minWidth: 36, minHeight: 36, borderRadius: '50%', border: 'none', background: 'rgba(148,163,184,0.15)', color: '#64748b', fontSize: '1.1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ flexShrink: 0, minWidth: 44, minHeight: 44, borderRadius: '50%', border: 'none', background: 'rgba(148,163,184,0.15)', color: '#64748b', fontSize: '1.1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             ×
           </button>
