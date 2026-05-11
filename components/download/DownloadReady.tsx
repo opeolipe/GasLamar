@@ -75,8 +75,8 @@ function DownloadButton({ fmt, label, size, ariaLabel, onClick }: DownloadButton
         : { background: 'white', border: '1px solid rgba(37,99,235,0.2)', color: '#1E3A8A' }
       }
     >
-      <span>{label}</span>
-      <span className={`text-sm ${primary ? 'text-blue-200' : 'text-slate-400'}`}>{size}</span>
+      <span className="min-w-0 truncate">{label}</span>
+      <span className={`text-sm flex-shrink-0 ml-2 ${primary ? 'text-blue-200' : 'text-slate-400'}`}>{size}</span>
     </button>
   );
 }
@@ -107,7 +107,7 @@ function PostDownloadCard({ creditsRemaining, onDismiss, onScrollToMulti, onShow
         </p>
         <button
           onClick={onScrollToMulti}
-          className="inline-flex items-center min-h-[40px] px-4 rounded-[14px] font-bold text-white text-sm transition-all hover:-translate-y-[1px]"
+          className="inline-flex items-center min-h-[44px] px-4 rounded-[14px] font-bold text-white text-sm transition-all hover:-translate-y-[1px]"
           style={{ background: 'linear-gradient(180deg,#2563eb,#1d4ed8)', boxShadow: '0 8px 24px rgba(37,99,235,0.25)' }}
         >
           ✍️ Siapkan CV Lain
@@ -132,14 +132,14 @@ function PostDownloadCard({ creditsRemaining, onDismiss, onScrollToMulti, onShow
       <div className="flex gap-2 flex-wrap">
         <a
           href="/?tier=3pack"
-          className="inline-flex items-center min-h-[40px] px-4 rounded-[14px] font-semibold text-slate-700 text-sm transition-colors"
+          className="inline-flex items-center min-h-[44px] px-4 rounded-[14px] font-semibold text-slate-700 text-sm transition-colors"
           style={{ background: 'white', border: '1.5px solid #E2E8F0' }}
         >
           📦 Beli Paket Hemat
         </a>
         <button
           onClick={onShowTips}
-          className="inline-flex items-center min-h-[40px] px-4 rounded-[14px] font-bold text-white text-sm transition-all hover:-translate-y-[1px]"
+          className="inline-flex items-center min-h-[44px] px-4 rounded-[14px] font-bold text-white text-sm transition-all hover:-translate-y-[1px]"
           style={{ background: 'linear-gradient(180deg,#2563eb,#1d4ed8)', boxShadow: '0 8px 24px rgba(37,99,235,0.25)' }}
         >
           💡 Tips Interview
@@ -229,7 +229,10 @@ export default function DownloadReady({
   const [gaps] = useState<string[]>(() => {
     try {
       const raw = sessionStorage.getItem('gaslamar_gap');
-      return raw ? JSON.parse(raw) as string[] : [];
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter((x): x is string => typeof x === 'string').slice(0, 10);
     } catch { return []; }
   });
 
@@ -378,7 +381,7 @@ export default function DownloadReady({
                       transition: 'width 0.7s cubic-bezier(0.22,1,0.36,1)',
                     }} />
                   </div>
-                  <p style={{ fontSize: '0.8rem', color: '#64748B', margin: 0, lineHeight: 1.55 }}>
+                  <p style={{ fontSize: '0.8rem', color: '#64748B', margin: 0, lineHeight: 1.55, overflowWrap: 'break-word', wordBreak: 'break-word' }}>
                     {dim.hint}
                   </p>
                 </div>
@@ -399,7 +402,7 @@ export default function DownloadReady({
                 {gaps.slice(0, showAllGaps ? gaps.length : 3).map((g, i) => (
                   <li key={i} style={{ fontSize: '0.875rem', color: '#374151', display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
                     <span style={{ color: '#22C55E', fontWeight: 700, flexShrink: 0, marginTop: 2 }}>✓</span>
-                    <span style={{ lineHeight: 1.5 }}>{g}</span>
+                    <span style={{ lineHeight: 1.5, minWidth: 0, overflowWrap: 'break-word', wordBreak: 'break-word' }}>{g}</span>
                   </li>
                 ))}
               </ul>

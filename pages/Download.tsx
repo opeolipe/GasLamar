@@ -362,7 +362,7 @@ export default function Download() {
                 <h2 style={{ fontWeight: 700, fontSize: '1.15rem', color: '#0F172A', margin: '0 0 0.35rem' }}>
                   CV kamu sudah siap digunakan
                 </h2>
-                <p style={{ color: '#64748B', fontSize: '0.875rem', margin: 0 }}>
+                <p style={{ color: '#64748B', fontSize: '0.875rem', margin: 0, wordBreak: 'break-all' }}>
                   Email telah dikirim ke {delivery.email}
                 </p>
               </div>
