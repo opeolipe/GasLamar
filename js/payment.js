@@ -117,6 +117,212 @@ function updateEmailSection(tier) {
   if (errEl) errEl.classList.add('hidden');
 }
 
+function showPaymentTransitionOverlay({ tier, invoiceUrl }) {
+  const config = TIER_CONFIG[tier];
+  const price = config.price.toLocaleString('id-ID');
+  const label = config.label;
+
+  let destDomain = 'mayar.id';
+  try { destDomain = new URL(invoiceUrl).hostname; } catch (_) {}
+
+  const overlay = document.createElement('div');
+  overlay.id = 'payment-transition-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-label', 'Membuka halaman pembayaran aman');
+
+  overlay.innerHTML = `
+    <style>
+      #payment-transition-overlay {
+        position: fixed; inset: 0;
+        background: rgba(241, 245, 255, 0.97);
+        backdrop-filter: blur(10px);
+        z-index: 9999;
+        display: flex; align-items: center; justify-content: center;
+        padding: 20px;
+        font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+        animation: glpt-in 0.22s ease-out;
+      }
+      @keyframes glpt-in { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+      #payment-transition-overlay .glpt-card {
+        background: #fff;
+        border-radius: 20px;
+        box-shadow: 0 24px 64px rgba(27,79,232,0.13), 0 4px 18px rgba(0,0,0,0.06);
+        border: 1px solid rgba(27,79,232,0.09);
+        padding: 28px 24px 24px;
+        max-width: 388px; width: 100%;
+      }
+      #payment-transition-overlay .glpt-handoff {
+        display: flex; align-items: center; justify-content: center; gap: 10px;
+        margin-bottom: 20px;
+      }
+      #payment-transition-overlay .glpt-logo-gl {
+        font-size: 14px; font-weight: 800; letter-spacing: -0.4px; color: #1B4FE8;
+        display: flex; align-items: center; gap: 5px;
+      }
+      #payment-transition-overlay .glpt-logo-dot {
+        width: 7px; height: 7px; border-radius: 50%; background: #1B4FE8;
+        display: inline-block;
+      }
+      #payment-transition-overlay .glpt-arrow-wrap {
+        display: flex; align-items: center; gap: 4px;
+      }
+      #payment-transition-overlay .glpt-arrow-line {
+        width: 28px; height: 1.5px; background: linear-gradient(to right, #c7d7fe, #7dd3fc);
+      }
+      #payment-transition-overlay .glpt-arrow-head { color: #7dd3fc; font-size: 14px; line-height: 1; }
+      #payment-transition-overlay .glpt-logo-mayar {
+        font-size: 14px; font-weight: 800; letter-spacing: -0.4px;
+        background: linear-gradient(135deg, #0ea5e9, #0369a1);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      #payment-transition-overlay .glpt-sep {
+        height: 1px;
+        background: linear-gradient(to right, transparent, #e2e8f0 30%, #e2e8f0 70%, transparent);
+        margin: 0 -4px 20px;
+      }
+      #payment-transition-overlay .glpt-pkg {
+        text-align: center; margin-bottom: 22px;
+      }
+      #payment-transition-overlay .glpt-pkg-label {
+        font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.8px; color: #94a3b8; margin-bottom: 3px;
+      }
+      #payment-transition-overlay .glpt-pkg-name {
+        font-size: 15px; font-weight: 700; color: #334155; margin-bottom: 3px;
+      }
+      #payment-transition-overlay .glpt-pkg-price {
+        font-size: 30px; font-weight: 800; color: #1B4FE8; letter-spacing: -1px;
+        line-height: 1.1;
+      }
+      #payment-transition-overlay .glpt-steps {
+        display: flex; flex-direction: column; gap: 9px; margin-bottom: 20px;
+      }
+      #payment-transition-overlay .glpt-step {
+        display: flex; align-items: center; gap: 9px; font-size: 13px;
+      }
+      #payment-transition-overlay .glpt-step-icon {
+        width: 20px; height: 20px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      }
+      #payment-transition-overlay .glpt-done .glpt-step-icon { background: #dcfce7; }
+      #payment-transition-overlay .glpt-done .glpt-step-text { color: #6b7280; }
+      #payment-transition-overlay .glpt-active .glpt-step-icon { background: #eff6ff; }
+      #payment-transition-overlay .glpt-active .glpt-step-text {
+        color: #1e293b; font-weight: 600;
+      }
+      #payment-transition-overlay .glpt-spinner {
+        width: 12px; height: 12px;
+        border: 2px solid #bfdbfe; border-top-color: #1B4FE8;
+        border-radius: 50%; animation: glpt-spin 0.75s linear infinite;
+      }
+      @keyframes glpt-spin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) {
+        #payment-transition-overlay { animation: none; }
+        #payment-transition-overlay .glpt-spinner { animation: none; border-top-color: #1B4FE8; opacity: 0.7; }
+      }
+      #payment-transition-overlay .glpt-trust {
+        background: #f0f9ff; border: 1px solid #bae6fd;
+        border-radius: 12px; padding: 13px 14px; margin-bottom: 12px;
+      }
+      #payment-transition-overlay .glpt-trust-header {
+        display: flex; align-items: center; gap: 7px;
+        font-size: 12.5px; font-weight: 700; color: #0369a1; margin-bottom: 6px;
+      }
+      #payment-transition-overlay .glpt-trust-body {
+        font-size: 12px; color: #334155; line-height: 1.6;
+      }
+      #payment-transition-overlay .glpt-domain {
+        background: #f8fafc; border: 1px solid #e2e8f0;
+        border-radius: 10px; padding: 10px 13px; margin-bottom: 14px;
+        font-size: 11.5px; color: #475569; line-height: 1.55;
+      }
+      #payment-transition-overlay .glpt-domain code {
+        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+        font-size: 11px; font-weight: 700; color: #0369a1;
+        background: #e0f2fe; padding: 1px 5px; border-radius: 4px;
+      }
+      #payment-transition-overlay .glpt-footer {
+        text-align: center; font-size: 11.5px; color: #94a3b8; line-height: 1.5;
+      }
+    </style>
+    <div class="glpt-card" role="status" aria-live="polite">
+
+      <div class="glpt-handoff" aria-label="Peralihan dari GasLamar ke Mayar">
+        <div class="glpt-logo-gl">
+          <span class="glpt-logo-dot" aria-hidden="true"></span>GasLamar
+        </div>
+        <div class="glpt-arrow-wrap" aria-hidden="true">
+          <div class="glpt-arrow-line"></div>
+          <span class="glpt-arrow-head">&#9658;</span>
+        </div>
+        <div class="glpt-logo-mayar">Mayar</div>
+      </div>
+
+      <div class="glpt-sep" aria-hidden="true"></div>
+
+      <div class="glpt-pkg">
+        <div class="glpt-pkg-label">Paket dipilih</div>
+        <div class="glpt-pkg-name">${label}</div>
+        <div class="glpt-pkg-price">Rp ${price}</div>
+      </div>
+
+      <div class="glpt-steps" aria-label="Langkah proses pembayaran">
+        <div class="glpt-step glpt-done">
+          <div class="glpt-step-icon" aria-hidden="true">
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+              <path d="M2 5.5l2.5 2.5L9 3" stroke="#16a34a" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <span class="glpt-step-text">CV selesai dianalisis</span>
+        </div>
+        <div class="glpt-step glpt-done">
+          <div class="glpt-step-icon" aria-hidden="true">
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+              <path d="M2 5.5l2.5 2.5L9 3" stroke="#16a34a" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <span class="glpt-step-text">Invoice berhasil dibuat</span>
+        </div>
+        <div class="glpt-step glpt-active">
+          <div class="glpt-step-icon" aria-hidden="true">
+            <div class="glpt-spinner"></div>
+          </div>
+          <span class="glpt-step-text">Membuka halaman pembayaran aman&hellip;</span>
+        </div>
+      </div>
+
+      <div class="glpt-trust">
+        <div class="glpt-trust-header">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <path d="M7 1.5 2 3.5v3.5c0 2.76 2.13 5.34 5 5.94 2.87-.6 5-3.18 5-5.94V3.5Z" fill="#bae6fd"/>
+            <path d="M7 1.5 2 3.5v3.5c0 2.76 2.13 5.34 5 5.94 2.87-.6 5-3.18 5-5.94V3.5Z" stroke="#0369a1" stroke-width="1.2" stroke-linejoin="round" fill="none"/>
+            <path d="M4.5 7.1 6.2 8.8 9.5 5" stroke="#0369a1" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Pembayaran aman diproses oleh Mayar
+        </div>
+        <div class="glpt-trust-body">
+          Kamu akan membuka halaman pembayaran resmi dari <strong>Mayar</strong> — platform pembayaran terpercaya di Indonesia.<br>
+          GasLamar <strong>tidak menerima atau menyimpan</strong> data pembayaran kamu. Semua proses pembayaran ditangani langsung oleh Mayar.
+        </div>
+      </div>
+
+      <div class="glpt-domain">
+        <strong>Domain akan berubah ke:</strong>
+        <code>${destDomain}</code><br>
+        <span style="color:#94a3b8">Ini normal &amp; aman — halaman tersebut adalah checkout resmi Mayar.</span>
+      </div>
+
+      <div class="glpt-footer">
+        Biasanya kurang dari 5 detik&ensp;&middot;&ensp;Sesi analisis kamu tetap tersimpan
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+  document.body.style.overflow = 'hidden';
+}
+
 async function proceedToPayment() {
   if (!selectedTier || paymentInProgress) return;
 
@@ -250,7 +456,9 @@ async function proceedToPayment() {
     if (!validInvoiceUrl) {
       throw new Error('URL pembayaran tidak valid. Coba lagi.');
     }
-    btn.textContent = 'Mengalihkan ke halaman pembayaran...';
+    btn.textContent = 'Membuka halaman pembayaran aman...';
+    showPaymentTransitionOverlay({ tier: selectedTier, invoiceUrl: invoice_url });
+    await new Promise(r => setTimeout(r, 1800));
     window.location.href = invoice_url;
 
   } catch (err) {
