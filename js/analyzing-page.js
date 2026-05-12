@@ -47,7 +47,7 @@ let trustIndex = 0;
 function setStepDone(n) {
   const icon = document.getElementById('step' + n + 'Icon');
   if (!icon) return;
-  icon.textContent = '✓';
+  icon.innerHTML = '<span aria-hidden="true">✓</span>';
   icon.className = 'step-status';
   icon.style.color = '#10B981';
 }
@@ -73,7 +73,7 @@ function advanceAnimation() {
 function finishAnimation() {
   for (let i = 1; i <= totalSteps; i++) setStepDone(i);
   document.getElementById('progressFill').style.width = '100%';
-  document.getElementById('timerText').textContent = '✅ Analisis selesai! Mengarahkan ke hasil...';
+  document.getElementById('timerText').innerHTML = '<span aria-hidden="true">✅</span> Analisis selesai! Mengarahkan ke hasil...';
 }
 
 // Step animation — track IDs so retryAnalysis() can cancel pending timers

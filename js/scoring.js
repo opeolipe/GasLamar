@@ -219,7 +219,7 @@ function renderStrengths(strengths) {
   const list = document.getElementById('strengths-list');
   list.innerHTML = strengths.map(s =>
     `<li class="flex items-start gap-3 text-sm text-gray-600">
-      <span class="text-accent font-bold mt-0.5 flex-shrink-0">✓</span>
+      <span class="text-accent font-bold mt-0.5 flex-shrink-0" aria-hidden="true">✓</span>
       <span>${escapeHtml(s)}</span>
     </li>`
   ).join('');
@@ -231,7 +231,7 @@ function renderGaps(gaps) {
   const list = document.getElementById('gap-list');
   list.innerHTML = gaps.map(g =>
     `<li class="flex items-start gap-3 text-sm text-gray-600">
-      <span class="text-danger font-bold mt-0.5 flex-shrink-0">✗</span>
+      <span class="text-danger font-bold mt-0.5 flex-shrink-0" aria-hidden="true">✗</span>
       <span>${escapeHtml(g)}</span>
     </li>`
   ).join('');
@@ -347,7 +347,7 @@ function setupShareButton(score) {
     try {
       await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
       const orig = btn.innerHTML;
-      btn.innerHTML = '<span>✓ Teks skor disalin!</span>';
+      btn.innerHTML = '<span><span aria-hidden="true">✓</span> Teks skor disalin!</span>';
       btn.classList.add('bg-accent', 'border-accent');
       setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('bg-accent', 'border-accent'); }, 2500);
     } catch (e) {
@@ -375,7 +375,7 @@ function setupTierRecommendation(score) {
 
   el.innerHTML = `
     <div style="display:flex;align-items:flex-start;gap:0.75rem;">
-      <span style="font-size:1.1rem;flex-shrink:0;">💡</span>
+      <span style="font-size:1.1rem;flex-shrink:0;" aria-hidden="true">💡</span>
       <p style="font-size: 0.875rem;color:rgba(255,255,255,0.9);margin:0;">${msg}
         <button id="rec-tier-btn" style="margin-left:4px;text-decoration:underline;font-weight:600;background:none;border:none;color:inherit;cursor:pointer;font-family:inherit;font-size:inherit;padding:0;">Pilih →</button>
       </p>
@@ -426,7 +426,7 @@ function renderArchetypeAndVerdict(scoring) {
   verdictEl.style.background = cfg.bg;
   verdictEl.style.color = cfg.color;
   verdictEl.style.border = `1.5px solid ${cfg.border}`;
-  verdictEl.innerHTML = `<span style="font-size:1rem;">${scoring.veredict === 'DO' ? '✅' : scoring.veredict === 'DO NOT' ? '❌' : '⏳'}</span> <strong>${escapeHtml(cfg.label)}</strong><br><span style="font-weight:400;font-size: 0.875rem;">${escapeHtml(cfg.desc)}</span>`;
+  verdictEl.innerHTML = `<span style="font-size:1rem;" aria-hidden="true">${scoring.veredict === 'DO' ? '✅' : scoring.veredict === 'DO NOT' ? '❌' : '⏳'}</span> <strong>${escapeHtml(cfg.label)}</strong><br><span style="font-weight:400;font-size: 0.875rem;">${escapeHtml(cfg.desc)}</span>`;
   verdictEl.classList.remove('hidden');
   verdictEl.style.display = 'block';
 }
@@ -453,7 +453,7 @@ function renderSkor6D(skor6d) {
     return `
       <div>
         <div style="display:flex;justify-content:space-between;font-size: 0.875rem;margin-bottom:2px;">
-          <span>${icon} ${escapeHtml(label)}</span>
+          <span><span aria-hidden="true">${icon}</span> ${escapeHtml(label)}</span>
           <span style="font-weight:600;">${val}/10</span>
         </div>
         <div style="background:#E5E7EB;border-radius:4px;height:6px;">
