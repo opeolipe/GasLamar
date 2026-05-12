@@ -129,9 +129,13 @@ export default function Result() {
   }, [countdown.isExpiringSoon]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
-  const payBtnLabel = payBtnOverride ?? 'Lanjut pembayaran →';
+  const payBtnLabel = payBtnOverride ?? (
+    selectedTier
+      ? `Bayar Rp ${TIER_CONFIG[selectedTier].price.toLocaleString('id-ID')} — ${TIER_CONFIG[selectedTier].label} →`
+      : 'Pilih paket untuk melanjutkan'
+  );
 
-  const payBtnDisabled = paymentInProgress || sessionExpiredByPay;
+  const payBtnDisabled = paymentInProgress || sessionExpiredByPay || !selectedTier;
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   function handleTierSelect(tier: string) {
