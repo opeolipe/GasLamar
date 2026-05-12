@@ -88,7 +88,6 @@ export default function Result() {
   );
 
   const [showAllDimensions,     setShowAllDimensions]     = useState(false);
-  const [showAllRekomendasi,    setShowAllRekomendasi]    = useState(false);
   const [selectedTier,          setSelectedTier]          = useState<string | null>(null);
   const [email,                 setEmail]                 = useState('');
   const [emailError,            setEmailError]            = useState('');
@@ -101,7 +100,6 @@ export default function Result() {
   const [transitionInvoiceUrl,  setTransitionInvoiceUrl]  = useState<string | null>(null);
   const [sessionExpiredByPay,   setSessionExpiredByPay]   = useState(false);
   const [showExpiryToast,       setShowExpiryToast]       = useState(false);
-  const [tierError,             setTierError]             = useState(false);
 
   const toastShownRef   = useRef(false);
   const blurTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -129,15 +127,18 @@ export default function Result() {
   }, [countdown.isExpiringSoon]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
-  const payBtnLabel = payBtnOverride ?? 'Lanjut pembayaran →';
+  const payBtnLabel = payBtnOverride ?? (
+    selectedTier
+      ? `Bayar Rp ${TIER_CONFIG[selectedTier].price.toLocaleString('id-ID')} — ${TIER_CONFIG[selectedTier].label} →`
+      : 'Pilih paket untuk melanjutkan'
+  );
 
-  const payBtnDisabled = paymentInProgress || sessionExpiredByPay;
+  const payBtnDisabled = paymentInProgress || sessionExpiredByPay || !selectedTier;
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   function handleTierSelect(tier: string) {
     setSelectedTier(tier);
     setPaymentError(null);
-    setTierError(false);
     sessionStorage.setItem('gaslamar_tier', tier);
     setEmailError('');
     ;(window as any).Analytics?.track?.('tier_selected', { tier, tier_price_idr: TIER_CONFIG[tier].price, tier_label: TIER_CONFIG[tier].label, is_bilingual: TIER_CONFIG[tier].bilingual });
@@ -206,13 +207,7 @@ export default function Result() {
 
   async function proceedToPayment() {
     if (paymentInProgress) return;
-    if (!selectedTier) {
-      setTierError(true);
-      const pricingEl = document.getElementById('pricing-section');
-      pricingEl?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      setTimeout(() => shakeEl(document.getElementById('tier-grid')), 300);
-      return;
-    }
+    if (!selectedTier) return;
 
     const currentCvKey = sessionStorage.getItem('gaslamar_cv_key');
     const pendingRaw = sessionStorage.getItem('gaslamar_pending_invoice');
@@ -628,43 +623,20 @@ export default function Result() {
               {(data.rekomendasi || []).length > 0 && (
                 <div data-testid="fix-before-after" style={{ marginBottom: '1.25rem' }}>
                   <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    {(data.rekomendasi || []).slice(0, 3).map((r, i) => (
-                      <li key={i} style={{ fontSize: '0.9rem', color: '#111827', display: 'flex', gap: '0.65rem', alignItems: 'flex-start', overflow: 'hidden' }}>
+                    {(data.rekomendasi || []).map((r, i) => (
+                      <li key={i} style={{ fontSize: '0.9rem', color: '#111827', display: 'flex', gap: '0.65rem', alignItems: 'flex-start' }}>
                         <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 3 }}>→</span>
                         <span style={{
-                          minWidth:          0,
-                          overflow:          'hidden',
-                          display:           '-webkit-box',
-                          WebkitLineClamp:   showAllRekomendasi ? 'unset' : 1,
-                          WebkitBoxOrient:   'vertical',
-                          lineHeight:        1.6,
-                          overflowWrap:      'break-word',
-                          wordBreak:         'break-word',
-                        } as React.CSSProperties}>
+                          minWidth:     0,
+                          lineHeight:   1.6,
+                          overflowWrap: 'break-word',
+                          wordBreak:    'break-word',
+                        }}>
                           {r}
                         </span>
                       </li>
                     ))}
                   </ul>
-                  <button
-                    onClick={() => setShowAllRekomendasi(e => !e)}
-                    style={{
-                      background:  'none',
-                      border:      'none',
-                      padding:     '0.6rem 0',
-                      minHeight:   44,
-                      fontSize:    '0.82rem',
-                      color:       '#2563EB',
-                      fontWeight:  600,
-                      cursor:      'pointer',
-                      fontFamily:  'inherit',
-                      marginTop:   '0.25rem',
-                      display:     'flex',
-                      alignItems:  'center',
-                    }}
-                  >
-                    {showAllRekomendasi ? 'Sembunyikan ↑' : 'Lihat detail analisis →'}
-                  </button>
                 </div>
               )}
 
@@ -676,30 +648,7 @@ export default function Result() {
                 selectedTier={selectedTier}
                 onSelect={handleTierSelect}
                 score={data.skor}
-                hasError={tierError}
               />
-
-              {tierError && !selectedTier && (
-                <div
-                  role="alert"
-                  style={{
-                    marginTop:    '-0.5rem',
-                    marginBottom: '1rem',
-                    padding:      '0.6rem 0.9rem',
-                    background:   '#FEF2F2',
-                    border:       '1px solid #FECACA',
-                    borderRadius: 10,
-                    fontSize:     '0.85rem',
-                    fontWeight:   600,
-                    color:        '#DC2626',
-                    display:      'flex',
-                    alignItems:   'center',
-                    gap:          6,
-                  }}
-                >
-                  ↑ Pilih dulu paketnya sebelum lanjut bayar
-                </div>
-              )}
 
               {/* Payment block — email + CTA grouped */}
               <div style={{

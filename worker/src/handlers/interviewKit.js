@@ -1,5 +1,5 @@
 import { jsonResponse } from '../cors.js';
-import { log, logError, clientIp, sha256Full } from '../utils.js';
+import { log, logError, clientIp } from '../utils.js';
 import { getSession, verifySessionSecret } from '../sessions.js';
 import { getSessionIdFromCookie } from '../cookies.js';
 import { callClaude } from '../claude.js';
@@ -78,21 +78,20 @@ export async function handleInterviewKit(request, env) {
 
       if (cachedHash) {
         // Verify secret against the stored hash — same auth bar regardless of session state.
-        const provided = typeof providedSecret === 'string' ? providedSecret : '';
-        const hash = provided ? await sha256Full(provided) : '';
-        const len = Math.max(hash.length, cachedHash.length);
-        let diff = hash.length ^ cachedHash.length;
-        for (let i = 0; i < len; i++) diff |= (hash.charCodeAt(i) || 0) ^ (cachedHash.charCodeAt(i) || 0);
-        if (diff !== 0) {
+        // Re-use verifySessionSecret by passing an object with the expected field shape.
+        if (!await verifySessionSecret({ session_secret_hash: cachedHash }, providedSecret)) {
           return jsonResponse({ message: 'Akses ditolak: token sesi tidak valid' }, 403, request, env);
         }
       } else {
-        // Legacy cache entry without hash — fall through to live session check.
+        // Legacy cache entry without hash — verify against live session if it still exists.
+        // If both hash and live session are absent, deny rather than allow anonymous access.
         const liveSession = await getSession(env, session_id);
         if (liveSession) {
           if (!await verifySessionSecret(liveSession, providedSecret)) {
             return jsonResponse({ message: 'Akses ditolak: token sesi tidak valid' }, 403, request, env);
           }
+        } else {
+          return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa' }, 404, request, env);
         }
       }
 
@@ -114,8 +113,9 @@ export async function handleInterviewKit(request, env) {
     return jsonResponse({ message: 'Akses ditolak: token sesi tidak valid' }, 403, request, env);
   }
 
-  // 'ready' = previous generation succeeded, credits still remain — interview kit is allowed.
-  const GENERATION_STATUSES = new Set([SESSION_STATES.PAID, SESSION_STATES.GENERATING, SESSION_STATES.READY]);
+  // 'exhausted' is included so users who used their last credit can still access the kit.
+  // cv_text and job_desc are preserved on exhausted sessions (updateSession merges, not replaces).
+  const GENERATION_STATUSES = new Set([SESSION_STATES.PAID, SESSION_STATES.GENERATING, SESSION_STATES.READY, SESSION_STATES.EXHAUSTED]);
   if (!GENERATION_STATUSES.has(session.status)) {
     return jsonResponse({ message: 'Pembayaran belum dikonfirmasi' }, 403, request, env);
   }

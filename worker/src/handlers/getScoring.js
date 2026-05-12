@@ -24,8 +24,8 @@ export async function handleGetScoring(request, env) {
   const kvResult = await checkRateLimitKV(env, ip, 10, 60, 'get_scoring');
   if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60);
 
-  // Validate key format — must be cvtext_ + exactly 64 hex chars (256-bit token).
-  if (!key.startsWith('cvtext_') || key.length > 256) {
+  // Validate key format: exactly "cvtext_" (7 chars) + 64 lowercase hex chars = 71 chars total.
+  if (!/^cvtext_[0-9a-f]{64}$/.test(key)) {
     return jsonResponse({ message: 'Key tidak valid', valid: false }, 400, request, env);
   }
 

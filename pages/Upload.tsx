@@ -299,26 +299,32 @@ export default function Upload() {
   }
 
   function handleSubmit() {
-    if (!hasFile) {
+    const cvMissing = !hasFile;
+    const jdMissing = !evaluateJDQuality(jd).isValid;
+
+    if (cvMissing) {
       const pasteIsTooShort = cvTab === 'paste' && manualCvText.trim().length > 0;
       setFileError(
         pasteIsTooShort
           ? 'Terlalu singkat — tambahkan detail pengalaman & skill'
           : 'Masukkan CV dulu ya'
       );
-      cvSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      return;
     }
 
-    if (!evaluateJDQuality(jd).isValid) {
+    if (jdMissing) {
       setJdSubmitError('Tambahkan job description posisi yang kamu lamar dulu ya');
-      jdRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      jdRef.current?.focus();
+    }
+
+    if (cvMissing || jdMissing) {
+      if (cvMissing) {
+        cvSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else {
+        jdRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        jdRef.current?.focus();
+      }
       return;
     }
     const jobDesc = jd.trim();
-    if (!jobDesc.length) return;
-    if (!evaluateJDQuality(jobDesc).isValid) return;
 
     setLoading(true);
     try {
