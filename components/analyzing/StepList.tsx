@@ -30,7 +30,7 @@ export default function StepList({ steps }: Props) {
               {step.icon} {step.label}
             </span>
             {step.status === 'active' && step.activeDesc && (
-              <span className="text-[0.78rem] text-blue-500 font-normal leading-snug">
+              <span className="text-xs text-blue-500 font-normal leading-snug">
                 {step.activeDesc}
               </span>
             )}

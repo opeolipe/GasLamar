@@ -9,7 +9,7 @@ interface Props {
 export default function AnalysisProgress({ progress, timerText, filename }: Props) {
   return (
     <>
-      <div className="inline-flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-full px-4 py-2 text-[0.78rem] text-slate-600 font-medium mb-6">
+      <div className="inline-flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-full px-4 py-2 text-xs text-slate-600 font-medium mb-6">
         <span aria-hidden="true">📄</span> <span className="font-semibold text-slate-800">{formatFilename(filename)}</span>
       </div>
 
@@ -27,7 +27,7 @@ export default function AnalysisProgress({ progress, timerText, filename }: Prop
         >
           Menganalisis CV kamu…
         </h2>
-        <p className="text-[0.82rem] text-slate-500 mt-1.5">
+        <p className="text-sm text-slate-500 mt-1.5">
           Membandingkan dengan job dan pola screening recruiter
         </p>
       </div>
@@ -43,7 +43,7 @@ export default function AnalysisProgress({ progress, timerText, filename }: Prop
         />
       </div>
 
-      <p className="text-[0.78rem] text-slate-400 text-center font-medium py-1 tabular-nums">
+      <p className="text-xs text-slate-400 text-center font-medium py-1 tabular-nums">
         {progress}% &nbsp;·&nbsp; {timerText}
       </p>
     </>

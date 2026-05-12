@@ -188,12 +188,12 @@ function InterviewTipsModal({ onClose }: { onClose: () => void }) {
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       onKeyDown={handleKeyDown}
     >
-      <div ref={panelRef} className="bg-white rounded-[20px] p-7 max-w-[480px] w-full max-h-[80vh] overflow-y-auto relative">
+      <div ref={panelRef} className="bg-white rounded-[20px] p-7 max-w-[480px] w-full max-h-[80vh] overflow-y-auto relative" style={{ overscrollBehavior: 'contain' }}>
         <button
           ref={closeRef}
           onClick={onClose}
           aria-label="Tutup tips interview"
-          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 bg-transparent border-none cursor-pointer text-xl"
+          className="absolute top-2 right-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-600 bg-transparent border-none cursor-pointer text-xl rounded-full"
         >
           ✕
         </button>
