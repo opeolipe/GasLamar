@@ -2,7 +2,7 @@ import { jsonResponse }                        from '../cors.js';
 import { getSession }                          from '../sessions.js';
 import { clientIp, log, logError, sha256Hex } from '../utils.js';
 import { checkRateLimitKV }                    from '../rateLimit.js';
-import { sendPaymentConfirmationEmail }        from '../email.js';
+import { sendResendAccessEmail }               from '../email.js';
 
 const EMAIL_REGEX   = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PAID_STATUSES = new Set(['paid', 'generating']);
@@ -63,10 +63,7 @@ export async function handleResendAccess(request, env) {
 
   for (const id of activeIds.slice(0, 3)) {
     try {
-      await sendPaymentConfirmationEmail(id, env, {
-        subject: 'Akses ulang CV kamu — GasLamar',
-        heading: 'Klik link di bawah untuk kembali ke CV kamu:',
-      });
+      await sendResendAccessEmail(id, env);
     } catch (e) {
       logError('resend_access_email_failed', { error: e.message });
     }
