@@ -27,7 +27,7 @@ export default function DynamicCTA({ issueKey, score }: Props) {
     <div className="mt-4">
       <button
         onClick={scrollToPricing}
-        className="w-full rounded-full bg-blue-600 hover:bg-blue-700 text-white py-3 font-medium transition-colors cursor-pointer text-sm"
+        className="w-full min-h-[44px] rounded-full bg-blue-600 hover:bg-blue-700 text-white py-3 font-medium transition-colors cursor-pointer text-sm"
         style={{ fontFamily: 'inherit' }}
       >
         <span aria-hidden="true">🔓</span> {label}

@@ -651,14 +651,16 @@ export default function Result() {
                     style={{
                       background:  'none',
                       border:      'none',
-                      padding:     '0.35rem 0',
+                      padding:     '0.6rem 0',
+                      minHeight:   44,
                       fontSize:    '0.82rem',
                       color:       '#2563EB',
                       fontWeight:  600,
                       cursor:      'pointer',
                       fontFamily:  'inherit',
-                      marginTop:   '0.4rem',
-                      display:     'block',
+                      marginTop:   '0.25rem',
+                      display:     'flex',
+                      alignItems:  'center',
                     }}
                   >
                     {showAllRekomendasi ? 'Sembunyikan ↑' : 'Lihat detail analisis →'}

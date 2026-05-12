@@ -52,8 +52,8 @@ export default function ScoreDisplay({ score }: Props) {
           />
         </svg>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ fontSize: '0.58rem', fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center', marginBottom: '0.1rem', lineHeight: 1.3, maxWidth: 88, overflowWrap: 'break-word', wordBreak: 'break-word' }}>
-            Seberapa cocok CV kamu
+          <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'center', marginBottom: '0.1rem', lineHeight: 1.2, maxWidth: 80 }}>
+            Skor cocok
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
             <span style={{ fontSize: '2.6rem', fontWeight: 800, lineHeight: 1, color: '#111827' }}>{score}</span>

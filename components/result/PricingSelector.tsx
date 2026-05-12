@@ -68,7 +68,7 @@ export default function PricingSelector({ selectedTier, onSelect, score, hasErro
               }}
             >
               {(isRec || selected) && (
-                <div style={{ position: 'absolute', top: -11, left: '50%', transform: 'translateX(-50%)', background: '#2563EB', color: 'white', fontSize: '0.62rem', padding: '0.18rem 0.75rem', borderRadius: 60, fontWeight: 700, whiteSpace: 'nowrap', letterSpacing: '0.03em' }}>
+                <div style={{ position: 'absolute', top: -11, left: '50%', transform: 'translateX(-50%)', background: '#2563EB', color: 'white', fontSize: '0.7rem', padding: '0.18rem 0.75rem', borderRadius: 60, fontWeight: 700, whiteSpace: 'nowrap', letterSpacing: '0.03em' }}>
                   {selected ? '✦ DIPILIH' : '✦ PALING COCOK'}
                 </div>
               )}
@@ -83,7 +83,7 @@ export default function PricingSelector({ selectedTier, onSelect, score, hasErro
                 {copy.outcome}
               </p>
 
-              <p style={{ fontSize: '0.72rem', color: selected ? '#3B82F6' : '#94A3B8', margin: 0, fontWeight: 500 }}>
+              <p style={{ fontSize: '0.75rem', color: selected ? '#3B82F6' : '#94A3B8', margin: 0, fontWeight: 500 }}>
                 {copy.diff}
               </p>
             </button>
