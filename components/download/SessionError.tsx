@@ -4,11 +4,12 @@ interface Props {
   title:      string;
   message:    string;
   retryable?: boolean;
+  reason?:    string;
   onRetry?:   () => void;
   onRestart:  () => void;
 }
 
-export default function SessionError({ title, message, retryable = false, onRetry, onRestart }: Props) {
+export default function SessionError({ title, message, retryable = false, reason, onRetry, onRestart }: Props) {
   return (
     <div
       data-testid="error-message"
@@ -49,7 +50,16 @@ export default function SessionError({ title, message, retryable = false, onRetr
             Coba Lagi
           </button>
         )}
-        {!retryable && (
+        {!retryable && reason === 'auth_failure' && (
+          <a
+            href="access.html"
+            className="min-h-[48px] px-6 rounded-full font-bold text-white text-sm inline-flex items-center transition-all hover:-translate-y-[1px]"
+            style={{ background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', boxShadow: '0 8px 24px rgba(37,99,235,0.30)' }}
+          >
+            Buka Halaman Akses
+          </a>
+        )}
+        {!retryable && reason !== 'auth_failure' && (
           <a
             href="upload.html"
             onClick={onRestart}

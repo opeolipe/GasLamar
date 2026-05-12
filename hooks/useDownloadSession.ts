@@ -42,6 +42,9 @@ export interface UseDownloadSessionReturn {
 const POLL_INTERVAL      = 3000;
 const MAX_POLLS          = 20; // 60 s auto-polling window (+2 s initial delay)
 const HEARTBEAT_INTERVAL = 3 * 60 * 1000;
+// After this many consecutive 401s, stop polling and show access-recovery UI.
+// 401 is not transient — it means auth is broken in this browser context.
+const MAX_AUTH_FAILURES  = 2;
 
 function getBackoffDelay(pollCount: number): number {
   return Math.min(POLL_INTERVAL * Math.pow(1.3, Math.max(0, pollCount - 1)), 8000);
@@ -59,13 +62,14 @@ export function useDownloadSession(): UseDownloadSessionReturn {
   const [error,           setError]           = useState<SessionError | null>(null);
 
   // Refs — mutated inside timer callbacks without causing re-renders
-  const pollCountRef      = useRef(0);
-  const notFoundCountRef  = useRef(0);
-  const pollTimerRef      = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const heartbeatTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const sessionIdRef      = useRef<string | null>(null);
-  const sessionSecretRef  = useRef<string | null>(null);
-  const mountedRef        = useRef(true);
+  const pollCountRef          = useRef(0);
+  const notFoundCountRef      = useRef(0);
+  const authFailureCountRef   = useRef(0); // consecutive 401s — resets on any non-401
+  const pollTimerRef          = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heartbeatTimerRef     = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sessionIdRef          = useRef<string | null>(null);
+  const sessionSecretRef      = useRef<string | null>(null);
+  const mountedRef            = useRef(true);
   // Set to true on staging hostname or when ?dev=1 is in the URL. Captured at
   // init time before history.replaceState strips the token query param.
   const devModeRef        = useRef(false);
@@ -163,6 +167,23 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         return;
       }
 
+      // 401 means auth is broken in this browser context (no cookie, no session param).
+      // This is not a transient error — stop the spinner immediately and show recovery.
+      if (res.status === 401) {
+        authFailureCountRef.current++;
+        if (authFailureCountRef.current >= MAX_AUTH_FAILURES) {
+          showError(
+            'Sesi tidak bisa dibuka di browser ini',
+            'Buka ulang dari link email atau minta link baru di halaman akses.',
+            false,
+            'auth_failure',
+          );
+        } else {
+          scheduleNextPoll(sId, getBackoffDelay(pollCountRef.current));
+        }
+        return;
+      }
+
       if (res.status === 404) {
         notFoundCountRef.current++;
         setStatusText(`Sesi belum ditemukan, mencoba lagi... (${notFoundCountRef.current}/4)`);
@@ -178,7 +199,8 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         return;
       }
 
-      notFoundCountRef.current = 0;
+      notFoundCountRef.current  = 0;
+      authFailureCountRef.current = 0; // reset on any successful (non-401) response
 
       if (!res.ok) {
         if (pollCountRef.current < MAX_POLLS) {
@@ -198,7 +220,8 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         console.debug('[GasLamar] check-session:', { status, poll: pollCountRef.current, maxPolls: MAX_POLLS });
       }
 
-      if (status === 'paid' || status === 'generating') {
+      // paid/generating/ready all mean "payment confirmed, proceed to generation or dashboard"
+      if (status === 'paid' || status === 'generating' || status === 'ready') {
         if (pollTimerRef.current) { clearTimeout(pollTimerRef.current); pollTimerRef.current = null; }
 
         const creditsRemaining = data.credits_remaining ?? 1;
@@ -216,13 +239,27 @@ export function useDownloadSession(): UseDownloadSessionReturn {
 
         setSessionData({ tier, creditsRemaining, totalCredits, expiresAt });
 
-        // Returning multi-credit user: has used ≥1 credit already
+        // Returning multi-credit user: has used ≥1 credit already (ready state or
+        // re-visiting after a previous successful generation)
         const isReturning = totalCredits > 1 && creditsRemaining < totalCredits;
         setPhase(isReturning ? 'returning' : 'confirmed');
         return;
       }
 
-      if (status === 'pending') {
+      // exhausted = all credits consumed; session preserved so user can still download
+      if (status === 'exhausted') {
+        if (pollTimerRef.current) { clearTimeout(pollTimerRef.current); pollTimerRef.current = null; }
+        clearClientSessionData(sId);
+        ;(window as any).Analytics?.track?.('download_session_exhausted', { poll_attempts: pollCountRef.current });
+        showError(
+          'CV Sudah Diunduh',
+          'Semua kredit kamu sudah digunakan. Untuk menganalisis CV berikutnya, upload ulang di halaman utama.',
+        );
+        return;
+      }
+
+      // pending_payment (new name) and pending (legacy) both mean awaiting webhook
+      if (status === 'pending_payment' || status === 'pending') {
         if (pollCountRef.current >= MAX_POLLS) {
           ;(window as any).Analytics?.track?.('payment_timeout', { poll_attempts: pollCountRef.current });
           setShowCheckButton(true);
@@ -233,7 +270,7 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         return;
       }
 
-      // Session fully consumed — all credits used up
+      // Session fully consumed in old format
       if (status === 'deleted') {
         clearClientSessionData(sId);
         ;(window as any).Analytics?.track?.('download_session_deleted', { poll_attempts: pollCountRef.current });
@@ -260,8 +297,9 @@ export function useDownloadSession(): UseDownloadSessionReturn {
   }
 
   function startPolling(sId: string) {
-    pollCountRef.current     = 0;
-    notFoundCountRef.current = 0;
+    pollCountRef.current        = 0;
+    notFoundCountRef.current    = 0;
+    authFailureCountRef.current = 0;
     setShowCheckButton(false);
     setStatusText('Memeriksa status pembayaran...');
     setPhase('waiting');

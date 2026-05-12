@@ -392,6 +392,7 @@ export default function Download() {
               title={sessionError.title}
               message={sessionError.message}
               retryable={sessionError.retryable}
+              reason={sessionError.reason}
               onRetry={generate.error?.retryable ? generate.retryGeneration : undefined}
               onRestart={() => clearClientSessionData(session.sessionId)}
             />
