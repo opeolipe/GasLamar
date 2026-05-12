@@ -1,5 +1,5 @@
 import { jsonResponse, jsonResponseWithCookie } from '../cors.js';
-import { clientIp, log, sha256Full, hexToken } from '../utils.js';
+import { clientIp, log, sha256Full } from '../utils.js';
 import { TIER_CREDITS, VALID_TIERS } from '../constants.js';
 import { checkRateLimitKV } from '../rateLimit.js';
 import { createSession } from '../sessions.js';
@@ -83,13 +83,14 @@ export async function handleBypassPayment(request, env) {
   const sessionId = `sess_${crypto.randomUUID()}`;
   const credits = TIER_CREDITS[tier] ?? 1;
 
-  // Accept a caller-supplied session secret so the caller controls and already knows it
-  // (never needs to be returned in the response body where it might be logged).
-  // Falls back to a server-generated secret if not supplied.
-  const rawTestSecret = typeof body.session_secret === 'string' && body.session_secret.length >= 16
-    ? body.session_secret
-    : hexToken(16);
-  const testSecret = rawTestSecret;
+  // Callers must supply their own session_secret so they can use it in subsequent
+  // /get-session and /generate calls. A server-generated secret that is not returned
+  // in the response would produce a session impossible to use — failing silently at
+  // generation time rather than here, making E2E failures hard to diagnose.
+  if (typeof body.session_secret !== 'string' || body.session_secret.length < 16 || body.session_secret.length > 256) {
+    return jsonResponse({ message: 'session_secret wajib disertakan dan harus 16–256 karakter' }, 400, request, env);
+  }
+  const testSecret = body.session_secret;
   const secretHash = await sha256Full(testSecret);
 
   await createSession(env, sessionId, {
@@ -110,7 +111,5 @@ export async function handleBypassPayment(request, env) {
   log('bypass_payment_created', { sessionId, tier, credits });
 
   const cookieHeader = makeSessionCookie(sessionId, credits > 1);
-  // Do not return the secret in the response — callers supply their own or handle
-  // the server-generated one by passing it in the request (avoiding logging of secrets).
   return jsonResponseWithCookie({ session_id: sessionId }, 200, cookieHeader, request, env);
 }

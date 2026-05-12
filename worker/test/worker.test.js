@@ -2202,7 +2202,7 @@ describe('POST /bypass-payment — sandbox bypass', () => {
 
   it('happy path — creates paid session and returns session_id with cookie', async () => {
     const key = await seedCVKey();
-    const res = await post('/bypass-payment', { tier: 'single', cv_text_key: key, bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
+    const res = await post('/bypass-payment', { tier: 'single', cv_text_key: key, bypass_secret: 'test-bypass-secret', session_secret: 'test-session-secret-e2e-abc' }, {}, '5.5.5.5');
     expect(res.status).toBe(200);
 
     const body = await res.json();
@@ -2216,14 +2216,15 @@ describe('POST /bypass-payment — sandbox bypass', () => {
     expect(session.tier).toBe('single');
     expect(session.mayar_invoice_id).toBe('bypass_sandbox');
     expect(session.cv_text).toBe(CV_TEXT);
+    expect(session.session_secret_hash).toBeTruthy();
   });
 
   it('consumes cv_text_key — second call returns 400 (key not found)', async () => {
     const key = await seedCVKey();
-    const res1 = await post('/bypass-payment', { tier: 'single', cv_text_key: key, bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
+    const res1 = await post('/bypass-payment', { tier: 'single', cv_text_key: key, bypass_secret: 'test-bypass-secret', session_secret: 'test-session-secret-e2e-abc' }, {}, '5.5.5.5');
     expect(res1.status).toBe(200);
 
-    const res2 = await post('/bypass-payment', { tier: 'single', cv_text_key: key, bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
+    const res2 = await post('/bypass-payment', { tier: 'single', cv_text_key: key, bypass_secret: 'test-bypass-secret', session_secret: 'test-session-secret-e2e-abc' }, {}, '5.5.5.5');
     expect(res2.status).toBe(400);
     const body2 = await res2.json();
     expect(body2.message).toMatch(/kedaluwarsa|analisis/i);
@@ -2259,12 +2260,28 @@ describe('POST /bypass-payment — sandbox bypass', () => {
 
   it('sets correct credits for 3pack tier', async () => {
     const key = await seedCVKey();
-    const res = await post('/bypass-payment', { tier: '3pack', cv_text_key: key, bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
+    const res = await post('/bypass-payment', { tier: '3pack', cv_text_key: key, bypass_secret: 'test-bypass-secret', session_secret: 'test-session-secret-e2e-abc' }, {}, '5.5.5.5');
     expect(res.status).toBe(200);
     const { session_id } = await res.json();
     const session = await env.GASLAMAR_SESSIONS.get(session_id, { type: 'json' });
     expect(session.credits_remaining).toBe(3);
     expect(session.total_credits).toBe(3);
+  });
+
+  it('rejects missing session_secret → 400', async () => {
+    const key = await seedCVKey();
+    const res = await post('/bypass-payment', { tier: 'single', cv_text_key: key, bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/session_secret/i);
+  });
+
+  it('rejects session_secret shorter than 16 chars → 400', async () => {
+    const key = await seedCVKey();
+    const res = await post('/bypass-payment', { tier: 'single', cv_text_key: key, bypass_secret: 'test-bypass-secret', session_secret: 'short' }, {}, '5.5.5.5');
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/session_secret/i);
   });
 
   it('rejects malformed JSON body → 400', async () => {
