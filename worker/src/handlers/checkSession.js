@@ -1,13 +1,23 @@
 import { jsonResponse } from '../cors.js';
-import { logError } from '../utils.js';
+import { log, logError } from '../utils.js';
 import { getSession, getSessionTtl, verifySessionSecret } from '../sessions.js';
 import { getSessionIdFromCookie } from '../cookies.js';
 
 export async function handleCheckSession(request, env) {
-  const sessionId = getSessionIdFromCookie(request);
+  const url             = new URL(request.url);
+  const cookieSessionId = getSessionIdFromCookie(request);
+  const paramSessionId  = url.searchParams.get('session');
+
+  // Cookie is the primary auth path. When the cookie is absent (common on Mobile
+  // Safari due to cross-origin ITP), fall back to the ?session= query param that
+  // the frontend already sends on every poll. The param path skips the
+  // X-Session-Secret check: the UUID session ID is sufficient for this low-
+  // sensitivity endpoint (returns status/tier/credits only — never CV content).
+  const usedFallback = !cookieSessionId && !!paramSessionId && paramSessionId.startsWith('sess_');
+  const sessionId    = cookieSessionId || (usedFallback ? paramSessionId : null);
 
   if (!sessionId || !sessionId.startsWith('sess_')) {
-    return jsonResponse({ message: 'Session tidak ditemukan. Pastikan browser mengizinkan cookies.', reason: 'no_cookie' }, 401, request, env);
+    return jsonResponse({ message: 'Sesi tidak ditemukan. Pastikan browser mengizinkan cookies.', reason: 'no_session' }, 401, request, env);
   }
 
   const session = await getSession(env, sessionId);
@@ -17,11 +27,23 @@ export async function handleCheckSession(request, env) {
     return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa.', reason: 'expired' }, 404, request, env);
   }
 
-  // Require session secret when the session has one stored (new sessions).
-  // Legacy sessions without a hash pass through for backward compatibility.
-  const providedSecret = request.headers.get('X-Session-Secret');
-  if (!await verifySessionSecret(session, providedSecret)) {
-    return jsonResponse({ message: 'Akses ditolak: token sesi tidak valid', reason: 'unauthorized' }, 403, request, env);
+  // Secret check only applies on the cookie path. The fallback (query-param) path
+  // intentionally skips it — see note above.
+  if (!usedFallback) {
+    const providedSecret = request.headers.get('X-Session-Secret');
+    if (!await verifySessionSecret(session, providedSecret)) {
+      return jsonResponse({ message: 'Akses ditolak: token sesi tidak valid', reason: 'unauthorized' }, 403, request, env);
+    }
+  }
+
+  if (usedFallback) {
+    const ua = request.headers.get('user-agent') || '';
+    log('session_query_fallback_used', {
+      session_id: sessionId,
+      status:     session.status,
+      is_safari:  /Safari/.test(ua) && !/Chrome/.test(ua),
+      ua:         ua.slice(0, 120),
+    });
   }
 
   // Return TTL remaining in seconds instead of an absolute timestamp to avoid

@@ -777,19 +777,35 @@ describe('POST /session/ping', () => {
 });
 
 describe('GET /check-session', () => {
-  it('returns 401 when no session cookie is present', async () => {
+  it('returns 401 when no session cookie and no ?session= param', async () => {
     const res = await get('/check-session');
     expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body.reason).toBe('no_cookie');
+    expect(body.reason).toBe('no_session');
   });
 
-  it('rejects ?session= URL param — must use cookie (no_cookie when cookie absent)', async () => {
-    // Session IDs must never be accepted via URL query params.
-    const res = await get('/check-session?session=sess_some_valid_looking_id');
+  it('returns 401 when ?session= param lacks sess_ prefix (invalid format)', async () => {
+    // Non-sess_ values are not accepted even as fallback
+    const res = await get('/check-session?session=invalid_id');
     expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body.reason).toBe('no_cookie');
+    expect(body.reason).toBe('no_session');
+  });
+
+  it('returns 404 when ?session= fallback used but session not in KV', async () => {
+    // Valid format, no cookie — falls back to query param, then misses in KV
+    const res = await get('/check-session?session=sess_some_valid_looking_id');
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 200 via ?session= fallback when session exists (Safari ITP compat)', async () => {
+    // Simulates Mobile Safari where the cross-origin cookie is blocked.
+    // The frontend already sends ?session= on every poll; the server now reads it.
+    const sessionId = await seedSession('paid', 'single');
+    const res = await get(`/check-session?session=${sessionId}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.status).toBe('paid');
   });
 
   it('returns 404 for unknown session_id in cookie', async () => {
@@ -1213,12 +1229,12 @@ describe('POST /webhook/mayar', () => {
     expect(session).toBeNull();
   });
 
-  it('rejects request to GET /check-session with no cookie', async () => {
-    // No cookie → 401; ?session= URL param is no longer accepted
+  it('rejects request to GET /check-session with no cookie and invalid session param', async () => {
+    // ?session= without sess_ prefix is rejected (no fallback for malformed IDs)
     const res = await SELF.fetch('https://gaslamar.com/check-session?session=invalid_id');
     expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body.reason).toBe('no_cookie');
+    expect(body.reason).toBe('no_session');
   });
 
   it('skips email on duplicate webhook delivery when sentinel key is present', async () => {

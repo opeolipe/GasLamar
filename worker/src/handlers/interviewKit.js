@@ -113,8 +113,9 @@ export async function handleInterviewKit(request, env) {
     return jsonResponse({ message: 'Akses ditolak: token sesi tidak valid' }, 403, request, env);
   }
 
-  const PAID_STATUSES = new Set(['paid', 'generating']);
-  if (!PAID_STATUSES.has(session.status)) {
+  // 'ready' = previous generation succeeded, credits still remain — interview kit is allowed.
+  const GENERATION_STATUSES = new Set(['paid', 'generating', 'ready']);
+  if (!GENERATION_STATUSES.has(session.status)) {
     return jsonResponse({ message: 'Pembayaran belum dikonfirmasi' }, 403, request, env);
   }
 
