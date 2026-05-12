@@ -197,6 +197,24 @@ export async function verifyMayarWebhook(request, env) {
     return { valid: true, body };
   }
 
+  // Mayar sandbox sends x-callback-token (simple bearer) instead of x-mayar-signature (HMAC).
+  // In non-production, validate the token against the secret when present.
+  // secret is guaranteed set here (isSandbox && !secret already returned above).
+  if (isSandbox) {
+    const callbackToken = request.headers.get('x-callback-token') || request.headers.get('X-Callback-Token');
+    if (callbackToken !== null) {
+      const tokenBytes = new TextEncoder().encode(callbackToken);
+      const secretBytes = new TextEncoder().encode(secret);
+      let diff = tokenBytes.length ^ secretBytes.length;
+      const maxLen = Math.max(tokenBytes.length, secretBytes.length);
+      for (let i = 0; i < maxLen; i++) diff |= (tokenBytes[i] ?? 0) ^ (secretBytes[i] ?? 0);
+      if (diff !== 0) {
+        console.error(JSON.stringify({ event: 'webhook_unauthorized', reason: 'callback_token_mismatch', environment: env.ENVIRONMENT }));
+      }
+      return { valid: diff === 0, body };
+    }
+  }
+
   const signature = request.headers.get('x-mayar-signature') || request.headers.get('X-Mayar-Signature');
   if (!signature) {
     console.error(JSON.stringify({ event: 'webhook_unauthorized', reason: 'missing_signature', environment: env.ENVIRONMENT ?? 'sandbox' }));

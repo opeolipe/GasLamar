@@ -139,7 +139,7 @@ export async function handleGenerate(request, env, ctx) {
     return jsonResponse({ message: 'Akses ditolak: token sesi tidak valid' }, 403, request, env);
   }
 
-  if (session.status !== 'generating') {
+  if (session.status !== SESSION_STATES.GENERATING) {
     return jsonResponse({ message: 'Sesi tidak valid atau pembayaran belum dikonfirmasi' }, 403, request, env);
   }
 

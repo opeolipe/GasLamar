@@ -78,7 +78,7 @@ function AnalyzingContent({ cvData, jobDesc, filename }: ContentProps) {
                 >
                   Lihat Hasil CV →
                 </a>
-                <p className="text-[0.72rem] text-slate-400 mt-2">Redirect otomatis tidak berjalan — klik untuk melanjutkan</p>
+                <p className="text-xs text-slate-400 mt-2">Redirect otomatis tidak berjalan — klik untuk melanjutkan</p>
               </div>
             )}
 
@@ -91,14 +91,14 @@ function AnalyzingContent({ cvData, jobDesc, filename }: ContentProps) {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={confirmBack}
-                      className="min-h-[36px] px-4 rounded-full text-[0.8rem] font-semibold text-white border-0 cursor-pointer transition-all hover:-translate-y-[1px]"
+                      className="min-h-[44px] px-5 rounded-full text-sm font-semibold text-white border-0 cursor-pointer transition-all hover:-translate-y-[1px] active:opacity-80"
                       style={{ background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)' }}
                     >
                       Ya, keluar
                     </button>
                     <button
                       onClick={() => setShowConfirm(false)}
-                      className="min-h-[36px] px-4 rounded-full text-[0.8rem] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 border-0 cursor-pointer transition-colors"
+                      className="min-h-[44px] px-5 rounded-full text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 border-0 cursor-pointer transition-colors"
                     >
                       Tidak
                     </button>
@@ -164,10 +164,10 @@ export default function Analyzing() {
           <AnalyzingContent cvData={cvData} jobDesc={jobDesc} filename={filename} />
         </div>
 
-        <p className="text-center mt-6 text-[0.72rem] text-slate-400">
+        <p className="text-center mt-6 text-xs text-slate-400">
           Data kamu tidak disimpan di server setelah analisis selesai.
         </p>
-        <p className="text-center mt-3 text-[0.72rem] text-slate-400">
+        <p className="text-center mt-3 text-xs text-slate-400">
           GasLamar · Biar CV kamu nggak tenggelam
         </p>
       </main>

@@ -38,18 +38,18 @@
       el.style.background = '#FEF2F2';
       el.style.borderColor = '#FECACA';
       el.style.color = '#B91C1C';
-      textEl.textContent = `⚠️ Preview berakhir dalam ${m}m ${s}s — selesaikan pembayaran sekarang!`;
+      textEl.innerHTML = `<span aria-hidden="true">⚠️</span> Preview berakhir dalam ${m}m ${s}s — selesaikan pembayaran sekarang!`;
     } else if (remaining <= 1800) {
       el.style.background = '#FFFBEB';
       el.style.borderColor = '#FCD34D';
       el.style.color = '#92400E';
-      textEl.textContent = h > 0
-        ? `⏰ Preview analisis berlaku ${h}j ${m}m lagi — bayar sebelum kedaluwarsa`
-        : `⏰ Preview analisis berlaku ${m}m ${s}s lagi — bayar sebelum kedaluwarsa`;
+      textEl.innerHTML = h > 0
+        ? `<span aria-hidden="true">⏰</span> Preview analisis berlaku ${h}j ${m}m lagi — bayar sebelum kedaluwarsa`
+        : `<span aria-hidden="true">⏰</span> Preview analisis berlaku ${m}m ${s}s lagi — bayar sebelum kedaluwarsa`;
     } else {
-      textEl.textContent = h > 0
-        ? `⏰ Preview analisis berlaku ${h}j ${m}m lagi`
-        : `⏰ Preview analisis berlaku ${m}m ${s}s lagi`;
+      textEl.innerHTML = h > 0
+        ? `<span aria-hidden="true">⏰</span> Preview analisis berlaku ${h}j ${m}m lagi`
+        : `<span aria-hidden="true">⏰</span> Preview analisis berlaku ${m}m ${s}s lagi`;
     }
     setTimeout(update, 1000);
   }

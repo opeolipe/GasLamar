@@ -188,12 +188,12 @@ function InterviewTipsModal({ onClose }: { onClose: () => void }) {
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       onKeyDown={handleKeyDown}
     >
-      <div ref={panelRef} className="bg-white rounded-[20px] p-7 max-w-[480px] w-full max-h-[80vh] overflow-y-auto relative">
+      <div ref={panelRef} className="bg-white rounded-[20px] p-7 max-w-[480px] w-full max-h-[80vh] overflow-y-auto relative" style={{ overscrollBehavior: 'contain' }}>
         <button
           ref={closeRef}
           onClick={onClose}
           aria-label="Tutup tips interview"
-          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 bg-transparent border-none cursor-pointer text-xl"
+          className="absolute top-2 right-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-600 bg-transparent border-none cursor-pointer text-xl rounded-full"
         >
           ✕
         </button>
@@ -269,7 +269,6 @@ export default function DownloadReady({
     () => !!sessionStorage.getItem('gaslamar_post_dl_dismissed'),
   );
   const [showTipsModal,    setShowTipsModal]    = useState(false);
-  const [showAllGaps,      setShowAllGaps]      = useState(false);
   const multiRef = useRef<HTMLDivElement>(null);
 
   // Two weakest dimensions — mirrors hasil page "Yang paling bikin HR ragu"
@@ -429,21 +428,13 @@ export default function DownloadReady({
                 Gap yang sudah dioptimasi di CV ini
               </p>
               <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                {gaps.slice(0, showAllGaps ? gaps.length : 3).map((g, i) => (
+                {gaps.map((g, i) => (
                   <li key={i} style={{ fontSize: '0.875rem', color: '#374151', display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
                     <span style={{ color: '#22C55E', fontWeight: 700, flexShrink: 0, marginTop: 2 }}>✓</span>
                     <span style={{ lineHeight: 1.5, minWidth: 0, overflowWrap: 'break-word', wordBreak: 'break-word' }}>{g}</span>
                   </li>
                 ))}
               </ul>
-              {gaps.length > 3 && (
-                <button
-                  onClick={() => setShowAllGaps(v => !v)}
-                  style={{ background: 'none', border: 'none', padding: '0.35rem 0', fontSize: '0.82rem', color: '#2563EB', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', marginTop: '0.4rem', display: 'block' }}
-                >
-                  {showAllGaps ? 'Sembunyikan ↑' : `Lihat ${gaps.length - 3} gap lainnya →`}
-                </button>
-              )}
             </div>
           )}
         </div>

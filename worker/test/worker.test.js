@@ -187,7 +187,7 @@ const MOCK_EXTRACT_JSON = {
       pendidikan: 'S1 Teknik Informatika UI 2020',
       skills_mentah: 'Node.js React SQL',
       sertifikat: 'TIDAK ADA',
-      angka_di_cv: '5 tahun pengalaman',
+      angka_di_cv: '30% peningkatan performa, tim 5 orang',
       format_cv: { satu_kolom: true, ada_tabel: false },
     },
     jd: {
@@ -777,19 +777,35 @@ describe('POST /session/ping', () => {
 });
 
 describe('GET /check-session', () => {
-  it('returns 401 when no session cookie is present', async () => {
+  it('returns 401 when no session cookie and no ?session= param', async () => {
     const res = await get('/check-session');
     expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body.reason).toBe('no_cookie');
+    expect(body.reason).toBe('no_session');
   });
 
-  it('rejects ?session= URL param — must use cookie (no_cookie when cookie absent)', async () => {
-    // Session IDs must never be accepted via URL query params.
-    const res = await get('/check-session?session=sess_some_valid_looking_id');
+  it('returns 401 when ?session= param lacks sess_ prefix (invalid format)', async () => {
+    // Non-sess_ values are not accepted even as fallback
+    const res = await get('/check-session?session=invalid_id');
     expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body.reason).toBe('no_cookie');
+    expect(body.reason).toBe('no_session');
+  });
+
+  it('returns 404 when ?session= fallback used but session not in KV', async () => {
+    // Valid format, no cookie — falls back to query param, then misses in KV
+    const res = await get('/check-session?session=sess_some_valid_looking_id');
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 200 via ?session= fallback when session exists (Safari ITP compat)', async () => {
+    // Simulates Mobile Safari where the cross-origin cookie is blocked.
+    // The frontend already sends ?session= on every poll; the server now reads it.
+    const sessionId = await seedSession('paid', 'single');
+    const res = await get(`/check-session?session=${sessionId}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.status).toBe('paid');
   });
 
   it('returns 404 for unknown session_id in cookie', async () => {
@@ -1213,12 +1229,12 @@ describe('POST /webhook/mayar', () => {
     expect(session).toBeNull();
   });
 
-  it('rejects request to GET /check-session with no cookie', async () => {
-    // No cookie → 401; ?session= URL param is no longer accepted
+  it('rejects request to GET /check-session with no cookie and invalid session param', async () => {
+    // ?session= without sess_ prefix is rejected (no fallback for malformed IDs)
     const res = await SELF.fetch('https://gaslamar.com/check-session?session=invalid_id');
     expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body.reason).toBe('no_cookie');
+    expect(body.reason).toBe('no_session');
   });
 
   it('skips email on duplicate webhook delivery when sentinel key is present', async () => {
@@ -1408,6 +1424,32 @@ describe('verifyMayarWebhook — production HMAC path', () => {
     // staging WITH secret → HMAC verified → wrong sig = invalid (C1 fix)
     const stagingWithSecretResult = await verifyMayarWebhook(req.clone(), { ENVIRONMENT: 'staging', MAYAR_WEBHOOK_SECRET: 'some_secret' });
     expect(stagingWithSecretResult.valid).toBe(false);
+  });
+
+  it('accepts x-callback-token in sandbox when it matches the secret', async () => {
+    // Mayar sandbox sends x-callback-token instead of x-mayar-signature.
+    // When MAYAR_WEBHOOK_SECRET equals the token value, the webhook must be accepted.
+    const secret = 'my-staging-callback-token';
+    const payload = JSON.stringify({ id: 'inv_callback_token_test', status: 'paid' });
+
+    const reqMatch = new Request('https://gaslamar.com/webhook/mayar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-callback-token': secret },
+      body: payload,
+    });
+    const result = await verifyMayarWebhook(reqMatch, { ENVIRONMENT: 'staging', MAYAR_WEBHOOK_SECRET: secret });
+    expect(result.valid).toBe(true);
+  });
+
+  it('rejects x-callback-token in sandbox when it does not match the secret', async () => {
+    const payload = JSON.stringify({ id: 'inv_callback_token_mismatch', status: 'paid' });
+    const req = new Request('https://gaslamar.com/webhook/mayar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-callback-token': 'wrong-token' },
+      body: payload,
+    });
+    const result = await verifyMayarWebhook(req, { ENVIRONMENT: 'staging', MAYAR_WEBHOOK_SECRET: 'correct-secret' });
+    expect(result.valid).toBe(false);
   });
 });
 

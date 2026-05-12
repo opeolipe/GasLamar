@@ -11,7 +11,7 @@ if (_analyzeErr) {
   sessionStorage.removeItem('gaslamar_upload_error');
   const _errEl = document.createElement('div');
   _errEl.className = 'upload-error-banner';
-  _errEl.textContent = '⚠️ Analisis gagal: ' + _analyzeErr;
+  _errEl.innerHTML = '<span aria-hidden="true">⚠️</span> Analisis gagal: ' + _analyzeErr.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   document.querySelector('.card').insertBefore(_errEl, document.querySelector('.card').firstChild);
 }
 
@@ -98,16 +98,16 @@ async function fetchJobFromUrl() {
 
     if (!res.ok) {
       statusEl.style.color = '#DC2626';
-      statusEl.textContent = '⚠️ ' + (data.message || 'Gagal mengambil. Coba copy-paste manual.');
+      statusEl.innerHTML = '<span aria-hidden="true">⚠️</span> ' + (data.message || 'Gagal mengambil. Coba copy-paste manual.');
     } else {
       document.getElementById('job-desc').value = data.job_desc;
       updateCharCount();
       statusEl.style.color = '#059669';
-      statusEl.textContent = '✅ Job description berhasil diambil. Periksa dan edit seperlunya.';
+      statusEl.innerHTML = '<span aria-hidden="true">✅</span> Job description berhasil diambil. Periksa dan edit seperlunya.';
     }
   } catch {
     statusEl.style.color = '#DC2626';
-    statusEl.textContent = '⚠️ Tidak bisa terhubung ke server. Coba lagi.';
+    statusEl.innerHTML = '<span aria-hidden="true">⚠️</span> Tidak bisa terhubung ke server. Coba lagi.';
   } finally {
     submitBtn.disabled = false;
     submitBtn.textContent = 'Ambil';

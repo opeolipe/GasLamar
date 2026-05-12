@@ -12,6 +12,7 @@ export async function handleMayarWebhook(request, env, ctx) {
       event: 'webhook_unauthorized',
       environment: env.ENVIRONMENT ?? 'sandbox',
       has_signature: !!request.headers.get('x-mayar-signature'),
+      has_callback_token: !!request.headers.get('x-callback-token'),
       has_secret: !!env.MAYAR_WEBHOOK_SECRET,
     }));
     return new Response('Unauthorized', { status: 401 });
@@ -130,7 +131,7 @@ export async function handleMayarWebhook(request, env, ctx) {
 
     let updated = false;
     try {
-      updated = await updateSession(env, sessionId, { status: 'paid', paid_at: Date.now() });
+      updated = await updateSession(env, sessionId, { status: SESSION_STATES.PAID, paid_at: Date.now() });
     } catch (e) {
       // Transient KV error — remove the sentinel so Mayar's next retry can succeed.
       await env.GASLAMAR_SESSIONS.delete(processedKey).catch(() => {});

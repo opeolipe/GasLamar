@@ -31,8 +31,8 @@ function startGeneratingAnimation() {
     const elapsed = (Date.now() - _genStartTime) / 1000;
     const rem = Math.max(0, Math.ceil(EST - elapsed));
     const el = document.getElementById('gen-timer');
-    if (rem <= 0) { el.textContent = '✅ CV siap! Memuat file...'; clearInterval(_genTimerTimer); }
-    else el.textContent = `⏱️ Estimasi sisa: ~${rem} detik`;
+    if (rem <= 0) { el.innerHTML = '<span aria-hidden="true">✅</span> CV siap! Memuat file...'; clearInterval(_genTimerTimer); }
+    else el.innerHTML = `<span aria-hidden="true">⏱️</span> Estimasi sisa: ~${rem} detik`;
   }, 1000);
 }
 
@@ -48,7 +48,7 @@ function updateGenSteps(pct) {
     const el = document.getElementById('gsi-' + i);
     if (!el) continue;
     if (pct >= thresholds[i-1] + 20) {
-      el.textContent = '✓'; el.className = 'step-icon done';
+      el.innerHTML = '<span aria-hidden="true">✓</span>'; el.className = 'step-icon done';
     } else if (pct >= thresholds[i-1]) {
       el.textContent = '⟳'; el.className = 'step-icon spin';
     } else {
@@ -117,16 +117,16 @@ async function fetchNewJobFromUrl() {
     const data = await res.json();
     if (!res.ok) {
       statusEl.className = 'url-status url-status-err';
-      statusEl.textContent = '⚠️ ' + (data.message || 'Gagal mengambil. Coba copy-paste manual.');
+      statusEl.innerHTML = '<span aria-hidden="true">⚠️</span> ' + (data.message || 'Gagal mengambil. Coba copy-paste manual.');
     } else {
       document.getElementById('new-job-desc').value = data.job_desc;
       updateNewCharCount();
       statusEl.className = 'url-status url-status-ok';
-      statusEl.textContent = '✅ Job description berhasil diambil. Periksa dan edit seperlunya.';
+      statusEl.innerHTML = '<span aria-hidden="true">✅</span> Job description berhasil diambil. Periksa dan edit seperlunya.';
     }
   } catch {
     statusEl.className = 'url-status url-status-err';
-    statusEl.textContent = '⚠️ Tidak bisa terhubung ke server. Coba lagi.';
+    statusEl.innerHTML = '<span aria-hidden="true">⚠️</span> Tidak bisa terhubung ke server. Coba lagi.';
   } finally {
     submitBtn.disabled = false;
     submitBtn.textContent = 'Ambil';

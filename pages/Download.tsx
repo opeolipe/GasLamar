@@ -306,7 +306,7 @@ export default function Download() {
     : 'CV.docx';
 
   const sessionError = view === 'error'
-    ? (session.error ?? generate.error ?? { title: 'Terjadi Kesalahan', message: 'Terjadi kesalahan. Coba refresh halaman.', retryable: false })
+    ? (session.error ?? generate.error ?? { title: 'Terjadi Kesalahan', message: 'Terjadi kesalahan. Coba refresh halaman.', retryable: false, reason: undefined })
     : null;
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -392,6 +392,7 @@ export default function Download() {
               title={sessionError.title}
               message={sessionError.message}
               retryable={sessionError.retryable}
+              reason={sessionError.reason}
               onRetry={generate.error?.retryable ? generate.retryGeneration : undefined}
               onRestart={() => clearClientSessionData(session.sessionId)}
             />

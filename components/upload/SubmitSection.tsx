@@ -14,7 +14,7 @@ export default function SubmitSection({ isLoading, showJdHint, jdHintText, onSub
         data-testid="submit-upload"
         onClick={onSubmit}
         disabled={isLoading}
-        className="min-h-[56px] w-full rounded-full px-6 py-4 text-white font-bold text-base border-0 transition-all hover:-translate-y-[2px] disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0 flex items-center justify-center gap-2"
+        className="min-h-[56px] w-full rounded-full px-6 py-4 text-white font-bold text-base border-0 transition-all hover:-translate-y-[2px] active:scale-[0.97] active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0 disabled:active:scale-100 flex items-center justify-center gap-2"
         style={{ background: '#1B4FE8', boxShadow: '0 8px 24px rgba(27,79,232,0.28), 0 2px 8px rgba(27,79,232,0.12)' }}
         aria-label="Mulai analisis CV kamu"
       >
@@ -32,9 +32,6 @@ export default function SubmitSection({ isLoading, showJdHint, jdHintText, onSub
         </p>
       )}
 
-      <p className="text-center text-sm text-slate-400 mt-4">
-        CV tidak disimpan • tanpa registrasi • rata-rata selesai {'<'} 1 menit • hasil gratis aktif 2 jam
-      </p>
     </div>
   );
 }

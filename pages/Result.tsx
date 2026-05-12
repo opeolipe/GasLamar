@@ -487,7 +487,7 @@ export default function Result() {
         {data && !loading && !error && (
           <>
             {/* Breadcrumb */}
-            <div style={{ textAlign: 'center', marginBottom: '0.75rem', fontSize: '0.78rem', color: '#94A3B8', fontWeight: 500 }}>
+            <div style={{ textAlign: 'center', marginBottom: '0.75rem', fontSize: '0.8rem', color: '#94A3B8', fontWeight: 500 }}>
               CV dianalisis berdasarkan posisi yang kamu incar
             </div>
 
@@ -651,14 +651,16 @@ export default function Result() {
                     style={{
                       background:  'none',
                       border:      'none',
-                      padding:     '0.35rem 0',
+                      padding:     '0.6rem 0',
+                      minHeight:   44,
                       fontSize:    '0.82rem',
                       color:       '#2563EB',
                       fontWeight:  600,
                       cursor:      'pointer',
                       fontFamily:  'inherit',
-                      marginTop:   '0.4rem',
-                      display:     'block',
+                      marginTop:   '0.25rem',
+                      display:     'flex',
+                      alignItems:  'center',
                     }}
                   >
                     {showAllRekomendasi ? 'Sembunyikan ↑' : 'Lihat detail analisis →'}

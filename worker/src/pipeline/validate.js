@@ -38,6 +38,17 @@ export function validateExtractOutput(parsed) {
   if (typeof cv.skills_mentah     !== 'string') errors.push('cv.skills_mentah must be string');
   if (typeof cv.angka_di_cv       !== 'string') errors.push('cv.angka_di_cv must be string');
 
+  // sertifikat and pendidikan: coerce null/missing to 'TIDAK ADA' so downstream
+  // has_certs and education checks are never given null to compare against.
+  if (cv.sertifikat == null)  cv.sertifikat  = 'TIDAK ADA';
+  if (cv.pendidikan  == null) cv.pendidikan  = 'TIDAK ADA';
+  if (typeof cv.sertifikat !== 'string') errors.push('cv.sertifikat must be string');
+  if (typeof cv.pendidikan  !== 'string') errors.push('cv.pendidikan must be string');
+
+  // entitas_klaim: coerce null/missing to empty array; reject non-array types.
+  if (cv.entitas_klaim == null) cv.entitas_klaim = [];
+  if (!Array.isArray(cv.entitas_klaim)) errors.push('cv.entitas_klaim must be array');
+
   if (!cv.format_cv || typeof cv.format_cv !== 'object') {
     errors.push('cv.format_cv missing or not object');
   } else {

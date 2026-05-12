@@ -152,8 +152,52 @@ describe('runAnalysis — format and signals', () => {
     expect(runAnalysis(extracted({ angka_di_cv: '2022-Present 30% peningkatan' })).has_numbers).toBe(true);
   });
 
+  it('angka_di_cv with only education degree code D1 → has_numbers = false', () => {
+    expect(runAnalysis(extracted({ angka_di_cv: 'D1 Business Computer App' })).has_numbers).toBe(false);
+  });
+
+  it('angka_di_cv with only education degree code S1 → has_numbers = false', () => {
+    expect(runAnalysis(extracted({ angka_di_cv: 'S1 Teknik Informatika' })).has_numbers).toBe(false);
+  });
+
+  it('angka_di_cv with degree + calendar years only → has_numbers = false', () => {
+    expect(runAnalysis(extracted({ angka_di_cv: 'D1 2022 2020 2013' })).has_numbers).toBe(false);
+  });
+
+  it('angka_di_cv with degree + real metric → has_numbers = true', () => {
+    expect(runAnalysis(extracted({ angka_di_cv: 'S1, 30% peningkatan penjualan' })).has_numbers).toBe(true);
+  });
+
+  it('bare "14 tahun pengalaman" → has_numbers = false (tenure, not metric)', () => {
+    expect(runAnalysis(extracted({ angka_di_cv: '14 tahun pengalaman' })).has_numbers).toBe(false);
+  });
+
+  it('bare "14+ tahun pengalaman" → has_numbers = false', () => {
+    expect(runAnalysis(extracted({ angka_di_cv: '14+ tahun pengalaman' })).has_numbers).toBe(false);
+  });
+
+  it('"5 tahun memimpin tim" → has_numbers = true (specific role duration, kept)', () => {
+    expect(runAnalysis(extracted({ angka_di_cv: '5 tahun memimpin tim' })).has_numbers).toBe(true);
+  });
+
+  it('"14 tahun pengalaman" + real metric → has_numbers = true (metric survives strip)', () => {
+    expect(runAnalysis(extracted({ angka_di_cv: '14 tahun pengalaman, 30% growth' })).has_numbers).toBe(true);
+  });
+
   it('sertifikat !== "TIDAK ADA" → has_certs = true', () => {
     expect(runAnalysis(extracted({ sertifikat: 'AWS Certified Developer' })).has_certs).toBe(true);
+  });
+
+  it('sertifikat = null → has_certs = false (null-safety)', () => {
+    expect(runAnalysis(extracted({ sertifikat: null })).has_certs).toBe(false);
+  });
+
+  it('sertifikat = "D1" only → has_certs = false (degree code stripped)', () => {
+    expect(runAnalysis(extracted({ sertifikat: 'D1' })).has_certs).toBe(false);
+  });
+
+  it('sertifikat = "D1, AWS Certified" → has_certs = true (real cert survives strip)', () => {
+    expect(runAnalysis(extracted({ sertifikat: 'D1, AWS Certified' })).has_certs).toBe(true);
   });
 
   it('red_flag_types.multi_column = true when !format_ok', () => {
@@ -372,6 +416,11 @@ describe('calculateScores — portfolio', () => {
     const ext = extracted({ angka_di_cv: 'NOL ANGKA', sertifikat: 'AWS Certified' });
     expect(calculateScores(ext, runAnalysis(ext)).portfolio).toBe(4);
   });
+
+  it('education degree only (D1), no certs → portfolio = 2 (not inflated by degree code)', () => {
+    const ext = extracted({ angka_di_cv: 'D1 Business Computer App 2022 2020', sertifikat: 'TIDAK ADA' });
+    expect(calculateScores(ext, runAnalysis(ext)).portfolio).toBe(2);
+  });
 });
 
 // ── calculateScores — risk ────────────────────────────────────────────────────
@@ -554,6 +603,48 @@ describe('validateExtractOutput', () => {
   it('jd.pengalaman_minimal = null → valid (null is allowed)', () => {
     const ok = { ...VALID_EXTRACT, jd: { ...VALID_EXTRACT.jd, pengalaman_minimal: null } };
     expect(validateExtractOutput(ok).valid).toBe(true);
+  });
+
+  it('cv.sertifikat = null → coerced to "TIDAK ADA", valid', () => {
+    const input = { ...VALID_EXTRACT, cv: { ...VALID_EXTRACT.cv, sertifikat: null } };
+    const r = validateExtractOutput(input);
+    expect(r.valid).toBe(true);
+    expect(input.cv.sertifikat).toBe('TIDAK ADA');
+  });
+
+  it('cv.sertifikat missing → coerced to "TIDAK ADA", valid', () => {
+    const { sertifikat: _omit, ...cvWithout } = VALID_EXTRACT.cv;
+    const input = { ...VALID_EXTRACT, cv: cvWithout };
+    const r = validateExtractOutput(input);
+    expect(r.valid).toBe(true);
+    expect(input.cv.sertifikat).toBe('TIDAK ADA');
+  });
+
+  it('cv.sertifikat = 42 (number) → invalid', () => {
+    const bad = { ...VALID_EXTRACT, cv: { ...VALID_EXTRACT.cv, sertifikat: 42 } };
+    expect(validateExtractOutput(bad).valid).toBe(false);
+    expect(validateExtractOutput(bad).errors.some(e => e.includes('sertifikat'))).toBe(true);
+  });
+
+  it('cv.entitas_klaim = null → coerced to [], valid', () => {
+    const input = { ...VALID_EXTRACT, cv: { ...VALID_EXTRACT.cv, entitas_klaim: null } };
+    const r = validateExtractOutput(input);
+    expect(r.valid).toBe(true);
+    expect(input.cv.entitas_klaim).toEqual([]);
+  });
+
+  it('cv.entitas_klaim missing → coerced to [], valid', () => {
+    const { entitas_klaim: _omit, ...cvWithout } = VALID_EXTRACT.cv;
+    const input = { ...VALID_EXTRACT, cv: cvWithout };
+    const r = validateExtractOutput(input);
+    expect(r.valid).toBe(true);
+    expect(input.cv.entitas_klaim).toEqual([]);
+  });
+
+  it('cv.entitas_klaim = "Node.js" (string) → invalid', () => {
+    const bad = { ...VALID_EXTRACT, cv: { ...VALID_EXTRACT.cv, entitas_klaim: 'Node.js' } };
+    expect(validateExtractOutput(bad).valid).toBe(false);
+    expect(validateExtractOutput(bad).errors.some(e => e.includes('entitas_klaim'))).toBe(true);
   });
 });
 

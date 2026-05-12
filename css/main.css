@@ -344,3 +344,32 @@ a, button, input, textarea, select,
   -webkit-backdrop-filter: blur(12px);
   border-color: rgba(255,255,255,0.06) !important;
 }
+
+/* =====================================================
+   ANDROID / CROSS-BROWSER FIXES
+   ===================================================== */
+
+/* dvh fallback: Android Chrome < 108 (2022) doesn't support dynamic
+   viewport units. The 100vh line acts as the graceful degradation. */
+.min-h-dvh {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* backdrop-filter + sticky: some Android WebView/Chrome versions don't
+   composite sticky + backdrop-filter correctly. When blur is unavailable,
+   increase navbar opacity so content behind it stays readable. */
+@supports not (backdrop-filter: blur(1px)) {
+  nav.sticky {
+    background: rgba(255, 255, 255, 0.97) !important;
+  }
+}
+
+/* Active/press feedback: Android tap doesn't fire hover states, so buttons
+   need an active: visual cue. This base rule applies a subtle dim to every
+   enabled button on press; component-level active: classes can refine it. */
+button:active:not(:disabled),
+[role="button"]:active {
+  opacity: 0.82;
+  transition: opacity 0.08s ease, transform 0.08s ease;
+}
