@@ -246,14 +246,16 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         return;
       }
 
-      // exhausted = all credits consumed; session preserved so user can still download
+      // exhausted = all credits consumed; session + cv_result_ preserved for 30 days.
+      // Do NOT clear client session data — the user can still access their generated
+      // CV by navigating back (e.g. via the email link). Clearing localStorage here
+      // would block re-entry by sending them to access.html on the next visit.
       if (status === 'exhausted') {
         if (pollTimerRef.current) { clearTimeout(pollTimerRef.current); pollTimerRef.current = null; }
-        clearClientSessionData(sId);
         ;(window as any).Analytics?.track?.('download_session_exhausted', { poll_attempts: pollCountRef.current });
         showError(
-          'CV Sudah Diunduh',
-          'Semua kredit kamu sudah digunakan. Untuk menganalisis CV berikutnya, upload ulang di halaman utama.',
+          'Kredit Habis',
+          'Semua kredit kamu sudah digunakan. CV kamu masih tersimpan — cek email kamu untuk link download, atau hubungi support@gaslamar.com.',
         );
         return;
       }
