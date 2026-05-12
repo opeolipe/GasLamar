@@ -68,7 +68,11 @@ async function poll(sessionId) {
   try {
     // Session ID travels via the HttpOnly cookie set by /create-payment.
     // credentials:'include' sends it cross-origin.
-    const res = await fetch(WORKER_URL + '/check-session', {
+    // ?session= is always appended so the server can use the lenient fallback path
+    // when X-Session-Secret is absent (Safari ITP clears sessionStorage mid-redirect,
+    // tab close, or email-link re-access on a different device).
+    const checkUrl = WORKER_URL + '/check-session?session=' + encodeURIComponent(sessionId);
+    const res = await fetch(checkUrl, {
       credentials: 'include',
       headers: getSecretHeaders(),
     });

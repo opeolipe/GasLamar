@@ -30,7 +30,6 @@ import InterviewKit          from '@/components/download/InterviewKit';
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type PageView     = 'waiting' | 'generating' | 'ready' | 'credits-dashboard' | 'error';
-type FeedbackType = 'ya' | 'proses' | 'tidak';
 
 interface LocalDelivery {
   sessionId: string;
@@ -220,19 +219,6 @@ export default function Download() {
     }
   }, [generate.content]);
 
-  const handleFeedback = useCallback(async (type: FeedbackType) => {
-    const { sessionId, sessionSecret } = session;
-    if (!sessionId) return;
-    try {
-      await fetch(`${WORKER_URL}/feedback`, {
-        method:      'POST',
-        headers:     { 'Content-Type': 'application/json', ...buildSecretHeaders(sessionSecret) },
-        credentials: 'include',
-        body:        JSON.stringify({ type }),
-      });
-      ;(window as any).Analytics?.track?.('interview_feedback', { type });
-    } catch (_) { /* non-critical */ }
-  }, [session.sessionId, session.sessionSecret]);
 
   const handleGenerateForNewJob = useCallback(async (jobDesc: string) => {
     const { sessionId, sessionSecret } = session;
@@ -434,7 +420,6 @@ export default function Download() {
               totalCredits={totalCredits}
               showDownloadGrid={view === 'ready'}
               onDownload={handleDownload}
-              onFeedback={handleFeedback}
               onGenerateNext={handleGenerateForNewJob}
               onUrlFetch={handleUrlFetch}
               showMobileFallback={showMobileFb}
@@ -446,14 +431,11 @@ export default function Download() {
         )}
 
         {view === 'ready' && (
-          <div>
-            <InterviewKit
-              sessionSecret={session.sessionSecret}
-              isPreview={tier === 'coba'}
-              language="id"
-              initialKit={content?.interviewKit ?? null}
-            />
-          </div>
+          <InterviewKit
+            sessionSecret={session.sessionSecret}
+            language="id"
+            initialKit={content?.interviewKit ?? null}
+          />
         )}
 
         {/* Back link */}
