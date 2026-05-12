@@ -276,13 +276,13 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
     : '';
 
   const html = `
-    <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#1F2937">
-      <div style="margin-bottom:24px">
-        <span style="font-weight:800;font-size:20px;color:#1B4FE8">GasLamar</span>
+    <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto;padding:28px 20px;color:#1F2937">
+      <div style="margin-bottom:28px">
+        <img src="${baseUrl}/assets/logo.svg" alt="GasLamar" width="120" height="24" style="display:block;border:0">
       </div>
 
-      <h1 style="font-size:22px;font-weight:700;margin-bottom:6px">CV kamu sekarang lebih siap untuk interview 🎯</h1>
-      <p style="color:#6B7280;margin-bottom:20px;font-size:14px">Kami sudah analisis dan perbaiki CV kamu.</p>
+      <h1 style="font-size:22px;font-weight:700;margin:0 0 8px">CV kamu sekarang lebih siap</h1>
+      <p style="color:#6B7280;margin:0 0 24px;font-size:15px">Kami sudah analisis dan perbaiki CV kamu.</p>
 
       <div style="background:#F0FDF4;border-radius:12px;padding:16px 20px;margin-bottom:16px;text-align:center">
         <p style="margin:0;font-size:13px;color:#6B7280">Skor kecocokan</p>
@@ -298,43 +298,29 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
 
       ${kitNoteHtml}
 
-      <div style="background:#F8FAFC;border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:13px;color:#475569">
-        <p style="margin:0 0 4px;font-weight:600;color:#1E293B">Sekarang CV kamu:</p>
-        <ul style="margin:0;padding-left:16px;line-height:1.8">
-          <li>Lebih relevan dengan posisi yang kamu incar</li>
-          <li>Lebih jelas menunjukkan value kamu</li>
-          <li>Lebih mudah dibaca oleh HR dalam 5–10 detik</li>
-        </ul>
-      </div>
-
-      <div style="margin-bottom:24px">
+      <div style="margin-bottom:20px">
         <a href="${downloadUrl}"
-          style="display:inline-block;background:#1B4FE8;color:#fff;font-weight:700;padding:14px 28px;border-radius:12px;text-decoration:none;font-size:15px">
-          Download CV terbaik kamu →
+          style="display:inline-block;min-width:240px;background:#1B4FE8;color:#fff;font-weight:700;padding:14px 20px;border-radius:14px;text-decoration:none;font-size:16px;text-align:center">
+          Download CV kamu →
         </a>
       </div>
 
-      <div style="margin-bottom:20px;font-size:14px;color:#374151">
-        <p style="margin:0 0 6px;font-weight:600">Langkah selanjutnya</p>
-        <ol style="margin:0;padding-left:18px;line-height:1.8">
-          <li>Download CV kamu</li>
-          <li>Apply ke posisi yang kamu incar</li>
-          <li>(Opsional) Gunakan CV berbeda untuk tiap job</li>
-        </ol>
-      </div>
+      <p style="font-size:13px;color:#6B7280;margin:0 0 24px">
+        Lebih relevan &bull; Lebih jelas menunjukkan value &bull; Lebih mudah dibaca recruiter
+      </p>
 
       ${upsellHtml}
 
-      <p style="font-size:14px;color:#374151;margin-bottom:20px">
-        <strong>Semakin cepat kamu apply, semakin besar peluang kamu dipanggil interview.</strong>
+      <p style="font-size:13px;color:#6B7280;margin:0 0 4px">
+        Link email berlaku 1 jam. Setelah dibuka, akses tetap aktif selama ${validityText}.
+      </p>
+      <p style="font-size:13px;color:#6B7280;margin:0 0 20px">
+        Butuh link baru? <a href="${baseUrl}/access" style="color:#1B4FE8">${baseUrl.replace('https://', '')}/access</a>
       </p>
 
-      <p style="font-size:13px;color:#9CA3AF;margin-bottom:4px">Kamu tidak perlu bayar lagi. CV kamu tetap tersimpan selama masa aktif.</p>
-      <p style="font-size:13px;color:#9CA3AF;margin-bottom:4px">Link ini berlaku 1 jam untuk akses pertama.</p>
-      <p style="font-size:13px;color:#9CA3AF;margin-bottom:4px">Setelah dibuka, kamu bisa kembali kapan saja selama ${validityText} (sesuai paket).</p>
-      <p style="font-size:13px;color:#9CA3AF;margin-bottom:20px">Link kedaluwarsa? Minta link baru kapan saja di <a href="${baseUrl}/access" style="color:#1B4FE8">${baseUrl.replace('https://', '')}/access</a></p>
-
-      <p style="font-size:13px;color:#9CA3AF">Butuh bantuan? <a href="mailto:support@gaslamar.com" style="color:#1B4FE8">support@gaslamar.com</a></p>
+      <p style="font-size:13px;color:#6B7280;margin:0">
+        Butuh bantuan? <a href="mailto:support@gaslamar.com" style="color:#1B4FE8">support@gaslamar.com</a>
+      </p>
     </div>`;
 
   const cvRes = await fetch('https://api.resend.com/emails', {
