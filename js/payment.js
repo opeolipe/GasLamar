@@ -218,6 +218,10 @@ function showPaymentTransitionOverlay({ tier, invoiceUrl }) {
         border-radius: 50%; animation: glpt-spin 0.75s linear infinite;
       }
       @keyframes glpt-spin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) {
+        #payment-transition-overlay { animation: none; }
+        #payment-transition-overlay .glpt-spinner { animation: none; border-top-color: #1B4FE8; opacity: 0.7; }
+      }
       #payment-transition-overlay .glpt-trust {
         background: #f0f9ff; border: 1px solid #bae6fd;
         border-radius: 12px; padding: 13px 14px; margin-bottom: 12px;
@@ -300,7 +304,7 @@ function showPaymentTransitionOverlay({ tier, invoiceUrl }) {
         </div>
         <div class="glpt-trust-body">
           Kamu akan membuka halaman pembayaran resmi dari <strong>Mayar</strong> — platform pembayaran terpercaya di Indonesia.<br>
-          GasLamar <strong>tidak menyimpan</strong> data kartu atau informasi pembayaran kamu.
+          GasLamar <strong>tidak menerima atau menyimpan</strong> data pembayaran kamu. Semua proses pembayaran ditangani langsung oleh Mayar.
         </div>
       </div>
 
