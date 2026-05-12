@@ -325,8 +325,6 @@ export default function Upload() {
       return;
     }
     const jobDesc = jd.trim();
-    if (!jobDesc.length) return;
-    if (!evaluateJDQuality(jobDesc).isValid) return;
 
     setLoading(true);
     try {
