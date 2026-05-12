@@ -487,7 +487,7 @@ export default function Result() {
         {data && !loading && !error && (
           <>
             {/* Breadcrumb */}
-            <div style={{ textAlign: 'center', marginBottom: '0.75rem', fontSize: '0.78rem', color: '#94A3B8', fontWeight: 500 }}>
+            <div style={{ textAlign: 'center', marginBottom: '0.75rem', fontSize: '0.8rem', color: '#94A3B8', fontWeight: 500 }}>
               CV dianalisis berdasarkan posisi yang kamu incar
             </div>
 
