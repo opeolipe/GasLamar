@@ -156,9 +156,9 @@ export async function sendResendAccessEmail(sessionId, env) {
   const session = await getSession(env, sessionId);
   if (!session || !session.email) return;
 
-  const emailToken = await createEmailToken(env, sessionId);
-  const downloadUrl = `${frontendBaseUrl(env)}/download.html?token=${emailToken}`;
   const baseUrl = frontendBaseUrl(env);
+  const emailToken = await createEmailToken(env, sessionId);
+  const downloadUrl = `${baseUrl}/download.html?token=${emailToken}`;
 
   const html = `
     <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto;padding:28px 20px;color:#1F2937">
@@ -239,8 +239,9 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
   }
 
   // Single-use token — protects the session ID from email exposure
+  const baseUrl = frontendBaseUrl(env);
   const emailToken = await createEmailToken(env, sessionId);
-  const downloadUrl = `${frontendBaseUrl(env)}/download.html?token=${emailToken}`;
+  const downloadUrl = `${baseUrl}/download.html?token=${emailToken}`;
 
   const scoreNum   = typeof score === 'number' ? score : parseInt(score, 10) || 0;
   const scoreColor = scoreNum >= 75 ? '#059669' : scoreNum >= 50 ? '#D97706' : '#DC2626';
@@ -263,7 +264,7 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
   const upsellHtml = !isMulti
     ? `<div style="background:#EFF6FF;border-radius:10px;padding:14px 18px;margin-bottom:20px">
         <p style="margin:0 0 4px;font-size:13px;color:#1E40AF;font-weight:600">Mau apply ke lebih banyak posisi?</p>
-        <p style="margin:0;font-size:13px;color:#3B82F6">Gunakan <a href="https://gaslamar.com/?tier=3pack" style="color:#1B4FE8;font-weight:600">3-Pack</a> untuk generate CV berbeda per job. Lebih hemat dan peluang lebih tinggi.</p>
+        <p style="margin:0;font-size:13px;color:#3B82F6">Gunakan <a href="${baseUrl}/?tier=3pack" style="color:#1B4FE8;font-weight:600">3-Pack</a> untuk generate CV berbeda per job. Lebih hemat dan peluang lebih tinggi.</p>
       </div>`
     : '';
 
@@ -331,7 +332,7 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
       <p style="font-size:13px;color:#9CA3AF;margin-bottom:4px">Kamu tidak perlu bayar lagi. CV kamu tetap tersimpan selama masa aktif.</p>
       <p style="font-size:13px;color:#9CA3AF;margin-bottom:4px">Link ini berlaku 1 jam untuk akses pertama.</p>
       <p style="font-size:13px;color:#9CA3AF;margin-bottom:4px">Setelah dibuka, kamu bisa kembali kapan saja selama ${validityText} (sesuai paket).</p>
-      <p style="font-size:13px;color:#9CA3AF;margin-bottom:20px">Link kedaluwarsa? Minta link baru kapan saja di <a href="${frontendBaseUrl(env)}/access" style="color:#1B4FE8">${frontendBaseUrl(env).replace('https://', '')}/access</a></p>
+      <p style="font-size:13px;color:#9CA3AF;margin-bottom:20px">Link kedaluwarsa? Minta link baru kapan saja di <a href="${baseUrl}/access" style="color:#1B4FE8">${baseUrl.replace('https://', '')}/access</a></p>
 
       <p style="font-size:13px;color:#9CA3AF">Butuh bantuan? <a href="mailto:support@gaslamar.com" style="color:#1B4FE8">support@gaslamar.com</a></p>
     </div>`;
