@@ -8,13 +8,18 @@ export async function handleCheckSession(request, env) {
   const cookieSessionId = getSessionIdFromCookie(request);
   const paramSessionId  = url.searchParams.get('session');
 
-  // Cookie is the primary auth path. When the cookie is absent (common on Mobile
-  // Safari due to cross-origin ITP), fall back to the ?session= query param that
-  // the frontend already sends on every poll. The param path skips the
-  // X-Session-Secret check: the UUID session ID is sufficient for this low-
-  // sensitivity endpoint (returns status/tier/credits only — never CV content).
-  const usedFallback = !cookieSessionId && !!paramSessionId && paramSessionId.startsWith('sess_');
-  const sessionId    = cookieSessionId || (usedFallback ? paramSessionId : null);
+  // Primary auth: cookie + X-Session-Secret.
+  // Fallback (no secret check): when ?session= is present AND X-Session-Secret is absent.
+  // This covers three real-world scenarios where the secret is unavailable:
+  //   (a) Mobile Safari ITP clears sessionStorage during the cross-origin Mayar redirect
+  //   (b) User closes the tab and opens a new one (sessionStorage is tab-scoped)
+  //   (c) User clicks the email link on a different device (/exchange-token sets the cookie
+  //       but the sessionStorage secret is gone on the new browser)
+  // /check-session returns only low-sensitivity metadata (status/tier/credits/ttl) so
+  // requiring the secret is not necessary for integrity — it only blocks legitimate users.
+  const providedSecret = request.headers.get('X-Session-Secret');
+  const usedFallback   = !!paramSessionId && paramSessionId.startsWith('sess_') && !providedSecret;
+  const sessionId      = cookieSessionId || (usedFallback ? paramSessionId : null);
 
   if (!sessionId || !sessionId.startsWith('sess_')) {
     return jsonResponse({ message: 'Sesi tidak ditemukan. Pastikan browser mengizinkan cookies.', reason: 'no_session' }, 401, request, env);
@@ -27,10 +32,8 @@ export async function handleCheckSession(request, env) {
     return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa.', reason: 'expired' }, 404, request, env);
   }
 
-  // Secret check only applies on the cookie path. The fallback (query-param) path
-  // intentionally skips it — see note above.
+  // Secret check only applies on the non-fallback path.
   if (!usedFallback) {
-    const providedSecret = request.headers.get('X-Session-Secret');
     if (!await verifySessionSecret(session, providedSecret)) {
       return jsonResponse({ message: 'Akses ditolak: token sesi tidak valid', reason: 'unauthorized' }, 403, request, env);
     }

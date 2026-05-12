@@ -821,6 +821,41 @@ describe('GET /check-session', () => {
     expect(body.status).toBe('pending');
   });
 
+  it('returns 200 via ?session= fallback when cookie is present but secret is absent (ITP / tab-close / email-link)', async () => {
+    // Regression test for the payment→download 403 loop.
+    // Scenario: user paid in the same tab, browser redirected through Mayar (cross-origin),
+    // Safari ITP cleared sessionStorage, so the frontend has no X-Session-Secret.
+    // The HttpOnly session cookie IS present. The frontend always sends ?session= now;
+    // the server must accept this without the secret for this low-sensitivity endpoint.
+    const sessionId = await seedSession('paid', 'single');
+    const res = await get('/check-session?session=' + sessionId, sessionCookie(sessionId));
+    // Note: no X-Session-Secret header — must succeed via fallback, not 403
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.status).toBe('paid');
+  });
+
+  it('still uses strict secret check when X-Session-Secret IS provided with cookie (no ?session= needed)', async () => {
+    // Secret present → cookie path with full verification, ?session= is irrelevant
+    const sessionId = await seedSession('paid', 'single');
+    const res = await get('/check-session?session=' + sessionId, {
+      ...sessionCookie(sessionId),
+      'X-Session-Secret': FIXED_TEST_SECRET,
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.status).toBe('paid');
+  });
+
+  it('returns 403 when cookie present, no ?session= param, and no secret', async () => {
+    // Without ?session= the fallback cannot activate — cookie-only with no secret is still rejected
+    const sessionId = await seedSession('paid', 'single');
+    const res = await get('/check-session', sessionCookie(sessionId));
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.reason).toBe('unauthorized');
+  });
+
 });
 
 describe('GET /validate-session', () => {

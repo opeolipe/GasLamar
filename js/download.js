@@ -59,7 +59,9 @@ function downloadFile(lang, format) {
         if (data.session_id) {
           localStorage.setItem('gaslamar_session', data.session_id);
           sessionIdCache     = data.session_id;
-          // Token-exchange flow: no secret was set — session_secret_hash is null server-side
+          // Token-exchange: the session DOES have a secret hash (set at /create-payment),
+          // but the secret itself is in sessionStorage — absent on a different device.
+          // When null, poll() uses the ?session= fallback path which skips secret verification.
           sessionSecretCache = sessionStorage.getItem('gaslamar_secret_' + data.session_id) || null;
         }
         history.replaceState(null, '', location.pathname);
