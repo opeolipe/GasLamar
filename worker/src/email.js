@@ -1,6 +1,8 @@
 import { getSession } from './sessions.js';
 import { hexToken } from './utils.js';
 import { generateInterviewKitPdf } from './interviewKitPdf.js';
+import { generateCVPdf } from './cvPdf.js';
+import { KV_CV_RESULT_PREFIX } from './constants.js';
 
 function toBase64(bytes) {
   let binary = '';
@@ -223,20 +225,55 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
   const session = await getSession(env, sessionId);
   if (!session || !session.email) return;
 
-  // Try to attach the pre-generated interview kit as PDF (non-critical)
-  let kitAttachment = null;
+  // ── Build email attachments (all non-critical — failures don't block the email) ──
+  const attachments = [];
+
+  // CV PDFs — always attach Indonesian; attach English too for bilingual tiers.
   try {
-    const kit = await env.GASLAMAR_SESSIONS.get(`kit_${sessionId}_id`, { type: 'json' });
-    if (kit) {
-      const pdfBytes = await generateInterviewKitPdf(kit);
-      kitAttachment = {
-        filename: 'interview-kit.pdf',
-        content: toBase64(pdfBytes),
-      };
+    const cvResult = await env.GASLAMAR_SESSIONS.get(`${KV_CV_RESULT_PREFIX}${sessionId}`, { type: 'json' });
+    if (cvResult) {
+      const cvTier = cvResult.tier ?? session.tier;
+      const isBilingualTier = cvTier !== 'coba';
+
+      if (cvResult.cv_id) {
+        const pdfId = await generateCVPdf(cvResult.cv_id);
+        const nameParts = [
+          cvResult.job_title ? cvResult.job_title.replace(/[^a-zA-Z0-9\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 30) : null,
+          cvResult.company   ? cvResult.company.replace(/[^a-zA-Z0-9\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 20)   : null,
+        ].filter(Boolean);
+        const idFilename = nameParts.length ? `CV-Indonesia-${nameParts.join('-')}.pdf` : 'CV-Indonesia.pdf';
+        attachments.push({ filename: idFilename, content: toBase64(pdfId) });
+      }
+
+      if (isBilingualTier && cvResult.cv_en) {
+        const pdfEn = await generateCVPdf(cvResult.cv_en);
+        const nameParts = [
+          cvResult.job_title ? cvResult.job_title.replace(/[^a-zA-Z0-9\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 30) : null,
+          cvResult.company   ? cvResult.company.replace(/[^a-zA-Z0-9\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 20)   : null,
+        ].filter(Boolean);
+        const enFilename = nameParts.length ? `CV-English-${nameParts.join('-')}.pdf` : 'CV-English.pdf';
+        attachments.push({ filename: enFilename, content: toBase64(pdfEn) });
+      }
     }
   } catch {
-    // proceed without attachment
+    // proceed without CV attachments
   }
+
+  // Interview kit PDF
+  // KV stores { kit: {...}, session_secret_hash } — extract the inner kit.
+  try {
+    const kitEntry = await env.GASLAMAR_SESSIONS.get(`kit_${sessionId}_id`, { type: 'json' });
+    // Support both new wrapped format { kit: {...} } and legacy plain-object format.
+    const kitData = kitEntry?.kit ?? kitEntry;
+    if (kitData && kitData.interview_questions) {
+      const pdfBytes = await generateInterviewKitPdf(kitData);
+      attachments.push({ filename: 'interview-kit.pdf', content: toBase64(pdfBytes) });
+    }
+  } catch {
+    // proceed without interview kit attachment
+  }
+
+  const kitAttachment = attachments.find(a => a.filename === 'interview-kit.pdf') ?? null;
 
   // Single-use token — protects the session ID from email exposure
   const baseUrl = frontendBaseUrl(env);
@@ -268,10 +305,16 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
       </div>`
     : '';
 
-  const kitNoteHtml = kitAttachment
+  const cvCount   = attachments.filter(a => a.filename.startsWith('CV-')).length;
+  const hasKit    = !!kitAttachment;
+  const attachNoteHtml = attachments.length > 0
     ? `<div style="background:#F0F9FF;border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:13px;color:#0369A1">
-        <p style="margin:0 0 4px;font-weight:600;color:#0C4A6E">Interview Kit terlampir</p>
-        <p style="margin:0">Email ini dilengkapi file <strong>interview-kit.pdf</strong> berisi pertanyaan interview, contoh jawaban, template email lamaran, pesan WhatsApp, dan perkenalan diri yang disesuaikan dengan posisi yang kamu lamar.</p>
+        <p style="margin:0 0 6px;font-weight:600;color:#0C4A6E">File terlampir di email ini:</p>
+        <ul style="margin:0;padding-left:18px;line-height:1.8">
+          ${cvCount === 1 ? '<li><strong>CV-Indonesia.pdf</strong> — CV siap kirim ke HRD</li>' : ''}
+          ${cvCount >= 2 ? '<li><strong>CV-Indonesia.pdf</strong> — CV siap kirim ke HRD</li><li><strong>CV-English.pdf</strong> — For international applications</li>' : ''}
+          ${hasKit ? '<li><strong>interview-kit.pdf</strong> — Pertanyaan interview, contoh jawaban STAR, template email & WhatsApp</li>' : ''}
+        </ul>
       </div>`
     : '';
 
@@ -296,7 +339,7 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
 
       ${gapsHtml}
 
-      ${kitNoteHtml}
+      ${attachNoteHtml}
 
       <div style="margin-bottom:20px">
         <a href="${downloadUrl}"
@@ -332,9 +375,9 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
     body: JSON.stringify({
       from: 'GasLamar <noreply@gaslamar.com>',
       to: [session.email],
-      subject: `Skor CV kamu: ${scoreNum}/100 — ini yang sudah diperbaiki`,
+      subject: `Skor CV kamu: ${scoreNum}/100 — CV & Interview Kit terlampir`,
       html,
-      ...(kitAttachment && { attachments: [kitAttachment] }),
+      ...(attachments.length > 0 && { attachments }),
     }),
   });
   if (!cvRes.ok) {

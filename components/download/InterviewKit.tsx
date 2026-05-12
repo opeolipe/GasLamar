@@ -14,7 +14,6 @@ interface InterviewKitData {
 
 interface InterviewKitProps {
   sessionSecret: string | null;
-  isPreview?: boolean;
   language?: 'id' | 'en';
   initialKit?: unknown | null;
 }
@@ -61,7 +60,7 @@ function GroupLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function InterviewKit({ sessionSecret, isPreview = false, language = 'id', initialKit = null }: InterviewKitProps) {
+export default function InterviewKit({ sessionSecret, language = 'id', initialKit = null }: InterviewKitProps) {
   const [cache, setCache]           = useState<Partial<Record<'id' | 'en', InterviewKitData>>>(() =>
     isValidKit(initialKit) ? { [language]: initialKit as InterviewKitData } : {}
   );
@@ -260,46 +259,26 @@ export default function InterviewKit({ sessionSecret, isPreview = false, languag
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">
               <div className="flex flex-col gap-4">
-                {kit.interview_questions.map((q, index) => {
-                  const isBlurred = isPreview && index > 0;
-                  return (
-                    <div
-                      key={index}
-                      className="rounded-[12px] border border-slate-100 p-3"
-                      style={isBlurred ? { filter: 'blur(4px)', userSelect: 'none', pointerEvents: 'none' } : undefined}
-                    >
-                      <p className="text-sm font-bold text-blue-600 mb-1">Pertanyaan {index + 1}</p>
-                      <p className="text-sm font-semibold text-slate-800 mb-2">
-                        {activeLang === 'en' ? q.question_en : q.question_id}
-                      </p>
-                      <p className="text-sm font-medium text-slate-500 mb-1">Contoh jawaban (STAR):</p>
-                      <p className="text-sm text-slate-700 whitespace-pre-wrap bg-slate-50 rounded-[10px] px-3 py-2 mb-2">{q.sample_answer}</p>
-                      <CopyButton
-                        text={q.sample_answer}
-                        copyKey={`q-${index}-answer`}
-                        copiedKey={copiedKey}
-                        onCopy={handleCopy}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-
-              {isPreview && (
-                <div
-                  className="rounded-[16px] p-4 mt-4 text-center"
-                  style={{ background: 'rgba(37,99,235,0.05)', border: '1px dashed rgba(37,99,235,0.3)' }}
-                >
-                  <p className="font-semibold text-slate-700 text-sm mb-2">Upgrade untuk membuka Interview Kit lengkap</p>
-                  <a
-                    href="/"
-                    className="inline-flex items-center min-h-[44px] px-4 rounded-full font-bold text-white text-sm"
-                    style={{ background: 'linear-gradient(180deg,#2563eb,#1d4ed8)' }}
+                {kit.interview_questions.map((q, index) => (
+                  <div
+                    key={index}
+                    className="rounded-[12px] border border-slate-100 p-3"
                   >
-                    Upgrade Sekarang
-                  </a>
-                </div>
-              )}
+                    <p className="text-sm font-bold text-blue-600 mb-1">Pertanyaan {index + 1}</p>
+                    <p className="text-sm font-semibold text-slate-800 mb-2">
+                      {activeLang === 'en' ? q.question_en : q.question_id}
+                    </p>
+                    <p className="text-sm font-medium text-slate-500 mb-1">Contoh jawaban (STAR):</p>
+                    <p className="text-sm text-slate-700 whitespace-pre-wrap bg-slate-50 rounded-[10px] px-3 py-2 mb-2">{q.sample_answer}</p>
+                    <CopyButton
+                      text={q.sample_answer}
+                      copyKey={`q-${index}-answer`}
+                      copiedKey={copiedKey}
+                      onCopy={handleCopy}
+                    />
+                  </div>
+                ))}
+              </div>
             </AccordionContent>
           </AccordionItem>
 

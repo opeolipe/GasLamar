@@ -47,9 +47,11 @@ export function buildCVFilename(
   lang: 'id' | 'en',
   ext: 'docx' | 'pdf',
 ): string {
+  // Take the very first non-blank line — it is always the candidate's name.
+  // The earlier all-caps exclusion wrongly skipped names like "BUDI SANTOSO".
   const nameLine = cvText
     .split('\n').map(l => l.trim())
-    .find(l => l.length > 1 && l.length < 60 && !/^[A-Z\s]{4,}$/.test(l)) ?? null;
+    .find(l => l.length > 1 && l.length < 60) ?? null;
   const firstName  = nameLine ? sanitizeFilenamePart(nameLine.split(/\s+/)[0], 20) : null;
   const langLabel  = lang === 'id' ? 'Indonesia' : 'English';
   const parts      = [firstName, sanitizeFilenamePart(jobTitle, 20), sanitizeFilenamePart(company, 20), langLabel].filter(Boolean);
@@ -115,6 +117,15 @@ function parseHarvardLines(cvText: string): HarvardLine[] {
 
     if (GUIDANCE_LINE_PATTERN.test(line)) return { type: 'guidance', content: trimmed };
 
+    // ── Name and contact are detected BEFORE the heading/em-dash checks so that
+    //    all-caps names like "BUDI SANTOSO" are not misclassified as section headings,
+    //    and contact lines containing "|" + digits are not misclassified as location-date.
+    if (!nameFound) { nameFound = true; return { type: 'name', content: trimmed }; }
+    if (!contactFound && (trimmed.includes('|') || trimmed.includes('@') || trimmed.startsWith('+'))) {
+      contactFound = true;
+      return { type: 'contact', content: trimmed };
+    }
+
     const clean = trimmed.replace(/:$/, '').trim();
 
     const isSectionHead = CV_SECTION_HEADINGS.has(clean.toUpperCase())
@@ -127,14 +138,9 @@ function parseHarvardLines(cvText: string): HarvardLine[] {
     // Lines with an em/en-dash are experience or education entries (Company — Role)
     if (/[—–]/.test(trimmed) && !/^\d/.test(trimmed)) return { type: 'company-role', content: trimmed };
 
-    // Lines with a pipe and a 4-digit year are location+date rows (City | Jan 2022 – Mar 2024)
-    if (/^.+\s\|\s.+/.test(trimmed) && /\d{4}/.test(trimmed)) return { type: 'location-date', content: trimmed };
-
-    if (!nameFound)    { nameFound    = true; return { type: 'name',    content: trimmed }; }
-    if (!contactFound && (trimmed.includes('|') || trimmed.includes('@'))) {
-      contactFound = true;
-      return { type: 'contact', content: trimmed };
-    }
+    // Require a year-like pattern (19xx or 20xx) to avoid misclassifying phone numbers
+    // or other pipe-delimited lines as location-date rows.
+    if (/^.+\s\|\s.+/.test(trimmed) && /\b(19|20)\d{2}\b/.test(trimmed)) return { type: 'location-date', content: trimmed };
 
     return { type: 'text', content: trimmed };
   });
