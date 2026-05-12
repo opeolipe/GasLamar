@@ -6,6 +6,7 @@ import { callClaude } from '../claude.js';
 import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
 import { INTERVIEW_KIT_SYSTEM_PROMPT } from '../prompts/interviewKit.js';
 import { sanitizeForLLM } from '../sanitize.js';
+import { SESSION_STATES } from '../sessionStates.js';
 
 /**
  * Generates an interview kit for the given CV and job description.
@@ -114,7 +115,7 @@ export async function handleInterviewKit(request, env) {
   }
 
   // 'ready' = previous generation succeeded, credits still remain — interview kit is allowed.
-  const GENERATION_STATUSES = new Set(['paid', 'generating', 'ready']);
+  const GENERATION_STATUSES = new Set([SESSION_STATES.PAID, SESSION_STATES.GENERATING, SESSION_STATES.READY]);
   if (!GENERATION_STATUSES.has(session.status)) {
     return jsonResponse({ message: 'Pembayaran belum dikonfirmasi' }, 403, request, env);
   }
