@@ -13,6 +13,12 @@ const COMMON_TYPOS: Record<string, string> = {
 
 const CANONICAL_DOMAINS = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com'];
 
+// Legitimate domains that are within edit-distance 1 of a canonical domain and must never be flagged.
+const KNOWN_VALID_DOMAINS = new Set([
+  'email.com', 'mail.com', 'ymail.com', 'rocketmail.com',
+  'me.com', 'live.com', 'msn.com', 'pm.com',
+]);
+
 export const DISPOSABLE_DOMAINS = new Set([
   'mailinator.com', 'tempmail.com', '10minutemail.com',
 ]);
@@ -40,6 +46,7 @@ function levenshtein(a: string, b: string): number {
 }
 
 function findTypoDomain(domain: string): string | null {
+  if (KNOWN_VALID_DOMAINS.has(domain)) return null;
   if (COMMON_TYPOS[domain]) return COMMON_TYPOS[domain];
   for (const canonical of CANONICAL_DOMAINS) {
     if (levenshtein(domain, canonical) === 1) return canonical;
