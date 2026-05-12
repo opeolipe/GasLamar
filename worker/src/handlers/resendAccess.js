@@ -2,10 +2,17 @@ import { jsonResponse }                        from '../cors.js';
 import { getSession }                          from '../sessions.js';
 import { clientIp, log, logError, sha256Hex } from '../utils.js';
 import { checkRateLimitKV }                    from '../rateLimit.js';
-import { sendPaymentConfirmationEmail }        from '../email.js';
+import { sendResendAccessEmail }               from '../email.js';
+import { SESSION_STATES }                      from '../sessionStates.js';
 
 const EMAIL_REGEX   = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PAID_STATUSES = new Set(['paid', 'generating']);
+// All post-payment states — ready and exhausted still have accessible CV results.
+const PAID_STATUSES = new Set([
+  SESSION_STATES.PAID,
+  SESSION_STATES.GENERATING,
+  SESSION_STATES.READY,
+  SESSION_STATES.EXHAUSTED,
+]);
 
 // Always returned — never reveal whether an email or session exists.
 const GENERIC_OK = { success: true, message: 'Jika email terdaftar, link baru telah dikirim.' };
@@ -63,10 +70,7 @@ export async function handleResendAccess(request, env) {
 
   for (const id of activeIds.slice(0, 3)) {
     try {
-      await sendPaymentConfirmationEmail(id, env, {
-        subject: 'Akses ulang CV kamu — GasLamar',
-        heading: 'Klik link di bawah untuk kembali ke CV kamu:',
-      });
+      await sendResendAccessEmail(id, env);
     } catch (e) {
       logError('resend_access_email_failed', { error: e.message });
     }
