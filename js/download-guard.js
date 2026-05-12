@@ -28,7 +28,7 @@
   // Validate format (32 hex chars = 128-bit token) to prevent content flash
   // from a garbage token that would pass the guard but fail server-side.
   var token = params.get('token');
-  if (token && /^[0-9a-f]{32}$/i.test(token)) return;
+  if (token && /^[0-9a-f]{32}$/.test(token)) return;
 
   // Path 2: normal flow — session_id stored by payment.js after /create-payment
   try {

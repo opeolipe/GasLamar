@@ -67,8 +67,12 @@ export function validateEmail(raw: string): EmailValidation {
   }
 
   const atIdx     = normalized.indexOf('@');
-  const localPart = email.slice(0, email.indexOf('@'));
+  const localPart = email.slice(0, atIdx);
   const domain    = normalized.slice(atIdx + 1);
+
+  if (localPart.length > 64) {
+    return { valid: false, error: 'Format email tidak valid. Contoh: nama@domain.com', suggestion: null, isDisposable: false };
+  }
 
   const corrected = findTypoDomain(domain);
   if (corrected && corrected !== domain) {

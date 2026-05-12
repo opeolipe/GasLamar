@@ -131,7 +131,7 @@ export async function handleMayarWebhook(request, env, ctx) {
 
     let updated = false;
     try {
-      updated = await updateSession(env, sessionId, { status: 'paid', paid_at: Date.now() });
+      updated = await updateSession(env, sessionId, { status: SESSION_STATES.PAID, paid_at: Date.now() });
     } catch (e) {
       // Transient KV error — remove the sentinel so Mayar's next retry can succeed.
       await env.GASLAMAR_SESSIONS.delete(processedKey).catch(() => {});
