@@ -158,7 +158,7 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
       return;
     }
 
-    const { cv_id, cv_en, credits_remaining, total_credits, job_title, company } = await res.json();
+    const { cv_id, cv_en, credits_remaining, total_credits, job_title, company, persist_failed } = await res.json();
 
     // Cache for retries and for buildCVFilename in download-docx-pdf.js
     cvDataCache = {
@@ -194,6 +194,16 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
       // Post-download coaching card — called here (not inside showDownloadReady)
       // so the caller controls sequencing after the download UI is rendered.
       showPostDownloadActions(credits_remaining || 0, tier);
+      if (persist_failed) {
+        var container = document.getElementById('post-download-actions');
+        if (container) {
+          var warn = document.createElement('div');
+          warn.className = 'post-dl-card';
+          warn.style.cssText = 'border-left: 4px solid #f59e0b; background: #fffbeb;';
+          warn.innerHTML = '<p style="margin:0;font-size:0.9rem;">⚠️ <strong>Simpan CV sekarang.</strong> Terjadi gangguan sementara — CV kamu tidak tersimpan di server. Download sekarang karena halaman ini tidak bisa di-refresh untuk mengunduh ulang.</p>';
+          container.prepend(warn);
+        }
+      }
     }, 500);
 
   } catch (err) {

@@ -217,21 +217,28 @@ export async function handleGenerate(request, env, ctx) {
     // TTL mirrors the session: 7 days for single-credit, 30 days for multi-credit.
     const resultTtl = (session.total_credits ?? 1) > 1 ? 2592000 : 604800;
     const { job_title: resultJobTitle, company: resultCompany } = extractJobMetadata(effectiveJobDesc);
-    await env.GASLAMAR_SESSIONS.put(
-      `${KV_CV_RESULT_PREFIX}${session_id}`,
-      JSON.stringify({
-        cv_id:      idResult.text,
-        cv_id_docx: idResult.docxText,
-        cv_en:      enResult?.text      ?? null,
-        cv_en_docx: enResult?.docxText  ?? null,
-        session_secret_hash: session.session_secret_hash ?? null,
-        job_title:  resultJobTitle ?? null,
-        company:    resultCompany  ?? null,
-        tier,
-        saved_at:   Date.now(),
-      }),
-      { expirationTtl: resultTtl }
-    ).catch(e => { logError('cv_result_kv_write_failed', { session_id, error: e?.message }); });
+    const resultPayload = JSON.stringify({
+      cv_id:      idResult.text,
+      cv_id_docx: idResult.docxText,
+      cv_en:      enResult?.text      ?? null,
+      cv_en_docx: enResult?.docxText  ?? null,
+      session_secret_hash: session.session_secret_hash ?? null,
+      job_title:  resultJobTitle ?? null,
+      company:    resultCompany  ?? null,
+      tier,
+      saved_at:   Date.now(),
+    });
+    // Retry once on transient KV failure. If both attempts fail, surface persist_failed
+    // in the response so the client can warn the user to save the CV immediately.
+    let persistOk = false;
+    for (let attempt = 0; attempt < 2 && !persistOk; attempt++) {
+      try {
+        await env.GASLAMAR_SESSIONS.put(`${KV_CV_RESULT_PREFIX}${session_id}`, resultPayload, { expirationTtl: resultTtl });
+        persistOk = true;
+      } catch (e) {
+        logError('cv_result_kv_write_failed', { session_id, attempt, error: e?.message });
+      }
+    }
 
     log('generate_success', { session_id, tier, credits_remaining: newCreditsRemaining });
 
@@ -281,6 +288,7 @@ export async function handleGenerate(request, env, ctx) {
       job_title:         job_title      ?? null,
       company:           company        ?? null,
       interview_kit:     interviewKitId ?? null,
+      persist_failed:    !persistOk,
     }, 200, request, env);
   } catch (e) {
     // On failure, restore to the state that allows retry without consuming a credit.
