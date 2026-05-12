@@ -5,11 +5,17 @@ import { getSessionIdFromCookie }            from '../cookies.js';
 import { clientIp, log, logError }           from '../utils.js';
 import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
 import { sendPaymentConfirmationEmail }      from '../email.js';
+import { SESSION_STATES }                    from '../sessionStates.js';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Statuses that indicate the session has been paid and an email should exist.
-const PAID_STATUSES = new Set(['paid', 'generating']);
+// All post-payment states — ready and exhausted still have accessible CV results.
+const PAID_STATUSES = new Set([
+  SESSION_STATES.PAID,
+  SESSION_STATES.GENERATING,
+  SESSION_STATES.READY,
+  SESSION_STATES.EXHAUSTED,
+]);
 
 export async function handleResendEmail(request, env) {
   const sessionId = getSessionIdFromCookie(request);

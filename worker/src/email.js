@@ -66,9 +66,9 @@ export async function sendPaymentConfirmationEmail(sessionId, env) {
   const session = await getSession(env, sessionId);
   if (!session || !session.email) return;
 
-  const emailToken = await createEmailToken(env, sessionId);
-  const downloadUrl = `${frontendBaseUrl(env)}/download.html?token=${emailToken}`;
   const baseUrl = frontendBaseUrl(env);
+  const emailToken = await createEmailToken(env, sessionId);
+  const downloadUrl = `${baseUrl}/download.html?token=${emailToken}`;
 
   const tierLabels = {
     coba:    'Coba Dulu (1 CV)',

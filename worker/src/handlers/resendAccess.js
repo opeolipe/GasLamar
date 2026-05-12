@@ -3,9 +3,16 @@ import { getSession }                          from '../sessions.js';
 import { clientIp, log, logError, sha256Hex } from '../utils.js';
 import { checkRateLimitKV }                    from '../rateLimit.js';
 import { sendResendAccessEmail }               from '../email.js';
+import { SESSION_STATES }                      from '../sessionStates.js';
 
 const EMAIL_REGEX   = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PAID_STATUSES = new Set(['paid', 'generating']);
+// All post-payment states — ready and exhausted still have accessible CV results.
+const PAID_STATUSES = new Set([
+  SESSION_STATES.PAID,
+  SESSION_STATES.GENERATING,
+  SESSION_STATES.READY,
+  SESSION_STATES.EXHAUSTED,
+]);
 
 // Always returned — never reveal whether an email or session exists.
 const GENERIC_OK = { success: true, message: 'Jika email terdaftar, link baru telah dikirim.' };
