@@ -26,6 +26,7 @@ export interface GenerateCVError {
   title:     string;
   message:   string;
   retryable: boolean;
+  reason?:   string;
 }
 
 export type GenerateStatus = 'idle' | 'running' | 'done' | 'error';

@@ -306,7 +306,7 @@ export default function Download() {
     : 'CV.docx';
 
   const sessionError = view === 'error'
-    ? (session.error ?? generate.error ?? { title: 'Terjadi Kesalahan', message: 'Terjadi kesalahan. Coba refresh halaman.', retryable: false })
+    ? (session.error ?? generate.error ?? { title: 'Terjadi Kesalahan', message: 'Terjadi kesalahan. Coba refresh halaman.', retryable: false, reason: undefined })
     : null;
 
   // ── Render ────────────────────────────────────────────────────────────────
