@@ -26,15 +26,28 @@ function sanitize(str) {
     .replace(/[^\x00-\xFF]/g, '');
 }
 
-function normalizeCvLine(line) {
-  return String(line || '')
-    .replace(/^\s{0,3}#{1,6}\s+/, '')     // markdown headings
+function normalizeCvLine(line, isIndonesian = false) {
+  let text = String(line || '')
+    .replace(/^\s{0,3}#{1,6}\s*/, '')     // markdown headings
     .replace(/\*\*(.*?)\*\*/g, '$1')      // bold markdown
     .replace(/__(.*?)__/g, '$1')          // underscore bold
     .replace(/\s+/g, ' ')
     .replace(/\s+(untuk menunjukkan dampak kerja yang konkret dan terukur)$/i, '')
     .replace(/\s+(to demonstrate concrete and measurable work impact)$/i, '')
     .trim();
+
+  if (isIndonesian) {
+    text = text
+      .replace(/\bEast Java\b/gi, 'Jawa Timur')
+      .replace(/\bWest Java\b/gi, 'Jawa Barat')
+      .replace(/\bCentral Java\b/gi, 'Jawa Tengah')
+      .replace(/\bNorth Sulawesi\b/gi, 'Sulawesi Utara')
+      .replace(/\bSouth Sulawesi\b/gi, 'Sulawesi Selatan')
+      .replace(/\bPresent\b/gi, 'Sekarang')
+      .replace(/\bCurrent\b/gi, 'Sekarang');
+  }
+
+  return text;
 }
 
 function wrapText(text, font, size, maxWidth) {
@@ -97,13 +110,14 @@ export async function generateCVPdf(cvText) {
   }
 
   // ── Parse and render ──────────────────────────────────────────────────────────
+  const isIndonesian = /(RINGKASAN PROFESIONAL|PENGALAMAN KERJA|PENDIDIKAN|KEAHLIAN)/i.test(cvText);
   const rawLines  = cvText.split('\n');
   let nameFound   = false;
   let contactFound = false;
 
   for (let i = 0; i < rawLines.length; i++) {
     const line    = rawLines[i];
-    const trimmed = normalizeCvLine(line);
+    const trimmed = normalizeCvLine(line, isIndonesian);
 
     if (!trimmed) { y -= 3; continue; }
 
@@ -167,8 +181,8 @@ export async function generateCVPdf(cvText) {
     if (/[—–]/.test(trimmed) && !/^\d/.test(trimmed)) {
       // Look ahead (skip blanks) for a location-date companion line
       let nextIdx = i + 1;
-      while (nextIdx < rawLines.length && !normalizeCvLine(rawLines[nextIdx])) nextIdx++;
-      const nextTrimmed = nextIdx < rawLines.length ? normalizeCvLine(rawLines[nextIdx]) : '';
+      while (nextIdx < rawLines.length && !normalizeCvLine(rawLines[nextIdx], isIndonesian)) nextIdx++;
+      const nextTrimmed = nextIdx < rawLines.length ? normalizeCvLine(rawLines[nextIdx], isIndonesian) : '';
       const isLocDate   = /^.+\s\|\s.+/.test(nextTrimmed) && /\b(19|20)\d{2}\b/.test(nextTrimmed);
 
       const dashParts = trimmed.split(/\s*[—–]\s*/);

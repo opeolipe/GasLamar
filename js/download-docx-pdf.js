@@ -52,7 +52,7 @@ const CV_SECTION_HEADINGS = new Set([
 // @returns {{ type: 'heading'|'bullet'|'text'|'blank', content: string }[]}
 function parseLines(cvText) {
   return cvText.split('\n').map(function(line) {
-    const withoutMdHeading = line.replace(/^\s{0,3}#{1,6}\s+/, '');
+    const withoutMdHeading = line.replace(/^\s{0,3}#{1,6}\s*/, '');
     const trimmed = withoutMdHeading.trim();
     if (!trimmed) return { type: 'blank', content: '' };
 
@@ -75,6 +75,17 @@ function parseLines(cvText) {
     if (isBullet)      return { type: 'bullet',  content: trimmed.replace(/^[•\-·*]\s*/, '') };
     return { type: 'text', content: trimmed };
   });
+}
+
+function localizeIndonesianText(text) {
+  return String(text || '')
+    .replace(/\bEast Java\b/gi, 'Jawa Timur')
+    .replace(/\bWest Java\b/gi, 'Jawa Barat')
+    .replace(/\bCentral Java\b/gi, 'Jawa Tengah')
+    .replace(/\bNorth Sulawesi\b/gi, 'Sulawesi Utara')
+    .replace(/\bSouth Sulawesi\b/gi, 'Sulawesi Selatan')
+    .replace(/\bPresent\b/gi, 'Sekarang')
+    .replace(/\bCurrent\b/gi, 'Sekarang');
 }
 
 function validateExportLines(parsed) {
@@ -109,7 +120,10 @@ function validateExportLines(parsed) {
 function generateDOCX(cvText, lang, tier) {
   try {
     const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } = docx;
-    const parsed = validateExportLines(parseLines(cvText));
+    let parsed = validateExportLines(parseLines(cvText));
+    if (lang === 'id') {
+      parsed = parsed.map(row => ({ ...row, content: localizeIndonesianText(row.content) }));
+    }
 
     const children = [];
     for (let idx = 0; idx < parsed.length; idx++) {
@@ -180,7 +194,10 @@ function generatePDF(cvText, lang, tier) {
   try {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const parsed = validateExportLines(parseLines(cvText));
+    let parsed = validateExportLines(parseLines(cvText));
+    if (lang === 'id') {
+      parsed = parsed.map(row => ({ ...row, content: localizeIndonesianText(row.content) }));
+    }
 
     const pageWidth  = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();

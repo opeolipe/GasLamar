@@ -867,6 +867,24 @@ describe('postProcessCV', () => {
     expect(text).toContain('RINGKASAN PROFESIONAL');
   });
 
+  it('strips markdown heading prefix even without space after #', () => {
+    const cv = '#Nama Kandidat\n##RINGKASAN PROFESIONAL';
+    const { text } = postProcessCV(cv, cv);
+    expect(text).toContain('Nama Kandidat');
+    expect(text).toContain('RINGKASAN PROFESIONAL');
+    expect(text).not.toContain('#Nama Kandidat');
+    expect(text).not.toContain('##RINGKASAN PROFESIONAL');
+  });
+
+  it('localizes non-technical English location terms in Indonesian output', () => {
+    const cv = 'PENGALAMAN KERJA\nPT Contoh — Staf Operasional\nEast Java | 2022 - Present';
+    const { text } = postProcessCV(cv, cv, null, 'pdf', { language: 'id' });
+    expect(text).toContain('Jawa Timur');
+    expect(text).toContain('Sekarang');
+    expect(text).not.toContain('East Java');
+    expect(text).not.toContain('Present');
+  });
+
   it('DOCX mode keeps output clean without guidance artifacts', () => {
     const lines = [
       'Membangun REST API untuk sistem backend perusahaan yang skalabel dan andal',
