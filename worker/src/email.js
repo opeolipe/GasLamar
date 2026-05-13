@@ -21,6 +21,14 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
+function classifyAttachment(filename) {
+  const lower = String(filename || '').toLowerCase();
+  if (lower.includes('interview-kit') && lower.endsWith('.pdf')) return 'kit';
+  if (lower.includes('cv-indonesia') && lower.endsWith('.pdf')) return 'cv_id_pdf';
+  if (lower.includes('cv-english') && lower.endsWith('.pdf')) return 'cv_en_pdf';
+  return 'other';
+}
+
 // ---- Resend Email ----
 //
 // Sends a post-payment confirmation email via Resend API.
@@ -292,7 +300,7 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
     // proceed without interview kit attachment
   }
 
-  const kitAttachment = attachments.find(a => a.filename === 'interview-kit.pdf') ?? null;
+  const kitAttachment = attachments.find(a => classifyAttachment(a.filename) === 'kit') ?? null;
 
   // Single-use token — protects the session ID from email exposure
   const baseUrl = frontendBaseUrl(env);
@@ -324,14 +332,15 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
       </div>`
     : '';
 
-  const cvCount   = attachments.filter(a => a.filename.startsWith('CV-')).length;
+  const hasIdCv   = attachments.some(a => classifyAttachment(a.filename) === 'cv_id_pdf');
+  const hasEnCv   = attachments.some(a => classifyAttachment(a.filename) === 'cv_en_pdf');
   const hasKit    = !!kitAttachment;
   const attachNoteHtml = attachments.length > 0
     ? `<div style="background:#F0F9FF;border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:13px;color:#0369A1">
         <p style="margin:0 0 6px;font-weight:600;color:#0C4A6E">File terlampir di email ini:</p>
         <ul style="margin:0;padding-left:18px;line-height:1.8">
-          ${cvCount === 1 ? '<li><strong>CV-Indonesia.pdf</strong> — CV siap kirim ke HRD</li>' : ''}
-          ${cvCount >= 2 ? '<li><strong>CV-Indonesia.pdf</strong> — CV siap kirim ke HRD</li><li><strong>CV-English.pdf</strong> — For international applications</li>' : ''}
+          ${hasIdCv ? '<li><strong>CV-Indonesia.pdf</strong> — CV siap kirim ke HRD</li>' : ''}
+          ${hasEnCv ? '<li><strong>CV-English.pdf</strong> — For international applications</li>' : ''}
           ${hasKit ? '<li><strong>interview-kit.pdf</strong> — Pertanyaan interview, contoh jawaban STAR, template email & WhatsApp</li>' : ''}
         </ul>
       </div>`
@@ -404,7 +413,7 @@ Butuh bantuan: support@gaslamar.com`;
     body: JSON.stringify({
       from: 'GasLamar <noreply@gaslamar.com>',
       to: [session.email],
-      subject: `Skor CV kamu: ${scoreNum}/100 — CV & Interview Kit terlampir`,
+      subject: `Skor CV kamu: ${scoreNum}/100${hasKit ? ' — CV & Interview Kit terlampir' : ' — CV terlampir'}`,
       html,
       text,
       ...(attachments.length > 0 && { attachments }),
