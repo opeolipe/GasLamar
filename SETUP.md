@@ -198,10 +198,10 @@ POST /analyze
 **Hasil:** LLM sekarang hanya bertanggung jawab untuk (1) menyalin data verbatim dan (2) memformat teks penjelasan. Semua keputusan scoring dan verdict dilakukan oleh kode deterministik.
 
 **Caching strategy:**
-- `extract_v2_<hash>` — hasil Stage 1 (TTL 24 jam); bump versi di `analysis.js` jika SKILL_EXTRACT berubah
-- `analysis_v6_<hash>` — hasil final lengkap (TTL 48 jam); bump versi di `analysis.js` jika scoring berubah
+- `extract_<version>_<hash>` — hasil Stage 1 (TTL 24 jam); bump versi di `worker/src/cacheVersions.js`
+- `analysis_<version>_<hash>` — hasil final lengkap (TTL 48 jam); bump versi di `worker/src/cacheVersions.js`
 - `cvtext_<token>` — menyimpan scoring snapshot bersama CV text (TTL 24 jam); diambil oleh `GET /get-scoring` sehingga hasil.html bisa di-refresh tanpa kehilangan data
-- `gen_id_v3_<hash>` / `gen_en_v3_<hash>` — hasil tailoring CV (TTL 48 jam); bump prefix di `tailoring.js`
+- `gen_id_<version>_<hash>` / `gen_en_<version>_<hash>` — hasil tailoring CV (TTL 48 jam); bump prefix di `worker/src/cacheVersions.js`
 - `kit_<session_id>_<language>` — interview kit (TTL 24 jam)
 
 ---
@@ -227,14 +227,23 @@ npx wrangler kv:namespace create GASLAMAR_SESSIONS
 npx wrangler kv:namespace create GASLAMAR_SESSIONS --preview
 ```
 
-Update `wrangler.toml` dengan ID yang didapat:
+Update `wrangler.toml` dengan ID yang didapat. **Jangan share namespace antar environment**:
 
 ```toml
 [[kv_namespaces]]
 binding = "GASLAMAR_SESSIONS"
-id = "PASTE_YOUR_KV_ID_HERE"
-preview_id = "PASTE_YOUR_PREVIEW_KV_ID_HERE"
+id = "PASTE_PRODUCTION_KV_ID_HERE"
+preview_id = "PASTE_LOCAL_PREVIEW_KV_ID_HERE"
+
+[[env.staging.kv_namespaces]]
+binding = "GASLAMAR_SESSIONS"
+id = "PASTE_STAGING_KV_ID_HERE"
 ```
+
+Checklist isolasi KV:
+- Production KV ID ≠ Staging KV ID
+- Staging KV ID ≠ Local preview KV ID
+- Local preview KV ID hanya untuk `wrangler dev`/preview
 
 > **Note:** Rate limiter bindings (`RATE_LIMITER_ANALYZE`, dll.) sudah dikonfigurasi di `wrangler.toml` menggunakan Cloudflare's native rate limiting. Tidak perlu setup manual.
 
@@ -298,6 +307,14 @@ Untuk memonitor logs real-time:
 ```bash
 npm run tail
 ```
+
+Jika test worker dijalankan di sandbox yang memblokir bind `127.0.0.1` (error `listen EPERM`), jalankan test di environment yang mengizinkan localhost bind.
+
+Health check yang dipakai untuk monitor:
+- Production/API route: `https://gaslamar.com/health`
+- Staging/API route: `https://api-staging.gaslamar.com/health`
+
+Catatan: URL `workers.dev` tidak dijadikan health source of truth untuk production routing.
 
 ---
 

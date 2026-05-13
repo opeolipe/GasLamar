@@ -404,7 +404,7 @@ export default function Download() {
         }}
         aria-label="Site navigation"
       >
-        <a href="index.html" className="no-underline inline-flex items-center">
+        <a href="index.html" className="no-underline inline-flex items-center min-h-[44px]">
           <img src="assets/logo.svg" alt="GasLamar" height="28" style={{ display: 'block' }} />
         </a>
       </nav>

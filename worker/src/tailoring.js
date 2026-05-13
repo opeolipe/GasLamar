@@ -3,9 +3,7 @@ import { SKILL_TAILOR_EN } from './prompts/tailorEn.js';
 import { callClaude }      from './claude.js';
 import { sha256Hex }       from './utils.js';
 import { postProcessCV }   from './rewriteGuard.js';
-
-const GEN_KEY_PREFIX_ID = 'gen_id_v4_'; // bumped: full 64-char SHA-256 + null-byte separator
-const GEN_KEY_PREFIX_EN = 'gen_en_v4_'; // bumped: full 64-char SHA-256 + null-byte separator
+import { GEN_KEY_PREFIX_ID, GEN_KEY_PREFIX_EN } from './cacheVersions.js';
 
 /**
  * Returns the first missing required section heading, 'too short' if the text

@@ -179,11 +179,21 @@ export async function route(request, env, ctx) {
     const proxyHeaders = new Headers(request.headers);
     proxyHeaders.delete('host');
     try {
-      return await fetch(new Request(pagesUrl, {
+      const proxied = await fetch(new Request(pagesUrl, {
         method: request.method,
         headers: proxyHeaders,
         redirect: 'manual',
       }));
+      const headers = new Headers(proxied.headers);
+      // Static HTML/assets do not need wildcard CORS. Keep same-origin-only posture.
+      if (headers.get('Access-Control-Allow-Origin') === '*') {
+        headers.delete('Access-Control-Allow-Origin');
+      }
+      return new Response(proxied.body, {
+        status: proxied.status,
+        statusText: proxied.statusText,
+        headers,
+      });
     } catch (err) {
       logError('pages_proxy_error', { path: pathname, error: String(err) });
       return jsonResponse({ message: 'Service temporarily unavailable' }, 503, request, env);
