@@ -155,7 +155,8 @@ export default function Download() {
       view !== 'credits-dashboard' ||
       generate.content !== null ||
       session.sessionData?.creditsRemaining !== 0 ||
-      !session.sessionId
+      !session.sessionId ||
+      !session.sessionSecret   // secret not yet populated — effect will re-run once it is
     ) return;
 
     fetch(`${WORKER_URL}/get-result`, {
@@ -163,7 +164,13 @@ export default function Download() {
       headers:     buildSecretHeaders(session.sessionSecret),
       credentials: 'include',
     })
-      .then(r => r.ok ? r.json() : null)
+      .then(r => {
+        if (!r.ok) {
+          logError('cv_result_restore_failed', { status: r.status });
+          return null;
+        }
+        return r.json();
+      })
       .then((data: any) => {
         if (!data || !data.cv_id) return;
         setRestoredContent({
@@ -181,8 +188,8 @@ export default function Download() {
         });
         setView('ready');
       })
-      .catch(() => {});
-  }, [view, generate.content, session.sessionData?.creditsRemaining, session.sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
+      .catch(err => logError('cv_result_restore_failed', { message: (err as Error)?.message }));
+  }, [view, generate.content, session.sessionData?.creditsRemaining, session.sessionId, session.sessionSecret]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Countdown helpers ─────────────────────────────────────────────────────
 
