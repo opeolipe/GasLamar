@@ -26,6 +26,17 @@ function sanitize(str) {
     .replace(/[^\x00-\xFF]/g, '');
 }
 
+function normalizeCvLine(line) {
+  return String(line || '')
+    .replace(/^\s{0,3}#{1,6}\s+/, '')     // markdown headings
+    .replace(/\*\*(.*?)\*\*/g, '$1')      // bold markdown
+    .replace(/__(.*?)__/g, '$1')          // underscore bold
+    .replace(/\s+/g, ' ')
+    .replace(/\s+(untuk menunjukkan dampak kerja yang konkret dan terukur)$/i, '')
+    .replace(/\s+(to demonstrate concrete and measurable work impact)$/i, '')
+    .trim();
+}
+
 function wrapText(text, font, size, maxWidth) {
   const out = [];
   for (const para of sanitize(text).split('\n')) {
@@ -92,7 +103,7 @@ export async function generateCVPdf(cvText) {
 
   for (let i = 0; i < rawLines.length; i++) {
     const line    = rawLines[i];
-    const trimmed = line.trim();
+    const trimmed = normalizeCvLine(line);
 
     if (!trimmed) { y -= 3; continue; }
 
@@ -156,8 +167,8 @@ export async function generateCVPdf(cvText) {
     if (/[—–]/.test(trimmed) && !/^\d/.test(trimmed)) {
       // Look ahead (skip blanks) for a location-date companion line
       let nextIdx = i + 1;
-      while (nextIdx < rawLines.length && !rawLines[nextIdx].trim()) nextIdx++;
-      const nextTrimmed = nextIdx < rawLines.length ? rawLines[nextIdx].trim() : '';
+      while (nextIdx < rawLines.length && !normalizeCvLine(rawLines[nextIdx])) nextIdx++;
+      const nextTrimmed = nextIdx < rawLines.length ? normalizeCvLine(rawLines[nextIdx]) : '';
       const isLocDate   = /^.+\s\|\s.+/.test(nextTrimmed) && /\b(19|20)\d{2}\b/.test(nextTrimmed);
 
       const dashParts = trimmed.split(/\s*[—–]\s*/);

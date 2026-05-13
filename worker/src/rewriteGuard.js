@@ -70,25 +70,6 @@ const EDUCATION_LINE_PATTERN = /^(S[123]|D[123]|SMA|SMK|SD|Bachelor|Master|PhD|S
 const SUMMARY_START_RE = /^(?:RINGKASAN\s+(?:PROFESIONAL|EKSEKUTIF|SINGKAT)|PROFESSIONAL\s+SUMMARY|SUMMARY|PROFILE|PROFESSIONAL\s+PROFILE)\s*$/i;
 const SUMMARY_END_RE   = /^(?:PENGALAMAN\s+KERJA|WORK\s+EXPERIENCE|EMPLOYMENT\s+HISTORY|PENDIDIKAN|EDUCATION|KEAHLIAN|SKILLS|TECHNICAL\s+SKILLS|SERTIFIKASI|CERTIFICATIONS)\s*$/i;
 
-// SYNC: Must stay identical to shared/rewriteRules.js ISSUE_FALLBACK_SUFFIX.
-const ISSUE_FALLBACK = {
-  portfolio:        ' untuk menunjukkan dampak kerja yang konkret dan terukur',
-  recruiter_signal: ' dengan fokus pada peran dan hasil yang spesifik',
-  north_star:       ' yang sesuai dengan kebutuhan posisi ini',
-  effort:           ' dengan konteks skill yang dibutuhkan untuk role ini',
-  risk:             ' menggunakan pendekatan yang masih relevan saat ini',
-};
-const GENERIC_FALLBACK_SUFFIX = ' dengan hasil yang lebih konkret dan terukur';
-
-const ISSUE_FALLBACK_EN = {
-  portfolio:        ' to demonstrate concrete and measurable work impact',
-  recruiter_signal: ' with focus on specific roles and outcomes',
-  north_star:       ' aligned with the requirements of this position',
-  effort:           ' with the skill context needed for this role',
-  risk:             ' using an approach that remains relevant today',
-};
-const GENERIC_FALLBACK_SUFFIX_EN = ' with more concrete and measurable results';
-
 // Phrases that must never appear in final CV output — stripped as a last defence.
 const BANNED_OUTPUT_PHRASES = [
   // Indonesian
@@ -110,6 +91,13 @@ const BANNED_OUTPUT_PHRASES = [
   'mention specific tools',
   'insert specific number',
   'add specific tools',
+  // Anti-AI repetitive suffixes
+  'untuk menunjukkan dampak kerja yang konkret dan terukur',
+  'dengan fokus pada peran dan hasil yang spesifik',
+  'dengan konteks skill yang dibutuhkan untuk role ini',
+  'to demonstrate concrete and measurable work impact',
+  'with focus on specific roles and outcomes',
+  'with the skill context needed for this role',
 ];
 
 // Pre-escaped at module load — avoids re-escaping on every postProcessCV() call.
@@ -231,12 +219,9 @@ export function validateRewrite(before, after, entitasKlaim = null) {
 }
 
 function applyValidationResult(severity, original, issue, lang = 'id') {
-  if (severity === 'medium') {
-    const fallbackMap = lang === 'en' ? ISSUE_FALLBACK_EN : ISSUE_FALLBACK;
-    const defaultSuffix = lang === 'en' ? GENERIC_FALLBACK_SUFFIX_EN : GENERIC_FALLBACK_SUFFIX;
-    return original + (fallbackMap[issue] ?? defaultSuffix);
-  }
-  return safeRewriteLine(original, issue, lang);
+  // For recruiter-readability, keep factual original wording rather than
+  // appending generic AI-sounding suffixes when validation fails.
+  return original;
 }
 
 // ── Logging ───────────────────────────────────────────────────────────────────
@@ -253,6 +238,10 @@ function logHallucination(event) {
 
 export function cleanLine(text) {
   return text.replace(/^[\s•\-*]\s*/, '').trim();
+}
+
+function stripMarkdownHeadingPrefix(text) {
+  return String(text || '').replace(/^\s{0,3}#{1,6}\s+/, '').trimEnd();
 }
 
 function isBulletLine(line) {
@@ -376,10 +365,7 @@ function buildSafeSummary(cvText, lang = 'id') {
 // ── Safe fallback ─────────────────────────────────────────────────────────────
 
 function safeRewriteLine(original, issue, lang = 'id') {
-  const fallbackMap = lang === 'en' ? ISSUE_FALLBACK_EN : ISSUE_FALLBACK;
-  const defaultSuffix = lang === 'en' ? GENERIC_FALLBACK_SUFFIX_EN : GENERIC_FALLBACK_SUFFIX;
-  const suffix = (issue && fallbackMap[issue]) ?? defaultSuffix;
-  return original + suffix;
+  return original;
 }
 
 // ── Main post-processor ───────────────────────────────────────────────────────
@@ -429,12 +415,13 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
   // Step 1: validate each bullet line (graded severity)
   const outputLines = result.split('\n');
   const validated   = outputLines.map(line => {
-    const trimmed = line.trim();
+    const normalizedLine = stripMarkdownHeadingPrefix(line);
+    const trimmed = normalizedLine.trim();
     if (!trimmed)                               return line;
-    if (SECTION_HEADING_PATTERN.test(trimmed))  return line;
-    if (META_LINE_PATTERN.test(trimmed))        return line;
-    if (isNonBulletCVLine(trimmed))             return line;
-    if (!isBulletLine(trimmed))                 return line;
+    if (SECTION_HEADING_PATTERN.test(trimmed))  return normalizedLine;
+    if (META_LINE_PATTERN.test(trimmed))        return normalizedLine;
+    if (isNonBulletCVLine(trimmed))             return normalizedLine;
+    if (!isBulletLine(trimmed))                 return normalizedLine;
 
     const clean = cleanLine(trimmed);
     if (clean.length < MIN_LINE_LENGTH)         return line;
@@ -461,7 +448,7 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
         const prefix = line.match(/^(\s*[-•*]\s*)/)?.[1] ?? '';
         return prefix + shortOriginal;
       }
-      return line;
+      return normalizedLine;
     }
 
     const { valid, severity } = validateWithSeverity(original, clean, entitasKlaim);
@@ -473,7 +460,7 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
       return prefix + applyValidationResult(severity, original, issue, language);
     }
 
-    return line;
+    return normalizedLine;
   });
 
   result = validated.join('\n');

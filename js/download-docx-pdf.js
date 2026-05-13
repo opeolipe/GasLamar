@@ -7,10 +7,10 @@
 // ── EXPORT_STYLE ──────────────────────────────────────────────────────────────
 // Shared typography/spacing tokens for DOCX and PDF exporters to keep parity.
 const EXPORT_STYLE = {
-  fontFamily: 'Calibri',
-  bodyPt: 11,
+  fontFamily: 'Times New Roman',
+  bodyPt: 10.5,
   headingPt: 12,
-  lineMm: 5.1,
+  lineMm: 4.9,
   sectionGapMm: 4.4,
   paraGapMm: 2.2,
   bulletIndentMm: 4.8,
@@ -19,7 +19,7 @@ const EXPORT_STYLE = {
   // DOCX uses twips / half-points.
   docx: {
     marginTwip: 1134,           // 20mm
-    bodyHalfPt: 22,             // 11pt
+    bodyHalfPt: 21,             // 10.5pt
     headingHalfPt: 24,          // 12pt
     spaceAfterBodyTwip: 120,    // 6pt
     spaceAfterHeadingTwip: 80,  // 4pt
@@ -52,7 +52,8 @@ const CV_SECTION_HEADINGS = new Set([
 // @returns {{ type: 'heading'|'bullet'|'text'|'blank', content: string }[]}
 function parseLines(cvText) {
   return cvText.split('\n').map(function(line) {
-    const trimmed = line.trim();
+    const withoutMdHeading = line.replace(/^\s{0,3}#{1,6}\s+/, '');
+    const trimmed = withoutMdHeading.trim();
     if (!trimmed) return { type: 'blank', content: '' };
 
     if (/^\s*\((catatan:|note:)/i.test(trimmed)) return { type: 'noise', content: '' };
