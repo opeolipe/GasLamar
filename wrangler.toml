@@ -14,6 +14,11 @@ binding = "GASLAMAR_SESSIONS"
 id = "6524fffd3c574f92a16c655bc82dec8d"
 preview_id = "871f92d1f62e48d899976889e8710858"
 
+# KV namespace map (must stay isolated by environment):
+# - production KV : 6524fffd3c574f92a16c655bc82dec8d
+# - local preview : 871f92d1f62e48d899976889e8710858
+# - staging KV    : set under [env.staging.kv_namespaces].id (must be different from preview_id)
+
 # Native rate limiting (atomic — no TOCTOU race, unlike KV-based counters)
 # namespace_id is an arbitrary unique number per account
 [[unsafe.bindings]]
@@ -69,15 +74,11 @@ ENVIRONMENT = "staging"
 
 [[env.staging.kv_namespaces]]
 binding = "GASLAMAR_SESSIONS"
-# WARNING: this ID is the same as the default sandbox preview_id above.
-# Local dev (wrangler dev) uses the preview_id namespace, which means local dev
-# sessions and staging sessions share the same KV store. This can cause:
-#   - a local-dev session being picked up by a staging webhook
-#   - staging test data polluting local dev
-# To fix: create a dedicated staging namespace with:
+# SECURITY: Staging must use its own dedicated KV namespace (not preview/local).
+# Create with:
 #   npx wrangler kv:namespace create GASLAMAR_SESSIONS --env staging
-# Then replace the id below with the new namespace ID.
-id = "871f92d1f62e48d899976889e8710858"
+# Then replace this value with that dedicated namespace id.
+id = "7f5d5810bbcd42f2a30dc630265dfa13"
 
 [[env.staging.unsafe.bindings]]
 name = "RATE_LIMITER_ANALYZE"

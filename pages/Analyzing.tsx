@@ -143,15 +143,24 @@ export default function Analyzing() {
       style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -20%,rgba(37,99,235,0.08),transparent)' }}
     >
       <style>{KEYFRAMES}</style>
+      <a
+        href="#analyzing-main"
+        className="absolute left-[-9999px] top-0 z-[9999] bg-slate-900 text-white px-4 py-2 text-sm font-semibold rounded-br-lg focus:left-0"
+      >
+        Langsung ke konten analisis
+      </a>
 
       <nav
         className="border-b py-4 px-6 flex items-center sticky top-0 z-50 backdrop-blur-[14px]"
         style={{ borderColor: 'rgba(148,163,184,0.18)', background: 'rgba(255,255,255,0.88)' }}
+        aria-label="Site navigation"
       >
-        <img src="assets/logo.svg" alt="GasLamar" height="28" style={{ display: 'block' }} />
+        <a href="index.html" className="no-underline inline-flex items-center min-h-[44px]">
+          <img src="assets/logo.svg" alt="GasLamar" height="28" style={{ display: 'block' }} />
+        </a>
       </nav>
 
-      <main className="max-w-2xl mx-auto px-4 py-8 sm:py-12">
+      <main id="analyzing-main" className="max-w-2xl mx-auto px-4 py-8 sm:py-12">
         <div
           className="rounded-[24px] px-6 py-6 sm:px-8 sm:py-9"
           style={{

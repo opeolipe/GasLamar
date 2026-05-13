@@ -126,6 +126,16 @@ export async function sendPaymentConfirmationEmail(sessionId, env) {
         Butuh bantuan? <a href="mailto:support@gaslamar.com" style="color:#1B4FE8">support@gaslamar.com</a>
       </p>
     </div>`;
+  const text =
+`CV kamu sudah siap.
+
+Paket: ${tierLabel}
+${isMulti && creditsRemaining > 0 ? `Kredit tersisa: ${creditsRemaining}\n` : ''}
+Buka hasil CV: ${downloadUrl}
+
+Link email berlaku 1 jam. Setelah dibuka, akses tetap aktif selama ${validityText}.
+Butuh link baru: ${baseUrl}/access
+Butuh bantuan: support@gaslamar.com`;
 
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -138,6 +148,7 @@ export async function sendPaymentConfirmationEmail(sessionId, env) {
       to: [session.email],
       subject: 'Pembayaran berhasil — lanjut lihat hasil CV kamu',
       html,
+      text,
     }),
   });
   if (!res.ok) {
@@ -190,6 +201,13 @@ export async function sendResendAccessEmail(sessionId, env) {
         Butuh bantuan? <a href="mailto:support@gaslamar.com" style="color:#1B4FE8">support@gaslamar.com</a>
       </p>
     </div>`;
+  const text =
+`Klik link berikut untuk kembali ke hasil CV kamu:
+${downloadUrl}
+
+Link email berlaku 1 jam untuk dibuka kembali.
+Butuh link baru: ${baseUrl}/access
+Butuh bantuan: support@gaslamar.com`;
 
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -202,6 +220,7 @@ export async function sendResendAccessEmail(sessionId, env) {
       to: [session.email],
       subject: 'Akses CV kamu — GasLamar',
       html,
+      text,
     }),
   });
   if (!res.ok) {
@@ -365,6 +384,16 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
         Butuh bantuan? <a href="mailto:support@gaslamar.com" style="color:#1B4FE8">support@gaslamar.com</a>
       </p>
     </div>`;
+  const text =
+`CV kamu sekarang lebih siap.
+Skor kecocokan: ${scoreNum}/100
+Paket: ${tierLabel}
+${top3.length ? `Perubahan utama:\n- ${top3.map(g => String(g).slice(0, 200)).join('\n- ')}\n` : ''}
+Download CV kamu: ${downloadUrl}
+
+Link email berlaku 1 jam. Setelah dibuka, akses tetap aktif selama ${validityText}.
+Butuh link baru: ${baseUrl}/access
+Butuh bantuan: support@gaslamar.com`;
 
   const cvRes = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -377,6 +406,7 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
       to: [session.email],
       subject: `Skor CV kamu: ${scoreNum}/100 — CV & Interview Kit terlampir`,
       html,
+      text,
       ...(attachments.length > 0 && { attachments }),
     }),
   });

@@ -10,8 +10,43 @@
 (function () {
   'use strict';
 
+  var USER_ID_KEY = 'gaslamar_user_id';
+
   function ph() {
     return window.posthog || { capture: function () {}, identify: function () {}, onFeatureFlags: function () {}, getFeatureFlag: function () {} };
+  }
+
+  function toHex(bytes) {
+    return Array.from(bytes).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+  }
+
+  function getOrCreateStableUserId() {
+    try {
+      var existing = localStorage.getItem(USER_ID_KEY);
+      if (existing && /^gl_[a-f0-9]{32}$/.test(existing)) return existing;
+      var raw = new Uint8Array(16);
+      crypto.getRandomValues(raw);
+      var created = 'gl_' + toHex(raw);
+      localStorage.setItem(USER_ID_KEY, created);
+      return created;
+    } catch (_) {
+      // localStorage may be blocked (private mode). Keep a deterministic fallback in-memory per page.
+      if (!window.__gaslamarEphemeralUserId) {
+        var tmp = new Uint8Array(16);
+        crypto.getRandomValues(tmp);
+        window.__gaslamarEphemeralUserId = 'gl_' + toHex(tmp);
+      }
+      return window.__gaslamarEphemeralUserId;
+    }
+  }
+
+  async function sha256Hex(input) {
+    if (!crypto || !crypto.subtle) return null;
+    var normalized = String(input || '').trim().toLowerCase();
+    if (!normalized) return null;
+    var data = new TextEncoder().encode(normalized);
+    var hash = await crypto.subtle.digest('SHA-256', data);
+    return toHex(new Uint8Array(hash));
   }
 
   function getSessionProps() {
@@ -27,8 +62,24 @@
      * @param {Object} [traits]  extra person properties
      */
     identify: function (email, traits) {
-      if (!email) return;
-      ph().identify(email, Object.assign({ email: email }, traits || {}));
+      var stableId = getOrCreateStableUserId();
+      var safeTraits = Object.assign({}, traits || {});
+      delete safeTraits.email;
+
+      if (!email) {
+        ph().identify(stableId, Object.assign({ user_id: stableId }, safeTraits));
+        return;
+      }
+
+      sha256Hex(email).then(function (hashed) {
+        var id = hashed ? ('glh_' + hashed) : stableId;
+        var props = hashed
+          ? Object.assign({ user_hash: hashed, user_id: stableId }, safeTraits)
+          : Object.assign({ user_id: stableId }, safeTraits);
+        ph().identify(id, props);
+      }).catch(function () {
+        ph().identify(stableId, Object.assign({ user_id: stableId }, safeTraits));
+      });
     },
 
     /**

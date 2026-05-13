@@ -856,6 +856,30 @@ describe('GET /check-session', () => {
     expect(body.reason).toBe('unauthorized');
   });
 
+  it('rate-limits fallback path per ip+session after 20 requests/min', async () => {
+    const sessionId = await seedSession('paid', 'single');
+    const ip = '10.88.0.44';
+    // First 20 fallback requests should pass.
+    for (let i = 0; i < 20; i++) {
+      const okRes = await get('/check-session?session=' + sessionId, {}, ip);
+      expect(okRes.status).toBe(200);
+    }
+    // 21st request for same ip+session should be throttled.
+    const blockedRes = await get('/check-session?session=' + sessionId, {}, ip);
+    expect(blockedRes.status).toBe(429);
+    expect(blockedRes.headers.get('Retry-After')).toBeTruthy();
+  });
+
+  it('strict cookie+secret path is not affected by fallback ip+session limiter', async () => {
+    const sessionId = await seedSession('paid', 'single');
+    const ip = '10.88.0.45';
+    // These requests use strict verification (no fallback), so fallback limiter must not apply.
+    for (let i = 0; i < 25; i++) {
+      const res = await get('/check-session', { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET }, ip);
+      expect(res.status).toBe(200);
+    }
+  });
+
 });
 
 describe('GET /validate-session', () => {

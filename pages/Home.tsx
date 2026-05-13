@@ -91,16 +91,17 @@ export default function Home() {
         <div className="flex items-center gap-2">
           <a
             href="access.html"
-            className="inline-flex items-center min-h-[44px] text-slate-600 hover:text-slate-900 font-medium text-sm px-3 no-underline transition-colors"
+            className="inline-flex items-center min-h-[44px] text-slate-600 hover:text-slate-900 font-medium text-xs sm:text-sm px-2 sm:px-3 no-underline transition-colors whitespace-nowrap"
           >
             Akses CV
           </a>
           <a
             href="upload.html"
-            className="inline-flex items-center min-h-[44px] text-white font-bold text-sm px-5 py-[10px] rounded-full no-underline transition-all hover:-translate-y-[1px]"
+            className="inline-flex items-center min-h-[44px] text-white font-bold text-[0.82rem] sm:text-sm px-3 sm:px-5 py-[9px] sm:py-[10px] rounded-full no-underline transition-all hover:-translate-y-[1px] whitespace-nowrap"
             style={{ background: "#1B4FE8", boxShadow: SHADOW }}
           >
-            Cek Peluang Saya
+            <span className="sm:hidden">Cek Peluang</span>
+            <span className="hidden sm:inline">Cek Peluang Saya</span>
           </a>
         </div>
       </nav>

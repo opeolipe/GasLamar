@@ -377,12 +377,25 @@ export function useDownloadSession(): UseDownloadSessionReturn {
       return;
     }
 
-    // ── Path 2: sessionStorage (normal post-payment flow) ────────────────────
+    // ── Path 2: sessionStorage → localStorage → delivery fallback ───────────
     // Fall back to localStorage: Result.tsx writes to both storages, but if
     // Mayar redirected in a new tab, sessionStorage for this origin was never
     // populated. localStorage survives cross-tab navigation.
+    // Last resort: derive session ID from gaslamar_delivery, which the download
+    // guard accepts as a valid entry path and which stores sessionId. This covers
+    // the case where gaslamar_session was cleared (e.g. clearClientSessionData)
+    // but the delivery entry remains — the HttpOnly session cookie is still valid.
     const sId = sessionStorage.getItem('gaslamar_session')
-             ?? localStorage.getItem('gaslamar_session');
+             ?? localStorage.getItem('gaslamar_session')
+             ?? (() => {
+                  try {
+                    const raw = localStorage.getItem('gaslamar_delivery');
+                    const d   = raw ? JSON.parse(raw) : null;
+                    return (typeof d?.sessionId === 'string' && d.sessionId.startsWith('sess_'))
+                      ? d.sessionId
+                      : null;
+                  } catch { return null; }
+                })();
     if (!sId || !sId.startsWith('sess_')) {
       showError('Sesi tidak ditemukan', 'Link download tidak valid. Coba lagi dari awal.');
       return;
