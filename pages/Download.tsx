@@ -1,6 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { useDownloadSession }  from '@/hooks/useDownloadSession';
 import { useGenerateCV }       from '@/hooks/useGenerateCV';
+import type { CVContent }      from '@/hooks/useGenerateCV';
 import { logError }            from '@/lib/logger';
 import {
   buildCVFilename,
@@ -43,11 +44,12 @@ export default function Download() {
   const session  = useDownloadSession();
   const generate = useGenerateCV();
 
-  const [view,           setView]           = useState<PageView>('waiting');
-  const [countdownText,  setCountdownText]  = useState<string | null>(null);
-  const [countdownWarn,  setCountdownWarn]  = useState(false);
-  const [expiryText,     setExpiryText]     = useState('');
-  const [showMobileFb,   setShowMobileFb]   = useState(false);
+  const [view,            setView]            = useState<PageView>('waiting');
+  const [countdownText,   setCountdownText]   = useState<string | null>(null);
+  const [countdownWarn,   setCountdownWarn]   = useState(false);
+  const [expiryText,      setExpiryText]      = useState('');
+  const [showMobileFb,    setShowMobileFb]    = useState(false);
+  const [restoredContent, setRestoredContent] = useState<CVContent | null>(null);
 
   // Read delivery state from localStorage once on mount
   const [delivery] = useState<{ sessionId: string; email: string; sentAt: number } | null>(() => {
@@ -145,6 +147,50 @@ export default function Download() {
     }
   }, [generate.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // When the session is exhausted (credits = 0, no in-memory CV content), fetch the
+  // stored CV result so the user can still download from the page rather than hitting
+  // a dead end. POST /get-result reads cv_result_<session_id> from KV.
+  useEffect(() => {
+    if (
+      view !== 'credits-dashboard' ||
+      generate.content !== null ||
+      session.sessionData?.creditsRemaining !== 0 ||
+      !session.sessionId ||
+      !session.sessionSecret   // secret not yet populated — effect will re-run once it is
+    ) return;
+
+    fetch(`${WORKER_URL}/get-result`, {
+      method:      'POST',
+      headers:     buildSecretHeaders(session.sessionSecret),
+      credentials: 'include',
+    })
+      .then(r => {
+        if (!r.ok) {
+          logError('cv_result_restore_failed', { status: r.status });
+          return null;
+        }
+        return r.json();
+      })
+      .then((data: any) => {
+        if (!data || !data.cv_id) return;
+        setRestoredContent({
+          cvId:             data.cv_id,
+          cvIdDocx:         data.cv_id_docx ?? data.cv_id,
+          cvEn:             data.cv_en      ?? null,
+          cvEnDocx:         data.cv_en_docx ?? data.cv_en ?? null,
+          jobTitle:         data.job_title  ?? null,
+          company:          data.company    ?? null,
+          creditsRemaining: 0,
+          totalCredits:     session.sessionData?.totalCredits ?? 1,
+          tier:             data.tier ?? session.sessionData?.tier ?? 'single',
+          isTrusted:        false,
+          interviewKit:     null,
+        });
+        setView('ready');
+      })
+      .catch(err => logError('cv_result_restore_failed', { message: (err as Error)?.message }));
+  }, [view, generate.content, session.sessionData?.creditsRemaining, session.sessionId, session.sessionSecret]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Countdown helpers ─────────────────────────────────────────────────────
 
   function startCountdown(expiresAtMs: number, totalCredits: number) {
@@ -188,15 +234,15 @@ export default function Download() {
   // ── Handlers ─────────────────────────────────────────────────────────────
 
   const handleDownload = useCallback(async (lang: 'id' | 'en', format: 'docx' | 'pdf') => {
-    const content = generate.content;
-    if (!content) return;
+    const eff = generate.content ?? restoredContent;
+    if (!eff) return;
     // Use the DOCX-specific text (with guidance notes) for DOCX downloads
     const cvText = format === 'docx'
-      ? (lang === 'en' ? (content.cvEnDocx ?? content.cvEn ?? '') : (content.cvIdDocx ?? content.cvId))
-      : (lang === 'en' ? (content.cvEn ?? '')                     : content.cvId);
+      ? (lang === 'en' ? (eff.cvEnDocx ?? eff.cvEn ?? '') : (eff.cvIdDocx ?? eff.cvId))
+      : (lang === 'en' ? (eff.cvEn ?? '')                  : eff.cvId);
     if (!cvText) return;
 
-    const filename = buildCVFilename(cvText, content.jobTitle, content.company, lang, format);
+    const filename = buildCVFilename(cvText, eff.jobTitle, eff.company, lang, format);
 
     try {
       if (format === 'docx') {
@@ -209,15 +255,15 @@ export default function Download() {
       ;(window as any).Analytics?.track?.('cv_downloaded', {
         lang,
         format,
-        tier:       content.tier,
-        is_trusted: content.isTrusted,
+        tier:       eff.tier,
+        is_trusted: eff.isTrusted,
         resultId:   sessionStorage.getItem('gaslamar_result_id') || undefined,
       });
     } catch (err) {
       logError('download_failed', { lang, format, message: (err as Error)?.message });
       setShowMobileFb(true);
     }
-  }, [generate.content]);
+  }, [generate.content, restoredContent]);
 
 
   const handleGenerateForNewJob = useCallback(async (jobDesc: string) => {
@@ -269,8 +315,10 @@ export default function Download() {
 
   // ── Derived values ────────────────────────────────────────────────────────
 
-  const content    = generate.content;
-  const tier       = content?.tier ?? session.sessionData?.tier ?? null;
+  const content         = generate.content;
+  // For exhausted sessions, generate.content is null; fall back to KV-fetched result.
+  const effectiveContent = content ?? restoredContent;
+  const tier             = effectiveContent?.tier ?? session.sessionData?.tier ?? null;
 
   const [resultData] = useState<ResultData | null>(() => {
     try {
@@ -283,12 +331,12 @@ export default function Download() {
   });
 
   const dimensions = resultData?.scores;
-  const creditsRemaining = content?.creditsRemaining ?? session.sessionData?.creditsRemaining ?? 1;
-  const totalCredits     = content?.totalCredits     ?? session.sessionData?.totalCredits     ?? 1;
+  const creditsRemaining = effectiveContent?.creditsRemaining ?? session.sessionData?.creditsRemaining ?? 1;
+  const totalCredits     = effectiveContent?.totalCredits     ?? session.sessionData?.totalCredits     ?? 1;
   const bilingual        = tier ? isBilingual(tier) : false;
 
-  const filename = content
-    ? buildCVFilename(content.cvId, content.jobTitle, content.company, 'id', 'docx')
+  const filename = effectiveContent
+    ? buildCVFilename(effectiveContent.cvId, effectiveContent.jobTitle, effectiveContent.company, 'id', 'docx')
     : 'CV.docx';
 
   const sessionError = view === 'error'
@@ -414,8 +462,8 @@ export default function Download() {
               tier={tier ?? 'single'}
               filename={filename}
               expiryText={expiryText}
-              cvTextId={content?.cvId ?? ''}
-              cvTextEn={content?.cvEn ?? null}
+              cvTextId={effectiveContent?.cvId ?? ''}
+              cvTextEn={effectiveContent?.cvEn ?? null}
               creditsRemaining={creditsRemaining}
               totalCredits={totalCredits}
               showDownloadGrid={view === 'ready'}
@@ -425,7 +473,7 @@ export default function Download() {
               showMobileFallback={showMobileFb}
               dimensions={dimensions}
               primaryIssue={resultData?.primaryIssue ?? null}
-              isTrusted={content?.isTrusted ?? false}
+              isTrusted={effectiveContent?.isTrusted ?? false}
             />
           </div>
         )}
@@ -434,7 +482,7 @@ export default function Download() {
           <InterviewKit
             sessionSecret={session.sessionSecret}
             language="id"
-            initialKit={content?.interviewKit ?? null}
+            initialKit={effectiveContent?.interviewKit ?? null}
           />
         )}
 
