@@ -70,10 +70,6 @@ const EDUCATION_LINE_PATTERN = /^(S[123]|D[123]|SMA|SMK|SD|Bachelor|Master|PhD|S
 const SUMMARY_START_RE = /^(?:RINGKASAN\s+(?:PROFESIONAL|EKSEKUTIF|SINGKAT)|PROFESSIONAL\s+SUMMARY|SUMMARY|PROFILE|PROFESSIONAL\s+PROFILE)\s*$/i;
 const SUMMARY_END_RE   = /^(?:PENGALAMAN\s+KERJA|WORK\s+EXPERIENCE|EMPLOYMENT\s+HISTORY|PENDIDIKAN|EDUCATION|KEAHLIAN|SKILLS|TECHNICAL\s+SKILLS|SERTIFIKASI|CERTIFICATIONS)\s*$/i;
 
-const DOCX_GUIDANCE_ID  = '(catatan: tambahkan hasil konkret jika ada, misalnya: waktu ↓ atau output ↑)';
-const DOCX_GUIDANCE_EN  = '(note: add concrete results if available, e.g., time ↓ or output ↑)';
-const DOCX_MAX_HINTS    = 3;
-
 // SYNC: Must stay identical to shared/rewriteRules.js ISSUE_FALLBACK_SUFFIX.
 const ISSUE_FALLBACK = {
   portfolio:        ' untuk menunjukkan dampak kerja yang konkret dan terukur',
@@ -392,17 +388,17 @@ function safeRewriteLine(original, issue, lang = 'id') {
  * Post-process LLM CV output:
  * 1. Validate each bullet against original CV — fall back if hallucination detected
  * 2. Force preview line consistency (if previewSample + previewAfter provided)
- * 3. Append DOCX guidance notes (first DOCX_MAX_HINTS bullets only) if mode === 'docx'
+ * 3. Keep output clean for final recruiter-facing exports (no coaching hints)
  *
  * @param {string}        llmText        - Raw LLM output
  * @param {string}        originalCVText - User's original CV (for reference matching)
  * @param {string|null}   issue          - Primary issue key for issue-aware fallback
- * @param {string}        mode           - 'pdf' (clean) | 'docx' (with guidance notes)
+ * @param {string}        mode           - output flavor ('pdf' or 'docx'), both clean
  * @param {object}        opts
  * @param {string}        [opts.previewSample]  - Original line shown as "before" in Hasil
  * @param {string}        [opts.previewAfter]   - Rewrite shown as "after" in Hasil
  * @param {string[]|null} [opts.entitasKlaim]   - Whitelist of claims already in user's CV
- * @param {string}        [opts.language]       - 'id' (default) | 'en' — controls DOCX guidance language
+ * @param {string}        [opts.language]       - 'id' (default) | 'en'
  * @returns {{ text: string, isTrusted: boolean }}
  */
 export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf', opts = {}) {
@@ -505,29 +501,6 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
       return line;
     });
     result = consistencyLines.join('\n');
-  }
-
-  // Step 3: DOCX mode — append guidance hint after first DOCX_MAX_HINTS experience bullets
-  if (mode === 'docx') {
-    const guidance = language === 'en' ? DOCX_GUIDANCE_EN : DOCX_GUIDANCE_ID;
-    let hintsAdded   = 0;
-    let inExpSection = false;
-    const EXP_HEADING = /^(PENGALAMAN KERJA|PENGALAMAN|WORK EXPERIENCE|EXPERIENCE|EMPLOYMENT HISTORY)$/i;
-    const ANY_HEADING = SECTION_HEADING_PATTERN;
-    const docxLines = result.split('\n').flatMap(line => {
-      const t = line.trim();
-      if (ANY_HEADING.test(t)) {
-        inExpSection = EXP_HEADING.test(t);
-        hintsAdded   = 0;
-        return [line];
-      }
-      if (!inExpSection)                         return [line];
-      if (hintsAdded >= DOCX_MAX_HINTS)          return [line];
-      if (!t || !isBulletLine(t))                return [line];
-      hintsAdded++;
-      return [line, `  ${guidance}`];
-    });
-    result = docxLines.join('\n');
   }
 
   // isTrusted: true if high-severity fallback rate < 20% (medium downgrades are acceptable)

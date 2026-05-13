@@ -858,7 +858,7 @@ describe('postProcessCV', () => {
     expect(text).not.toMatch(/\[.*\]/);
   });
 
-  it('DOCX mode appends Indonesian guidance after first 3 bullet lines only', () => {
+  it('DOCX mode keeps output clean without guidance artifacts', () => {
     const lines = [
       'Membangun REST API untuk sistem backend perusahaan yang skalabel dan andal',
       'Mengelola infrastruktur cloud dan pipeline deployment secara rutin harian',
@@ -867,15 +867,14 @@ describe('postProcessCV', () => {
     ].map(b => `- ${b}`).join('\n');
     const cv = `PENGALAMAN KERJA\n${lines}`;
     const { text } = postProcessCV(cv, cv, null, 'docx');
-    expect(text).toContain('catatan: tambahkan');
-    expect((text.match(/catatan: tambahkan/g) || []).length).toBe(3);
+    expect(text).not.toContain('catatan: tambahkan');
   });
 
-  it('DOCX mode with language=en uses English guidance', () => {
+  it('DOCX mode with language=en keeps output clean without guidance artifacts', () => {
     const bullet = '- Developed REST API for enterprise backend systems and large applications';
     const cv = `WORK EXPERIENCE\n${bullet}`;
     const { text } = postProcessCV(cv, cv, null, 'docx', { language: 'en' });
-    expect(text).toContain('note: add concrete results');
+    expect(text).not.toContain('note: add concrete results');
   });
 });
 
