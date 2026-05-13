@@ -241,7 +241,19 @@ export function cleanLine(text) {
 }
 
 function stripMarkdownHeadingPrefix(text) {
-  return String(text || '').replace(/^\s{0,3}#{1,6}\s+/, '').trimEnd();
+  return String(text || '').replace(/^\s{0,3}#{1,6}\s*/, '').trimEnd();
+}
+
+function normalizeLanguageLine(text, language = 'id') {
+  if (language !== 'id') return text;
+  return String(text || '')
+    .replace(/\bEast Java\b/gi, 'Jawa Timur')
+    .replace(/\bWest Java\b/gi, 'Jawa Barat')
+    .replace(/\bCentral Java\b/gi, 'Jawa Tengah')
+    .replace(/\bNorth Sulawesi\b/gi, 'Sulawesi Utara')
+    .replace(/\bSouth Sulawesi\b/gi, 'Sulawesi Selatan')
+    .replace(/\bPresent\b/gi, 'Sekarang')
+    .replace(/\bCurrent\b/gi, 'Sekarang');
 }
 
 function isBulletLine(line) {
@@ -416,12 +428,13 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
   const outputLines = result.split('\n');
   const validated   = outputLines.map(line => {
     const normalizedLine = stripMarkdownHeadingPrefix(line);
-    const trimmed = normalizedLine.trim();
+    const localizedLine = normalizeLanguageLine(normalizedLine, language);
+    const trimmed = localizedLine.trim();
     if (!trimmed)                               return line;
-    if (SECTION_HEADING_PATTERN.test(trimmed))  return normalizedLine;
-    if (META_LINE_PATTERN.test(trimmed))        return normalizedLine;
-    if (isNonBulletCVLine(trimmed))             return normalizedLine;
-    if (!isBulletLine(trimmed))                 return normalizedLine;
+    if (SECTION_HEADING_PATTERN.test(trimmed))  return localizedLine;
+    if (META_LINE_PATTERN.test(trimmed))        return localizedLine;
+    if (isNonBulletCVLine(trimmed))             return localizedLine;
+    if (!isBulletLine(trimmed))                 return localizedLine;
 
     const clean = cleanLine(trimmed);
     if (clean.length < MIN_LINE_LENGTH)         return line;
@@ -448,7 +461,7 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
         const prefix = line.match(/^(\s*[-•*]\s*)/)?.[1] ?? '';
         return prefix + shortOriginal;
       }
-      return normalizedLine;
+      return localizedLine;
     }
 
     const { valid, severity } = validateWithSeverity(original, clean, entitasKlaim);
@@ -460,7 +473,7 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
       return prefix + applyValidationResult(severity, original, issue, language);
     }
 
-    return normalizedLine;
+    return localizedLine;
   });
 
   result = validated.join('\n');
