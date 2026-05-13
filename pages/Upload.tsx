@@ -465,7 +465,8 @@ export default function Upload() {
 
           <SubmitSection
             isLoading={loading}
-            showJdHint={hasFile && (!jd.trim().length || !jdQuality.isValid)}
+            hasCv={hasFile}
+            showJdHint={!jd.trim().length || !jdQuality.isValid}
             jdHintText={!jd.trim().length
               ? 'Job description wajib diisi agar analisis bisa dimulai.'
               : (jdQuality.message || 'Lengkapi job description agar analisis lebih akurat.')}
