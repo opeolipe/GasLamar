@@ -147,24 +147,36 @@ export default function Download() {
     }
   }, [generate.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // When the session is exhausted (credits = 0, no in-memory CV content), fetch the
-  // stored CV result so the user can still download from the page rather than hitting
-  // a dead end. POST /get-result reads cv_result_<session_id> from KV.
+  // Fetch the stored CV result from KV so the user can download from the page.
+  // Runs in two cases:
+  //   1. Exhausted session: credits=0, no in-memory content — normal returning flow.
+  //   2. Error + delivery: session polling failed but delivery is confirmed — try KV
+  //      restore before giving up (covers gaslamar_session-cleared-but-cookie-valid).
   useEffect(() => {
-    if (
-      view !== 'credits-dashboard' ||
-      generate.content !== null ||
-      session.sessionData?.creditsRemaining !== 0 ||
-      !session.sessionId ||
-      !session.sessionSecret   // secret not yet populated — effect will re-run once it is
-    ) return;
+    const isExhaustedRestore =
+      view === 'credits-dashboard' &&
+      generate.content === null &&
+      session.sessionData?.creditsRemaining === 0 &&
+      !!session.sessionId;
+
+    const isErrorWithDelivery =
+      view === 'error' &&
+      generate.content === null &&
+      restoredContent === null &&
+      delivery !== null &&
+      !!session.sessionId;
+
+    if (!isExhaustedRestore && !isErrorWithDelivery) return;
 
     fetch(`${WORKER_URL}/get-result`, {
       method:      'POST',
+      // Secret may be null if gaslamar_secret_<id> was cleared; buildSecretHeaders
+      // returns {} in that case. Server returns 403 which we handle gracefully below.
       headers:     buildSecretHeaders(session.sessionSecret),
       credentials: 'include',
     })
       .then(r => {
+        if (r.status === 401 || r.status === 403) return null; // auth failure — expected
         if (!r.ok) {
           logError('cv_result_restore_failed', { status: r.status });
           return null;
@@ -173,6 +185,7 @@ export default function Download() {
       })
       .then((data: any) => {
         if (!data || !data.cv_id) return;
+        const totalCredits = session.sessionData?.totalCredits ?? 1;
         setRestoredContent({
           cvId:             data.cv_id,
           cvIdDocx:         data.cv_id_docx ?? data.cv_id,
@@ -181,15 +194,19 @@ export default function Download() {
           jobTitle:         data.job_title  ?? null,
           company:          data.company    ?? null,
           creditsRemaining: 0,
-          totalCredits:     session.sessionData?.totalCredits ?? 1,
+          totalCredits,
           tier:             data.tier ?? session.sessionData?.tier ?? 'single',
           isTrusted:        false,
           interviewKit:     null,
         });
+        // Start heartbeat so session expiry is detected even in the restore path.
+        // startHeartbeat is a no-op if already running (e.g. exhausted-restore path
+        // already started it via the 'returning' phase effect).
+        session.startHeartbeat(totalCredits);
         setView('ready');
       })
       .catch(err => logError('cv_result_restore_failed', { message: (err as Error)?.message }));
-  }, [view, generate.content, session.sessionData?.creditsRemaining, session.sessionId, session.sessionSecret]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [view, generate.content, restoredContent, delivery, session.sessionData?.creditsRemaining, session.sessionId, session.sessionSecret]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Countdown helpers ─────────────────────────────────────────────────────
 
