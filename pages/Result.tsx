@@ -79,6 +79,26 @@ function scoreInterpretation(score: number): string {
   return 'Beberapa pengalaman dan keyword penting belum terlihat di CV kamu.';
 }
 
+function buildSnippetPreview(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const cleaned = raw
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]+/g, ' ')
+    .trim();
+  if (!cleaned) return null;
+  if (cleaned.includes('[') || cleaned.includes(']')) return null;
+
+  const firstParagraph = cleaned.split(/\n\s*\n|\n+/)[0]?.trim() || cleaned;
+  if (!firstParagraph) return null;
+
+  const maxChars = 200;
+  if (firstParagraph.length <= maxChars) return firstParagraph;
+
+  const cut = firstParagraph.slice(0, maxChars);
+  const safeCut = cut.slice(0, Math.max(cut.lastIndexOf(' '), 150)).trim();
+  return `${safeCut}…`;
+}
+
 export default function Result() {
   const { data, analyzeTime, loading, error, noSession } = useResultData();
   const countdown = useSessionCountdown(analyzeTime);
@@ -419,6 +439,23 @@ export default function Result() {
         .slice(0, 2)
     : [];
 
+  const snippetPreviewText = (() => {
+    const primary = buildSnippetPreview(result6d?.rewritePreview?.after);
+    if (primary) return primary;
+    try {
+      const fromSession = sessionStorage.getItem('gaslamar_preview_after');
+      return buildSnippetPreview(fromSession);
+    } catch (_) {
+      return null;
+    }
+  })();
+
+  function scrollToPricing() {
+    const el = document.getElementById('pricing-section');
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div
@@ -641,6 +678,59 @@ export default function Result() {
               )}
 
             </div>
+
+            {/* ── SECTION 3.5: CV Snippet Preview ── */}
+            {snippetPreviewText && (
+              <div
+                style={{
+                  ...CARD_STYLE,
+                  padding: '0.95rem 0.95rem',
+                  borderRadius: 16,
+                  background: 'rgba(248,250,252,0.9)',
+                  border: '1px solid rgba(148,163,184,0.2)',
+                  marginBottom: '1rem',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: '0.65rem' }}>
+                  <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#0F172A' }}>
+                    Lihat cuplikan hasil CV
+                  </h2>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#2563EB', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 999, padding: '0.15rem 0.55rem', flexShrink: 0 }}>
+                    Cuplikan
+                  </span>
+                </div>
+
+                <p style={{ margin: 0, color: '#334155', fontSize: '0.86rem', lineHeight: 1.55, display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                  {snippetPreviewText}
+                </p>
+
+                <div style={{ marginTop: '0.7rem', paddingTop: '0.65rem', borderTop: '1px solid rgba(148,163,184,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.76rem', color: '#64748B' }}>
+                    Ini cuplikan singkat, bukan isi CV lengkap.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={scrollToPricing}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      color: '#1D4ED8',
+                      fontWeight: 700,
+                      fontSize: '0.82rem',
+                      cursor: 'pointer',
+                      padding: '0.1rem 0',
+                      minHeight: 44,
+                    }}
+                  >
+                    Lihat versi lengkap →
+                  </button>
+                </div>
+
+                <p style={{ margin: '0.45rem 0 0', fontSize: '0.76rem', color: '#475569' }}>
+                  Versi lengkap CV (ID/EN) terbuka setelah pilih paket.
+                </p>
+              </div>
+            )}
 
             {/* ── SECTION 4: Pricing ── */}
             <div id="pricing-section" style={{ scrollMarginTop: 80, ...CARD_STYLE }}>
