@@ -24,6 +24,15 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
   const trimmed = value.trim();
   const quality = evaluateJDQuality(value);
 
+  const charCount = value.length;
+  const atLimit   = charCount >= MAX_JD_CHARS;
+  const nearLimit = charCount >= 4500 && !atLimit;
+  const counterCls = atLimit
+    ? 'text-xs text-red-600 font-medium'
+    : nearLimit
+    ? 'text-xs text-amber-500'
+    : 'text-xs text-slate-400';
+
   // Native listener catches programmatic `el.value = x; el.dispatchEvent(new Event('input'))`
   // React's controlled-input tracker intercepts el.value assignments and marks the new value
   // as "already seen", so React's synthetic onChange won't fire. The native listener below
@@ -121,8 +130,9 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
           >
             {showExample ? 'Sembunyikan contoh' : 'Lihat contoh job description'}
           </button>
-          <span className="text-xs text-slate-400">
-            {value.length.toLocaleString('id-ID')} / 5.000 karakter
+          <span className={counterCls}>
+            {charCount.toLocaleString('id-ID')} / {MAX_JD_CHARS.toLocaleString('id-ID')} karakter
+            {atLimit && ' — Maks 5.000 karakter (sisanya dipotong)'}
           </span>
         </div>
         {showExample && (
