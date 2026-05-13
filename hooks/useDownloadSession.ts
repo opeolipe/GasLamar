@@ -247,16 +247,17 @@ export function useDownloadSession(): UseDownloadSessionReturn {
       }
 
       // exhausted = all credits consumed; session + cv_result_ preserved for 30 days.
-      // Do NOT clear client session data — the user can still access their generated
-      // CV by navigating back (e.g. via the email link). Clearing localStorage here
-      // would block re-entry by sending them to access.html on the next visit.
+      // Treat like 'returning' (credits-dashboard) so the frontend can fetch the stored
+      // CV result via POST /get-result and show download buttons rather than a dead end.
       if (status === 'exhausted') {
         if (pollTimerRef.current) { clearTimeout(pollTimerRef.current); pollTimerRef.current = null; }
         ;(window as any).Analytics?.track?.('download_session_exhausted', { poll_attempts: pollCountRef.current });
-        showError(
-          'Kredit Habis',
-          'Semua kredit kamu sudah digunakan. CV kamu masih tersimpan — cek email kamu untuk link download, atau hubungi support@gaslamar.com.',
-        );
+        const tier       = data.tier              ?? 'single';
+        const totalCreds = data.total_credits     ?? 1;
+        const expiresAt  = data.expires_at        ?? null;
+        sessionStorage.setItem('gaslamar_tier', tier);
+        setSessionData({ tier, creditsRemaining: 0, totalCredits: totalCreds, expiresAt });
+        setPhase('returning');
         return;
       }
 
