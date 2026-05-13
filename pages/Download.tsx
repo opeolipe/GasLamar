@@ -185,6 +185,7 @@ export default function Download() {
       })
       .then((data: any) => {
         if (!data || !data.cv_id) return;
+        const totalCredits = session.sessionData?.totalCredits ?? 1;
         setRestoredContent({
           cvId:             data.cv_id,
           cvIdDocx:         data.cv_id_docx ?? data.cv_id,
@@ -193,11 +194,15 @@ export default function Download() {
           jobTitle:         data.job_title  ?? null,
           company:          data.company    ?? null,
           creditsRemaining: 0,
-          totalCredits:     session.sessionData?.totalCredits ?? 1,
+          totalCredits,
           tier:             data.tier ?? session.sessionData?.tier ?? 'single',
           isTrusted:        false,
           interviewKit:     null,
         });
+        // Start heartbeat so session expiry is detected even in the restore path.
+        // startHeartbeat is a no-op if already running (e.g. exhausted-restore path
+        // already started it via the 'returning' phase effect).
+        session.startHeartbeat(totalCredits);
         setView('ready');
       })
       .catch(err => logError('cv_result_restore_failed', { message: (err as Error)?.message }));
