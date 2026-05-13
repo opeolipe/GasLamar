@@ -1,11 +1,15 @@
 interface Props {
   isLoading:   boolean;
+  hasCv?:      boolean;
   showJdHint:  boolean;
   jdHintText?: string;
   onSubmit:    () => void;
 }
 
-export default function SubmitSection({ isLoading, showJdHint, jdHintText, onSubmit }: Props) {
+export default function SubmitSection({ isLoading, hasCv = false, showJdHint, jdHintText, onSubmit }: Props) {
+  const showCvHint = !hasCv;
+  const showChecklist = showCvHint && showJdHint;
+
   return (
     <div className="mt-6">
       <button
@@ -26,12 +30,30 @@ export default function SubmitSection({ isLoading, showJdHint, jdHintText, onSub
         ) : 'Cek peluang saya'}
       </button>
 
-      {showJdHint && (
+      {/* Pre-submit completion checklist — shown when multiple things are missing */}
+      {showChecklist ? (
+        <div className="mt-3 text-center">
+          <p className="text-xs font-medium text-slate-500 mb-1.5">Sebelum lanjut, lengkapi dulu:</p>
+          <div className="inline-flex flex-col items-start gap-1 text-sm">
+            <span className="text-slate-500">
+              <span aria-hidden="true" className="text-slate-400 mr-1">—</span>
+              Upload atau paste CV kamu
+            </span>
+            <span className="text-slate-500">
+              <span aria-hidden="true" className="text-slate-400 mr-1">—</span>
+              Isi job description posisi yang dilamar
+            </span>
+          </div>
+        </div>
+      ) : showCvHint ? (
+        <p className="text-center text-sm text-slate-500 mt-3">
+          Upload atau paste CV kamu untuk memulai analisis.
+        </p>
+      ) : showJdHint ? (
         <p className="text-center text-sm text-slate-500 mt-3">
           {jdHintText || 'Job description wajib diisi sebelum analisis dimulai.'}
         </p>
-      )}
-
+      ) : null}
     </div>
   );
 }

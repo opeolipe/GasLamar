@@ -12,9 +12,77 @@ interface Props {
   onFileSelect:     (file: File) => void;
   onRemove:         () => void;
   onTabChange?:     (tab: 'upload' | 'paste') => void;
+  /** Initial tab to open on mount — used to restore partial-paste sessions. */
+  defaultTab?:      'upload' | 'paste';
 }
 
-export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWarning, manualCvText, onManualCvChange, onFileSelect, onRemove, onTabChange }: Props) {
+interface ErrorRecovery {
+  steps?: string[];
+  alt?: string;
+}
+
+function getErrorRecovery(error: string): ErrorRecovery | null {
+  if (!error) return null;
+
+  if (error.includes('.doc belum didukung')) {
+    return {
+      steps: [
+        'Buka file di Microsoft Word',
+        'Klik File → Save As → pilih format Word (.docx) atau PDF',
+        'Upload file yang baru disimpan',
+      ],
+      alt: 'Atau ketik ulang CV kamu di tab "Paste CV" di atas',
+    };
+  }
+
+  if (error.includes('.pages belum didukung')) {
+    return {
+      steps: [
+        'Buka file di Pages',
+        'Klik File → Export To → PDF',
+        'Upload file PDF yang sudah diekspor',
+      ],
+    };
+  }
+
+  if (error.includes('gambar tidak didukung')) {
+    return {
+      alt: 'CV foto tidak bisa dibaca oleh sistem. Gunakan tab "Paste CV" untuk copy-paste teks CV kamu, atau buat CV di Google Docs lalu download sebagai PDF.',
+    };
+  }
+
+  if (error.includes('terlalu besar')) {
+    return {
+      steps: [
+        'Buka file di Word atau Google Docs',
+        'Hapus gambar atau foto yang tidak diperlukan',
+        'Export ulang sebagai PDF ukuran standar',
+      ],
+      alt: 'Atau kompres PDF di smallpdf.com lalu upload lagi',
+    };
+  }
+
+  if (error.includes('Bukan file PDF') || error.includes('Bukan file DOCX')) {
+    return {
+      steps: [
+        'Buka file asli di Word atau Google Docs',
+        'Simpan ulang: File → Save As / Download as PDF atau DOCX',
+        'Upload file yang baru disimpan',
+      ],
+      alt: 'Atau gunakan tab "Paste CV" untuk copy-paste teks CV kamu',
+    };
+  }
+
+  if (error.includes('Gagal membaca')) {
+    return {
+      alt: 'Coba gunakan tab "Paste CV" untuk copy-paste teks CV kamu langsung.',
+    };
+  }
+
+  return null;
+}
+
+export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWarning, manualCvText, onManualCvChange, onFileSelect, onRemove, onTabChange, defaultTab }: Props) {
   const inputRef    = useRef<HTMLInputElement>(null);
   const pasteRef    = useRef<HTMLTextAreaElement>(null);
   const onChangeRef    = useRef(onManualCvChange);
@@ -22,7 +90,9 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
   const onTabChangeRef = useRef(onTabChange);
   onTabChangeRef.current = onTabChange;
 
-  const [tab, setTab] = useState<'upload' | 'paste'>('upload');
+  // defaultTab is computed synchronously in Upload.tsx before first render,
+  // so this initial value is always correct on mount.
+  const [tab, setTab] = useState<'upload' | 'paste'>(defaultTab ?? 'upload');
 
   function switchTab(next: 'upload' | 'paste') {
     setTab(next);
@@ -33,8 +103,6 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
   const isFileCv   = !!fileName && !isPastedCv && cvReady;
 
   // Catch programmatic `.value` assignments that bypass React's synthetic onChange.
-  // Depends on `tab` so it re-registers each time the paste textarea mounts
-  // (the textarea is conditionally rendered — pasteRef.current is null on upload tab).
   useEffect(() => {
     const el = pasteRef.current;
     if (!el) return;
@@ -80,6 +148,8 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
 
   const pasteReady = manualCvText.trim().length >= MIN_CV_TEXT_LENGTH;
   const pasteShort = manualCvText.trim().length > 0 && !pasteReady;
+
+  const recovery = getErrorRecovery(error);
 
   return (
     <div className="w-full max-w-full overflow-hidden">
@@ -229,15 +299,52 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
         </p>
       )}
 
+      {/* Scan warning — with prominent action to switch tabs */}
       {scanWarning && (
-        <div className="mt-2 rounded-[10px] px-3 py-2.5 text-sm font-medium bg-amber-50 border border-amber-200 text-amber-800">
-          <span aria-hidden="true">⚠️</span><span className="sr-only">Peringatan: </span> PDF ini sepertinya hasil scan atau gambar — teks tidak bisa dibaca. Coba upload versi DOCX atau PDF yang bisa di-copy.
+        <div className="mt-2 rounded-[10px] px-3 py-2.5 text-sm bg-amber-50 border border-amber-200 text-amber-800">
+          <p className="font-medium">
+            <span aria-hidden="true">⚠️</span><span className="sr-only">Peringatan: </span>{' '}
+            PDF ini sepertinya hasil scan atau gambar — teks tidak bisa dibaca.
+          </p>
+          <p className="text-xs mt-1.5 text-amber-700">
+            Coba upload versi DOCX atau PDF yang bisa di-copy, atau{' '}
+            <button
+              type="button"
+              onClick={() => switchTab('paste')}
+              className="underline font-semibold hover:no-underline focus:outline-none focus:ring-1 focus:ring-amber-500 rounded"
+            >
+              pindah ke tab Paste CV →
+            </button>
+          </p>
         </div>
       )}
 
+      {/* File error — with contextual recovery steps */}
       {error && (
-        <div role="alert" className="mt-3 rounded-[10px] px-3 py-2.5 text-sm font-medium bg-red-50 border border-red-200 text-red-700">
-          <span aria-hidden="true">⚠️</span> {error}
+        <div
+          key={error}
+          role="alert"
+          aria-live="assertive"
+          className="mt-3 rounded-[10px] px-3 py-2.5 text-sm bg-red-50 border border-red-200 text-red-700"
+          style={{ animation: 'gasShake 0.4s ease-out' }}
+        >
+          <p className="font-medium">
+            <span aria-hidden="true">⚠️</span> {error}
+          </p>
+          {recovery && (
+            <div className="mt-2 space-y-1.5">
+              {recovery.steps && (
+                <ol className="list-decimal list-inside space-y-0.5 text-red-600 text-xs">
+                  {recovery.steps.map((step, i) => (
+                    <li key={i}>{step}</li>
+                  ))}
+                </ol>
+              )}
+              {recovery.alt && (
+                <p className="text-xs text-red-500 italic">{recovery.alt}</p>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
