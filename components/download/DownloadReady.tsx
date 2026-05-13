@@ -4,7 +4,7 @@ import UpgradeNudge from '@/components/download/UpgradeNudge';
 import MultiCreditSection from '@/components/download/MultiCreditSection';
 import ResendEmail from '@/components/download/ResendEmail';
 import ScoreBars from '@/components/6d/ScoreBars';
-import { isBilingual } from '@/lib/sessionUtils';
+import { isBilingual, isMultiCredit, TIER_LABELS } from '@/lib/sessionUtils';
 import { DIM_LABELS } from '@/lib/resultUtils';
 
 const CARD_STYLE: React.CSSProperties = {
@@ -29,6 +29,7 @@ const SECTION_HEADING: React.CSSProperties = {
 interface Props {
   tier: string;
   expiryText: string;
+  expiresAt?: number | null;
   cvTextId: string;
   cvTextEn: string | null;
   creditsRemaining: number;
@@ -75,6 +76,7 @@ function DownloadButton({ label, sublabel, ariaLabel, onClick }: DownloadButtonP
 export default function DownloadReady({
   tier,
   expiryText,
+  expiresAt,
   cvTextId,
   cvTextEn,
   creditsRemaining,
@@ -91,11 +93,14 @@ export default function DownloadReady({
   sessionSecret,
   interviewKitNode,
 }: Props) {
-  const bilingual = isBilingual(tier);
-  const showMultiCredit = creditsRemaining > 0;
-  const showUpgradeNudge = creditsRemaining <= 0;
-  const showUpsell = showUpgradeNudge && (tier === 'coba' || tier === 'single');
-  const hasDimensions = dimensions && Object.keys(dimensions).length > 0;
+  const bilingual      = isBilingual(tier);
+  const multiCredit    = isMultiCredit(tier);
+  const tierLabel      = TIER_LABELS[tier] ?? tier;
+  const showMultiCredit  = creditsRemaining > 0;
+  // jobhunt users exhausted all 10 credits already bought the biggest package — no upsell
+  const showUpgradeNudge = creditsRemaining <= 0 && tier !== 'jobhunt';
+  const showUpsell       = showUpgradeNudge && (tier === 'coba' || tier === 'single');
+  const hasDimensions    = dimensions && Object.keys(dimensions).length > 0;
 
   const priorityWeaknesses = dimensions
     ? Object.entries(DIM_LABELS)
@@ -108,6 +113,44 @@ export default function DownloadReady({
         .sort((a, b) => a.score - b.score)
         .slice(0, 2)
     : [];
+
+  // ── Credit status bar ──────────────────────────────────────────────────────
+
+  // For multi-credit tiers with remaining credits: show "3-Pack · 2 dari 3 CV tersisa · Aktif sampai 14 Juni"
+  // For single/coba: show subtle access-duration note
+  const expiryDateStr = expiresAt
+    ? new Date(expiresAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+    : null;
+
+  const creditStatusBar = (() => {
+    if (multiCredit && creditsRemaining > 0) {
+      const parts = [`Paket aktif: ${tierLabel}`, `${creditsRemaining} dari ${totalCredits} CV tersisa`];
+      if (expiryDateStr) parts.push(`Aktif sampai ${expiryDateStr}`);
+      return { text: parts.join(' · '), variant: 'credits' as const };
+    }
+    if (!multiCredit) {
+      return { text: 'CV bisa diakses kembali selama 7 hari', variant: 'info' as const };
+    }
+    return null;
+  })();
+
+  // ── Next-step card logic ───────────────────────────────────────────────────
+
+  // "Upload CV baru" only makes sense when user has credits remaining.
+  // When 0 credits, replace with "Mulai paket baru" to avoid false affordance.
+  const secondCard = creditsRemaining > 0
+    ? {
+        label: 'Upload CV baru',
+        subtitle: multiCredit ? 'Gunakan kredit berikutnya' : 'Mulai analisis dari CV yang berbeda',
+        href: 'upload.html',
+      }
+    : {
+        label: 'Mulai paket baru',
+        subtitle: 'Beli paket untuk CV posisi berikutnya',
+        href: 'upload.html',
+      };
+
+  // ── Scroll helpers ─────────────────────────────────────────────────────────
 
   function jumpTo(sectionId: string) {
     const el = document.getElementById(sectionId);
@@ -148,11 +191,12 @@ export default function DownloadReady({
         }
         .gl-next-card {
           cursor: pointer;
-          transition: transform 0.18s ease, box-shadow 0.18s ease;
+          transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
         }
         .gl-next-card:hover {
           transform: translateY(-2px);
           box-shadow: 0 8px 24px rgba(15,23,42,0.10);
+          border-color: #93C5FD !important;
         }
         .gl-next-card:active {
           transform: translateY(0);
@@ -173,7 +217,22 @@ export default function DownloadReady({
         <section className="gl-fade-up" style={{ ...CARD_STYLE, padding: '2.15rem 2rem 1.8rem', marginBottom: '3.5rem' }}>
           <p className="text-xs uppercase tracking-[0.12em] text-emerald-600 font-bold mb-2">Sukses</p>
           <h1 style={{ ...SECTION_HEADING, fontSize: '1.5rem', marginBottom: '0.35rem' }}>CV kamu sudah siap dikirim</h1>
-          <p className="text-sm text-slate-500 mb-5">Pilih format yang kamu butuhkan sekarang.</p>
+          <p className="text-sm text-slate-500 mb-4">Pilih format yang kamu butuhkan sekarang.</p>
+
+          {/* Credit / session status bar */}
+          {creditStatusBar && (
+            <div
+              className="inline-flex items-center gap-1.5 mb-5 text-xs font-semibold rounded-full px-3 py-1.5"
+              style={
+                creditStatusBar.variant === 'credits'
+                  ? { background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }
+                  : { background: '#F8FAFC', color: '#64748B', border: '1px solid #E2E8F0' }
+              }
+            >
+              <span aria-hidden="true">{creditStatusBar.variant === 'credits' ? '🎯' : '📅'}</span>
+              {creditStatusBar.text}
+            </div>
+          )}
 
           {isTrusted && (
             <span data-testid="trust-badge" style={{ display: 'inline-flex', maxWidth: '100%', wordBreak: 'break-word', alignItems: 'center', gap: 6, background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: 20, padding: '4px 12px', fontSize: '0.83rem', color: '#15803D', fontWeight: 600, marginBottom: '1.25rem' }}>
@@ -289,12 +348,12 @@ export default function DownloadReady({
           </button>
 
           <a
-            href="upload.html"
+            href={secondCard.href}
             className="gl-next-card no-underline rounded-[14px] p-4 block"
             style={{ background: '#F8FAFC', border: '1px solid #E2E8F0' }}
           >
-            <div className="font-semibold text-slate-900 text-sm">Upload CV baru</div>
-            <p className="text-xs text-slate-600 mt-1 mb-0">Mulai analisis dari CV yang berbeda</p>
+            <div className="font-semibold text-slate-900 text-sm">{secondCard.label}</div>
+            <p className="text-xs text-slate-600 mt-1 mb-0">{secondCard.subtitle}</p>
           </a>
         </div>
       </section>
