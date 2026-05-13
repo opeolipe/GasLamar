@@ -50,3 +50,27 @@ export function formatFilename(name: string): string {
   if (!name || name === 'CV Kamu') return 'CV Kamu';
   return name.length > 32 ? name.slice(0, 29) + '...' : name;
 }
+
+// Extracts the candidate's name from raw CV text for display in the analyzing UI.
+// For plain-text CVs (paste/DOCX), reads the first non-blank, non-heading line.
+// For PDF uploads (stored as JSON `{type:'pdf',...}`), falls back to the
+// uploaded filename stripped of its extension.
+export function extractCandidateDisplayName(cvData: string, fallbackFilename: string): string {
+  if (!cvData) return fallbackFilename || 'CV Kamu';
+
+  // PDF path: cvData is a JSON envelope — no readable text available client-side.
+  try {
+    const parsed = JSON.parse(cvData) as { type?: string };
+    if (parsed?.type === 'pdf') {
+      const stripped = fallbackFilename.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim();
+      return stripped || 'CV Kamu';
+    }
+  } catch (_) { /* not JSON — treat as plain text */ }
+
+  // Plain-text path: take the first non-blank line that looks like a name
+  // (not all-uppercase, not too long — avoids section headings).
+  const nameLine = cvData.split('\n').map(l => l.trim())
+    .find(l => l.length > 1 && l.length < 60 && !/^[A-Z\s]{4,}$/.test(l));
+
+  return nameLine || fallbackFilename || 'CV Kamu';
+}
