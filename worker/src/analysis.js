@@ -32,13 +32,7 @@ import {
 import { getRoleProfile } from './roleProfiles.js';
 import { callDiagnose }  from './pipeline/diagnose.js';
 import { sha256Hex }     from './utils.js';
-
-// ---- Cache key versions --------------------------------------------------
-// DEPLOY CHECKLIST: Bump ANALYSIS_CACHE_VERSION when changing pipeline/ or prompts/.
-//                   Bump EXTRACT_CACHE_VERSION when changing pipeline/extract.js or prompts/extract.js.
-// Stale KV entries with old version prefixes are ignored automatically.
-const EXTRACT_CACHE_VERSION  = 'v5'; // current key: extract_v5_<hash> (bumped: exclude degree codes from angka_di_cv + tighten sertifikat prompt)
-const ANALYSIS_CACHE_VERSION = 'v13'; // current key: analysis_v13_<hash> (bumped: D1-S3 stripping in analyze.js changes has_numbers/has_certs)
+import { EXTRACT_CACHE_VERSION, ANALYSIS_CACHE_VERSION } from './cacheVersions.js';
 
 // ---- Orchestrator ----
 
