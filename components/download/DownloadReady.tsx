@@ -17,18 +17,6 @@ const CARD_STYLE: React.CSSProperties = {
   marginBottom: '1.5rem',
 };
 
-const SOFT_CARD_STYLE: React.CSSProperties = {
-  background: 'rgba(248,250,252,0.9)',
-  border: '1px solid rgba(148,163,184,0.18)',
-  borderRadius: 18,
-};
-
-const OUTLINE_CARD_STYLE: React.CSSProperties = {
-  background: 'white',
-  border: '1px solid rgba(148,163,184,0.18)',
-  borderRadius: 16,
-};
-
 const SECTION_HEADING: React.CSSProperties = {
   fontSize: '1.1rem',
   fontWeight: 700,
@@ -59,29 +47,27 @@ interface Props {
 }
 
 interface DownloadButtonProps {
-  fmt: 'docx' | 'pdf';
   label: string;
-  size: string;
+  sublabel: string;
   ariaLabel: string;
   onClick: () => void;
 }
 
-function DownloadButton({ fmt, label, size, ariaLabel, onClick }: DownloadButtonProps) {
-  const primary = fmt === 'docx';
+function DownloadButton({ label, sublabel, ariaLabel, onClick }: DownloadButtonProps) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      className="w-full min-h-[44px] rounded-full flex items-center justify-between px-4 py-2 text-sm font-semibold transition-all hover:translate-x-1"
-      style={
-        primary
-          ? { background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', border: 'none', color: 'white', boxShadow: '0 4px 14px rgba(37,99,235,0.28)' }
-          : { background: 'white', border: '1px solid rgba(37,99,235,0.2)', color: '#1E3A8A' }
-      }
+      className="w-full min-h-[44px] rounded-xl flex items-center justify-between px-4 py-3 text-sm font-semibold transition-all hover:-translate-y-[1px] hover:shadow-sm active:translate-y-0"
+      style={{
+        background: 'white',
+        border: '1px solid #DCE3F1',
+        color: '#0F172A',
+      }}
     >
       <span className="min-w-0 truncate">{label}</span>
-      <span className={`text-sm flex-shrink-0 ml-2 ${primary ? 'text-blue-200' : 'text-slate-400'}`}>{size}</span>
+      <span className="text-xs flex-shrink-0 ml-3 font-medium" style={{ color: '#94A3B8' }}>{sublabel}</span>
     </button>
   );
 }
@@ -132,6 +118,15 @@ export default function DownloadReady({
     }
   }
 
+  function handleTailorCta() {
+    if (showMultiCredit) {
+      jumpTo('multi-credit-section');
+    } else {
+      const upgradeEl = document.getElementById('upgrade-nudge');
+      if (upgradeEl) upgradeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+
   return (
     <>
       <style>{`
@@ -151,6 +146,17 @@ export default function DownloadReady({
           from { opacity: 0; transform: translateY(-4px); }
           to { opacity: 1; transform: translateY(0); }
         }
+        .gl-next-card {
+          cursor: pointer;
+          transition: transform 0.18s ease, box-shadow 0.18s ease;
+        }
+        .gl-next-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(15,23,42,0.10);
+        }
+        .gl-next-card:active {
+          transform: translateY(0);
+        }
       `}</style>
       <pre data-testid="cv-content" className="sr-only" aria-hidden="true">{cvTextId}</pre>
 
@@ -159,51 +165,72 @@ export default function DownloadReady({
       </div>
 
       {showDownloadGrid && (
-        <section className="gl-fade-up" style={{ ...CARD_STYLE, padding: '2.15rem 2rem 1.8rem' }}>
+        <section className="gl-fade-up" style={{ ...CARD_STYLE, padding: '2.15rem 2rem 1.8rem', marginBottom: '3.5rem' }}>
           <p className="text-xs uppercase tracking-[0.12em] text-emerald-600 font-bold mb-2">Sukses</p>
-          <h1 style={{ ...SECTION_HEADING, fontSize: '1.5rem', marginBottom: '0.45rem' }}>CV kamu siap dipakai apply</h1>
-          <p className="text-sm text-slate-600 mb-4">Download file final kamu dulu, lalu lanjutkan langkah berikutnya dengan tenang.</p>
+          <h1 style={{ ...SECTION_HEADING, fontSize: '1.5rem', marginBottom: '0.35rem' }}>CV kamu sudah siap dikirim</h1>
+          <p className="text-sm text-slate-500 mb-5">Pilih format yang kamu butuhkan sekarang.</p>
 
-          <div className="p-4 mb-4 gl-fade-up gl-fade-up-d2" style={SOFT_CARD_STYLE}>
-            <h2 style={{ ...SECTION_HEADING, fontSize: '1rem', marginBottom: '0.9rem' }}>Download Center</h2>
-            {isTrusted && (
-              <span data-testid="trust-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: 20, padding: '4px 12px', fontSize: '0.83rem', color: '#15803D', fontWeight: 600, marginBottom: '0.9rem' }}>
-                ✅ CV divalidasi — tidak ada klaim baru yang ditambahkan
-              </span>
-            )}
+          {isTrusted && (
+            <span data-testid="trust-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: 20, padding: '4px 12px', fontSize: '0.83rem', color: '#15803D', fontWeight: 600, marginBottom: '1.25rem' }}>
+              ✅ CV divalidasi — tidak ada klaim baru yang ditambahkan
+            </span>
+          )}
 
-            <div className={`grid gap-4 mb-3 ${bilingual && cvTextEn ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 max-w-xs mx-auto'}`}>
-              <div className="p-4" style={OUTLINE_CARD_STYLE}>
-                <div className="text-sm font-semibold mb-2 text-slate-900">🇮🇩 Bahasa Indonesia</div>
-                <div className="flex flex-col gap-2">
-                  <DownloadButton fmt="docx" label="📄 CV Indonesia — DOCX" size="Untuk diedit" ariaLabel="Download CV Bahasa Indonesia format DOCX" onClick={() => onDownload('id', 'docx')} />
-                  <DownloadButton fmt="pdf" label="📑 CV Indonesia — PDF" size="Siap kirim" ariaLabel="Download CV Bahasa Indonesia format PDF" onClick={() => onDownload('id', 'pdf')} />
-                </div>
+          <div className={`grid gap-6 ${bilingual && cvTextEn ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: '#64748B' }}>🇮🇩 Bahasa Indonesia</p>
+              <div className="flex flex-col gap-2">
+                <DownloadButton
+                  label="📄 DOCX"
+                  sublabel="Editable di Word"
+                  ariaLabel="Download CV Bahasa Indonesia format DOCX"
+                  onClick={() => onDownload('id', 'docx')}
+                />
+                <DownloadButton
+                  label="📑 PDF"
+                  sublabel="Siap kirim"
+                  ariaLabel="Download CV Bahasa Indonesia format PDF"
+                  onClick={() => onDownload('id', 'pdf')}
+                />
               </div>
-
-              {bilingual && cvTextEn && (
-                <div lang="en" className="p-4" style={OUTLINE_CARD_STYLE}>
-                  <div className="text-sm font-semibold mb-2 text-slate-900">🇬🇧 English</div>
-                  <div className="flex flex-col gap-2">
-                    <DownloadButton fmt="docx" label="📄 CV English — DOCX" size="For editing" ariaLabel="Download CV English format DOCX" onClick={() => onDownload('en', 'docx')} />
-                    <DownloadButton fmt="pdf" label="📑 CV English — PDF" size="For applying" ariaLabel="Download CV English format PDF" onClick={() => onDownload('en', 'pdf')} />
-                  </div>
-                </div>
-              )}
             </div>
 
-            {deliveryEmail && (
-              <div style={{ borderTop: '1px solid rgba(148,163,184,0.16)', paddingTop: '0.9rem' }}>
-                <p className="text-sm text-slate-500 mb-1">Link download juga dikirim ke:</p>
-                <p className="text-sm font-semibold text-slate-700 mb-2 break-all">{deliveryEmail}</p>
-                <ResendEmail sessionSecret={sessionSecret} compact />
+            {bilingual && cvTextEn && (
+              <div lang="en">
+                <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: '#64748B' }}>🇬🇧 English</p>
+                <div className="flex flex-col gap-2">
+                  <DownloadButton
+                    label="📄 DOCX"
+                    sublabel="For editing"
+                    ariaLabel="Download CV English format DOCX"
+                    onClick={() => onDownload('en', 'docx')}
+                  />
+                  <DownloadButton
+                    label="📑 PDF"
+                    sublabel="For applying"
+                    ariaLabel="Download CV English format PDF"
+                    onClick={() => onDownload('en', 'pdf')}
+                  />
+                </div>
               </div>
             )}
           </div>
 
-          {expiryText && expiryText.split('\n').map((line, i) => (
-            <p key={i} className="text-center text-sm text-slate-500 mb-1 last:mb-0">{line}</p>
-          ))}
+          {deliveryEmail && (
+            <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid rgba(148,163,184,0.14)' }}>
+              <p className="text-sm text-slate-500 mb-0.5">Link download dikirim ke:</p>
+              <p className="text-sm font-semibold text-slate-700 mb-0 break-all">{deliveryEmail}</p>
+              <ResendEmail sessionSecret={sessionSecret} compact />
+            </div>
+          )}
+
+          {expiryText && (
+            <div style={{ marginTop: '1rem' }}>
+              {expiryText.split('\n').map((line, i) => (
+                <p key={i} className="text-sm text-slate-500 mb-1 last:mb-0">{line}</p>
+              ))}
+            </div>
+          )}
         </section>
       )}
 
@@ -243,20 +270,24 @@ export default function DownloadReady({
 
       <section className="gl-fade-up gl-fade-up-d3" style={CARD_STYLE}>
         <h2 style={SECTION_HEADING}>Langkah berikutnya</h2>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <button type="button" onClick={() => jumpTo('multi-credit-section')} className="text-left rounded-[14px] p-4 transition-all duration-200 hover:-translate-y-[2px] hover:shadow-lg" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', boxShadow: '0 10px 22px rgba(59,130,246,0.13)' }}>
-            <div className="font-semibold text-slate-900 text-sm">Tailor CV untuk loker lain</div>
-            <p className="text-xs text-slate-600 mt-1 mb-0">Untuk apply ke posisi berbeda</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={handleTailorCta}
+            className="gl-next-card text-left rounded-[14px] p-4"
+            style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}
+          >
+            <div className="font-semibold text-slate-900 text-sm">Tailor CV untuk posisi lain</div>
+            <p className="text-xs text-slate-600 mt-1 mb-0">Gunakan sisa kredit untuk posisi berbeda</p>
           </button>
 
-          <button type="button" onClick={() => jumpTo('interview-kit-section')} className="text-left rounded-[14px] p-4 transition-all duration-200 hover:bg-slate-50 hover:-translate-y-[1px]" style={{ background: '#F8FAFC', border: '1px solid #E2E8F0' }}>
-            <div className="font-semibold text-slate-900 text-sm">Interview Kit</div>
-            <p className="text-xs text-slate-600 mt-1 mb-0">Email, WhatsApp, dan jawaban interview</p>
-          </button>
-
-          <a href="upload.html" className="no-underline rounded-[14px] p-4 block transition-all duration-200 hover:bg-slate-50 hover:-translate-y-[1px]" style={{ background: '#F8FAFC', border: '1px solid #E2E8F0' }}>
-            <div className="font-semibold text-slate-900 text-sm">Upgrade ke 3-Pack</div>
-            <p className="text-xs text-slate-600 mt-1 mb-0">Lebih hemat untuk multiple posisi</p>
+          <a
+            href="upload.html"
+            className="gl-next-card no-underline rounded-[14px] p-4 block"
+            style={{ background: '#F8FAFC', border: '1px solid #E2E8F0' }}
+          >
+            <div className="font-semibold text-slate-900 text-sm">Upload CV baru</div>
+            <p className="text-xs text-slate-600 mt-1 mb-0">Mulai analisis dari CV yang berbeda</p>
           </a>
         </div>
       </section>

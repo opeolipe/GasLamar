@@ -200,7 +200,10 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
           {/* Email Template */}
           <AccordionItem value="item-email" className="border border-slate-200 rounded-[14px] mb-2 overflow-hidden bg-white transition-all duration-200 hover:shadow-sm">
             <AccordionTrigger className="min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
-              Email Lamaran
+              <span className="flex items-center gap-2">
+                Email Lamaran
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, background: '#ECFDF5', color: '#059669', border: '1px solid #6EE7B7', borderRadius: 20, padding: '1px 8px', letterSpacing: '0.02em' }}>Paling sering dipakai</span>
+              </span>
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">
               <p className="text-sm font-medium text-slate-500 mb-1">Subject:</p>
@@ -235,7 +238,10 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
           {/* Tell Me About Yourself */}
           <AccordionItem value="item-tmay" className="border border-slate-200 rounded-[14px] mb-2 overflow-hidden bg-white transition-all duration-200 hover:shadow-sm">
             <AccordionTrigger className="min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
-              "Tell Me About Yourself"
+              <span className="flex items-center gap-2">
+                "Tell Me About Yourself"
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, background: '#ECFDF5', color: '#059669', border: '1px solid #6EE7B7', borderRadius: 20, padding: '1px 8px', letterSpacing: '0.02em' }}>Paling sering dipakai</span>
+              </span>
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">
               <p className="text-sm text-slate-400 mb-2">Jawaban pembuka ~45-60 detik</p>
