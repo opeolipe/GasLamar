@@ -76,15 +76,19 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
             onClose={() => setShowFetcher(false)}
           />
         ) : (
-          <p className="text-sm text-slate-500">
-            Paste job description atau{' '}
+          <p className="text-sm text-slate-500 flex items-center flex-wrap gap-1.5">
+            Paste job description atau
             <button
               type="button"
               onClick={() => setShowFetcher(true)}
-              className="text-blue-600 underline hover:no-underline font-medium inline-flex items-center min-h-[44px] px-0.5"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 active:bg-blue-200 border border-blue-200 text-blue-600 font-medium text-sm transition-colors min-h-[36px] leading-none"
               aria-label="Ambil job description dari URL loker seperti LinkedIn, Glints, atau JobStreet"
             >
-              tempel link loker →
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+              </svg>
+              Ambil via link
             </button>
           </p>
         )}
