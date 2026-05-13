@@ -25,6 +25,7 @@ import WaitingPayment        from '@/components/download/WaitingPayment';
 import GeneratingCV          from '@/components/download/GeneratingCV';
 import DownloadReady         from '@/components/download/DownloadReady';
 import InterviewKit          from '@/components/download/InterviewKit';
+import ResendEmail           from '@/components/download/ResendEmail';
 
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -427,7 +428,19 @@ export default function Download() {
           </div>
         )}
 
-        {view === 'waiting' && (
+        {delivery && (view === 'error' || view === 'waiting') && (
+          <div style={{ maxWidth: 520, margin: '0 auto' }}>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', marginBottom: '0.5rem', lineHeight: 1.3 }}>
+              CV kamu sudah siap digunakan
+            </h1>
+            <p style={{ fontSize: '0.95rem', color: '#475569', marginBottom: '1.5rem' }}>
+              File CV kamu sudah dikirimkan ke email. Cek inbox atau folder spam.
+            </p>
+            <ResendEmail sessionSecret={session.sessionSecret} />
+          </div>
+        )}
+
+        {view === 'waiting' && !delivery && (
           <div style={{ maxWidth: 480, margin: '0 auto' }}>
             <WaitingPayment
               statusText={session.statusText}
