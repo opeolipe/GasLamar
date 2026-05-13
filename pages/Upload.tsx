@@ -28,7 +28,7 @@ interface Notice {
 const STALE_KEYS = [
   'gaslamar_scoring', 'gaslamar_cv_key', 'gaslamar_cv_pending', 'gaslamar_jd_pending',
   'gaslamar_filename', 'gaslamar_tier', 'gaslamar_email', 'gaslamar_analyze_time',
-  'gaslamar_cv_draft', 'gaslamar_filename_draft',
+  'gaslamar_cv_draft', 'gaslamar_filename_draft', 'gaslamar_cv_paste_raw',
   'gaslamar_6d_scores', 'gaslamar_skor', 'gaslamar_skor_sesudah', 'gaslamar_gap',
   'gaslamar_sample_line', 'gaslamar_sample_context',
   'gaslamar_sample_fallback', 'gaslamar_entitas_klaim', 'gaslamar_result_id',
@@ -42,7 +42,15 @@ export default function Upload() {
   const [manualCvText, setManualCvText] = useState('');
   const [fileError,   setFileError]   = useState('');
   const [scanWarning, setScanWarning] = useState(false);
-  const [cvTab,       setCvTab]       = useState<'upload' | 'paste'>('upload');
+  // Start on "Paste CV" tab if the last session had partial paste text with no
+  // full CV draft — reads synchronously so CvDropzone gets the right initial tab.
+  const [cvTab, setCvTab] = useState<'upload' | 'paste'>(() => {
+    try {
+      return !sessionStorage.getItem('gaslamar_cv_draft')
+          && !!sessionStorage.getItem('gaslamar_cv_paste_raw')
+        ? 'paste' : 'upload';
+    } catch (_) { return 'upload'; }
+  });
 
   // JD state
   const [jd, setJd] = useState('');
@@ -154,6 +162,11 @@ export default function Upload() {
         const parsed = JSON.parse(restoreCv);
         if (parsed?.type === 'txt' && typeof parsed.data === 'string') setManualCvText(parsed.data);
       } catch (_) {}
+    } else {
+      // No full CV draft — restore partial paste text if present (< MIN_CV_TEXT_LENGTH).
+      // The initial tab is already set to 'paste' by the cvTab lazy initializer above.
+      const rawPaste = sessionStorage.getItem('gaslamar_cv_paste_raw');
+      if (rawPaste) setManualCvText(rawPaste);
     }
   }, []);
 
@@ -253,9 +266,9 @@ export default function Upload() {
     try {
       sessionStorage.removeItem('gaslamar_cv_draft');
       sessionStorage.removeItem('gaslamar_filename_draft');
-      sessionStorage.removeItem('gaslamar_jd_draft');
+      sessionStorage.removeItem('gaslamar_cv_paste_raw');
     } catch (_) {}
-    setJd('');
+    // JD is intentionally preserved — user is only changing their CV, not starting over.
   }
 
   function handleManualCvChange(value: string) {
@@ -263,6 +276,16 @@ export default function Upload() {
     setManualCvText(next);
     setScanWarning(false);
     setFileError('');
+
+    // Always persist raw paste text so it survives a page refresh, even when
+    // too short to count as a valid CV blob (< MIN_CV_TEXT_LENGTH).
+    try {
+      if (next.trim().length > 0) {
+        sessionStorage.setItem('gaslamar_cv_paste_raw', next);
+      } else {
+        sessionStorage.removeItem('gaslamar_cv_paste_raw');
+      }
+    } catch (_) {}
 
     if (next.trim().length >= MIN_CV_TEXT_LENGTH) {
       const encoded = JSON.stringify({ type: 'txt', data: next });
@@ -449,6 +472,7 @@ export default function Upload() {
               onFileSelect={handleFileSelect}
               onRemove={handleRemove}
               onTabChange={setCvTab}
+              defaultTab={cvTab}
             />
           </div>
 

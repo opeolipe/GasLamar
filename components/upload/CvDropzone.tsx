@@ -12,6 +12,8 @@ interface Props {
   onFileSelect:     (file: File) => void;
   onRemove:         () => void;
   onTabChange?:     (tab: 'upload' | 'paste') => void;
+  /** Initial tab to open on mount — used to restore partial-paste sessions. */
+  defaultTab?:      'upload' | 'paste';
 }
 
 interface ErrorRecovery {
@@ -80,7 +82,7 @@ function getErrorRecovery(error: string): ErrorRecovery | null {
   return null;
 }
 
-export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWarning, manualCvText, onManualCvChange, onFileSelect, onRemove, onTabChange }: Props) {
+export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWarning, manualCvText, onManualCvChange, onFileSelect, onRemove, onTabChange, defaultTab }: Props) {
   const inputRef    = useRef<HTMLInputElement>(null);
   const pasteRef    = useRef<HTMLTextAreaElement>(null);
   const onChangeRef    = useRef(onManualCvChange);
@@ -88,7 +90,9 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
   const onTabChangeRef = useRef(onTabChange);
   onTabChangeRef.current = onTabChange;
 
-  const [tab, setTab] = useState<'upload' | 'paste'>('upload');
+  // defaultTab is computed synchronously in Upload.tsx before first render,
+  // so this initial value is always correct on mount.
+  const [tab, setTab] = useState<'upload' | 'paste'>(defaultTab ?? 'upload');
 
   function switchTab(next: 'upload' | 'paste') {
     setTab(next);
