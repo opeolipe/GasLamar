@@ -29,6 +29,19 @@ function classifyAttachment(filename) {
   return 'other';
 }
 
+async function readKitForEmail(env, sessionId) {
+  // Prefer Indonesian cache for consistency with email body language,
+  // then fallback to English cache so attachment is still present.
+  const idEntry = await env.GASLAMAR_SESSIONS.get(`kit_${sessionId}_id`, { type: 'json' });
+  const idKit = idEntry?.kit ?? idEntry;
+  if (idKit && idKit.interview_questions) return idKit;
+
+  const enEntry = await env.GASLAMAR_SESSIONS.get(`kit_${sessionId}_en`, { type: 'json' });
+  const enKit = enEntry?.kit ?? enEntry;
+  if (enKit && enKit.interview_questions) return enKit;
+  return null;
+}
+
 // ---- Resend Email ----
 //
 // Sends a post-payment confirmation email via Resend API.
@@ -289,10 +302,8 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
   // Interview kit PDF
   // KV stores { kit: {...}, session_secret_hash } — extract the inner kit.
   try {
-    const kitEntry = await env.GASLAMAR_SESSIONS.get(`kit_${sessionId}_id`, { type: 'json' });
-    // Support both new wrapped format { kit: {...} } and legacy plain-object format.
-    const kitData = kitEntry?.kit ?? kitEntry;
-    if (kitData && kitData.interview_questions) {
+    const kitData = await readKitForEmail(env, sessionId);
+    if (kitData) {
       const pdfBytes = await generateInterviewKitPdf(kitData);
       attachments.push({ filename: 'interview-kit.pdf', content: toBase64(pdfBytes) });
     }

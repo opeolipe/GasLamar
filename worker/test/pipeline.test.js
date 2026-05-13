@@ -858,6 +858,15 @@ describe('postProcessCV', () => {
     expect(text).not.toMatch(/\[.*\]/);
   });
 
+  it('strips markdown heading prefixes (#, ##) from final output', () => {
+    const cv = '# Nama Kandidat\n## RINGKASAN PROFESIONAL\n- Mengelola operasi harian lintas tim';
+    const { text } = postProcessCV(cv, cv);
+    expect(text).not.toContain('# Nama Kandidat');
+    expect(text).not.toContain('## RINGKASAN PROFESIONAL');
+    expect(text).toContain('Nama Kandidat');
+    expect(text).toContain('RINGKASAN PROFESIONAL');
+  });
+
   it('DOCX mode keeps output clean without guidance artifacts', () => {
     const lines = [
       'Membangun REST API untuk sistem backend perusahaan yang skalabel dan andal',
