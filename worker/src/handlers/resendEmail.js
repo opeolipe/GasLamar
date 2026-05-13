@@ -4,7 +4,7 @@ import { getSession, updateSession,
 import { getSessionIdFromCookie }            from '../cookies.js';
 import { clientIp, log, logError }           from '../utils.js';
 import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
-import { sendPaymentConfirmationEmail }      from '../email.js';
+import { sendCVReadyEmail }                  from '../email.js';
 import { SESSION_STATES }                    from '../sessionStates.js';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -99,7 +99,9 @@ export async function handleResendEmail(request, env) {
   }
 
   try {
-    await sendPaymentConfirmationEmail(sessionId, env);
+    // Resend the CV-ready email (with CV PDF + interview kit attachments if available).
+    // Score and gaps are not available at resend time — sendCVReadyEmail handles null gracefully.
+    await sendCVReadyEmail(sessionId, null, null, env);
     log('resend_email_sent', { session_id: sessionId, changed: !!newEmail, ip });
   } catch (e) {
     logError('resend_email_failed', { session_id: sessionId, error: e.message });
