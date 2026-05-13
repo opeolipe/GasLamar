@@ -69,7 +69,7 @@ export function extractCandidateDisplayName(cvData: string, fallbackFilename: st
 
   // Plain-text path: take the first non-blank line that looks like a name
   // (not all-uppercase, not too long — avoids section headings).
-  const nameLine = cvData.split('\n').map(l => l.trim())
+  const nameLine = cvData.split('\n').map(l => l.trim().replace(/^#+\s*/, ''))
     .find(l => l.length > 1 && l.length < 60 && !/^[A-Z\s]{4,}$/.test(l));
 
   return nameLine || fallbackFilename || 'CV Kamu';

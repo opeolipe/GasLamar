@@ -354,7 +354,7 @@ export default function Download() {
 
   const filename = effectiveContent
     ? buildCVFilename(effectiveContent.cvId, effectiveContent.jobTitle, effectiveContent.company, 'id', 'docx')
-    : 'CV.docx';
+    : (sessionStorage.getItem('gaslamar_candidate_name') || 'CV kamu');
 
   const sessionError = view === 'error'
     ? (session.error ?? generate.error ?? { title: 'Terjadi Kesalahan', message: 'Terjadi kesalahan. Coba refresh halaman.', retryable: false, reason: undefined })

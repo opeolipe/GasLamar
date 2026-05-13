@@ -50,7 +50,7 @@ export function buildCVFilename(
   // Take the very first non-blank line — it is always the candidate's name.
   // The earlier all-caps exclusion wrongly skipped names like "BUDI SANTOSO".
   const nameLine = cvText
-    .split('\n').map(l => l.trim())
+    .split('\n').map(l => l.trim().replace(/^#+\s*/, ''))
     .find(l => l.length > 1 && l.length < 60) ?? null;
   const firstName  = nameLine ? sanitizeFilenamePart(nameLine.split(/\s+/)[0], 20) : null;
   const langLabel  = lang === 'id' ? 'Indonesia' : 'English';
