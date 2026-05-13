@@ -157,6 +157,11 @@ export default function DownloadReady({
         .gl-next-card:active {
           transform: translateY(0);
         }
+        @media (prefers-reduced-motion: reduce) {
+          .gl-fade-up { animation: none; opacity: 1; transform: none; }
+          .gl-next-card { transition: none; }
+          .gl-next-card:hover { transform: none; }
+        }
       `}</style>
       <pre data-testid="cv-content" className="sr-only" aria-hidden="true">{cvTextId}</pre>
 
@@ -171,7 +176,7 @@ export default function DownloadReady({
           <p className="text-sm text-slate-500 mb-5">Pilih format yang kamu butuhkan sekarang.</p>
 
           {isTrusted && (
-            <span data-testid="trust-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: 20, padding: '4px 12px', fontSize: '0.83rem', color: '#15803D', fontWeight: 600, marginBottom: '1.25rem' }}>
+            <span data-testid="trust-badge" style={{ display: 'inline-flex', maxWidth: '100%', wordBreak: 'break-word', alignItems: 'center', gap: 6, background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: 20, padding: '4px 12px', fontSize: '0.83rem', color: '#15803D', fontWeight: 600, marginBottom: '1.25rem' }}>
               ✅ CV divalidasi — tidak ada klaim baru yang ditambahkan
             </span>
           )}
@@ -278,7 +283,9 @@ export default function DownloadReady({
             style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}
           >
             <div className="font-semibold text-slate-900 text-sm">Tailor CV untuk posisi lain</div>
-            <p className="text-xs text-slate-600 mt-1 mb-0">Gunakan sisa kredit untuk posisi berbeda</p>
+            <p className="text-xs text-slate-600 mt-1 mb-0">
+              {showMultiCredit ? 'Gunakan sisa kredit untuk posisi berbeda' : 'Beli paket baru untuk posisi berikutnya'}
+            </p>
           </button>
 
           <a
