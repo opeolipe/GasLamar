@@ -428,7 +428,7 @@ export default function Download() {
           </div>
         )}
 
-        {view === 'error' && delivery && (
+        {delivery && (view === 'error' || view === 'waiting') && (
           <div style={{ maxWidth: 520, margin: '0 auto' }}>
             <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', marginBottom: '0.5rem', lineHeight: 1.3 }}>
               CV kamu sudah siap digunakan
@@ -440,7 +440,7 @@ export default function Download() {
           </div>
         )}
 
-        {view === 'waiting' && (
+        {view === 'waiting' && !delivery && (
           <div style={{ maxWidth: 480, margin: '0 auto' }}>
             <WaitingPayment
               statusText={session.statusText}
