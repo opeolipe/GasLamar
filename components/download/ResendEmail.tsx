@@ -117,7 +117,7 @@ export default function ResendEmail({ sessionSecret, compact = false }: Props) {
         setShowChange(false);
         setNewEmail('');
       }
-      setSuccessMsg(`CV berhasil dikirim ulang ke ${targetEmail}.`);
+      setSuccessMsg(`Link download baru sudah dikirim ke ${targetEmail}.`);
       ;(window as any).Analytics?.track?.('resend_success');
 
     } catch (_) {

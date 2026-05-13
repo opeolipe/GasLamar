@@ -24,6 +24,7 @@ import SessionError          from '@/components/download/SessionError';
 import WaitingPayment        from '@/components/download/WaitingPayment';
 import GeneratingCV          from '@/components/download/GeneratingCV';
 import DownloadReady         from '@/components/download/DownloadReady';
+import DownloadSkeleton      from '@/components/download/DownloadSkeleton';
 import InterviewKit          from '@/components/download/InterviewKit';
 import ResendEmail           from '@/components/download/ResendEmail';
 
@@ -440,7 +441,13 @@ export default function Download() {
           </div>
         )}
 
-        {view === 'waiting' && !delivery && (
+        {view === 'waiting' && !delivery && session.phase === 'init' && (
+          <div style={{ maxWidth: 760, margin: '0 auto' }}>
+            <DownloadSkeleton />
+          </div>
+        )}
+
+        {view === 'waiting' && !delivery && session.phase !== 'init' && (
           <div style={{ maxWidth: 480, margin: '0 auto' }}>
             <WaitingPayment
               statusText={session.statusText}
@@ -470,6 +477,7 @@ export default function Download() {
             <DownloadReady
               tier={tier ?? 'single'}
               expiryText={expiryText}
+              expiresAt={session.sessionData?.expiresAt ?? null}
               cvTextId={effectiveContent?.cvId ?? ''}
               cvTextEn={effectiveContent?.cvEn ?? null}
               creditsRemaining={creditsRemaining}
@@ -494,13 +502,6 @@ export default function Download() {
             />
           </div>
         )}
-
-        {/* Back link */}
-        <div className="text-center mt-4 mb-2">
-          <a href="upload.html" className="text-sm text-slate-400 hover:text-slate-600 transition-colors no-underline">
-            ← Upload CV lain
-          </a>
-        </div>
 
         <footer className="text-center py-6 text-sm text-slate-500">
           <p className="mb-3 text-slate-500">GasLamar · Karena nyari kerja udah cukup ribet</p>
