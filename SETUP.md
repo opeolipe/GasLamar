@@ -69,6 +69,7 @@ gaslamar/
 │   │   ├── claude.js       # callClaude — wrapper Anthropic API
 │   │   ├── fileExtraction.js # validateFileData, extractCVText, extractTextFromDOCX
 │   │   ├── analysis.js     # Orchestrator pipeline 6 stage (lihat Architecture)
+│   │   ├── cacheVersions.js  # Cache-key version constants
 │   │   ├── tailoring.js    # tailorCVID, tailorCVEN, validateCVSections
 │   │   ├── mayar.js        # createMayarInvoice, verifyMayarWebhook
 │   │   ├── sessions.js     # createSession, getSession, updateSession, dll
@@ -78,6 +79,7 @@ gaslamar/
 │   │   ├── rewriteGuard.js # Hallucination guard for CV rewrites
 │   │   ├── roleProfiles.js # Role-weighted scoring inputs
 │   │   ├── interviewKitPdf.js # pdf-lib PDF generation for interview kit
+│   │   ├── cvPdf.js          # Server-side PDF generation for CV email delivery
 │   │   ├── router.js       # Route dispatch (semua path/method)
 │   │   ├── prompts/
 │   │   │   ├── extract.js  # SKILL_EXTRACT — verbatim extraction prompt
