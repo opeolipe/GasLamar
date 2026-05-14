@@ -67,7 +67,7 @@ ALLOWED:
  * Strategy: section-aware — keep header + 2 most recent experience entries + skills.
  * Falls back to a hard cut at 10 000 chars if section parsing yields no reduction.
  */
-function truncateCV(cvText) {
+function truncateCV(cvText, lang = 'id') {
   const THRESHOLD  = 4000;
   const HARD_LIMIT = 10000;
   if (cvText.length <= THRESHOLD) return cvText;
@@ -100,7 +100,10 @@ function truncateCV(cvText) {
       const result = kept.join('\n');
       if (result.length < cvText.length) {
         console.warn(JSON.stringify({ event: 'cv_truncated', original_len: cvText.length, result_len: result.length }));
-        return result + '\n\n[... sebagian entri pengalaman dihapus untuk efisiensi pemrosesan ...]';
+        const note = lang === 'en'
+          ? '[... some experience entries removed for processing efficiency ...]'
+          : '[... sebagian entri pengalaman dihapus untuk efisiensi pemrosesan ...]';
+        return result + '\n\n' + note;
       }
     }
   }
@@ -109,7 +112,10 @@ function truncateCV(cvText) {
     const slice = cvText.slice(0, HARD_LIMIT);
     const cutAt = Math.max(slice.lastIndexOf('\n'), HARD_LIMIT - 200);
     console.warn(JSON.stringify({ event: 'cv_truncated_hard', original_len: cvText.length }));
-    return cvText.slice(0, cutAt) + '\n\n[... CV diperpendek karena terlalu panjang ...]';
+    const note = lang === 'en'
+      ? '[... CV shortened because it exceeds the processing limit ...]'
+      : '[... CV diperpendek karena terlalu panjang ...]';
+    return cvText.slice(0, cutAt) + '\n\n' + note;
   }
 
   return cvText;
@@ -131,7 +137,7 @@ function truncateCV(cvText) {
  */
 export async function tailorCVID(cvText, jobDesc, env, mode = 'pdf', options = {}) {
   const { issue, previewSample, previewAfter, entitasKlaim = null, roleProfile = null, jdMode = 'targeted', extractedCV = null } = options;
-  const effectiveCVText = truncateCV(cvText);
+  const effectiveCVText = truncateCV(cvText, 'id');
 
   // KV cache keyed on raw content — post-processing is applied per-call (after cache read)
   const genKey   = `${GEN_KEY_PREFIX_ID}${await sha256Hex(effectiveCVText + '\x00' + jobDesc)}`;
@@ -253,7 +259,7 @@ export async function tailorCVEN(cvText, jobDesc, env, mode = 'pdf', options = {
   // was provided. ISSUE_FALLBACK_EN contains English fallback suffixes, so the guard
   // works correctly for English CVs — the comment claiming otherwise was wrong.
   const { issue = null, previewSample, previewAfter, entitasKlaim = null, roleProfile = null, jdMode = 'targeted', extractedCV = null } = options;
-  const effectiveCVText = truncateCV(cvText);
+  const effectiveCVText = truncateCV(cvText, 'en');
 
   const genKey   = `${GEN_KEY_PREFIX_EN}${await sha256Hex(effectiveCVText + '\x00' + jobDesc)}`;
   const cached   = await env.GASLAMAR_SESSIONS.get(genKey);
