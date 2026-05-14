@@ -48,10 +48,30 @@ NO REPETITIVE PATTERNS (CRITICAL):
 - Do not use the same action verb more than twice in one role
 - Do not end more than 2 bullets per CV with "to [verb]..." purpose clauses
 - Do not make all bullets structurally identical — vary length and pattern
+- Do not write two bullets that mean essentially the same thing in different words
 - STRICTLY BANNED: bullets ending in vague purpose clauses like:
   "...to improve efficiency", "...to ensure smooth operations",
   "...to support business growth", "...to demonstrate impact"
   Replace with: real context, a specific object, or shorten the bullet
+
+ACHIEVEMENT VS JOB DUTY (IMPORTANT — resume-lm standard):
+Bullets must show ACTION + REAL CONTEXT, not just a job description restatement.
+BAD (duty only): "Managed client relationships" — this is just a job title description
+GOOD (has context): "Managed day-to-day communication with B2B distribution clients across East Java"
+Add "how", "with whom", or "where" only if that information EXISTS in the original CV.
+Do not fabricate context — only surface what is already written.
+
+WEAK QUANTIFICATION DODGES (avoid — these are not numbers, they are evasions):
+many, several, various, numerous, multiple, a variety of, a number of,
+many clients, various projects, several aspects, multiple stakeholders
+BAD: "Handled various client requests" — "various" hides the absence of a real number
+GOOD: "Handled daily client requests from FMCG distribution partners" — concrete without a number
+If there are no numbers → write real operational context, not vague quantity substitutes.
+
+NO PASSIVE VOICE (signals AI, spotted instantly by recruiters):
+BANNED: "Was responsible for", "Was tasked with", "Was assigned to", "Was involved in"
+(These are already in the REJECT list — also ban passive constructions more broadly)
+USE INSTEAD: active verbs — "Managed", "Led", "Handled", "Delivered", "Executed"
 
 ACTION VERBS (use variety — not exclusively from this list):
 Led, Managed, Developed, Coordinated, Delivered, Improved, Reduced,
@@ -141,6 +161,37 @@ NEVER:
 - Multi-column layout or tables
 - Repeated purpose-ending clauses: "to improve...", "to ensure...", "to support...", "to demonstrate..."
 - Remove important context just to shorten the CV
+
+EDGE CASES — DO NOT IGNORE:
+
+Fresh graduate / minimal experience:
+- Do not add bullets that are not in the CV — use what exists as-is
+- May reference internships, university projects, or org roles if they are in the original CV
+- Do not inflate an internship role to sound like a senior full-time position
+
+Career changer (switching industry):
+- Highlight transferable skills that genuinely exist in the CV and are relevant to the JD
+- Do not reframe the old role to sound identical to the new industry — that is dishonest
+- Focus on genuine skill overlap, not forced JD terminology
+
+Employment gaps:
+- DO NOT mention, explain, or apologise for gaps in the summary or bullets
+- Stay silent — recruiters will ask if they need to
+
+Short-tenure roles (< 6 months) or freelance / project-based work:
+- Do not pad thin experience — 1–2 bullets is fine for short roles
+- For freelance with multiple clients: mention 2–3 largest clients only if named in the CV
+- Do not merge separate freelance projects into one vague mega-bullet
+
+Candidates with many short roles:
+- Do not compress all short roles into a single summary entry
+- Preserve the chronological order — let the recruiter judge the pattern
+- Do not editorialize about the candidate's career trajectory
+
+SKILLS SECTION RULES:
+- Do not add tools or skills to the SKILLS section that are not in the original CV
+- Do not create sub-categories that do not exist in the CV (e.g., do not invent a "Soft Skills" group)
+- Only reorder skills if the JD provides a clear signal for prioritization
 
 BANNED PHRASES (auto-detected — never output these):
 - "yang relevan dengan posisi yang ditargetkan"

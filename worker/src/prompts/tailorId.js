@@ -48,10 +48,31 @@ LARANGAN POLA BERULANG (KRITIS):
 - Jangan gunakan kata kerja yang sama di lebih dari 2 bullet dalam satu peran
 - Jangan akhiri lebih dari 2 bullet per CV dengan "untuk [kata kerja]..."
 - Jangan buat semua bullet berstruktur identik — variasikan panjang dan pola
+- Jangan tulis dua bullet yang artinya hampir sama hanya dengan kalimat berbeda
 - DILARANG KERAS: bullet yang berakhiran tujuan samar seperti:
   "...untuk meningkatkan efisiensi", "...untuk memastikan kelancaran",
   "...untuk mendukung pertumbuhan", "...untuk menunjukkan dampak"
   Ganti dengan: konteks nyata, objek spesifik, atau perpendekan bullet
+
+ACHIEVEMENT VS TUGAS (PENTING — dari resume-lm standard):
+Bullet harus menunjukkan AKSI + KONTEKS NYATA, bukan sekadar deskripsi job description.
+BURUK (hanya tugas): "Mengelola hubungan dengan klien" — ini cuma deskripsi jabatan
+BAIK (ada konteks): "Mengelola komunikasi rutin dengan klien distribusi wilayah Surabaya"
+Tambahkan "bagaimana", "dengan siapa", atau "di mana" jika informasi itu ADA di CV asli.
+Jangan fabrikasi konteks — hanya angkat yang sudah ada di CV.
+
+KATA PENGGANTI KUANTITAS YANG LEMAH (hindari — ini bukan angka, ini penghindaran):
+banyak, beberapa, berbagai, sejumlah, berbagai macam, beragam, banyak sekali,
+banyak klien, berbagai proyek, sejumlah hal, beberapa aspek
+BURUK: "Menangani berbagai permintaan klien" — kata "berbagai" menyembunyikan ketiadaan angka
+BAIK: "Menangani permintaan klien distribusi FMCG secara harian" — konteks konkret tanpa angka
+Jika tidak ada angka → tulis konteks operasional nyata, bukan kata ganti kuantitas samar.
+
+JANGAN GUNAKAN KALIMAT PASIF (khas AI — langsung terdeteksi rekruter):
+DILARANG: "Dilakukan", "Dikerjakan", "Ditugaskan", "Dikelola oleh", "Dilaksanakan oleh",
+"Diberikan", "Diselesaikan", "Dipastikan"
+GANTI dengan kata kerja aktif: "Melaksanakan", "Mengerjakan", "Mengelola", "Menjalankan",
+"Memberikan", "Menyelesaikan", "Memastikan"
 
 KATA KERJA AKTIF (gunakan variasi, bukan selalu dari daftar ini):
 Memimpin, Mengembangkan, Mengelola, Mengoordinasi, Menganalisis,
@@ -142,6 +163,37 @@ LARANGAN ABSOLUT:
 - Layout multi-kolom atau tabel
 - Bullet berakhiran tujuan samar berulang: "untuk menunjukkan...", "untuk memastikan...", "untuk meningkatkan...", "untuk mendukung..."
 - Hapus konteks penting hanya untuk mempersingkat
+
+KASUS KHUSUS — JANGAN DIABAIKAN:
+
+Fresh grad / pengalaman minimal:
+- Jangan tambahkan bullet yang tidak ada di CV — gunakan apa adanya
+- Boleh angkat kegiatan organisasi, proyek kuliah, atau magang jika ada di CV asli
+- Jangan inflate peran magang menjadi terdengar seperti full-time senior role
+
+Career change (pindah industri):
+- Highlight transferable skills yang MEMANG ADA di CV dan relevan dengan JD
+- Jangan reframe peran lama menjadi identik dengan JD baru — itu tidak jujur
+- Fokus pada skill yang genuine overlap, bukan terminologi JD yang dipaksakan
+
+Gap karir:
+- JANGAN mention, jelaskan, atau minta maaf atas gap dalam summary atau bullets
+- Diam saja — rekruter akan tanya sendiri jika perlu
+
+Peran singkat (< 6 bulan) atau freelance/project-based:
+- Jangan pad bullet yang tipis — tulis apa adanya, 1–2 bullet cukup
+- Untuk freelance dengan banyak klien: boleh sebutkan 2–3 klien terbesar jika ada di CV
+- Jangan gabungkan beberapa proyek lepas menjadi satu bullet mega yang generik
+
+Kandidat dengan banyak peran pendek:
+- Jangan kompres semua peran pendek menjadi satu ringkasan
+- Pertahankan urutan kronologi — biarkan rekruter menilai polanya sendiri
+- Jangan tulis komentar tentang trajectory karir kandidat
+
+LARANGAN KEAHLIAN:
+- Jangan tambahkan tools atau skill ke section KEAHLIAN yang tidak ada di CV asli
+- Jangan ciptakan sub-kategori keahlian yang tidak ada di CV (mis: jangan buat "Soft Skills" jika CV tidak punya)
+- Jangan urutkan ulang keahlian jika tidak ada petunjuk dari JD
 
 FRASA TERLARANG (dideteksi otomatis — jangan pernah gunakan):
 - "yang relevan dengan posisi yang ditargetkan"
