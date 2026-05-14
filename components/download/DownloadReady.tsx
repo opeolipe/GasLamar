@@ -118,7 +118,7 @@ export default function DownloadReady({
 
   // For multi-credit tiers with remaining credits: show "3-Pack · 2 dari 3 CV tersisa · Aktif sampai 14 Juni"
   // For single/coba: show subtle access-duration note
-  const expiryDateStr = expiresAt
+  const expiryDateStr = expiresAt && expiresAt > Date.now()
     ? new Date(expiresAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
     : null;
 
@@ -142,12 +142,12 @@ export default function DownloadReady({
     ? {
         label: 'Upload CV baru',
         subtitle: multiCredit ? 'Gunakan kredit berikutnya' : 'Mulai analisis dari CV yang berbeda',
-        href: 'upload.html',
+        href: 'upload.html?new_package=1',
       }
     : {
         label: 'Mulai paket baru',
         subtitle: 'Beli paket untuk CV posisi berikutnya',
-        href: 'upload.html',
+        href: 'upload.html?new_package=1',
       };
 
   // ── Scroll helpers ─────────────────────────────────────────────────────────
@@ -165,8 +165,7 @@ export default function DownloadReady({
     if (showMultiCredit) {
       jumpTo('multi-credit-section');
     } else {
-      const upgradeEl = document.getElementById('upgrade-nudge');
-      if (upgradeEl) upgradeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      window.location.href = 'upload.html?new_package=1';
     }
   }
 
