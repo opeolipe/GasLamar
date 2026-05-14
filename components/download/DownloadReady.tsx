@@ -118,7 +118,7 @@ export default function DownloadReady({
 
   // For multi-credit tiers with remaining credits: show "3-Pack · 2 dari 3 CV tersisa · Aktif sampai 14 Juni"
   // For single/coba: show subtle access-duration note
-  const expiryDateStr = expiresAt
+  const expiryDateStr = expiresAt && expiresAt > Date.now()
     ? new Date(expiresAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
     : null;
 
