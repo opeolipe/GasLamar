@@ -101,6 +101,45 @@ function filterHallucinatedTools(rekomendasi, extractedData) {
   });
 }
 
+const GENERIC_RECO_PATTERNS = [
+  /perbaiki\s+cv/i,
+  /tingkatkan\s+kualitas/i,
+  /lebih\s+baik/i,
+  /lebih\s+efektif/i,
+  /optimalkan\s+cv/i,
+  /buat\s+cv\s+lebih/i,
+  /perbaiki\s+penulisan/i,
+];
+
+const SPECIFIC_SECTION_HINTS = [
+  /\bsummary\b/i,
+  /\bprofil\b/i,
+  /\bpengalaman\b/i,
+  /\bskills?\b/i,
+  /\bsertifikat\b/i,
+  /\bheadline\b/i,
+  /\bbagian\b/i,
+  /\bpt\s+[a-z0-9]/i,
+];
+
+function isGenericRecommendation(text) {
+  const rec = String(text || '').trim();
+  if (!rec) return true;
+  const genericHit = GENERIC_RECO_PATTERNS.some(re => re.test(rec));
+  const hasSpecificSection = SPECIFIC_SECTION_HINTS.some(re => re.test(rec));
+  return genericHit && !hasSpecificSection;
+}
+
+function sanitizeRecommendations(rekomendasi) {
+  if (!Array.isArray(rekomendasi)) return rekomendasi;
+  const filtered = rekomendasi.filter(rec => !isGenericRecommendation(rec));
+
+  if (filtered.length === 0) {
+    return ['Kami belum bisa memberi rekomendasi spesifik. Tambahkan detail hasil kerja di bagian pengalaman.'];
+  }
+  return filtered;
+}
+
 /**
  * Builds the structured user message fed to SKILL_DIAGNOSE.
  * Providing explicit analisis_sistem facts prevents the LLM from inferring
@@ -227,6 +266,15 @@ export async function callDiagnose(extractedData, analysisResult, scoreResult, r
 
   if (result && Array.isArray(result.rekomendasi)) {
     result.rekomendasi = filterHallucinatedTools(result.rekomendasi, extractedData);
+    const before = result.rekomendasi.length;
+    result.rekomendasi = sanitizeRecommendations(result.rekomendasi);
+    if (Array.isArray(result.rekomendasi) && result.rekomendasi.length !== before) {
+      console.log(JSON.stringify({
+        event: 'diagnose_generic_recommendation_guard_triggered',
+        before_count: before,
+        after_count: result.rekomendasi.length,
+      }));
+    }
   }
   return result;
 }

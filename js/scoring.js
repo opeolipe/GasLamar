@@ -106,6 +106,7 @@
   // Hide loading, show content
   document.getElementById('results-loading').classList.add('hidden');
   document.getElementById('results-content').classList.remove('hidden');
+  renderScoringUpdateBanner();
 
   renderScore(scoring);
   renderArchetypeAndVerdict(scoring);
@@ -442,8 +443,15 @@ function renderSkor6D(skor6d) {
     recruiter_signal: { label: 'Daya Tarik CV',            icon: '👁️' },
     north_star:       { label: 'Kesesuaian Role',          icon: '🎯' },
     effort:           { label: 'Kemudahan Perbaiki',       icon: '⚡' },
-    risk:             { label: 'Relevansi Jangka Panjang', icon: '🛡️' },
-    // opportunity_cost excluded: derived entirely from effort (effort < 5 ? 5 : 10)
+    risk:             { label: 'Skill yang Tetap Dicari',  icon: '🛡️' },
+  };
+
+  const bandLabel = val => {
+    if (val <= 2) return 'Perlu banyak perbaikan';
+    if (val <= 4) return 'Di bawah rata-rata';
+    if (val <= 6) return 'Cukup';
+    if (val <= 8) return 'Baik';
+    return 'Luar biasa';
   };
 
   bars.innerHTML = Object.entries(DIM_LABELS).map(([key, { label, icon }]) => {
@@ -454,7 +462,7 @@ function renderSkor6D(skor6d) {
       <div>
         <div style="display:flex;justify-content:space-between;font-size: 0.875rem;margin-bottom:2px;">
           <span><span aria-hidden="true">${icon}</span> ${escapeHtml(label)}</span>
-          <span style="font-weight:600;">${val}/10</span>
+          <span style="font-weight:600;">${val}/10 — ${escapeHtml(bandLabel(val))}</span>
         </div>
         <div style="background:#E5E7EB;border-radius:4px;height:6px;">
           <div style="width:${pct}%;background:${barColor};border-radius:4px;height:6px;transition:width 0.6s ease;"></div>
@@ -462,7 +470,26 @@ function renderSkor6D(skor6d) {
       </div>`;
   }).join('');
 
+  const scaleLegendId = 'score-scale-legend';
+  if (!document.getElementById(scaleLegendId)) {
+    const legend = document.createElement('p');
+    legend.id = scaleLegendId;
+    legend.style.cssText = 'margin-top:10px;font-size:0.8rem;color:#4B5563;';
+    legend.textContent = 'Skala: 2 = Perlu banyak perbaikan, 4 = Di bawah rata-rata, 6 = Cukup, 8 = Baik, 10 = Luar biasa.';
+    section.appendChild(legend);
+  }
+
   section.classList.remove('hidden');
+}
+
+function renderScoringUpdateBanner() {
+  const root = document.getElementById('results-content');
+  if (!root || document.getElementById('scoring-update-banner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'scoring-update-banner';
+  banner.style.cssText = 'background:#EFF6FF;border:1px solid #93C5FD;color:#1E3A8A;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:0.875rem;';
+  banner.textContent = 'Kami telah memperbarui sistem penilaian agar lebih akurat. Skor kamu mungkin berbeda dari sebelumnya.';
+  root.insertBefore(banner, root.firstChild);
 }
 
 function showError(message) {

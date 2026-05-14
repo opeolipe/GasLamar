@@ -1,7 +1,7 @@
 /**
  * Stage 3 — Deterministic Scoring (pure JavaScript, zero AI calls).
  *
- * All 6D scores, the overall skor, verdict, and skor_sesudah are computed
+ * All 5D scores, the overall skor, verdict, and skor_sesudah are computed
  * entirely from the Stage 1 extraction and Stage 2 analysis outputs.
  * No LLM input is involved at this stage.
  *
@@ -11,7 +11,8 @@
  * LLM-generated values were not.
  */
 
-const DIMS = ['north_star', 'recruiter_signal', 'effort', 'opportunity_cost', 'risk', 'portfolio'];
+const DIMS = ['north_star', 'recruiter_signal', 'effort', 'risk', 'portfolio'];
+const SCORE_BANDS = [2, 4, 6, 8, 10];
 
 // ---- Private helpers ----
 
@@ -35,10 +36,65 @@ function hasTypos(text) {
   return patterns.some(p => p.test(str));
 }
 
+function splitExperienceLines(text) {
+  return (text || '')
+    .split(/\n|•|●|▪|◦|;|(?<=\.)\s+(?=[A-Z])/g)
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
+function firstLine(text) {
+  const [line = ''] = splitExperienceLines(text);
+  return line.toLowerCase();
+}
+
+function isGenericOpening(line) {
+  if (!line || line.length < 24) return true;
+  const genericPatterns = [
+    /bertanggung jawab/i,
+    /pekerja keras/i,
+    /mampu bekerja/i,
+    /cepat belajar/i,
+    /berpengalaman/i,
+    /fresh graduate/i,
+    /staff admin/i,
+  ];
+  return genericPatterns.some(p => p.test(line));
+}
+
+function hasScanabilityIssue(text) {
+  const lines = splitExperienceLines(text);
+  const words = (text || '').split(/\s+/).filter(Boolean).length;
+  const hasBulletLike = /•|●|▪|◦|\n/.test(text || '') || lines.length >= 3;
+  return words >= 80 && !hasBulletLike;
+}
+
+function passiveVagueRatio(text) {
+  const lines = splitExperienceLines(text);
+  if (lines.length === 0) return 1;
+  const vagueRe = /\bmembantu\b|\bmelakukan\b|\bbertanggung jawab\b|\bmengerjakan\b|\bterlibat\b|\bmengikuti\b/i;
+  let vague = 0;
+  for (const line of lines) {
+    if (vagueRe.test(line)) vague++;
+  }
+  return vague / lines.length;
+}
+
+function quantizeBand(raw, { allowTen = true } = {}) {
+  const clamped = Math.max(0, Math.min(10, raw));
+  const maxBand = allowTen ? 10 : 8;
+  for (let i = SCORE_BANDS.length - 1; i >= 0; i--) {
+    const band = SCORE_BANDS[i];
+    if (band > maxBand) continue;
+    if (clamped >= band) return band;
+  }
+  return 2;
+}
+
 // ---- Public API ----
 
 /**
- * Computes the 6D sub-scores from extracted data and the Stage 2 analysis result.
+ * Computes the 5D sub-scores from extracted data and the Stage 2 analysis result.
  * Each dimension is an integer 0-10.
  *
  * @param {object} extractedData  — Stage 1 output
@@ -86,23 +142,49 @@ export function calculateScores(extractedData, analysisResult) {
   if (jd.industri !== 'UMUM' && expLower.includes(jd.industri.toLowerCase())) north_star += 2;
   north_star = Math.min(north_star, 10);
 
-  // --- recruiter_signal: first-7-second impression ---
-  let recruiter_signal = 0;
-  if (format_ok) recruiter_signal += 5;               // clean ATS layout
-  if (!hasTypos(cv.pengalaman_mentah)) recruiter_signal += 3;  // no informal writing
-  if (titleInExp) recruiter_signal += 2;              // role keyword in exp
-  recruiter_signal = Math.min(recruiter_signal, 10);
+  // --- recruiter_signal: recruiter first impression (7-second scan) ---
+  const expText = cv.pengalaman_mentah || '';
+  const opening = firstLine(expText);
+  const genericOpening = isGenericOpening(opening);
+  const scanabilityIssue = hasScanabilityIssue(expText);
+  const typoIssue = hasTypos(expText);
+  const vagueMajority = passiveVagueRatio(expText) > 0.5;
+  const weakRolePositioning = !titleInExp && matchRatio < 0.5;
+
+  let recruiter_signal_raw = 8;
+  if (genericOpening) recruiter_signal_raw -= 2;
+  if (!has_numbers) recruiter_signal_raw -= 2;
+  if (vagueMajority) recruiter_signal_raw -= 1;
+  if (scanabilityIssue) recruiter_signal_raw -= 1;
+  if (typoIssue) recruiter_signal_raw -= 1;
+  if (weakRolePositioning) recruiter_signal_raw -= 1;
+  if (!format_ok) recruiter_signal_raw -= 1; // layout only prevents penalty
+
+  // Small positive nudge: title match helps only when baseline is already strong.
+  if (titleInExp && recruiter_signal_raw >= 7) recruiter_signal_raw += 1;
+
+  let recruiterCap = 10;
+  if (!has_numbers) recruiterCap = 6;
+  if (genericOpening || scanabilityIssue) recruiterCap = Math.min(recruiterCap, 5);
+  // Strict exception for clean but non-quantified CV.
+  if (
+    !has_numbers &&
+    !genericOpening &&
+    !scanabilityIssue &&
+    !typoIssue &&
+    !vagueMajority &&
+    titleInExp &&
+    format_ok &&
+    matchRatio >= 0.7
+  ) {
+    recruiterCap = 8;
+  }
+  let recruiter_signal = Math.max(0, Math.min(recruiter_signal_raw, recruiterCap));
 
   // --- effort: time needed to close all gaps (10 = fast, 0 = months away) ---
-  let effort = 10;
+  let effort = 8;
   if (matchRatio < 0.3)      effort = 2;
-  else if (matchRatio < 0.5) effort = 5;
-  // matchRatio >= 0.5 → effort stays 10
-
-  // --- opportunity_cost: sacrifice required to fix gaps (10 = near-zero cost) ---
-  // Low effort means skills are acquirable cheaply; high missing-skills ratio means
-  // the candidate must invest more (time, money, foregone earnings).
-  const opportunity_cost = effort < 5 ? 5 : 10;
+  else if (matchRatio < 0.5) effort = 6;
 
   // --- risk: will these skills still be in demand in 2-3 years? ---
   let risk = 5; // neutral baseline
@@ -135,16 +217,22 @@ export function calculateScores(extractedData, analysisResult) {
   }
   if (has_certs) portfolio = Math.min(portfolio + 2, 10);
 
-  return { north_star, recruiter_signal, effort, opportunity_cost, risk, portfolio };
+  north_star       = quantizeBand(north_star);
+  recruiter_signal = quantizeBand(recruiter_signal, { allowTen: recruiterCap >= 10 });
+  effort           = quantizeBand(effort);
+  risk             = quantizeBand(risk);
+  portfolio        = quantizeBand(portfolio);
+
+  return { north_star, recruiter_signal, effort, risk, portfolio };
 }
 
 /**
- * Sums the 6D dimensions and scales to 0-100.
+ * Sums the 5D dimensions and scales to 0-100.
  * Identical formula to the pre-refactor code.
  */
 export function computeSkor(skor_6d) {
-  const total6D = DIMS.reduce((s, d) => s + skor_6d[d], 0);
-  return { total6D, skor: Math.round((total6D / 60) * 100) };
+  const total5D = DIMS.reduce((s, d) => s + (skor_6d[d] ?? 0), 0);
+  return { total5D, skor: Math.round((total5D / 50) * 100) };
 }
 
 /**
@@ -152,8 +240,8 @@ export function computeSkor(skor_6d) {
  * Thresholds match the pre-refactor code exactly.
  * timebox_weeks is now derived from missing skill count (was previously LLM-provided).
  */
-export function determineVeredict(total6D, analysisResult) {
-  const veredict = total6D >= 42 ? 'DO' : total6D < 24 ? 'DO NOT' : 'TIMED';
+export function determineVeredict(total5D, analysisResult) {
+  const veredict = total5D >= 35 ? 'DO' : total5D < 20 ? 'DO NOT' : 'TIMED';
 
   let timebox_weeks = null;
   if (veredict === 'TIMED') {

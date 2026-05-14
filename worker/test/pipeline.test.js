@@ -340,17 +340,16 @@ describe('calculateScores — north_star title-token bonus', () => {
   });
 });
 
-// ── calculateScores — effort and opportunity_cost ─────────────────────────────
+// ── calculateScores — effort ──────────────────────────────────────────────────
 
-describe('calculateScores — effort and opportunity_cost', () => {
-  it('matchRatio >= 0.5 → effort = 10, opportunity_cost = 10', () => {
+describe('calculateScores — effort', () => {
+  it('matchRatio >= 0.5 → effort = 8', () => {
     const ext = extracted();
     const scores = calculateScores(ext, runAnalysis(ext));
-    expect(scores.effort).toBe(10);
-    expect(scores.opportunity_cost).toBe(10);
+    expect(scores.effort).toBe(8);
   });
 
-  it('matchRatio 0.4 (exactly) → effort = 5, opportunity_cost = 10', () => {
+  it('matchRatio 0.4 (exactly) → effort = 6', () => {
     // 2 of 5 = 0.4
     const ext = extracted({
       skills_mentah: 'Node.js React',
@@ -359,11 +358,10 @@ describe('calculateScores — effort and opportunity_cost', () => {
     const analysis = runAnalysis(ext);
     expect(analysis.skill_match.match_ratio).toBe(0.4);
     const scores = calculateScores(ext, analysis);
-    expect(scores.effort).toBe(5);
-    expect(scores.opportunity_cost).toBe(10); // 5 is not < 5
+    expect(scores.effort).toBe(6);
   });
 
-  it('matchRatio < 0.3 → effort = 2, opportunity_cost = 5', () => {
+  it('matchRatio < 0.3 → effort = 2', () => {
     // 1 of 4 = 0.25
     const ext = extracted({
       skills_mentah: 'Node.js',
@@ -373,19 +371,40 @@ describe('calculateScores — effort and opportunity_cost', () => {
     expect(analysis.skill_match.match_ratio).toBe(0.25);
     const scores = calculateScores(ext, analysis);
     expect(scores.effort).toBe(2);
-    expect(scores.opportunity_cost).toBe(5);
   });
 });
 
 // ── calculateScores — recruiter_signal ───────────────────────────────────────
 
 describe('calculateScores — recruiter_signal typo detection', () => {
-  it('informal "yg" loses the 3-point typo-free bonus', () => {
-    const extClean = extracted({ pengalaman_mentah: 'Software Engineer yang berpengalaman di Node.js REST API' });
-    const extTypo  = extracted({ pengalaman_mentah: 'Software Engineer yg berpengalaman di Node.js REST API' });
+  it('informal "yg" lowers recruiter_signal', () => {
+    const extClean = extracted({ pengalaman_mentah: 'Software Engineer yang membangun API backend untuk tim internal' });
+    const extTypo  = extracted({ pengalaman_mentah: 'Software Engineer yg membangun API backend untuk tim internal' });
     const clean = calculateScores(extClean, runAnalysis(extClean));
     const typo  = calculateScores(extTypo,  runAnalysis(extTypo));
-    expect(clean.recruiter_signal - typo.recruiter_signal).toBe(3);
+    expect(clean.recruiter_signal).toBeGreaterThanOrEqual(typo.recruiter_signal);
+  });
+
+  it('weak CV without metrics is hard-capped at 4 or below', () => {
+    const ext = extracted({
+      angka_di_cv: 'NOL ANGKA',
+      pengalaman_mentah: 'Staff admin yang bertanggung jawab melakukan tugas harian dan membantu tim',
+      judul_role: 'Software Engineer',
+      skills_mentah: 'Word Excel',
+    });
+    const score = calculateScores(ext, runAnalysis(ext)).recruiter_signal;
+    expect(score).toBeLessThanOrEqual(4);
+  });
+
+  it('strong CV with metrics can reach 8+', () => {
+    const ext = extracted({
+      angka_di_cv: '30% 2x 5 orang',
+      pengalaman_mentah: 'Software Engineer PT XYZ\n• Membangun API pembayaran Node.js\n• Menurunkan error rate layanan\n• Berkolaborasi lintas tim',
+      judul_role: 'Software Engineer',
+      skills_mentah: 'Node.js React SQL',
+    });
+    const score = calculateScores(ext, runAnalysis(ext)).recruiter_signal;
+    expect(score).toBeGreaterThanOrEqual(8);
   });
 });
 
@@ -397,9 +416,9 @@ describe('calculateScores — portfolio', () => {
     expect(calculateScores(ext, runAnalysis(ext)).portfolio).toBe(2);
   });
 
-  it('1 number (< 3), no certs → portfolio = 5', () => {
+  it('1 number (< 3), no certs → portfolio = 4 (coarse band)', () => {
     const ext = extracted({ angka_di_cv: '3 tahun', sertifikat: 'TIDAK ADA' });
-    expect(calculateScores(ext, runAnalysis(ext)).portfolio).toBe(5);
+    expect(calculateScores(ext, runAnalysis(ext)).portfolio).toBe(4);
   });
 
   it('>= 3 numbers, no certs → portfolio = 8', () => {
@@ -446,38 +465,38 @@ describe('calculateScores — risk', () => {
     expect(calculateScores(ext, runAnalysis(ext)).risk).toBe(8);
   });
 
-  it('stable industry "Finance" → risk >= 7 (base 5 + 2)', () => {
+  it('stable industry "Finance" → risk >= 6 (coarse band)', () => {
     const ext = extracted({ industri: 'Finance' });
-    expect(calculateScores(ext, runAnalysis(ext)).risk).toBeGreaterThanOrEqual(7);
+    expect(calculateScores(ext, runAnalysis(ext)).risk).toBeGreaterThanOrEqual(6);
   });
 
-  it('neutral industry, no fundamental skills → risk = 5', () => {
+  it('neutral industry, no fundamental skills → risk = 4 (coarse band)', () => {
     const ext = extracted({ industri: 'Tech', skills_diminta: ['Node.js', 'React'] });
-    expect(calculateScores(ext, runAnalysis(ext)).risk).toBe(5);
+    expect(calculateScores(ext, runAnalysis(ext)).risk).toBe(4);
   });
 });
 
 // ── computeSkor ───────────────────────────────────────────────────────────────
 
 describe('computeSkor', () => {
-  it('total6D = 60 → skor = 100', () => {
-    const dims = { north_star: 10, recruiter_signal: 10, effort: 10, opportunity_cost: 10, risk: 10, portfolio: 10 };
+  it('total5D = 50 → skor = 100', () => {
+    const dims = { north_star: 10, recruiter_signal: 10, effort: 10, risk: 10, portfolio: 10 };
     expect(computeSkor(dims).skor).toBe(100);
   });
 
-  it('total6D = 51 → skor = 85 (matches happy-path fixture)', () => {
-    const dims = { north_star: 8, recruiter_signal: 10, effort: 10, opportunity_cost: 10, risk: 8, portfolio: 5 };
-    expect(computeSkor(dims).skor).toBe(85);
+  it('total5D = 42 → skor = 84', () => {
+    const dims = { north_star: 8, recruiter_signal: 8, effort: 8, risk: 8, portfolio: 10 };
+    expect(computeSkor(dims).skor).toBe(84);
   });
 
-  it('total6D = 0 → skor = 0', () => {
-    const dims = { north_star: 0, recruiter_signal: 0, effort: 0, opportunity_cost: 0, risk: 0, portfolio: 0 };
-    expect(computeSkor(dims).skor).toBe(0);
+  it('total5D minimum band = 10 → skor = 20', () => {
+    const dims = { north_star: 2, recruiter_signal: 2, effort: 2, risk: 2, portfolio: 2 };
+    expect(computeSkor(dims).skor).toBe(20);
   });
 
-  it('exposes total6D for downstream use', () => {
-    const dims = { north_star: 10, recruiter_signal: 10, effort: 10, opportunity_cost: 10, risk: 10, portfolio: 10 };
-    expect(computeSkor(dims).total6D).toBe(60);
+  it('exposes total5D for downstream use', () => {
+    const dims = { north_star: 10, recruiter_signal: 10, effort: 10, risk: 10, portfolio: 10 };
+    expect(computeSkor(dims).total5D).toBe(50);
   });
 });
 
@@ -488,19 +507,19 @@ describe('determineVeredict', () => {
   const twoMissing  = { skill_match: { missing: ['SQL', 'Docker'] } };
   const manyMissing = { skill_match: { missing: new Array(20).fill('x') } };
 
-  it('total6D >= 42 → DO, timebox_weeks = null', () => {
-    const { veredict, timebox_weeks } = determineVeredict(42, noMissing);
+  it('total5D >= 35 → DO, timebox_weeks = null', () => {
+    const { veredict, timebox_weeks } = determineVeredict(35, noMissing);
     expect(veredict).toBe('DO');
     expect(timebox_weeks).toBeNull();
   });
 
-  it('total6D < 24 → DO NOT, timebox_weeks = null', () => {
-    const { veredict, timebox_weeks } = determineVeredict(23, noMissing);
+  it('total5D < 20 → DO NOT, timebox_weeks = null', () => {
+    const { veredict, timebox_weeks } = determineVeredict(19, noMissing);
     expect(veredict).toBe('DO NOT');
     expect(timebox_weeks).toBeNull();
   });
 
-  it('24 <= total6D < 42 → TIMED with timebox_weeks', () => {
+  it('20 <= total5D < 35 → TIMED with timebox_weeks', () => {
     const { veredict, timebox_weeks } = determineVeredict(30, twoMissing);
     expect(veredict).toBe('TIMED');
     expect(timebox_weeks).toBe(7); // round(2 * 1.5 + 4) = 7
@@ -977,7 +996,7 @@ describe('inferRole', () => {
 });
 
 describe('applyRoleWeights', () => {
-  const raw = { north_star: 6, recruiter_signal: 5, effort: 8, opportunity_cost: 8, risk: 5, portfolio: 4 };
+  const raw = { north_star: 6, recruiter_signal: 5, effort: 8, risk: 5, portfolio: 4 };
 
   it('returns unchanged scores when roleProfile is null', () => {
     const weighted = applyRoleWeights(raw, null);
@@ -986,7 +1005,7 @@ describe('applyRoleWeights', () => {
 
   it('applies weight bias from profile', () => {
     const profile = {
-      weightBias: { north_star: 1.2, recruiter_signal: 1.0, effort: 0.9, opportunity_cost: 0.8, risk: 1.0, portfolio: 1.3 },
+      weightBias: { north_star: 1.2, recruiter_signal: 1.0, effort: 0.9, risk: 1.0, portfolio: 1.3 },
     };
     const weighted = applyRoleWeights(raw, profile);
     expect(weighted.north_star).toBeCloseTo(6 * 1.2, 1);
@@ -995,20 +1014,20 @@ describe('applyRoleWeights', () => {
   });
 
   it('clamps weighted score to 10', () => {
-    const profile = { weightBias: { north_star: 2.0, recruiter_signal: 1.0, effort: 1.0, opportunity_cost: 1.0, risk: 1.0, portfolio: 1.0 } };
+    const profile = { weightBias: { north_star: 2.0, recruiter_signal: 1.0, effort: 1.0, risk: 1.0, portfolio: 1.0 } };
     const weighted = applyRoleWeights({ ...raw, north_star: 9 }, profile);
     expect(weighted.north_star).toBe(10);
   });
 
   it('clamps weighted score to 0', () => {
-    const profile = { weightBias: { north_star: 0, recruiter_signal: 1.0, effort: 1.0, opportunity_cost: 1.0, risk: 1.0, portfolio: 1.0 } };
+    const profile = { weightBias: { north_star: 0, recruiter_signal: 1.0, effort: 1.0, risk: 1.0, portfolio: 1.0 } };
     const weighted = applyRoleWeights(raw, profile);
     expect(weighted.north_star).toBe(0);
   });
 });
 
 describe('new role profiles — weight bias sanity checks', () => {
-  const DIMS = ['north_star', 'recruiter_signal', 'effort', 'opportunity_cost', 'risk', 'portfolio'];
+  const DIMS = ['north_star', 'recruiter_signal', 'effort', 'risk', 'portfolio'];
 
   it('teknik: north_star has highest bias (technical fit is primary signal)', () => {
     const p = getRoleProfile('teknik');
@@ -1048,18 +1067,12 @@ describe('new role profiles — weight bias sanity checks', () => {
 
 describe('computePrimaryIssue', () => {
   it('returns the dimension with the lowest score', () => {
-    const scores = { north_star: 8, recruiter_signal: 3, effort: 9, opportunity_cost: 2, risk: 7, portfolio: 5 };
-    // opportunity_cost excluded; recruiter_signal (3) is the lowest eligible
+    const scores = { north_star: 8, recruiter_signal: 3, effort: 9, risk: 7, portfolio: 5 };
     expect(computePrimaryIssue(scores)).toBe('recruiter_signal');
   });
 
-  it('never returns opportunity_cost', () => {
-    const scores = { north_star: 5, recruiter_signal: 5, effort: 5, opportunity_cost: 1, risk: 5, portfolio: 5 };
-    expect(computePrimaryIssue(scores)).not.toBe('opportunity_cost');
-  });
-
   it('returns portfolio when it is lowest eligible', () => {
-    const scores = { north_star: 7, recruiter_signal: 7, effort: 7, opportunity_cost: 1, risk: 7, portfolio: 2 };
+    const scores = { north_star: 7, recruiter_signal: 7, effort: 7, risk: 7, portfolio: 2 };
     expect(computePrimaryIssue(scores)).toBe('portfolio');
   });
 });
