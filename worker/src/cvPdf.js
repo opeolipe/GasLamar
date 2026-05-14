@@ -16,6 +16,15 @@ const CV_SECTION_HEADINGS = new Set([
   'PROJECTS', 'PUBLICATIONS', 'LANGUAGES', 'REFERENCES', 'PROFILE',
 ]);
 
+const EXPORT_STYLE = {
+  bodyPt: 10.5,
+  headingPt: 12,
+  linePt: 14,
+  paraGapPt: 7,
+  bulletIndentPt: 14,
+  bulletTextIndentPt: 26,
+};
+
 function sanitize(str) {
   return String(str || '')
     .replace(/[–—―]/g, '-')
@@ -24,6 +33,77 @@ function sanitize(str) {
     .replace(/[•‣●◦∙]/g, '-')
     .replace(/…/g, '...')
     .replace(/[^\x00-\xFF]/g, '');
+}
+
+function normalizeCvLine(line, isIndonesian = false) {
+  let text = String(line || '')
+    .replace(/^\s{0,3}#{1,6}\s*/, '')     // markdown headings
+    .replace(/\*\*(.*?)\*\*/g, '$1')      // bold markdown
+    .replace(/__(.*?)__/g, '$1')          // underscore bold
+    .replace(/\s+/g, ' ')
+    .replace(/\s+(untuk menunjukkan dampak kerja yang konkret dan terukur)$/i, '')
+    .replace(/\s+(to demonstrate concrete and measurable work impact)$/i, '')
+    .trim();
+
+  if (isIndonesian) {
+    text = text
+      .replace(/\bEast Java\b/gi, 'Jawa Timur')
+      .replace(/\bWest Java\b/gi, 'Jawa Barat')
+      .replace(/\bCentral Java\b/gi, 'Jawa Tengah')
+      .replace(/\bNorth Sulawesi\b/gi, 'Sulawesi Utara')
+      .replace(/\bSouth Sulawesi\b/gi, 'Sulawesi Selatan')
+      .replace(/\bPresent\b/gi, 'Sekarang')
+      .replace(/\bCurrent\b/gi, 'Sekarang');
+  }
+
+  return text;
+}
+
+function parseLines(cvText, isIndonesian = false) {
+  return cvText.split('\n').map((line) => {
+    const trimmed = normalizeCvLine(line, isIndonesian);
+    if (!trimmed) return { type: 'blank', content: '' };
+    if (/^\s*\((catatan:|note:)/i.test(trimmed)) return { type: 'noise', content: '' };
+
+    const clean = trimmed.replace(/:$/, '').trim();
+    const isSectionHead = CV_SECTION_HEADINGS.has(clean.toUpperCase())
+      || /^[A-Z\u00C0-\u017E\s]{4,}$/.test(clean)
+      || (trimmed.endsWith(':') && trimmed.length < 40);
+    const isBullet = /^[•\-·*]/.test(trimmed);
+    const isRoleHeader = /[—–]/.test(trimmed) && !/^\d/.test(trimmed);
+    const isMetaLine = /^.+\s\|\s.+/.test(trimmed) && /\b(19|20)\d{2}\b/.test(trimmed);
+    const isContact = /@|(?:\+?\d[\d\s().-]{7,}\d)$/.test(trimmed);
+
+    if (isSectionHead) return { type: 'heading', content: clean };
+    if (isMetaLine) return { type: 'meta', content: trimmed };
+    if (isContact) return { type: 'contact', content: trimmed };
+    if (isRoleHeader) return { type: 'role', content: trimmed };
+    if (isBullet) return { type: 'bullet', content: trimmed.replace(/^[•\-·*]\s*/, '') };
+    return { type: 'text', content: trimmed };
+  });
+}
+
+function validateExportLines(parsed) {
+  const out = [];
+  const seenHeadings = new Set();
+  let hasHeading = false;
+
+  for (const row of parsed) {
+    if (row.type === 'noise') continue;
+    if (row.type === 'heading') {
+      const normalized = row.content.toUpperCase().trim();
+      if (!normalized || seenHeadings.has(normalized)) continue;
+      seenHeadings.add(normalized);
+      hasHeading = true;
+      out.push(row);
+      continue;
+    }
+    if (row.type === 'bullet' && !row.content.trim()) continue;
+    if (/\[[^\]]{1,80}\]/.test(row.content) || /(?:\*\*|__|```)/.test(row.content)) continue;
+    out.push(row);
+  }
+
+  return hasHeading ? out : parsed.filter((r) => r.type !== 'noise');
 }
 
 function wrapText(text, font, size, maxWidth) {
@@ -56,8 +136,6 @@ export async function generateCVPdf(cvText) {
   const doc     = await PDFDocument.create();
   const regular = await doc.embedFont(StandardFonts.TimesRoman);
   const bold    = await doc.embedFont(StandardFonts.TimesRomanBold);
-  const italic  = await doc.embedFont(StandardFonts.TimesRomanItalic);
-
   const black = rgb(0,    0,    0);
   const dark  = rgb(0.1,  0.1,  0.1);
   const gray  = rgb(0.45, 0.45, 0.45);
@@ -72,12 +150,12 @@ export async function generateCVPdf(cvText) {
     }
   }
 
-  function drawWrapped(text, font, size, color, indent = 0) {
+  function drawWrapped(text, font, size, color, indent = 0, lineStep = EXPORT_STYLE.linePt) {
     const lines = wrapText(text, font, size, CONTENT_W - indent);
     for (const line of lines) {
-      ensureSpace(size + 3);
+      ensureSpace(lineStep);
       if (line) page.drawText(line, { x: MARGIN + indent, y, font, size, color });
-      y -= size + 3;
+      y -= lineStep;
     }
   }
 
@@ -86,123 +164,74 @@ export async function generateCVPdf(cvText) {
   }
 
   // ── Parse and render ──────────────────────────────────────────────────────────
-  const rawLines  = cvText.split('\n');
+  const isIndonesian = /(RINGKASAN PROFESIONAL|PENGALAMAN KERJA|PENDIDIKAN|KEAHLIAN)/i.test(cvText);
   let nameFound   = false;
   let contactFound = false;
 
-  for (let i = 0; i < rawLines.length; i++) {
-    const line    = rawLines[i];
-    const trimmed = line.trim();
+  const parsed = validateExportLines(parseLines(cvText, isIndonesian));
 
-    if (!trimmed) { y -= 3; continue; }
+  // Draw from parsed rows to stay in parity with website export behavior.
+  for (const { type, content } of parsed) {
+    if (type === 'blank') {
+      y -= EXPORT_STYLE.paraGapPt;
+      continue;
+    }
 
-    // Guidance lines (server notes) — skip silently
-    if (/^\s{2}\((catatan:|note:)/i.test(line)) continue;
-
-    // ── Name — always the first non-blank non-guidance line ──────────────────
-    if (!nameFound) {
+    if (!nameFound && type !== 'blank') {
       nameFound = true;
-      ensureSpace(22);
-      const safe = sanitize(trimmed);
-      const w    = textWidth(safe, bold, 16);
+      ensureSpace(24);
+      const safe = sanitize(content);
+      const w = textWidth(safe, bold, 16);
       page.drawText(safe, { x: (PAGE_W - w) / 2, y, font: bold, size: 16, color: black });
       y -= 22;
       continue;
     }
 
-    // ── Contact — second meaningful line, centred ─────────────────────────────
-    if (!contactFound && (trimmed.includes('|') || trimmed.includes('@') || trimmed.startsWith('+'))) {
+    if (!contactFound && type === 'contact') {
       contactFound = true;
-      ensureSpace(15);
-      const safe = sanitize(trimmed);
-      const w    = textWidth(safe, regular, 9);
+      ensureSpace(16);
+      const safe = sanitize(content);
+      const w = textWidth(safe, regular, 9);
       page.drawText(safe, { x: (PAGE_W - w) / 2, y, font: regular, size: 9, color: gray });
-      y -= 15;
-      // Thin rule under contact block
+      y -= 14;
       page.drawLine({ start: { x: MARGIN, y }, end: { x: PAGE_W - MARGIN, y }, thickness: 0.4, color: gray });
       y -= 8;
       continue;
     }
 
-    // ── Section heading ────────────────────────────────────────────────────────
-    const clean      = trimmed.replace(/:$/, '').trim();
-    const isHeading  = CV_SECTION_HEADINGS.has(clean.toUpperCase())
-                    || /^[A-ZÀ-ž\s]{4,}$/.test(clean)
-                    || (trimmed.endsWith(':') && trimmed.length < 40);
-    if (isHeading) {
+    if (type === 'heading') {
       ensureSpace(22);
-      y -= 5;
+      y -= 4;
       page.drawLine({ start: { x: MARGIN, y: y + 1 }, end: { x: PAGE_W - MARGIN, y: y + 1 }, thickness: 0.4, color: gray });
       y -= 4;
-      drawWrapped(clean.toUpperCase(), bold, 10, black);
+      drawWrapped(content.toUpperCase(), bold, EXPORT_STYLE.headingPt, black, 0, EXPORT_STYLE.linePt);
       y -= 2;
       continue;
     }
 
-    // ── Bullet ─────────────────────────────────────────────────────────────────
-    if (/^[•\-·*]/.test(trimmed)) {
-      const content = trimmed.replace(/^[•\-·*]\s*/, '');
-      const wrapped = wrapText(content, regular, 9.5, CONTENT_W - 12);
-      for (let li = 0; li < wrapped.length; li++) {
-        ensureSpace(13);
-        if (li === 0) page.drawText('•', { x: MARGIN + 4, y, font: regular, size: 9.5, color: dark });
-        if (wrapped[li]) page.drawText(wrapped[li], { x: MARGIN + 12, y, font: regular, size: 9.5, color: dark });
-        y -= 13;
+    if (type === 'role') {
+      drawWrapped(content, bold, EXPORT_STYLE.bodyPt, dark, 0, EXPORT_STYLE.linePt);
+      y -= 1;
+      continue;
+    }
+
+    if (type === 'meta' || type === 'contact') {
+      drawWrapped(content, regular, 9.5, gray, 0, EXPORT_STYLE.linePt);
+      continue;
+    }
+
+    if (type === 'bullet') {
+      const wrapped = wrapText(content, regular, EXPORT_STYLE.bodyPt, CONTENT_W - EXPORT_STYLE.bulletTextIndentPt);
+      for (let i = 0; i < wrapped.length; i++) {
+        ensureSpace(EXPORT_STYLE.linePt);
+        if (i === 0) page.drawText('•', { x: MARGIN + EXPORT_STYLE.bulletIndentPt, y, font: regular, size: EXPORT_STYLE.bodyPt, color: dark });
+        if (wrapped[i]) page.drawText(wrapped[i], { x: MARGIN + EXPORT_STYLE.bulletTextIndentPt, y, font: regular, size: EXPORT_STYLE.bodyPt, color: dark });
+        y -= EXPORT_STYLE.linePt;
       }
       continue;
     }
 
-    // ── Company — Role (em/en-dash) ────────────────────────────────────────────
-    if (/[—–]/.test(trimmed) && !/^\d/.test(trimmed)) {
-      // Look ahead (skip blanks) for a location-date companion line
-      let nextIdx = i + 1;
-      while (nextIdx < rawLines.length && !rawLines[nextIdx].trim()) nextIdx++;
-      const nextTrimmed = nextIdx < rawLines.length ? rawLines[nextIdx].trim() : '';
-      const isLocDate   = /^.+\s\|\s.+/.test(nextTrimmed) && /\b(19|20)\d{2}\b/.test(nextTrimmed);
-
-      const dashParts = trimmed.split(/\s*[—–]\s*/);
-      const company   = sanitize(dashParts[0]?.trim() ?? '');
-      const role      = sanitize(dashParts.slice(1).join(' - ').trim());
-
-      if (i > 0) y -= 3;
-      ensureSpace(26);
-
-      if (isLocDate) {
-        const [locRaw, dateRaw] = nextTrimmed.split(/\s\|\s/, 2);
-        const loc  = sanitize(locRaw?.trim()  ?? '');
-        const date = sanitize(dateRaw?.trim() ?? '');
-        // Line 1: Company (bold left) + Location (right)
-        page.drawText(company, { x: MARGIN, y, font: bold, size: 10, color: black });
-        const locW = textWidth(loc, regular, 9.5);
-        page.drawText(loc, { x: PAGE_W - MARGIN - locW, y, font: regular, size: 9.5, color: gray });
-        y -= 13;
-        ensureSpace(13);
-        // Line 2: Role (italic left) + Date range (right)
-        page.drawText(role, { x: MARGIN, y, font: italic, size: 9.5, color: dark });
-        const dateW = textWidth(date, regular, 9.5);
-        page.drawText(date, { x: PAGE_W - MARGIN - dateW, y, font: regular, size: 9.5, color: gray });
-        y -= 14;
-        i = nextIdx;
-      } else {
-        page.drawText(company, { x: MARGIN, y, font: bold, size: 10, color: black });
-        y -= 13;
-        if (role) {
-          ensureSpace(13);
-          page.drawText(role, { x: MARGIN, y, font: italic, size: 9.5, color: dark });
-          y -= 14;
-        }
-      }
-      continue;
-    }
-
-    // ── Location-date (orphaned — not consumed by look-ahead) ─────────────────
-    if (/^.+\s\|\s.+/.test(trimmed) && /\b(19|20)\d{2}\b/.test(trimmed)) {
-      drawWrapped(trimmed, regular, 9.5, gray);
-      continue;
-    }
-
-    // ── Regular text ───────────────────────────────────────────────────────────
-    drawWrapped(trimmed, regular, 9.5, dark);
+    drawWrapped(content, regular, EXPORT_STYLE.bodyPt, dark, 0, EXPORT_STYLE.linePt);
   }
 
   return doc.save();

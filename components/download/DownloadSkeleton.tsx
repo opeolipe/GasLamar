@@ -7,11 +7,11 @@ const shimmerStyle: CSSProperties = {
   borderRadius: 10,
 };
 
-function Bar({ w, h = 12, className = '' }: { w: number | string; h?: number; className?: string }) {
+function Bar({ w, h = 12, className = '', style }: { w: number | string; h?: number; className?: string; style?: CSSProperties }) {
   return (
     <div
       className={className}
-      style={{ ...shimmerStyle, width: w, height: h, borderRadius: 8, flexShrink: 0 }}
+      style={{ ...shimmerStyle, width: w, height: h, borderRadius: 8, flexShrink: 0, ...style }}
     />
   );
 }

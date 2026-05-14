@@ -29,6 +29,19 @@ function classifyAttachment(filename) {
   return 'other';
 }
 
+async function readKitForEmail(env, sessionId) {
+  // Prefer Indonesian cache for consistency with email body language,
+  // then fallback to English cache so attachment is still present.
+  const idEntry = await env.GASLAMAR_SESSIONS.get(`kit_${sessionId}_id`, { type: 'json' });
+  const idKit = idEntry?.kit ?? idEntry;
+  if (idKit && idKit.interview_questions) return idKit;
+
+  const enEntry = await env.GASLAMAR_SESSIONS.get(`kit_${sessionId}_en`, { type: 'json' });
+  const enKit = enEntry?.kit ?? enEntry;
+  if (enKit && enKit.interview_questions) return enKit;
+  return null;
+}
+
 // ---- Resend Email ----
 //
 // Sends a post-payment confirmation email via Resend API.
@@ -252,6 +265,9 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
   const session = await getSession(env, sessionId);
   if (!session || !session.email) return;
 
+  // score may be null/undefined when called from resend-email (no frontend score available)
+  const hasScore = score !== null && score !== undefined && !isNaN(Number(score));
+
   // ── Build email attachments (all non-critical — failures don't block the email) ──
   const attachments = [];
 
@@ -289,10 +305,8 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
   // Interview kit PDF
   // KV stores { kit: {...}, session_secret_hash } — extract the inner kit.
   try {
-    const kitEntry = await env.GASLAMAR_SESSIONS.get(`kit_${sessionId}_id`, { type: 'json' });
-    // Support both new wrapped format { kit: {...} } and legacy plain-object format.
-    const kitData = kitEntry?.kit ?? kitEntry;
-    if (kitData && kitData.interview_questions) {
+    const kitData = await readKitForEmail(env, sessionId);
+    if (kitData) {
       const pdfBytes = await generateInterviewKitPdf(kitData);
       attachments.push({ filename: 'interview-kit.pdf', content: toBase64(pdfBytes) });
     }
@@ -307,8 +321,8 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
   const emailToken = await createEmailToken(env, sessionId);
   const downloadUrl = `${baseUrl}/download.html?token=${emailToken}`;
 
-  const scoreNum   = typeof score === 'number' ? score : parseInt(score, 10) || 0;
-  const scoreColor = scoreNum >= 75 ? '#059669' : scoreNum >= 50 ? '#D97706' : '#DC2626';
+  const scoreNum   = hasScore ? (typeof score === 'number' ? score : parseInt(score, 10) || 0) : null;
+  const scoreColor = scoreNum !== null ? (scoreNum >= 75 ? '#059669' : scoreNum >= 50 ? '#D97706' : '#DC2626') : '#059669';
   const top3       = Array.isArray(gaps) ? gaps.slice(0, 3) : [];
 
   const gapsHtml = top3.length
@@ -355,7 +369,7 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
       <h1 style="font-size:22px;font-weight:700;margin:0 0 8px">CV kamu sekarang lebih siap</h1>
       <p style="color:#6B7280;margin:0 0 24px;font-size:15px">Kami sudah analisis dan perbaiki CV kamu.</p>
 
-      <div style="background:#F0FDF4;border-radius:12px;padding:16px 20px;margin-bottom:16px;text-align:center">
+      ${scoreNum !== null ? `<div style="background:#F0FDF4;border-radius:12px;padding:16px 20px;margin-bottom:16px;text-align:center">
         <p style="margin:0;font-size:13px;color:#6B7280">Skor kecocokan</p>
         <p style="margin:4px 0 8px;font-size:40px;font-weight:800;color:${scoreColor}">${scoreNum}<span style="font-size:18px;color:#9CA3AF">/100</span></p>
         <ul style="list-style:none;margin:0;padding:0;font-size:12px;color:#6B7280;line-height:1.7;text-align:left;display:inline-block">
@@ -363,7 +377,7 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
           <li>50–74 → Masih bisa ditingkatkan</li>
           <li>&lt;50 → Perlu perbaikan signifikan</li>
         </ul>
-      </div>
+      </div>` : ''}
 
       ${gapsHtml}
 
@@ -395,8 +409,7 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
     </div>`;
   const text =
 `CV kamu sekarang lebih siap.
-Skor kecocokan: ${scoreNum}/100
-Paket: ${tierLabel}
+${scoreNum !== null ? `Skor kecocokan: ${scoreNum}/100\n` : ''}Paket: ${tierLabel}
 ${top3.length ? `Perubahan utama:\n- ${top3.map(g => String(g).slice(0, 200)).join('\n- ')}\n` : ''}
 Download CV kamu: ${downloadUrl}
 
@@ -413,7 +426,9 @@ Butuh bantuan: support@gaslamar.com`;
     body: JSON.stringify({
       from: 'GasLamar <noreply@gaslamar.com>',
       to: [session.email],
-      subject: `Skor CV kamu: ${scoreNum}/100${hasKit ? ' — CV & Interview Kit terlampir' : ' — CV terlampir'}`,
+      subject: scoreNum !== null
+        ? `Skor CV kamu: ${scoreNum}/100${hasKit ? ' — CV & Interview Kit terlampir' : ' — CV terlampir'}`
+        : `CV kamu siap${hasKit ? ' — CV & Interview Kit terlampir' : ' — CV terlampir'}`,
       html,
       text,
       ...(attachments.length > 0 && { attachments }),

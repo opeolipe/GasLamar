@@ -7,10 +7,10 @@
 // ── EXPORT_STYLE ──────────────────────────────────────────────────────────────
 // Shared typography/spacing tokens for DOCX and PDF exporters to keep parity.
 const EXPORT_STYLE = {
-  fontFamily: 'Calibri',
-  bodyPt: 11,
+  fontFamily: 'Times New Roman',
+  bodyPt: 10.5,
   headingPt: 12,
-  lineMm: 5.1,
+  lineMm: 4.9,
   sectionGapMm: 4.4,
   paraGapMm: 2.2,
   bulletIndentMm: 4.8,
@@ -19,7 +19,7 @@ const EXPORT_STYLE = {
   // DOCX uses twips / half-points.
   docx: {
     marginTwip: 1134,           // 20mm
-    bodyHalfPt: 22,             // 11pt
+    bodyHalfPt: 21,             // 10.5pt
     headingHalfPt: 24,          // 12pt
     spaceAfterBodyTwip: 120,    // 6pt
     spaceAfterHeadingTwip: 80,  // 4pt
@@ -52,7 +52,8 @@ const CV_SECTION_HEADINGS = new Set([
 // @returns {{ type: 'heading'|'bullet'|'text'|'blank', content: string }[]}
 function parseLines(cvText) {
   return cvText.split('\n').map(function(line) {
-    const trimmed = line.trim();
+    const withoutMdHeading = line.replace(/^\s{0,3}#{1,6}\s*/, '');
+    const trimmed = withoutMdHeading.trim();
     if (!trimmed) return { type: 'blank', content: '' };
 
     if (/^\s*\((catatan:|note:)/i.test(trimmed)) return { type: 'noise', content: '' };
@@ -74,6 +75,17 @@ function parseLines(cvText) {
     if (isBullet)      return { type: 'bullet',  content: trimmed.replace(/^[•\-·*]\s*/, '') };
     return { type: 'text', content: trimmed };
   });
+}
+
+function localizeIndonesianText(text) {
+  return String(text || '')
+    .replace(/\bEast Java\b/gi, 'Jawa Timur')
+    .replace(/\bWest Java\b/gi, 'Jawa Barat')
+    .replace(/\bCentral Java\b/gi, 'Jawa Tengah')
+    .replace(/\bNorth Sulawesi\b/gi, 'Sulawesi Utara')
+    .replace(/\bSouth Sulawesi\b/gi, 'Sulawesi Selatan')
+    .replace(/\bPresent\b/gi, 'Sekarang')
+    .replace(/\bCurrent\b/gi, 'Sekarang');
 }
 
 function validateExportLines(parsed) {
@@ -108,7 +120,10 @@ function validateExportLines(parsed) {
 function generateDOCX(cvText, lang, tier) {
   try {
     const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } = docx;
-    const parsed = validateExportLines(parseLines(cvText));
+    let parsed = validateExportLines(parseLines(cvText));
+    if (lang === 'id') {
+      parsed = parsed.map(row => ({ ...row, content: localizeIndonesianText(row.content) }));
+    }
 
     const children = [];
     for (let idx = 0; idx < parsed.length; idx++) {
@@ -179,7 +194,10 @@ function generatePDF(cvText, lang, tier) {
   try {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const parsed = validateExportLines(parseLines(cvText));
+    let parsed = validateExportLines(parseLines(cvText));
+    if (lang === 'id') {
+      parsed = parsed.map(row => ({ ...row, content: localizeIndonesianText(row.content) }));
+    }
 
     const pageWidth  = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
