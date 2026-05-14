@@ -247,12 +247,17 @@ export default function Download() {
   // picks it up via the existing gaslamar_cv_draft restore path.
   // This runs whenever effectiveContent arrives — covers fresh-generate AND
   // the exhausted-restore path (email-link users who have no prior sessionStorage).
+  // Only writes when no draft exists: if the user uploaded a fresh CV in this
+  // session (gaslamar_cv_draft already set), we must not overwrite it with the
+  // older server-returned version.
   const effectiveContentCvId = (content ?? restoredContent)?.cvId ?? null;
   useEffect(() => {
     if (!effectiveContentCvId) return;
     try {
-      sessionStorage.setItem('gaslamar_cv_draft', JSON.stringify({ type: 'txt', data: effectiveContentCvId }));
-      sessionStorage.setItem('gaslamar_filename_draft', 'cv-dioptimasi.txt');
+      if (!sessionStorage.getItem('gaslamar_cv_draft')) {
+        sessionStorage.setItem('gaslamar_cv_draft', JSON.stringify({ type: 'txt', data: effectiveContentCvId }));
+        sessionStorage.setItem('gaslamar_filename_draft', 'cv-dioptimasi.txt');
+      }
     } catch (_) {}
   }, [effectiveContentCvId]); // eslint-disable-line react-hooks/exhaustive-deps
 
