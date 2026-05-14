@@ -250,6 +250,7 @@ export default function Download() {
   // Only writes when no draft exists: if the user uploaded a fresh CV in this
   // session (gaslamar_cv_draft already set), we must not overwrite it with the
   // older server-returned version.
+  const content              = generate.content;
   const effectiveContentCvId = (content ?? restoredContent)?.cvId ?? null;
   useEffect(() => {
     if (!effectiveContentCvId) return;
@@ -353,7 +354,6 @@ export default function Download() {
 
   // ── Derived values ────────────────────────────────────────────────────────
 
-  const content         = generate.content;
   // For exhausted sessions, generate.content is null; fall back to KV-fetched result.
   const effectiveContent = content ?? restoredContent;
   const tier             = effectiveContent?.tier ?? session.sessionData?.tier ?? null;
