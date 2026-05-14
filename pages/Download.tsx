@@ -429,7 +429,13 @@ export default function Download() {
           </div>
         )}
 
-        {delivery && (view === 'error' || view === 'waiting') && (
+        {view === 'waiting' && session.phase === 'init' && (
+          <div style={{ maxWidth: 760, margin: '0 auto' }}>
+            <DownloadSkeleton />
+          </div>
+        )}
+
+        {delivery && (view === 'error' || (view === 'waiting' && session.phase !== 'init')) && (
           <div style={{ maxWidth: 520, margin: '0 auto' }}>
             <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', marginBottom: '0.5rem', lineHeight: 1.3 }}>
               CV kamu sudah siap digunakan
@@ -438,12 +444,6 @@ export default function Download() {
               File CV kamu sudah dikirimkan ke email. Cek inbox atau folder spam.
             </p>
             <ResendEmail sessionSecret={session.sessionSecret} />
-          </div>
-        )}
-
-        {view === 'waiting' && !delivery && session.phase === 'init' && (
-          <div style={{ maxWidth: 760, margin: '0 auto' }}>
-            <DownloadSkeleton />
           </div>
         )}
 
