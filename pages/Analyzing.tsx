@@ -6,6 +6,7 @@ import StepList                 from '@/components/analyzing/StepList';
 import TrustRotator             from '@/components/analyzing/TrustRotator';
 import AnalysisError            from '@/components/analyzing/AnalysisError';
 import { useAnalysis }          from '@/hooks/useAnalysisPolling';
+import { extractCandidateDisplayName } from '@/lib/analysisUtils';
 
 const SHADOW = '0 18px 44px rgba(15, 23, 42, 0.08)';
 
@@ -123,7 +124,12 @@ function AnalyzingContent({ cvData, jobDesc, filename }: ContentProps) {
 export default function Analyzing() {
   const [cvData]   = useState(() => sessionStorage.getItem('gaslamar_cv_pending')  || '');
   const [jobDesc]  = useState(() => unescapeHtml(sessionStorage.getItem('gaslamar_jd_pending') || ''));
-  const [filename] = useState(() => sessionStorage.getItem('gaslamar_filename')    || 'CV Kamu');
+  const [filename] = useState(() =>
+    extractCandidateDisplayName(
+      sessionStorage.getItem('gaslamar_cv_pending') || '',
+      sessionStorage.getItem('gaslamar_filename')   || 'CV Kamu',
+    )
+  );
 
   const ready = !!(cvData && jobDesc);
 

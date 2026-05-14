@@ -4,11 +4,29 @@
 // (download-file-utils.js), showMobileFallback (download-ui.js).
 // Vendor libraries (docx, jspdf) are loaded via <script> tags in download.html.
 
-// ── DOCX_GUIDANCE ─────────────────────────────────────────────────────────────
-// Mirrors shared/rewriteRules.js DOCX_GUIDANCE — appended after every bullet in
-// the DOCX output to prompt the user to add concrete results before sending.
-// Must stay in sync with the server-side constant.
-const DOCX_GUIDANCE = '(catatan: tambahkan hasil konkret jika ada, misalnya: waktu ↓ atau output ↑)';
+// ── EXPORT_STYLE ──────────────────────────────────────────────────────────────
+// Shared typography/spacing tokens for DOCX and PDF exporters to keep parity.
+const EXPORT_STYLE = {
+  fontFamily: 'Times New Roman',
+  bodyPt: 10.5,
+  headingPt: 12,
+  lineMm: 4.9,
+  sectionGapMm: 4.4,
+  paraGapMm: 2.2,
+  bulletIndentMm: 4.8,
+  bulletTextIndentMm: 8.6,
+  pageMarginMm: 20,
+  // DOCX uses twips / half-points.
+  docx: {
+    marginTwip: 1134,           // 20mm
+    bodyHalfPt: 21,             // 10.5pt
+    headingHalfPt: 24,          // 12pt
+    spaceAfterBodyTwip: 120,    // 6pt
+    spaceAfterHeadingTwip: 80,  // 4pt
+    spaceBeforeHeadingTwip: 220,// 11pt
+    blankAfterTwip: 70,         // 3.5pt
+  },
+};
 
 // ── CV_SECTION_HEADINGS ───────────────────────────────────────────────────────
 // Single source of truth for section-heading detection in parseLines.
@@ -34,8 +52,11 @@ const CV_SECTION_HEADINGS = new Set([
 // @returns {{ type: 'heading'|'bullet'|'text'|'blank', content: string }[]}
 function parseLines(cvText) {
   return cvText.split('\n').map(function(line) {
-    const trimmed = line.trim();
+    const withoutMdHeading = line.replace(/^\s{0,3}#{1,6}\s*/, '');
+    const trimmed = withoutMdHeading.trim();
     if (!trimmed) return { type: 'blank', content: '' };
+
+    if (/^\s*\((catatan:|note:)/i.test(trimmed)) return { type: 'noise', content: '' };
 
     const clean = trimmed.replace(/:$/, '').trim();
     const isSectionHead = CV_SECTION_HEADINGS.has(clean.toUpperCase())
@@ -43,11 +64,54 @@ function parseLines(cvText) {
                        || (trimmed.endsWith(':') && trimmed.length < 40);
     const isBullet = trimmed.startsWith('\u2022') || trimmed.startsWith('-')
                   || trimmed.startsWith('\u00B7') || trimmed.startsWith('*');
+    const isRoleHeader = /[—–]/.test(trimmed) && !/^\d/.test(trimmed);
+    const isMetaLine = /^.+\s\|\s.+/.test(trimmed) && /\b(19|20)\d{2}\b/.test(trimmed);
+    const isContact = /@|(?:\+?\d[\d\s().-]{7,}\d)$/.test(trimmed);
 
     if (isSectionHead) return { type: 'heading', content: clean };
+    if (isMetaLine) return { type: 'meta', content: trimmed };
+    if (isContact) return { type: 'contact', content: trimmed };
+    if (isRoleHeader) return { type: 'role', content: trimmed };
     if (isBullet)      return { type: 'bullet',  content: trimmed.replace(/^[•\-·*]\s*/, '') };
     return { type: 'text', content: trimmed };
   });
+}
+
+function localizeIndonesianText(text) {
+  return String(text || '')
+    .replace(/\bEast Java\b/gi, 'Jawa Timur')
+    .replace(/\bWest Java\b/gi, 'Jawa Barat')
+    .replace(/\bCentral Java\b/gi, 'Jawa Tengah')
+    .replace(/\bNorth Sulawesi\b/gi, 'Sulawesi Utara')
+    .replace(/\bSouth Sulawesi\b/gi, 'Sulawesi Selatan')
+    .replace(/\bPresent\b/gi, 'Sekarang')
+    .replace(/\bCurrent\b/gi, 'Sekarang');
+}
+
+function validateExportLines(parsed) {
+  const out = [];
+  let hasHeading = false;
+  const seen = new Set();
+
+  for (const row of parsed) {
+    if (row.type === 'noise') continue;
+    if (row.type === 'heading') {
+      const normalized = row.content.toUpperCase().trim();
+      if (!normalized) continue;
+      if (seen.has(normalized)) continue; // remove duplicate headings
+      seen.add(normalized);
+      hasHeading = true;
+      out.push(row);
+      continue;
+    }
+    if (row.type === 'bullet' && !row.content.trim()) continue; // broken bullet
+    if (/\[[^\]]{1,80}\]/.test(row.content) || /(?:\*\*|__|```)/.test(row.content)) {
+      continue; // markdown / placeholder remnants
+    }
+    out.push(row);
+  }
+
+  return hasHeading ? out : parsed.filter(r => r.type !== 'noise');
 }
 
 // ── generateDOCX ──────────────────────────────────────────────────────────────
@@ -56,40 +120,57 @@ function parseLines(cvText) {
 function generateDOCX(cvText, lang, tier) {
   try {
     const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } = docx;
+    let parsed = validateExportLines(parseLines(cvText));
+    if (lang === 'id') {
+      parsed = parsed.map(row => ({ ...row, content: localizeIndonesianText(row.content) }));
+    }
 
     const children = [];
-    for (const { type, content } of parseLines(cvText)) {
+    for (let idx = 0; idx < parsed.length; idx++) {
+      const { type, content } = parsed[idx];
+      const prev = parsed[idx - 1] || null;
       if (type === 'blank') {
-        children.push(new Paragraph({ spacing: { after: 100 } }));
+        if (prev && prev.type === 'blank') continue; // avoid double spacing explosions
+        children.push(new Paragraph({ spacing: { after: EXPORT_STYLE.docx.blankAfterTwip } }));
       } else if (type === 'heading') {
         children.push(new Paragraph({
           text: content,
           heading: HeadingLevel.HEADING_2,
-          spacing: { before: 240, after: 80 },
+          spacing: { before: EXPORT_STYLE.docx.spaceBeforeHeadingTwip, after: EXPORT_STYLE.docx.spaceAfterHeadingTwip },
           border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: 'CCCCCC' } },
+        }));
+      } else if (type === 'role') {
+        children.push(new Paragraph({
+          children: [new TextRun({ text: content, size: EXPORT_STYLE.docx.bodyHalfPt, bold: true, font: EXPORT_STYLE.fontFamily })],
+          spacing: { after: EXPORT_STYLE.docx.spaceAfterBodyTwip },
+          keepLines: true,
+          keepNext: true,
+        }));
+      } else if (type === 'meta' || type === 'contact') {
+        children.push(new Paragraph({
+          children: [new TextRun({ text: content, size: EXPORT_STYLE.docx.bodyHalfPt, font: EXPORT_STYLE.fontFamily, color: '555555' })],
+          spacing: { after: EXPORT_STYLE.docx.spaceAfterBodyTwip },
+          keepLines: true,
         }));
       } else if (type === 'bullet') {
         children.push(new Paragraph({
-          children: [new TextRun({ text: content, size: 22, font: 'Calibri' })],
+          children: [new TextRun({ text: content, size: EXPORT_STYLE.docx.bodyHalfPt, font: EXPORT_STYLE.fontFamily })],
           bullet: { level: 0 },
-          spacing: { after: 20 },
-        }));
-        children.push(new Paragraph({
-          children: [new TextRun({ text: '  ' + DOCX_GUIDANCE, size: 18, font: 'Calibri', color: '9CA3AF', italics: true })],
-          spacing: { after: 40 },
-          indent: { left: 360 },
+          spacing: { after: EXPORT_STYLE.docx.spaceAfterBodyTwip },
+          keepLines: true,
         }));
       } else {
         children.push(new Paragraph({
-          children: [new TextRun({ text: content, size: 22, font: 'Calibri' })],
-          spacing: { after: 60 },
+          children: [new TextRun({ text: content, size: EXPORT_STYLE.docx.bodyHalfPt, font: EXPORT_STYLE.fontFamily })],
+          spacing: { after: EXPORT_STYLE.docx.spaceAfterBodyTwip },
+          keepLines: true,
         }));
       }
     }
 
     const doc = new Document({
       sections: [{
-        properties: { page: { margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } } }, // 2.54 cm
+        properties: { page: { margin: { top: EXPORT_STYLE.docx.marginTwip, right: EXPORT_STYLE.docx.marginTwip, bottom: EXPORT_STYLE.docx.marginTwip, left: EXPORT_STYLE.docx.marginTwip } } },
         children: children,
       }],
     });
@@ -113,51 +194,92 @@ function generatePDF(cvText, lang, tier) {
   try {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    let parsed = validateExportLines(parseLines(cvText));
+    if (lang === 'id') {
+      parsed = parsed.map(row => ({ ...row, content: localizeIndonesianText(row.content) }));
+    }
 
     const pageWidth  = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    const marginX      = 20;
-    const marginY      = 20;
+    const marginX      = EXPORT_STYLE.pageMarginMm;
+    const marginY      = EXPORT_STYLE.pageMarginMm;
     const contentWidth = pageWidth - marginX * 2;
     let y = marginY;
 
-    doc.setFont('helvetica');
+    doc.setFont('times');
+    let lastType = 'blank';
 
-    for (const { type, content } of parseLines(cvText)) {
-      if (type === 'blank') { y += 4; continue; }
+    function ensureSpace(heightNeeded) {
+      if (y + heightNeeded > pageHeight - marginY) {
+        doc.addPage();
+        y = marginY;
+        lastType = 'blank';
+      }
+    }
 
-      if (y > pageHeight - marginY) { doc.addPage(); y = marginY; }
+    function drawWrappedLine(text, x, width, size, style, lineHeight, color) {
+      doc.setFontSize(size);
+      doc.setFont('times', style);
+      if (color) doc.setTextColor(color[0], color[1], color[2]);
+      const lines = doc.splitTextToSize(text, width);
+      for (const line of lines) {
+        ensureSpace(lineHeight);
+        doc.text(line, x, y);
+        y += lineHeight;
+      }
+      doc.setTextColor(0, 0, 0);
+    }
+
+    for (const { type, content } of parsed) {
+      if (type === 'blank') {
+        if (lastType === 'blank') continue;
+        y += EXPORT_STYLE.paraGapMm;
+        lastType = 'blank';
+        continue;
+      }
 
       if (type === 'heading') {
-        y += 4;
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text(content.toUpperCase(), marginX, y);
-        y += 1;
-        doc.setDrawColor(200, 200, 200);
-        doc.setLineWidth(0.3);
-        doc.line(marginX, y, marginX + contentWidth, y);
-        y += 5;
-        doc.setDrawColor(0);
-
-      } else if (type === 'bullet') {
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.splitTextToSize('\u2022 ' + content, contentWidth - 5).forEach(function(l) {
-          if (y > pageHeight - marginY) { doc.addPage(); y = marginY; }
-          doc.text(l, marginX + 3, y);
-          y += 5;
-        });
-
-      } else {
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.splitTextToSize(content, contentWidth).forEach(function(l) {
-          if (y > pageHeight - marginY) { doc.addPage(); y = marginY; }
-          doc.text(l, marginX, y);
-          y += 5;
-        });
+        if (lastType !== 'blank') y += EXPORT_STYLE.sectionGapMm;
+        ensureSpace(9);
+        drawWrappedLine(content.toUpperCase(), marginX, contentWidth, EXPORT_STYLE.headingPt, 'bold', EXPORT_STYLE.lineMm, [0, 0, 0]);
+        ensureSpace(1.8);
+        doc.setDrawColor(180, 180, 180);
+        doc.setLineWidth(0.25);
+        doc.line(marginX, y - 1.5, marginX + contentWidth, y - 1.5);
+        y += 1.6;
+        lastType = 'heading';
+        continue;
       }
+
+      if (type === 'role') {
+        drawWrappedLine(content, marginX, contentWidth, EXPORT_STYLE.bodyPt, 'bold', EXPORT_STYLE.lineMm, [20, 20, 20]);
+        y += 0.6;
+        lastType = 'role';
+        continue;
+      }
+
+      if (type === 'meta' || type === 'contact') {
+        drawWrappedLine(content, marginX, contentWidth, EXPORT_STYLE.bodyPt - 0.5, 'normal', EXPORT_STYLE.lineMm, [85, 85, 85]);
+        lastType = type;
+        continue;
+      }
+
+      if (type === 'bullet') {
+        doc.setFontSize(EXPORT_STYLE.bodyPt);
+        doc.setFont('times', 'normal');
+        const lines = doc.splitTextToSize(content, contentWidth - EXPORT_STYLE.bulletTextIndentMm);
+        for (let i = 0; i < lines.length; i++) {
+          ensureSpace(EXPORT_STYLE.lineMm);
+          if (i === 0) doc.text('\u2022', marginX + EXPORT_STYLE.bulletIndentMm, y);
+          doc.text(lines[i], marginX + EXPORT_STYLE.bulletTextIndentMm, y);
+          y += EXPORT_STYLE.lineMm;
+        }
+        lastType = 'bullet';
+        continue;
+      }
+
+      drawWrappedLine(content, marginX, contentWidth, EXPORT_STYLE.bodyPt, 'normal', EXPORT_STYLE.lineMm, [20, 20, 20]);
+      lastType = 'text';
     }
 
     const filename = buildCVFilename(cvText, cvDataCache ? cvDataCache.job_title : null, cvDataCache ? cvDataCache.company : null, lang, 'pdf');

@@ -7,6 +7,7 @@ import {
   STEP_INTERVAL,
   STEP_DEFS,
   getTimerText,
+  extractCandidateDisplayName,
 } from '@/lib/analysisUtils';
 import { buildResultData } from '@/lib/resultUtils';
 import { extractSampleLine } from '@/lib/cvUtils';
@@ -213,6 +214,17 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
       } catch (e) {
         console.warn('[GasLamar] Failed to persist sample line for preview consistency:', e);
       }
+
+      // Persist candidate display name before clearing cv_pending — used by the
+      // download page generating badge (gaslamar_cv_pending is gone by then).
+      try {
+        const cvPending    = sessionStorage.getItem('gaslamar_cv_pending') || '';
+        const rawFilename  = sessionStorage.getItem('gaslamar_filename')   || '';
+        const candidateName = extractCandidateDisplayName(cvPending, rawFilename);
+        if (candidateName && candidateName !== 'CV Kamu') {
+          sessionStorage.setItem('gaslamar_candidate_name', candidateName);
+        }
+      } catch (_) {}
 
       ['gaslamar_cv_pending', 'gaslamar_jd_pending', 'gaslamar_filename', 'gaslamar_jd_draft',
        'gaslamar_cv_draft', 'gaslamar_filename_draft']

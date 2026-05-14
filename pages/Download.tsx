@@ -24,8 +24,9 @@ import SessionError          from '@/components/download/SessionError';
 import WaitingPayment        from '@/components/download/WaitingPayment';
 import GeneratingCV          from '@/components/download/GeneratingCV';
 import DownloadReady         from '@/components/download/DownloadReady';
-import ResendEmail           from '@/components/download/ResendEmail';
+import DownloadSkeleton      from '@/components/download/DownloadSkeleton';
 import InterviewKit          from '@/components/download/InterviewKit';
+import ResendEmail           from '@/components/download/ResendEmail';
 
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -354,7 +355,7 @@ export default function Download() {
 
   const filename = effectiveContent
     ? buildCVFilename(effectiveContent.cvId, effectiveContent.jobTitle, effectiveContent.company, 'id', 'docx')
-    : 'CV.docx';
+    : (sessionStorage.getItem('gaslamar_candidate_name') || 'CV kamu');
 
   const sessionError = view === 'error'
     ? (session.error ?? generate.error ?? { title: 'Terjadi Kesalahan', message: 'Terjadi kesalahan. Coba refresh halaman.', retryable: false, reason: undefined })
@@ -415,28 +416,6 @@ export default function Download() {
         className="mx-auto px-5 sm:px-8 py-8 pb-20"
         style={{ maxWidth: 1040, paddingTop: bannerHeight > 0 ? `calc(2rem + ${bannerHeight}px)` : '2rem' }}
       >
-        {/* Delivery section — only shown after the waiting phase to prevent conflict
-            with WaitingPayment. gaslamar_delivery is written at invoice-creation time
-            (before payment), so it would otherwise appear simultaneously with the
-            "Menunggu Konfirmasi" spinner. */}
-        {delivery && view !== 'waiting' && (
-          <div style={{ maxWidth: 480, margin: '0 auto 2rem' }}>
-            <div style={{ background: 'rgba(255,255,255,0.92)', border: '1px solid rgba(148,163,184,0.14)', borderRadius: 24, padding: '1.25rem 1.5rem', boxShadow: '0 18px 44px rgba(15,23,42,0.07), 0 1px 2px rgba(15,23,42,0.04)', backdropFilter: 'blur(14px)' }}>
-              <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
-                <h2 style={{ fontWeight: 700, fontSize: '1.15rem', color: '#0F172A', margin: '0 0 0.35rem' }}>
-                  CV kamu sudah siap digunakan
-                </h2>
-                <p style={{ color: '#64748B', fontSize: '0.875rem', margin: 0, wordBreak: 'break-all' }}>
-                  Email telah dikirim ke {delivery.email}
-                </p>
-              </div>
-              <div style={{ borderTop: '1px solid rgba(148,163,184,0.18)', paddingTop: '1rem' }}>
-                <ResendEmail sessionSecret={session?.sessionSecret ?? null} />
-              </div>
-            </div>
-          </div>
-        )}
-
         {view === 'error' && sessionError && !delivery && (
           <div style={{ maxWidth: 480, margin: '0 auto' }}>
             <SessionError
@@ -450,7 +429,25 @@ export default function Download() {
           </div>
         )}
 
-        {view === 'waiting' && (
+        {view === 'waiting' && session.phase === 'init' && (
+          <div style={{ maxWidth: 760, margin: '0 auto' }}>
+            <DownloadSkeleton />
+          </div>
+        )}
+
+        {delivery && (view === 'error' || (view === 'waiting' && session.phase !== 'init')) && (
+          <div style={{ maxWidth: 520, margin: '0 auto' }}>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', marginBottom: '0.5rem', lineHeight: 1.3 }}>
+              CV kamu sudah siap digunakan
+            </h1>
+            <p style={{ fontSize: '0.95rem', color: '#475569', marginBottom: '1.5rem' }}>
+              File CV kamu sudah dikirimkan ke email. Cek inbox atau folder spam.
+            </p>
+            <ResendEmail sessionSecret={session.sessionSecret} />
+          </div>
+        )}
+
+        {view === 'waiting' && !delivery && session.phase !== 'init' && (
           <div style={{ maxWidth: 480, margin: '0 auto' }}>
             <WaitingPayment
               statusText={session.statusText}
@@ -462,12 +459,14 @@ export default function Download() {
         )}
 
         {view === 'generating' && generate.status !== 'done' && (
-          <div style={{ maxWidth: 720, margin: '0 auto' }}>
+          <div style={{ maxWidth: 980, margin: '0 auto' }}>
             <GeneratingCV
               progress={generate.progress}
               status="running"
               filename={filename}
               tier={tier}
+              deliveryEmail={delivery?.email ?? null}
+              sessionSecret={session?.sessionSecret ?? null}
               onCancel={handleCancelGeneration}
             />
           </div>
@@ -477,8 +476,8 @@ export default function Download() {
           <div>
             <DownloadReady
               tier={tier ?? 'single'}
-              filename={filename}
               expiryText={expiryText}
+              expiresAt={session.sessionData?.expiresAt ?? null}
               cvTextId={effectiveContent?.cvId ?? ''}
               cvTextEn={effectiveContent?.cvEn ?? null}
               creditsRemaining={creditsRemaining}
@@ -491,24 +490,18 @@ export default function Download() {
               dimensions={dimensions}
               primaryIssue={resultData?.primaryIssue ?? null}
               isTrusted={effectiveContent?.isTrusted ?? false}
+              deliveryEmail={delivery?.email ?? null}
+              sessionSecret={session.sessionSecret}
+              interviewKitNode={view === 'ready' ? (
+                <InterviewKit
+                  sessionSecret={session.sessionSecret}
+                  language="id"
+                  initialKit={effectiveContent?.interviewKit ?? null}
+                />
+              ) : null}
             />
           </div>
         )}
-
-        {view === 'ready' && (
-          <InterviewKit
-            sessionSecret={session.sessionSecret}
-            language="id"
-            initialKit={effectiveContent?.interviewKit ?? null}
-          />
-        )}
-
-        {/* Back link */}
-        <div className="text-center mt-4 mb-2">
-          <a href="upload.html" className="text-sm text-slate-400 hover:text-slate-600 transition-colors no-underline">
-            ← Upload CV lain
-          </a>
-        </div>
 
         <footer className="text-center py-6 text-sm text-slate-500">
           <p className="mb-3 text-slate-500">GasLamar · Karena nyari kerja udah cukup ribet</p>

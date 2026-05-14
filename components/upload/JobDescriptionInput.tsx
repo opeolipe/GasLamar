@@ -15,6 +15,8 @@ Kualifikasi:
 - Social media marketing 2+ tahun
 - Google Analytics & Facebook Ads`;
 
+const MIN_JD_CHARS = 80;
+
 const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobDescriptionInput({ value, onChange, submitError, onSubmit }, ref) {
   const [showFetcher, setShowFetcher] = useState(false);
   const [showExample, setShowExample] = useState(false);
@@ -24,10 +26,16 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
   const trimmed = value.trim();
   const quality = evaluateJDQuality(value);
 
+  const charCount = value.length;
+  const atLimit   = charCount >= MAX_JD_CHARS;
+  const nearLimit = charCount >= 4500 && !atLimit;
+  const counterCls = atLimit
+    ? 'text-xs text-red-600 font-medium'
+    : nearLimit
+    ? 'text-xs text-amber-500'
+    : 'text-xs text-slate-400';
+
   // Native listener catches programmatic `el.value = x; el.dispatchEvent(new Event('input'))`
-  // React's controlled-input tracker intercepts el.value assignments and marks the new value
-  // as "already seen", so React's synthetic onChange won't fire. The native listener below
-  // reads the DOM value directly and calls onChange regardless of React's tracker state.
   useEffect(() => {
     const el = internalRef.current;
     if (!el) return;
@@ -50,10 +58,20 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
     el.style.height = `${el.scrollHeight}px`;
   }, [value]);
 
+  // Dynamic border based on validation state
+  const borderCls = submitError
+    ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
+    : trimmed && quality.isValid
+    ? 'border-emerald-300 focus:border-emerald-400 focus:ring-emerald-100'
+    : trimmed && !quality.isValid
+    ? 'border-amber-200 focus:border-amber-300 focus:ring-amber-100'
+    : 'border-slate-200 focus:border-blue-400 focus:ring-blue-100';
+
   const textareaCls = [
     'block w-full max-w-full min-h-[140px] rounded-2xl border bg-transparent p-4',
     'text-slate-900 resize-y outline-none text-sm font-sans transition-all',
-    'focus:ring-2 focus:ring-offset-1 border-slate-200 focus:border-blue-400 focus:ring-blue-100',
+    'focus:ring-2 focus:ring-offset-1',
+    borderCls,
   ].join(' ');
 
   function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
@@ -76,15 +94,19 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
             onClose={() => setShowFetcher(false)}
           />
         ) : (
-          <p className="text-sm text-slate-500">
-            Paste job description atau{' '}
+          <p className="text-sm text-slate-500 flex items-center flex-wrap gap-1.5">
+            Paste job description atau
             <button
               type="button"
               onClick={() => setShowFetcher(true)}
-              className="text-blue-600 underline hover:no-underline font-medium inline-flex items-center min-h-[44px] px-0.5"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 active:bg-blue-200 border border-blue-200 text-blue-600 font-medium text-sm transition-colors min-h-[36px] leading-none"
               aria-label="Ambil job description dari URL loker seperti LinkedIn, Glints, atau JobStreet"
             >
-              tempel link loker →
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+              </svg>
+              Ambil via link
             </button>
           </p>
         )}
@@ -106,6 +128,8 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
           placeholder="Paste isi loker di sini..."
           className={textareaCls}
           aria-label="Job description atau lowongan kerja yang kamu targetkan"
+          aria-describedby="jd-feedback"
+          aria-invalid={!!submitError || (!!trimmed && !quality.isValid) ? 'true' : undefined}
           onKeyDown={(e) => {
             if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
               e.preventDefault();
@@ -113,7 +137,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
             }
           }}
         />
-        <div className="flex items-center justify-between mt-1">
+        <div className="flex items-center justify-between mt-1 gap-2">
           <button
             type="button"
             onClick={() => setShowExample(s => !s)}
@@ -121,8 +145,10 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
           >
             {showExample ? 'Sembunyikan contoh' : 'Lihat contoh job description'}
           </button>
-          <span className="text-xs text-slate-400">
-            {value.length.toLocaleString('id-ID')} / 5.000 karakter
+          <span className={`${trimmed ? counterCls : 'text-xs text-slate-400'} flex-shrink-0`}>
+            {trimmed
+              ? `${charCount.toLocaleString('id-ID')} / ${MAX_JD_CHARS.toLocaleString('id-ID')} karakter${atLimit ? ' — Maks 5.000 karakter (sisanya dipotong)' : ''}`
+              : `min. ${MIN_JD_CHARS} karakter`}
           </span>
         </div>
         {showExample && (
@@ -132,19 +158,28 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
         )}
       </div>
 
-      {submitError ? (
-        <div role="alert" className="mt-2 rounded-[10px] px-3 py-2.5 text-sm font-medium bg-red-50 border border-red-200 text-red-700">
-          <span aria-hidden="true">⚠️</span> {submitError}
-        </div>
-      ) : trimmed && quality.message ? (
-        <p className="text-sm text-slate-500 mt-2 break-words" style={{ overflowWrap: 'anywhere' }}>{quality.message}</p>
-      ) : trimmed && !quality.message ? (
-        <p className="text-sm text-emerald-600 mt-2 font-medium"><span aria-hidden="true">✓</span> Job description siap</p>
-      ) : (
-        <p className="text-sm text-slate-500 mt-2">
-          Job description wajib diisi. Minimal berisi kualifikasi dan tanggung jawab utama.
-        </p>
-      )}
+      <div id="jd-feedback" aria-live="polite">
+        {submitError ? (
+          <div
+            key={submitError}
+            role="alert"
+            className="mt-2 rounded-[10px] px-3 py-2.5 text-sm font-medium bg-red-50 border border-red-200 text-red-700"
+            style={{ animation: 'gasShake 0.4s ease-out' }}
+          >
+            <span aria-hidden="true">⚠️</span> {submitError}
+          </div>
+        ) : trimmed && quality.message ? (
+          <p className="text-sm text-amber-700 mt-2 break-words" style={{ overflowWrap: 'anywhere' }}>
+            <span aria-hidden="true">⚠️</span> {quality.message}
+          </p>
+        ) : trimmed && !quality.message ? (
+          <p className="text-sm text-emerald-600 mt-2 font-medium"><span aria-hidden="true">✓</span> Job description siap</p>
+        ) : (
+          <p className="text-sm text-slate-500 mt-2">
+            Minimal berisi kualifikasi dan tanggung jawab posisi yang kamu lamar.
+          </p>
+        )}
+      </div>
     </div>
   );
 });

@@ -13,6 +13,7 @@ interface DeliveryState {
 
 interface Props {
   sessionSecret: string | null;
+  compact?: boolean;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -21,7 +22,7 @@ const COOLDOWN_SECS = 30;
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function ResendEmail({ sessionSecret }: Props) {
+export default function ResendEmail({ sessionSecret, compact = false }: Props) {
   const [delivery, setDelivery] = useState<DeliveryState | null>(() => {
     try {
       const raw = localStorage.getItem('gaslamar_delivery');
@@ -199,9 +200,9 @@ export default function ResendEmail({ sessionSecret }: Props) {
 
   const inputBorder = emailError ? '#DC2626' : emailIsConfirmed ? '#16A34A' : '#CBD5E1';
 
-  return (
-    <div
-      style={{
+  const containerStyle = compact
+    ? { marginTop: '0.7rem', fontSize: '0.875rem', color: '#475569' }
+    : {
         marginTop:    '1.5rem',
         padding:      '1rem 1.25rem',
         background:   '#F8FAFC',
@@ -209,11 +210,15 @@ export default function ResendEmail({ sessionSecret }: Props) {
         borderRadius: 16,
         fontSize:     '0.875rem',
         color:        '#475569',
-      }}
-    >
-      <p style={{ margin: '0 0 0.65rem', fontWeight: 600, color: '#374151' }}>
-        Belum menerima email?
-      </p>
+      };
+
+  return (
+    <div style={containerStyle}>
+      {!compact && (
+        <p style={{ margin: '0 0 0.65rem', fontWeight: 600, color: '#374151' }}>
+          Belum menerima email?
+        </p>
+      )}
 
       {/* Action row */}
       {!showChange && (
