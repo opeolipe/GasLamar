@@ -206,13 +206,20 @@ Output CV dalam Bahasa Indonesia dengan urutan section di atas:
 Output hanya teks CV, tidak ada komentar atau penjelasan tambahan.
 
 VERIFIKASI WAJIB sebelum output (cek setiap poin):
-· Setiap bullet dimulai dengan kata kerja aktif Harvard
+· Setiap bullet dimulai dengan kata kerja aktif
 · Tidak ada angka baru yang tidak ada di Ground Truth di atas
 · Keyword penting dari JD muncul secara alami di bullets yang relevan
 · Summary mencerminkan level seniority dari CV asli (bukan generik)
 · Tidak ada placeholder [...] dalam output
 · Nama, perusahaan, jabatan, tanggal — identik dengan CV asli
-· Setiap bullet 8–18 kata, satu baris`;
+· Setiap bullet 8–14 kata, satu baris
+· Tidak ada bullet berakhiran tujuan samar ("untuk meningkatkan...", "untuk memastikan...")
+· Tidak ada bullet yang berstruktur identik satu sama lain
+
+UJI PEMBACA sebelum finalisasi — bayangkan tiga pembaca membaca CV ini:
+1. HR Rekruter (scan 7 detik): apakah info penting langsung terlihat? bullet mudah dibaca?
+2. Hiring Manager (tahu industri): apakah bullet terdengar nyata dan relevan industri? atau terdengar generik?
+3. Rekan kerja (langsung curiga AI): apakah ada kalimat yang terdengar seperti template AI? jika ya, sederhanakan`;
 
     const result = await callClaude(env, systemPrompt, 'Tailoring CV sekarang.', 4096, 'claude-haiku-4-5-20251001');
     let text = result?.content?.[0]?.text?.trim() ?? '';
@@ -325,13 +332,20 @@ Output the CV in English with sections in that order:
 Output only the CV text, no additional comments.
 
 MANDATORY VERIFICATION before output (check every point):
-· Every bullet starts with a Harvard action verb
+· Every bullet starts with an action verb
 · No new numbers not present in Ground Truth above
 · Key JD keywords appear naturally in relevant bullets
 · Summary reflects the candidate's actual seniority level (not generic)
 · No placeholders [...] anywhere in output
 · Names, companies, titles, dates — identical to original CV
-· Every bullet is 8–18 words, one line`;
+· Every bullet is 8–14 words, one line
+· No bullet ends with a vague purpose clause ("to improve...", "to ensure...", "to support...")
+· No two bullets are structurally identical
+
+READER PERSONA TEST before finalising — check through three readers:
+1. HR Recruiter (7-second scan): is the key info immediately visible? are bullets easy to scan?
+2. Hiring Manager (knows the industry): do bullets sound real and industry-specific? or generic?
+3. Peer colleague (spots AI instantly): does any sentence sound like an AI template? if yes, simplify it`;
 
     const result = await callClaude(env, systemPrompt, 'Tailor the CV now.', 4096, 'claude-haiku-4-5-20251001');
     let text = result?.content?.[0]?.text?.trim() ?? '';

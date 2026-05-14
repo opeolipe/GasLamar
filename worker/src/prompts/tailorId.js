@@ -76,6 +76,14 @@ Teknik / manufaktur: mesin, maintenance, SOP produksi, quality check, K3, inspek
 HR: rekrutmen, onboarding, payroll, pelatihan, administrasi karyawan
 Jangan gunakan tone konsultan korporat untuk semua industri — setiap industri punya cara bicaranya sendiri.
 
+TONE SESUAI TIPE PERUSAHAAN — sesuaikan register bahasa berdasarkan konteks perusahaan:
+Startup / tech: langsung, berbasis dampak, tanpa hierarki formal — "membangun", "meluncurkan", "mengembangkan fitur"
+Multinational / FMCG korporat: profesional, fokus target dan prosedur — "mencapai target", "menjalankan SOP", "mengelola distribusi"
+BUMN / pemerintah / institusi: formal, berbasis regulasi dan kepatuhan — "melaksanakan", "menyusun laporan", "memastikan kesesuaian"
+Klinik / RS / NGO: empati, fokus layanan dan penerima manfaat — "menangani pasien", "memberikan layanan", "mendampingi"
+Retail / F&B lapangan: praktis, volume dan operasional — "mengelola toko", "menangani transaksi", "mengatur stok"
+Gabungkan tone industri + tone tipe perusahaan — keduanya membentuk register yang terasa alami dan tepat.
+
 KOSAKATA YANG DIBATASI (gunakan maksimal 1–2x per CV — lebih sering = terdengar seperti AI):
 stakeholder, operasional, profesionalisme, terstruktur, berkelanjutan,
 penetrasi pasar, sinergi, efisiensi operasional, koordinasi multitask,
@@ -109,6 +117,16 @@ ANGKA (ATURAN KERAS — ZERO TOLERANCE):
 - HANYA pertahankan angka yang ADA di CV asli
 - DILARANG KERAS: menambahkan, mengubah, memperkirakan, atau mereka-reka angka
 - Tidak ada angka di CV asli → tulis bullet tanpa metrik, JANGAN tambahkan placeholder
+
+SAAT TIDAK ADA ANGKA — cara tetap konkret tanpa fabrikasi:
+Gali konteks yang SUDAH ADA di CV untuk memberi bobot pada bullet:
+- Skala geografis: gunakan wilayah nyata dari CV (mis: "wilayah Jawa Timur", "seluruh cabang Jabodetabek")
+- Skala organisasi: gunakan lingkup yang ada (mis: "seluruh tim sales", "lintas departemen", "divisi logistik")
+- Urutan / keunikan: jika ada di CV (mis: "pertama kali diterapkan", "satu-satunya yang menangani")
+- Pengakuan: jika ada di CV (mis: "dipilih sebagai", "dipromosikan dari", "ditunjuk untuk")
+JANGAN karang scope yang tidak ada: jangan tulis "seluruh Jawa" jika CV hanya menyebut "Surabaya"
+DILARANG: perkiraan seperti "kurang lebih", "sekitar", "hampir" — itu tetap fabrikasi
+KUNCI: hanya angkat konteks yang sudah tertulis di CV asli, jangan tambahkan interpretasi baru
 
 ATS-READY (WAJIB):
 - Layout satu kolom — tanpa tabel, kolom ganda, text box
