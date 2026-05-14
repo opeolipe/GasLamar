@@ -5,16 +5,16 @@ const shimmerStyle: React.CSSProperties = {
   borderRadius: 10,
 };
 
-function Bar({ w, h = 12, className = '' }: { w: number | string; h?: number; className?: string }) {
+function Bar({ w, h = 12, className = '', style }: { w: number | string; h?: number; className?: string; style?: React.CSSProperties }) {
   return (
     <div
       className={className}
-      style={{ ...shimmerStyle, width: w, height: h, borderRadius: 8, flexShrink: 0 }}
+      style={{ ...shimmerStyle, width: w, height: h, borderRadius: 8, flexShrink: 0, ...style }}
     />
   );
 }
 
-function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+function Card({ children, className = '', style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
   return (
     <div
       className={className}
@@ -25,6 +25,7 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
         boxShadow: '0 18px 44px rgba(15,23,42,0.05)',
         backdropFilter: 'blur(14px)',
         padding: '2rem',
+        ...style,
       }}
     >
       {children}
@@ -61,7 +62,7 @@ function AccordionRowSkeleton() {
       }}
     >
       <Bar w="55%" h={12} />
-      <Bar w={16} h={16} className="" style={{ borderRadius: 4 } as any} />
+      <Bar w={16} h={16} className="" style={{ borderRadius: 4 }} />
     </div>
   );
 }
@@ -85,7 +86,7 @@ export default function DownloadSkeleton() {
       </div>
 
       {/* Download card skeleton */}
-      <Card className="gl-fade-up" style={{ padding: '2.15rem 2rem 1.8rem', marginBottom: '3.5rem' } as any}>
+      <Card className="gl-fade-up" style={{ padding: '2.15rem 2rem 1.8rem', marginBottom: '3.5rem' }}>
         <Bar w={60} h={10} style={{ marginBottom: '0.6rem' }} />
         <Bar w={260} h={22} style={{ marginBottom: '0.5rem' }} />
         <Bar w={200} h={13} style={{ marginBottom: '1.5rem' }} />
@@ -110,7 +111,7 @@ export default function DownloadSkeleton() {
       </Card>
 
       {/* Interview Kit skeleton */}
-      <Card style={{ marginBottom: '1.5rem' } as any}>
+      <Card style={{ marginBottom: '1.5rem' }}>
         <Bar w={140} h={20} style={{ marginBottom: '0.5rem' }} />
         <Bar w={260} h={12} style={{ marginBottom: '1.25rem' }} />
 
@@ -127,7 +128,7 @@ export default function DownloadSkeleton() {
       </Card>
 
       {/* Next steps card skeleton */}
-      <Card style={{ marginBottom: '1.5rem' } as any}>
+      <Card style={{ marginBottom: '1.5rem' }}>
         <Bar w={160} h={18} style={{ marginBottom: '1rem' }} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           {[1, 2].map(i => (
