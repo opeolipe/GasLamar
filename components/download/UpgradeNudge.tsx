@@ -24,7 +24,7 @@ export default function UpgradeNudge({ showUpsell = false }: Props) {
           <br />Hemat 40% dibanding beli satuan.
         </p>
         <a
-          href="upload.html"
+          href="upload.html?new_package=1&tier=3pack"
           className="inline-flex items-center min-h-[44px] px-8 rounded-full font-bold text-white text-sm transition-all hover:-translate-y-[1px]"
           style={{ background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', boxShadow: '0 8px 24px rgba(37,99,235,0.30)' }}
           title="Mulai analisis CV baru dengan paket 3-Pack"
@@ -51,12 +51,12 @@ export default function UpgradeNudge({ showUpsell = false }: Props) {
         Kredit kamu sudah habis. Masih ada loker lain yang ingin kamu lamar? Beli paket baru untuk CV yang disesuaikan.
       </p>
       <a
-        href="upload.html"
+        href="upload.html?new_package=1"
         className="inline-flex items-center min-h-[44px] px-6 rounded-full font-bold text-white text-sm transition-all hover:-translate-y-[1px]"
         style={{ background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', boxShadow: '0 8px 24px rgba(37,99,235,0.30)' }}
-        title="Upload CV baru untuk loker lain (memerlukan paket baru)"
+        title="Beli paket baru untuk loker lain"
       >
-        Upload CV untuk Loker Baru
+        Beli Paket untuk Loker Baru
       </a>
       <p className="text-sm text-slate-400 mt-3">Bisa pakai CV yang sama atau upload CV yang sudah diperbarui</p>
     </div>

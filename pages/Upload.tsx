@@ -90,12 +90,30 @@ export default function Upload() {
       history.replaceState(null, '', params.toString() ? `${location.pathname}?${params}` : location.pathname);
     }
 
+    // new_package=1: user came from download page to buy a new package.
+    // Skip the "already paid" banner and show a CV-reuse notice instead.
+    const isNewPackage = params.get('new_package') === '1';
+    if (isNewPackage) {
+      params.delete('new_package');
+      history.replaceState(null, '', params.toString() ? `${location.pathname}?${params}` : location.pathname);
+      const hasCvDraft = !!(
+        sessionStorage.getItem('gaslamar_cv_pending') ||
+        sessionStorage.getItem('gaslamar_cv_draft')
+      );
+      newNotices.push({
+        type: 'info',
+        text: hasCvDraft
+          ? 'CV kamu sebelumnya sudah siap — langsung isi job description untuk paket baru, atau ganti CV di bawah.'
+          : 'Upload CV kamu dan isi job description untuk membeli paket baru.',
+      });
+    }
+
     // Paid session takes priority — redirect the user straight to download.html
     // instead of showing stale analysis notices that point to hasil.html.
     const paidSessionId = sessionStorage.getItem('gaslamar_session') ?? localStorage.getItem('gaslamar_session') ?? '';
     const hasPaidSession = paidSessionId.startsWith('sess_');
 
-    if (hasPaidSession) {
+    if (hasPaidSession && !isNewPackage) {
       const reason = params.get('reason');
       if (reason) history.replaceState(null, '', location.pathname);
       newNotices.push({
@@ -103,7 +121,7 @@ export default function Upload() {
         text: 'Kamu sudah upload CV dan menyelesaikan pembayaran.',
         link: { href: 'download.html', label: 'Lanjutkan ke download →' },
       });
-    } else {
+    } else if (!isNewPackage) {
       const reason = params.get('reason');
       if (reason === 'no_session') {
         history.replaceState(null, '', location.pathname);
