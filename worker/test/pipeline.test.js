@@ -1254,6 +1254,101 @@ describe('isJDQualityHigh', () => {
   });
 });
 
+describe('postProcessCV — weak generic bullet guard', () => {
+  it('reverts weak generic English bullet to original specific bullet', () => {
+    const original = [
+      'WORK EXPERIENCE',
+      '- Managed weekly distributor follow-up and order confirmation for East Java area',
+    ].join('\n');
+    const llm = [
+      'WORK EXPERIENCE',
+      '- Managed daily operations tasks',
+    ].join('\n');
+    const { text } = postProcessCV(llm, original, null, 'pdf', { language: 'en' });
+    expect(text).toContain('weekly distributor follow-up');
+    expect(text.toLowerCase()).not.toContain('managed daily operations tasks');
+  });
+
+  it('reverts weak generic Indonesian bullet to original specific bullet', () => {
+    const original = [
+      'PENGALAMAN KERJA',
+      '- Menangani follow-up klien retail area Makassar secara harian',
+    ].join('\n');
+    const llm = [
+      'PENGALAMAN KERJA',
+      '- Menangani tugas operasional harian',
+    ].join('\n');
+    const { text } = postProcessCV(llm, original, null, 'pdf', { language: 'id' });
+    expect(text).toContain('follow-up klien retail area Makassar');
+    expect(text.toLowerCase()).not.toContain('menangani tugas operasional harian');
+  });
+});
+
+describe('postProcessCV — summary logic + education cleanup', () => {
+  it('removes corporate-noise summary sentences and keeps coherent summary', () => {
+    const cv = [
+      'RINGKASAN PROFESIONAL',
+      'Profesional administratif dan operasional berpengalaman dengan rekam jejak solid dalam mengelola operasi bisnis, komunikasi stakeholder, dan proses administratif di lingkungan fast-paced. Ahli dalam koordinasi multitask, manajemen akun kunci, dan pemeliharaan standar operasional tinggi. Terbukti mampu menangani tanggung jawab administratif kompleks, mendukung manajemen, dan memastikan efisiensi operasional dengan profesionalisme tinggi.',
+      '',
+      'PENGALAMAN KERJA',
+      '- Menangani administrasi penjualan dan follow-up klien area Makassar',
+    ].join('\n');
+    const { text } = postProcessCV(cv, cv, null, 'pdf', { language: 'id' });
+    expect(text.toLowerCase()).not.toContain('rekam jejak solid');
+    expect(text.toLowerCase()).not.toContain('stakeholder');
+    expect(text.toLowerCase()).not.toContain('koordinasi multitask');
+    expect(text).toContain('RINGKASAN PROFESIONAL');
+  });
+
+  it('removes SD/SMP/SMA entries from PENDIDIKAN', () => {
+    const cv = [
+      'PENDIDIKAN',
+      'Universitas Hasanuddin — S1 Manajemen',
+      'SMA Negeri 1 Makassar',
+      'SMP Negeri 3 Makassar',
+      'SD Inpres Makassar',
+      '',
+      'KEAHLIAN',
+      '- Komunikasi',
+    ].join('\n');
+    const { text } = postProcessCV(cv, cv, null, 'pdf', { language: 'id' });
+    expect(text).toContain('Universitas Hasanuddin');
+    expect(text).not.toContain('SMA Negeri 1 Makassar');
+    expect(text).not.toContain('SMP Negeri 3 Makassar');
+    expect(text).not.toContain('SD Inpres Makassar');
+  });
+
+  it('keeps summary coherent after corporate-noise cleanup', () => {
+    const cv = [
+      'RINGKASAN PROFESIONAL',
+      'Profesional administratif dengan rekam jejak solid, stakeholder, dan profesionalisme tinggi.',
+      '',
+      'PENGALAMAN KERJA',
+      '- Menangani administrasi penjualan harian',
+    ].join('\n');
+    const { text } = postProcessCV(cv, cv, null, 'pdf', { language: 'id' });
+    expect(text.toLowerCase()).not.toContain('stakeholder');
+    expect(text.toLowerCase()).not.toContain('rekam jejak solid');
+    expect(text).toContain('Profesional dengan pengalaman relevan yang selaras dengan posisi yang dituju.');
+  });
+});
+
+describe('postProcessCV — bullet sentence coherence', () => {
+  it('reverts fragment-like bullet endings to original', () => {
+    const original = [
+      'PENGALAMAN KERJA',
+      '- Menangani follow-up klien wholesale area Surabaya setiap minggu',
+    ].join('\n');
+    const llm = [
+      'PENGALAMAN KERJA',
+      '- Menangani follow-up klien wholesale untuk',
+    ].join('\n');
+    const { text } = postProcessCV(llm, original, null, 'pdf', { language: 'id' });
+    expect(text).toContain('Menangani follow-up klien wholesale area Surabaya setiap minggu');
+    expect(text).not.toContain('untuk');
+  });
+});
+
 // ── generateInterviewKitPdf ───────────────────────────────────────────────────
 
 const FULL_KIT = {
