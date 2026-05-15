@@ -39,7 +39,7 @@ Kota | Bulan Tahun – Bulan Tahun
   • APA: objek spesifik (laporan keuangan, klien distribusi, proses rekrutmen...)
   • SKALA/CARA: lingkup atau cara kerja (wilayah Jawa Timur, tim 5 orang, secara harian)
   • HASIL: hanya jika angka sudah ada di CV asli — jika tidak ada, SKALA/CARA sudah cukup
-  Contoh tanpa angka: "Mengelola laporan keuangan bulanan cabang Surabaya untuk 3 departemen"
+  Contoh tanpa angka: "Mengelola laporan keuangan bulanan untuk seluruh cabang Surabaya"
   Contoh dengan angka: "Meningkatkan coverage distribusi FMCG di Jawa Timur dari 120 ke 180 toko"
 - 2–4 bullet per peran; peran terbaru boleh sampai 5 bullet
 - Kuantifikasi HANYA jika angka ada di CV asli — jangan fabrikasi metrik

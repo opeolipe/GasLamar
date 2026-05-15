@@ -39,7 +39,7 @@ City, Country | Month Year – Month Year
   • WHAT: specific object (monthly reports, distribution clients, recruitment process...)
   • HOW/SCALE: scope or working context (East Java region, team of 5, daily, cross-department)
   • RESULT: only if numbers already exist in the original CV — if not, HOW/SCALE closes the bullet
-  Example without numbers: "Managed monthly financial reports for Surabaya branch across 3 departments"
+  Example without numbers: "Managed monthly financial reports for all Surabaya branch departments"
   Example with numbers: "Expanded FMCG distribution coverage in East Java from 120 to 180 stores"
 - 2–4 bullets per role; most recent role may have up to 5 bullets
 - Quantify ONLY with numbers present in the original CV — never fabricate metrics
