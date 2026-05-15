@@ -334,6 +334,18 @@ function generateHarvardPDF(cvText: string): Blob {
     }
   }
 
+  // ── Page numbers (only when > 1 page) ────────────────────────────────────────
+  const totalPages = doc.getNumberOfPages();
+  if (totalPages > 1) {
+    for (let pg = 1; pg <= totalPages; pg++) {
+      doc.setPage(pg);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(150, 150, 150);
+      doc.text(`${pg} / ${totalPages}`, pageWidth / 2, pageHeight - 7, { align: 'center' });
+    }
+  }
+
   return doc.output('blob') as Blob;
 }
 

@@ -176,5 +176,15 @@ export async function generateInterviewKitPdf(kit) {
     });
   }
 
+  // ── Page numbers (only when > 1 page) ────────────────────────────────────────
+  const pages = doc.getPages();
+  if (pages.length > 1) {
+    pages.forEach((pg, idx) => {
+      const label = sanitize(`${idx + 1} / ${pages.length}`);
+      const w = regular.widthOfTextAtSize(label, 8);
+      pg.drawText(label, { x: (PAGE_W - w) / 2, y: MARGIN / 2, font: regular, size: 8, color: softInk });
+    });
+  }
+
   return doc.save(); // Uint8Array
 }
