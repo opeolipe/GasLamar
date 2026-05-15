@@ -2376,6 +2376,29 @@ describe('POST /fetch-job-url — LinkedIn guest API and JSON-LD extraction', ()
     expect(body.job_desc).not.toContain('&amp;');
   });
 
+  it('does not crash on JSON-LD containing literal null (JSON.parse edge case)', async () => {
+    // JSON.parse('null') = null — accessing null['@graph'] used to throw TypeError.
+    // Handler should gracefully skip it and fall through to body text extraction.
+    const pageHtml = '<html><head>' +
+      '<script type="application/ld+json">null</script>' +
+      '</head><body>About the job: Senior DevOps with Terraform and AWS skills needed for cloud team.</body></html>';
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs-guest/jobs/api/jobPosting/9900005' })
+      .reply(404, 'Not Found', { headers: { 'content-type': 'text/html' } })
+      .times(1);
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs/view/9900005' })
+      .reply(200, pageHtml, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.linkedin.com/jobs/view/9900005' }, {}, nextIp());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.job_desc).toContain('Terraform');
+  });
+
   it('returns null from guest API and falls through when guest API redirects (redirect:manual)', async () => {
     // A 3xx from the guest API (e.g. LinkedIn redirecting to /authwall) should
     // NOT be followed — return null and fall through to full-page scraping.

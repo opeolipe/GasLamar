@@ -175,11 +175,16 @@ function extractJobFromJsonLd(jsonLdTexts) {
   for (const raw of jsonLdTexts) {
     let data;
     try { data = JSON.parse(raw.trim()); } catch { continue; }
+    // JSON.parse('null') = null — accessing null['@graph'] throws TypeError.
+    // Also skip primitives (number, boolean, string) — none are valid schema.org objects.
+    if (!data || typeof data !== 'object') continue;
 
     // Some pages wrap multiple schema objects in an @graph array
     const items = Array.isArray(data['@graph']) ? data['@graph'] : [data];
 
     for (const item of items) {
+      // Guard against null/non-object elements inside an @graph array
+      if (!item || typeof item !== 'object') continue;
       // @type can be a string OR an array e.g. ["JobPosting","Thing"]
       const types = Array.isArray(item['@type']) ? item['@type'] : [item['@type']];
       if (!types.includes('JobPosting')) continue;
@@ -251,14 +256,15 @@ async function fetchLinkedInGuestApi(jobId, signal) {
   // Cap before running regexes — prevents RAM exhaustion on unexpectedly large bodies.
   if (html.length > GUEST_API_MAX_BYTES) html = html.slice(0, GUEST_API_MAX_BYTES);
 
-  // Strip script/style blocks then all remaining tags for clean plain text
-  const cleaned = html
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s{2,}/g, ' ')
-    .trim()
-    .slice(0, 5000);
+  // Strip script/style blocks, all remaining tags, then decode HTML entities
+  const cleaned = decodeHtmlEntities(
+    html
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+  ).replace(/\s{2,}/g, ' ').trim().slice(0, 5000);
 
   if (cleaned.length < 50) return null;
   if (LINKEDIN_GATE_MARKERS.some(m => cleaned.toLowerCase().includes(m.toLowerCase()))) return null;
