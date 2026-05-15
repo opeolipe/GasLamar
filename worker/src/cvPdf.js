@@ -2,7 +2,7 @@ import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
 const PAGE_W    = 595;
 const PAGE_H    = 842;
-const MARGIN    = 42;
+const MARGIN    = 48;              // ≈17 mm — matches website download margins
 const CONTENT_W = PAGE_W - 2 * MARGIN;
 
 const CV_SECTION_HEADINGS = new Set([
@@ -18,11 +18,11 @@ const CV_SECTION_HEADINGS = new Set([
 
 const EXPORT_STYLE = {
   bodyPt: 10.5,
-  headingPt: 12,
+  headingPt: 10.5,
   linePt: 14,
   paraGapPt: 7,
-  bulletIndentPt: 14,
-  bulletTextIndentPt: 26,
+  bulletIndentPt: 11,
+  bulletTextIndentPt: 23,
 };
 
 function sanitize(str) {
@@ -134,11 +134,11 @@ function wrapText(text, font, size, maxWidth) {
  */
 export async function generateCVPdf(cvText) {
   const doc     = await PDFDocument.create();
-  const regular = await doc.embedFont(StandardFonts.TimesRoman);
-  const bold    = await doc.embedFont(StandardFonts.TimesRomanBold);
-  const black = rgb(0,    0,    0);
-  const dark  = rgb(0.1,  0.1,  0.1);
-  const gray  = rgb(0.45, 0.45, 0.45);
+  const regular = await doc.embedFont(StandardFonts.Helvetica);
+  const bold    = await doc.embedFont(StandardFonts.HelveticaBold);
+  const navy  = rgb(0.118, 0.227, 0.373); // #1E3A5F
+  const dark  = rgb(0.10,  0.10,  0.10);
+  const gray  = rgb(0.40,  0.40,  0.40);
 
   let page = doc.addPage([PAGE_W, PAGE_H]);
   let y    = PAGE_H - MARGIN;
@@ -179,33 +179,36 @@ export async function generateCVPdf(cvText) {
 
     if (!nameFound && type !== 'blank') {
       nameFound = true;
-      ensureSpace(24);
+      ensureSpace(30);
       const safe = sanitize(content);
-      const w = textWidth(safe, bold, 16);
-      page.drawText(safe, { x: (PAGE_W - w) / 2, y, font: bold, size: 16, color: black });
-      y -= 22;
+      const w = textWidth(safe, bold, 24);
+      page.drawText(safe, { x: (PAGE_W - w) / 2, y, font: bold, size: 24, color: dark });
+      y -= 28;
       continue;
     }
 
     if (!contactFound && type === 'contact') {
       contactFound = true;
-      ensureSpace(16);
+      ensureSpace(18);
       const safe = sanitize(content);
-      const w = textWidth(safe, regular, 9);
-      page.drawText(safe, { x: (PAGE_W - w) / 2, y, font: regular, size: 9, color: gray });
-      y -= 14;
-      page.drawLine({ start: { x: MARGIN, y }, end: { x: PAGE_W - MARGIN, y }, thickness: 0.4, color: gray });
-      y -= 8;
+      const w = textWidth(safe, regular, 9.5);
+      page.drawText(safe, { x: (PAGE_W - w) / 2, y, font: regular, size: 9.5, color: gray });
+      y -= 13;
+      const lineW = 180;
+      page.drawLine({ start: { x: (PAGE_W - lineW) / 2, y }, end: { x: (PAGE_W + lineW) / 2, y }, thickness: 0.5, color: navy });
+      y -= 9;
       continue;
     }
 
     if (type === 'heading') {
-      ensureSpace(22);
+      ensureSpace(49); // heading block + 2 body lines (orphan guard)
       y -= 4;
-      page.drawLine({ start: { x: MARGIN, y: y + 1 }, end: { x: PAGE_W - MARGIN, y: y + 1 }, thickness: 0.4, color: gray });
-      y -= 4;
-      drawWrapped(content.toUpperCase(), bold, EXPORT_STYLE.headingPt, black, 0, EXPORT_STYLE.linePt);
-      y -= 2;
+      // Accent bar in left margin: dimensions match jsPDF client (2.5mm × 5.5mm → ~7pt × 16pt)
+      page.drawRectangle({ x: MARGIN - 11, y: y - 3.7, width: 7, height: 15.6, color: navy });
+      drawWrapped(content.toUpperCase(), bold, EXPORT_STYLE.headingPt, navy, 0, EXPORT_STYLE.linePt);
+      // Bottom rule spanning from accent bar to right margin
+      page.drawLine({ start: { x: MARGIN - 11, y: y + 1 }, end: { x: PAGE_W - MARGIN, y: y + 1 }, thickness: 0.7, color: navy });
+      y -= 3;
       continue;
     }
 
