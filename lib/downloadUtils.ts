@@ -384,7 +384,7 @@ async function generateHarvardDOCX(cvText: string): Promise<Blob> {
         children: [new TextRun({
           text:  content.toUpperCase(),
           size:  22,
-          font:  'Times New Roman',
+          font:  'Calibri',
           bold:  true,
           color: CV_ACCENT_HEX,
         })],

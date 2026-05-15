@@ -7,7 +7,7 @@
 // ── EXPORT_STYLE ──────────────────────────────────────────────────────────────
 // Shared typography/spacing tokens for DOCX and PDF exporters to keep parity.
 const EXPORT_STYLE = {
-  fontFamily: 'Times New Roman',
+  fontFamily: 'Calibri',
   bodyPt: 10.5,
   headingPt: 10.5,
   lineMm: 4.9,
@@ -125,7 +125,7 @@ function validateExportLines(parsed) {
 // Uses the docx.js UMD build loaded via <script> in download.html.
 function generateDOCX(cvText, lang, tier) {
   try {
-    const { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle, TabStopType } = docx;
+    const { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } = docx;
     let parsed = validateExportLines(parseLines(cvText));
     if (lang === 'id') {
       parsed = parsed.map(row => ({ ...row, content: localizeIndonesianText(row.content) }));
