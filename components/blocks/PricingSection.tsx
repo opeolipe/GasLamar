@@ -38,6 +38,7 @@ export default function PricingSection() {
               <a
                 key={tier}
                 href={`upload.html?tier=${tier}`}
+                className="transition-all hover:-translate-y-[1px] hover:shadow-sm"
                 style={{
                   /* minWidth:0 prevents grid children from overflowing their cell */
                   minWidth:      0,
@@ -46,12 +47,12 @@ export default function PricingSection() {
                   padding:       '1rem',
                   border:        isFeatured
                     ? '1.5px solid #93C5FD'
-                    : '1px solid #E2E8F0',
+                    : '1px solid rgba(148,163,184,0.22)',
                   cursor:        'pointer',
                   position:      'relative',
                   /* overflow:visible keeps the badge pill visible above the card */
                   overflow:      'visible',
-                  transition:    'border-color 0.15s, box-shadow 0.15s',
+                  transition:    'border-color 0.15s, box-shadow 0.15s, transform 0.15s',
                   boxShadow:     'none',
                   fontFamily:    'inherit',
                   textDecoration:'none',

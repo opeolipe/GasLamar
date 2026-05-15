@@ -19,7 +19,7 @@ export default function SubmitSection({ isLoading, hasCv = false, showJdHint, jd
         onClick={onSubmit}
         disabled={isLoading}
         className="min-h-[56px] w-full rounded-full px-6 py-4 text-white font-bold text-base border-0 transition-all hover:-translate-y-[2px] active:scale-[0.97] active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0 disabled:active:scale-100 flex items-center justify-center gap-2"
-        style={{ background: '#1B4FE8', boxShadow: '0 8px 24px rgba(27,79,232,0.28), 0 2px 8px rgba(27,79,232,0.12)' }}
+        style={{ background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', boxShadow: '0 8px 24px rgba(37,99,235,0.30)' }}
         aria-label="Mulai analisis CV kamu"
       >
         {isLoading ? (

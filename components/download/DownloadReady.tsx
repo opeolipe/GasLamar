@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 import MobileFallback from '@/components/download/MobileFallback';
 import UpgradeNudge from '@/components/download/UpgradeNudge';
@@ -97,10 +98,19 @@ export default function DownloadReady({
   const multiCredit    = isMultiCredit(tier);
   const tierLabel      = TIER_LABELS[tier] ?? tier;
   const showMultiCredit  = creditsRemaining > 0;
-  // jobhunt users exhausted all 10 credits already bought the biggest package — no upsell
-  const showUpgradeNudge = creditsRemaining <= 0 && tier !== 'jobhunt';
-  const showUpsell       = showUpgradeNudge && (tier === 'coba' || tier === 'single');
+  const hasNextTierUpsell = tier === 'coba' || tier === 'single' || tier === '3pack';
+  const showUpgradeNudge = creditsRemaining <= 0;
+  const showUpsell = showUpgradeNudge && hasNextTierUpsell;
   const hasDimensions    = dimensions && Object.keys(dimensions).length > 0;
+
+  useEffect(() => {
+    if (!showUpgradeNudge) return;
+    (window as any).Analytics?.track?.('upsell_shown_zero_credit', {
+      tier,
+      credits_remaining: creditsRemaining,
+      has_next_tier_upsell: showUpsell,
+    });
+  }, [showUpgradeNudge, showUpsell, tier, creditsRemaining]);
 
   const priorityWeaknesses = dimensions
     ? Object.entries(DIM_LABELS)
@@ -138,23 +148,6 @@ export default function DownloadReady({
     }
     return null;
   })();
-
-  // ── Next-step card logic ───────────────────────────────────────────────────
-
-  // "Upload CV baru" only makes sense when user has credits remaining.
-  // When 0 credits, replace with "Mulai paket baru" to avoid false affordance.
-  const tierParam = tier ? `&tier=${encodeURIComponent(tier)}` : '';
-  const secondCard = creditsRemaining > 0
-    ? {
-        label: 'Upload CV baru',
-        subtitle: multiCredit ? 'Gunakan kredit berikutnya' : 'Mulai analisis dari CV yang berbeda',
-        href: 'upload.html?new_package=1',
-      }
-    : {
-        label: 'Mulai paket baru',
-        subtitle: 'Beli paket untuk CV posisi berikutnya',
-        href: `upload.html?new_package=1${tierParam}`,
-      };
 
   // ── Scroll helpers ─────────────────────────────────────────────────────────
 
@@ -339,41 +332,41 @@ export default function DownloadReady({
         </section>
       )}
 
-      <section className="gl-fade-up gl-fade-up-d3" style={CARD_STYLE}>
-        <h2 style={SECTION_HEADING}>Langkah berikutnya</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <button
-            type="button"
-            onClick={handleTailorCta}
-            className="gl-next-card text-left rounded-[14px] p-4"
-            style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}
-          >
-            <div className="font-semibold text-slate-900 text-sm">Tailor CV untuk posisi lain</div>
-            <p className="text-xs text-slate-600 mt-1 mb-0">
-              {showMultiCredit ? 'Gunakan sisa kredit untuk posisi berbeda' : 'Beli paket baru untuk posisi berikutnya'}
-            </p>
-          </button>
-
-          <a
-            href={secondCard.href}
-            className="gl-next-card no-underline rounded-[14px] p-4 block"
-            style={{ background: '#F8FAFC', border: '1px solid #E2E8F0' }}
-          >
-            <div className="font-semibold text-slate-900 text-sm">{secondCard.label}</div>
-            <p className="text-xs text-slate-600 mt-1 mb-0">{secondCard.subtitle}</p>
-          </a>
-        </div>
-      </section>
+      {showMultiCredit && (
+        <section className="gl-fade-up gl-fade-up-d3" style={CARD_STYLE}>
+          <h2 style={SECTION_HEADING}>Langkah berikutnya</h2>
+          <div className="grid gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                (window as any).Analytics?.track?.('tailor_next_click', {
+                  tier,
+                  credits_remaining: creditsRemaining,
+                  total_credits: totalCredits,
+                });
+                handleTailorCta();
+              }}
+              className="gl-next-card text-left rounded-[14px] p-4"
+              style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}
+            >
+              <div className="font-semibold text-slate-900 text-sm">Tailor CV untuk posisi lain</div>
+              <p className="text-xs text-slate-600 mt-1 mb-0">
+                Gunakan sisa {creditsRemaining} kredit untuk posisi berbeda.
+              </p>
+            </button>
+          </div>
+        </section>
+      )}
 
       {showMultiCredit && (
         <div id="next-applications" style={{ marginBottom: '1.5rem' }}>
-          <MultiCreditSection creditsRemaining={creditsRemaining} totalCredits={totalCredits} tier={tier} onGenerate={onGenerateNext} onUrlFetch={onUrlFetch} />
+          <MultiCreditSection creditsRemaining={creditsRemaining} totalCredits={totalCredits} onGenerate={onGenerateNext} onUrlFetch={onUrlFetch} />
         </div>
       )}
 
       {showUpgradeNudge && (
         <div id="upgrade-nudge" className="mb-5">
-          <UpgradeNudge showUpsell={showUpsell} tier={tier} />
+          <UpgradeNudge showUpsell={showUpsell} tier={tier} expiresAt={expiresAt} />
         </div>
       )}
     </>

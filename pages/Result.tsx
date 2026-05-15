@@ -13,6 +13,14 @@ import { useSessionCountdown }                 from '@/hooks/useSessionCountdown
 import {
   WORKER_URL, TIER_CONFIG, buildResultData, DIM_LABELS,
 } from '@/lib/resultUtils';
+import {
+  PAGE_BG,
+  NAV_STYLE,
+  CARD_STYLE,
+  SECTION_HEADING,
+  MAIN_CONTAINER_CLASS,
+  MAIN_CONTAINER_MAX,
+} from '@/lib/pageChrome';
 import { validateEmail }   from '@/utils/emailValidation';
 import { suggestEmailFix } from '@/utils/emailTypo';
 
@@ -38,25 +46,6 @@ const ROLE_LABELS: Record<string, string> = {
   sales:            'Sales/Business Development',
   hr:               'HRD/People Operations',
   admin:            'Administrasi/GA',
-};
-
-const CARD_STYLE: React.CSSProperties = {
-  background:     'rgba(255,255,255,0.92)',
-  borderRadius:   24,
-  boxShadow:      '0 18px 44px rgba(15,23,42,0.07), 0 1px 2px rgba(15,23,42,0.04)',
-  padding:        '2rem',
-  border:         '1px solid rgba(148,163,184,0.14)',
-  backdropFilter: 'blur(14px)',
-  marginBottom:   '1.75rem',
-};
-
-const SECTION_HEADING: React.CSSProperties = {
-  fontSize:      '1.1rem',
-  fontWeight:    700,
-  color:         '#0F172A',
-  margin:        '0 0 1.25rem',
-  lineHeight:    1.3,
-  letterSpacing: '-0.01em',
 };
 
 function scoreHeadline(score: number): string {
@@ -460,7 +449,7 @@ export default function Result() {
   return (
     <div
       className="min-h-dvh text-gray-900 font-sans"
-      style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37,99,235,0.08), transparent)' }}
+      style={{ background: PAGE_BG }}
     >
       {/* 5-minute expiry toast — bottom-right, non-blocking */}
       {showExpiryToast && (
@@ -484,7 +473,7 @@ export default function Result() {
       {/* Navbar */}
       <nav
         className="border-b py-4 px-6 flex items-center sticky top-0 z-50 backdrop-blur-[14px]"
-        style={{ borderColor: 'rgba(148,163,184,0.18)', background: 'rgba(255,255,255,0.88)' }}
+        style={NAV_STYLE}
       >
         <a href="index.html" className="no-underline min-h-[44px] inline-flex items-center">
           <img src="assets/logo.svg" alt="GasLamar" height="28" style={{ display: 'block' }} />
@@ -492,7 +481,7 @@ export default function Result() {
       </nav>
 
       {/* ── Single-column page container ── */}
-      <main id="main-content" className="mx-auto px-5 sm:px-8 py-8 pb-20" style={{ maxWidth: 1040 }}>
+      <main id="main-content" className={MAIN_CONTAINER_CLASS} style={{ maxWidth: MAIN_CONTAINER_MAX }}>
 
         {/* ── Loading ── */}
         {loading && (

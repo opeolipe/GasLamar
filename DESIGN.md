@@ -221,7 +221,22 @@ Shadow constant reused across components: `'0 18px 44px rgba(15, 23, 42, 0.08)'`
 App pages (upload, analyzing, hasil, download, access, exchange-token) share a light shell — distinct from the dark marketing hero:
 - **Background:** `radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37,99,235,0.08), transparent)` on `min-h-screen`.
 - **Sticky navbar:** `rgba(255,255,255,0.88)` bg, `backdropFilter: blur(14px)`, `borderColor: rgba(148,163,184,0.18)`.
-- **Content max width:** `max-w-2xl` for focused single-column flows (analyzing, access); `max-w-screen-xl` for wider layouts (download).
+- **Content max width:** `1040px` shared shell container for `home`, `upload`, `hasil`, and `download` via `lib/pageChrome.ts`.
+- **Shared tokens:** `PAGE_BG`, `NAV_STYLE`, `CARD_STYLE`, `SECTION_HEADING`, `MAIN_CONTAINER_CLASS`, `MAIN_CONTAINER_MAX`.
+
+### Cross-page harmony (latest)
+- `home`, `upload`, `analyzing`, `hasil`, and `download` now use the same page chrome language (background, navbar, container rhythm).
+- Primary action buttons across these pages use the same blue gradient:
+  `linear-gradient(180deg,#3b82f6,#1d4ed8)` with consistent blue shadow.
+- Frosted cards are aligned to:
+  `background: rgba(255,255,255,0.92)`,
+  `border: 1px solid rgba(148,163,184,0.14)`,
+  `boxShadow: 0 18px 44px rgba(15,23,42,0.07), 0 1px 2px rgba(15,23,42,0.04)`.
+
+### Scoring display model
+- Product UI presents a **5D** framework (not 6D):
+  `portfolio`, `recruiter_signal`, `north_star`, `effort`, `risk`.
+- Legacy key/component names that still contain `6d` are compatibility names only and must not be renamed without a migration plan.
 
 ### Serif display heading
 Used for page headings and success states on app pages — creates a softer, document-like feel that contrasts with the marketing headings:

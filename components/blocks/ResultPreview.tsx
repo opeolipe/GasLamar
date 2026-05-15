@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-const SHADOW = "0 18px 44px rgba(15, 23, 42, 0.08)";
+const SHADOW = "0 18px 44px rgba(15,23,42,0.07), 0 1px 2px rgba(15,23,42,0.04)";
 const SERIF = { fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: "-0.03em" } as const;
 
 type BarVariant = "good" | "warn" | "bad";
@@ -42,7 +42,7 @@ export default function ResultPreview() {
   const [tab, setTab] = useState<Tab>("Hasil");
 
   return (
-    <div className="relative overflow-hidden rounded-[24px]" style={{ border: "1px solid rgba(148,163,184,0.18)", background: "rgba(255,255,255,0.84)", boxShadow: SHADOW, backdropFilter: "blur(14px)" }}>
+    <div className="relative overflow-hidden rounded-[24px]" style={{ border: "1px solid rgba(148,163,184,0.14)", background: "rgba(255,255,255,0.92)", boxShadow: SHADOW, backdropFilter: "blur(14px)" }}>
       <div className="pointer-events-none absolute inset-0" style={{ background: "linear-gradient(140deg,rgba(255,255,255,0.52),transparent 40%),radial-gradient(circle at top right,rgba(37,99,235,0.08),transparent 25%)" }} />
 
       {/* Verdict band — always visible */}
@@ -66,10 +66,10 @@ export default function ResultPreview() {
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`min-h-[44px] px-3 py-[10px] rounded-full text-sm font-semibold cursor-pointer border-0 transition-all w-full text-center ${
-              tab === t ? "text-white" : "text-slate-800 bg-slate-100 hover:bg-slate-200"
+            className={`min-h-[44px] px-3 py-[10px] rounded-xl text-sm font-semibold cursor-pointer transition-all w-full text-center ${
+              tab === t ? "text-white border-0" : "text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200"
             }`}
-            style={tab === t ? { background: "#1B4FE8" } : {}}
+            style={tab === t ? { background: "linear-gradient(180deg,#3b82f6,#1d4ed8)", boxShadow: "0 8px 24px rgba(37,99,235,0.22)" } : {}}
           >
             {t}
           </button>
@@ -133,7 +133,7 @@ export default function ResultPreview() {
             <a
               href="upload.html"
               className="inline-flex items-center min-h-[48px] rounded-[16px] px-5 text-sm font-bold text-[#2563eb] no-underline transition-all hover:-translate-y-[1px]"
-              style={{ border: "1px solid rgba(37,99,235,0.18)", background: "white" }}
+              style={{ border: "1px solid rgba(37,99,235,0.18)", background: "#EFF6FF" }}
             >
               → Lanjutkan perbaikan CV
             </a>
