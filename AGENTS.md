@@ -27,11 +27,13 @@ GasLamar is an AI-powered CV tailoring web app for Indonesian job seekers. Users
 │   └── src/
 │       ├── router.js       # Route dispatch — add new endpoints here
 │       ├── constants.js    # TIER_PRICES, TIER_CREDITS, VALID_TIERS, SESSION_TTL, PRODUCTION_ORIGINS, KV_CV_RESULT_PREFIX
+│       ├── cacheVersions.js    # Cache-key version constants — bump here when prompt/scoring/tailor changes
 │       ├── claude.js       # callClaude() — Anthropic API wrapper, 40s timeout
 │       ├── sessions.js     # KV session CRUD
 │       ├── cookies.js      # Cookie set/clear utilities for session management
 │       ├── sanitize.js     # Input sanitization (XSS, control chars, Latin-1)
 │       ├── interviewKitPdf.js # pdf-lib PDF generation for interview kit
+│       ├── cvPdf.js            # Server-side PDF generation for CV email delivery
 │       ├── sessionStates.js # Canonical session state machine — states, transitions, helper functions
 │       ├── handlers/       # One file per API endpoint
 │       ├── pipeline/       # extract.js, analyze.js, score.js, diagnose.js, validate.js, roleInference.js
@@ -53,7 +55,7 @@ POST /analyze
   ├─ Stage 1: EXTRACT (LLM — claude-haiku-4-5)
   │    Verbatim copy of data from CV and JD into structured schema.
   │    Validated by validate.js; retried once on schema failure.
-  │    Cached: extract_v2_<hash> — 24h TTL
+  │    Cached: extract_v5_<hash> — 24h TTL
   │
   ├─ Stage 2: ANALYZE (pure JS — pipeline/analyze.js)
   │    Skill matching, format detection, archetype detection, red flags.
@@ -66,7 +68,7 @@ POST /analyze
   │    6-dimension scoring: north_star, recruiter_signal, effort,
   │    opportunity_cost, risk, portfolio.
   │    Outputs: total score, verdict (DO / TIMED / DO NOT), timebox_weeks.
-  │    Cached: analysis_v6_<hash> — 48h TTL
+  │    Cached: analysis_v15_<hash> — 48h TTL
   │
   ├─ Stage 4: DIAGNOSE (LLM — claude-haiku-4-5)
   │    Receives gap list + scores from Stages 2/3. Writes human-readable
@@ -75,14 +77,14 @@ POST /analyze
   │
   ├─ Stage 5: REWRITE (LLM — called from POST /generate)
   │    tailorCVID / tailorCVEN: rewrites CV to match JD in ID and EN.
-  │    Cached: gen_id_v3_<hash> / gen_en_v3_<hash> — 48h TTL
+  │    Cached: gen_id_v4_<hash> / gen_en_v4_<hash> — 48h TTL
   │
   └─ Stage 6: VALIDATE (code — pipeline/validate.js)
        Schema validation embedded after every LLM call.
        validateExtractOutput(), validateDiagnoseOutput().
 ```
 
-**Cache key versioning:** Bump the version suffix (`v2_`, `v6_`, `v3_`, etc.) whenever a prompt or scoring formula changes significantly to avoid stale cache hits. Versions live in `analysis.js` (extract/analyze) and `tailoring.js` (gen). Do not bump in the pipeline files themselves.
+**Cache key versioning:** Bump the version suffix (`v5_`, `v15_`, `v4_`, etc.) whenever a prompt or scoring formula changes significantly to avoid stale cache hits. Versions live in `cacheVersions.js` — imported by `analysis.js` and `tailoring.js`. Do not bump in those files.
 
 **Session state machine** (defined in `sessionStates.js`):
 
@@ -182,7 +184,7 @@ Do not break these:
 - `cv_text_key` is IP-bound — reject if request IP doesn't match
 - `/get-session` rejects sessions without `paid` status
 - Session lock (`lock_<session_id>`, TTL 120s) prevents double-generation races
-- Sessions are one-time use — deleted after credits exhausted
+- Sessions transition to `exhausted` state after last credit — never deleted by `generate.js`
 - `bypassPayment.js` must return 404 in production — `ENVIRONMENT === 'production'` guard must never be removed
 - Webhook idempotency sentinel `payment_processed_<session_id>` (48h TTL) written BEFORE session update
 

@@ -141,16 +141,16 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
 
   return (
     <div
-      className="rounded-[24px] p-6 sm:p-8 mt-8"
+      className="rounded-[24px] p-6 sm:p-8"
       style={{
-        background: 'rgba(255,255,255,0.85)',
-        backdropFilter: 'blur(12px)',
-        boxShadow: '0 18px 44px rgba(15, 23, 42, 0.08)',
-        border: '1px solid rgba(226,232,240,0.8)',
+        background: 'rgba(255,255,255,0.92)',
+        backdropFilter: 'blur(14px)',
+        boxShadow: '0 18px 44px rgba(15, 23, 42, 0.07), 0 1px 2px rgba(15, 23, 42, 0.04)',
+        border: '1px solid rgba(148,163,184,0.14)',
       }}
     >
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-5">
         <h2 className="text-xl font-bold text-slate-800">Interview Kit</h2>
         <p className="text-sm text-slate-500 mt-1">
           Gunakan ini untuk langsung melamar dan menjawab pertanyaan pertama dengan percaya diri
@@ -158,15 +158,15 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
       </div>
 
       {/* Language tabs */}
-      <div className="flex gap-2 mb-5">
+      <div className="flex gap-2 mb-4">
         {(['id', 'en'] as const).map(lang => (
           <button
             key={lang}
             onClick={() => handleLangSwitch(lang)}
-            className={`min-h-[44px] px-5 rounded-full font-semibold text-sm transition-all ${
+            className={`min-h-[44px] px-5 rounded-full font-semibold text-sm transition-all duration-200 ${
               activeLang === lang
                 ? 'bg-blue-600 text-white shadow-sm'
-                : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300'
+                : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300 hover:-translate-y-[1px]'
             }`}
           >
             {lang === 'id' ? 'Bahasa Indonesia' : 'English'}
@@ -198,9 +198,12 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
           <GroupLabel>Gunakan Sekarang</GroupLabel>
 
           {/* Email Template */}
-          <AccordionItem value="item-email" className="border border-slate-100 rounded-[14px] mb-2 overflow-hidden">
+          <AccordionItem value="item-email" className="border border-slate-200 rounded-[14px] mb-2 overflow-hidden bg-white transition-all duration-200 hover:shadow-sm">
             <AccordionTrigger className="min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
-              Email Lamaran
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 pr-1">
+                Email Lamaran
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, background: '#ECFDF5', color: '#059669', border: '1px solid #6EE7B7', borderRadius: 20, padding: '1px 8px', letterSpacing: '0.02em', flexShrink: 0 }}>Paling sering dipakai</span>
+              </span>
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">
               <p className="text-sm font-medium text-slate-500 mb-1">Subject:</p>
@@ -217,7 +220,7 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
           </AccordionItem>
 
           {/* WhatsApp */}
-          <AccordionItem value="item-whatsapp" className="border border-slate-100 rounded-[14px] mb-2 overflow-hidden">
+          <AccordionItem value="item-whatsapp" className="border border-slate-200 rounded-[14px] mb-2 overflow-hidden bg-white transition-all duration-200 hover:shadow-sm">
             <AccordionTrigger className="min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
               Pesan WhatsApp
             </AccordionTrigger>
@@ -233,9 +236,12 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
           </AccordionItem>
 
           {/* Tell Me About Yourself */}
-          <AccordionItem value="item-tmay" className="border border-slate-100 rounded-[14px] mb-2 overflow-hidden">
+          <AccordionItem value="item-tmay" className="border border-slate-200 rounded-[14px] mb-2 overflow-hidden bg-white transition-all duration-200 hover:shadow-sm">
             <AccordionTrigger className="min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
-              "Tell Me About Yourself"
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 pr-1">
+                "Tell Me About Yourself"
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, background: '#ECFDF5', color: '#059669', border: '1px solid #6EE7B7', borderRadius: 20, padding: '1px 8px', letterSpacing: '0.02em', flexShrink: 0 }}>Paling sering dipakai</span>
+              </span>
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">
               <p className="text-sm text-slate-400 mb-2">Jawaban pembuka ~45-60 detik</p>
@@ -253,7 +259,7 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
           <GroupLabel>Persiapkan</GroupLabel>
 
           {/* Interview Questions */}
-          <AccordionItem value="item-questions" className="border border-slate-100 rounded-[14px] mb-2 overflow-hidden">
+          <AccordionItem value="item-questions" className="border border-slate-200 rounded-[14px] mb-2 overflow-hidden bg-white transition-all duration-200 hover:shadow-sm">
             <AccordionTrigger className="min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
               Pertanyaan Interview ({kit.interview_questions.length})
             </AccordionTrigger>
@@ -286,7 +292,7 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
           <GroupLabel>Insight</GroupLabel>
 
           {/* Job Description Analysis */}
-          <AccordionItem value="item-insights" className="border border-slate-100 rounded-[14px] mb-2 overflow-hidden">
+          <AccordionItem value="item-insights" className="border border-slate-200 rounded-[14px] mb-2 overflow-hidden bg-white transition-all duration-200 hover:shadow-sm">
             <AccordionTrigger className="min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
               Analisis Job Description
             </AccordionTrigger>

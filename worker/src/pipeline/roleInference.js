@@ -3,7 +3,7 @@
  *
  * Classifies the candidate's primary role, seniority, and industry from the
  * Stage 1 extraction output and the Stage 2 analysis result.  Results feed:
- *   - Stage 3 (score.js): weighted 6D scores via applyRoleWeights()
+ *   - Stage 3 (score.js): weighted 5D scores via applyRoleWeights()
  *   - Stage 4 (diagnose.js): role context block in user message
  *   - Stage 5 (tailoring.js): inferred-mode rewrite guidance
  *
@@ -12,11 +12,8 @@
 
 import { ROLE_KEYWORDS, ROLE_PROFILES, DEFAULT_WEIGHTS } from '../roleProfiles.js';
 
-const DIMS = ['north_star', 'recruiter_signal', 'effort', 'opportunity_cost', 'risk', 'portfolio'];
-
-// Dimensions eligible to be the "primary issue" (opportunity_cost is excluded
-// because it is derived from effort and doesn't represent a standalone gap).
-const ISSUE_DIMS = new Set(['north_star', 'recruiter_signal', 'effort', 'risk', 'portfolio']);
+const DIMS = ['north_star', 'recruiter_signal', 'effort', 'risk', 'portfolio'];
+const ISSUE_DIMS = new Set(DIMS);
 
 // ---- Private helpers ----
 
@@ -94,7 +91,7 @@ export function inferRole(extractedData, analysisResult) {
 }
 
 /**
- * Multiplies each 6D dimension by the role's weight bias.
+ * Multiplies each 5D dimension by the role's weight bias.
  * Result is clamped to [0, 10] to preserve the existing scale.
  * Returns a new object — does not mutate the input.
  *
@@ -115,9 +112,7 @@ export function applyRoleWeights(skor_6d, roleProfile) {
 }
 
 /**
- * Returns the dimension name with the lowest weighted score, restricted to
- * ISSUE_DIMS so that 'opportunity_cost' (a derived value) is never surfaced
- * as the primary issue.
+ * Returns the dimension name with the lowest weighted score.
  *
  * @param {object} skor_6d — (weighted) scores
  * @returns {string}        — dimension key

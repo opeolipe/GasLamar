@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TIER_LABELS } from '@/lib/sessionUtils';
+import ResendEmail from '@/components/download/ResendEmail';
 
 const SHADOW = '0 18px 44px rgba(15, 23, 42, 0.08)';
 
-const TRUST_MSGS: React.ReactNode[] = [
-  <><span aria-hidden="true">🔒</span> CV tidak disimpan — data aman</>,
-  <><span aria-hidden="true">🎯</span> Setiap bullet disesuaikan dengan lowonganmu</>,
-  <><span aria-hidden="true">📧</span> Link download akan dikirim ke email kamu</>,
+const ACTIVITY_MSGS: React.ReactNode[] = [
+  <>Lagi nyesuaiin keyword ATS biar CV kamu makin nyambung...</>,
+  <>Sedang menulis ulang pengalaman kerja kamu biar lebih relevan...</>,
+  <>Lagi rapihin format final PDF dan DOCX...</>,
 ];
 
 const STEP_DEFS = [
@@ -39,45 +40,47 @@ interface Props {
   status:    'running' | 'done';
   filename:  string;
   tier:      string | null;
+  deliveryEmail?: string | null;
+  sessionSecret?: string | null;
   onCancel:  () => void;
 }
 
-export default function GeneratingCV({ progress, status, filename, tier, onCancel }: Props) {
-  const [trustIdx,   setTrustIdx]   = useState(0);
-  const [trustFade,  setTrustFade]  = useState(false);
-  const [timerText,  setTimerText]  = useState('⏱️ Estimasi sisa: sekitar 35 detik');
+export default function GeneratingCV({ progress, status, filename, tier, deliveryEmail, sessionSecret, onCancel }: Props) {
+  const [activityIdx,  setActivityIdx]  = useState(0);
+  const [activityFade, setActivityFade] = useState(false);
+  const [timerText,    setTimerText]    = useState('Biasanya CV selesai dalam 30-60 detik');
   const startRef     = useRef(Date.now());
   const timerRef     = useRef<ReturnType<typeof setInterval> | null>(null);
-  const trustRef     = useRef<ReturnType<typeof setInterval> | null>(null);
+  const activityRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const allDone      = status === 'done';
   const tierLabel    = tier ? (TIER_LABELS[tier] ?? tier) : 'Bilingual';
 
   // Countdown timer
   useEffect(() => {
-    const EST = 35;
-    timerRef.current = setInterval(() => {
-      const elapsed = (Date.now() - startRef.current) / 1000;
-      const rem     = Math.max(0, Math.ceil(EST - elapsed));
-      if (rem <= 0) {
-        setTimerText('✅ CV siap! Memuat file...');
+      const EST = 50;
+      timerRef.current = setInterval(() => {
+        const elapsed = (Date.now() - startRef.current) / 1000;
+        const rem     = Math.max(0, Math.ceil(EST - elapsed));
+        if (rem <= 0) {
+        setTimerText('Hampir jadi. Sedang nyelesaiin tahap terakhir...');
         if (timerRef.current) clearInterval(timerRef.current);
       } else {
-        setTimerText(`⏱️ Estimasi sisa: sekitar ${rem} detik`);
+        setTimerText(`Biasanya kurang dari 1 menit · sekitar ${rem} detik lagi`);
       }
     }, 1000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, []);
 
-  // Trust rotator
+  // Activity rotator
   useEffect(() => {
-    trustRef.current = setInterval(() => {
-      setTrustFade(true);
+    activityRef.current = setInterval(() => {
+      setActivityFade(true);
       setTimeout(() => {
-        setTrustIdx(i => (i + 1) % TRUST_MSGS.length);
-        setTrustFade(false);
+        setActivityIdx(i => (i + 1) % ACTIVITY_MSGS.length);
+        setActivityFade(false);
       }, 150);
-    }, 5000);
-    return () => { if (trustRef.current) clearInterval(trustRef.current); };
+    }, 2800);
+    return () => { if (activityRef.current) clearInterval(activityRef.current); };
   }, []);
 
   return (
@@ -93,90 +96,86 @@ export default function GeneratingCV({ progress, status, filename, tier, onCance
       {/* Progress steps */}
       <DownloadSteps />
 
-      {/* File badge */}
-      <div
-        className="inline-flex items-center gap-2 text-sm font-medium rounded-full px-4 py-2 mb-7 max-w-full"
-        style={{ background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.18)', color: '#1D4ED8', overflow: 'hidden' }}
-      >
-        <span style={{ flexShrink: 0 }} aria-hidden="true">📄</span>
-        <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{filename}</strong>
-        <span style={{ flexShrink: 0 }}>· Paket: {tierLabel}</span>
-      </div>
-
-      {/* Pulse icon + headline */}
-      <div className="text-center mb-4">
-        <div className="text-5xl mb-3" style={{ animation: 'gasDownloadPulse 1.2s infinite ease-in-out', display: 'inline-block' }} aria-hidden="true">
-          ✍️✨
+      <div className="mb-6 rounded-2xl p-4 sm:p-5" style={{ background: 'rgba(248,250,252,0.9)', border: '1px solid rgba(148,163,184,0.18)' }}>
+        <div className="flex flex-wrap gap-3 items-center mb-2">
+          <span className="inline-flex items-center gap-2 text-sm font-medium rounded-full px-3.5 py-1.5 max-w-full" style={{ background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.18)', color: '#1D4ED8', overflow: 'hidden' }}>
+            <span style={{ flexShrink: 0 }} aria-hidden="true">📄</span>
+            <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{filename}</strong>
+          </span>
+          <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold" style={{ background: '#EEF2FF', color: '#1E3A8A', border: '1px solid #C7D2FE' }}>
+            Paket: {tierLabel}
+          </span>
         </div>
-        <h3 className="font-semibold text-lg text-slate-900" style={{ fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>AI sedang menulis CV tailored untuk kamu…</h3>
-        <p className="text-sm text-slate-500 mt-1">Rata-rata kurang dari 1 menit · Jangan tutup halaman</p>
+        <p className="text-xs sm:text-sm text-slate-500 m-0">Output: PDF · DOCX · {tierLabel === 'Coba Dulu' ? 'Bahasa Indonesia' : 'Bahasa Indonesia + English'}</p>
       </div>
 
-      {/* Progress bar */}
-      <div className="rounded-full overflow-hidden my-5" style={{ background: 'rgba(148,163,184,0.18)', height: 6 }}>
-        <div
-          className="h-full rounded-full"
-          style={{
-            width:      `${progress}%`,
-            background: 'linear-gradient(90deg,#60a5fa,#2563eb)',
-            transition: 'width 0.3s ease',
-          }}
-          role="progressbar"
-          aria-valuenow={progress}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label="Progress generate CV"
-        />
+      {/* Animated icon + headline */}
+      <div className="text-center mb-5">
+        <div className="mb-3 inline-flex items-center justify-center w-14 h-14 rounded-full" style={{ border: '1px solid rgba(59,130,246,0.25)', background: 'linear-gradient(180deg, rgba(239,246,255,0.95), rgba(219,234,254,0.95))' }} aria-hidden="true">
+          <span className="block w-6 h-6 rounded-full border-2 border-blue-200 border-t-blue-600" style={{ animation: 'gasDownloadSpin 1.1s linear infinite' }} />
+        </div>
+        <h3 className="font-semibold text-lg text-slate-900" style={{ fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>AI lagi menyiapkan CV kamu</h3>
+        <p className="text-sm text-slate-500 mt-1">CV kamu lagi ditulis ulang supaya lebih cocok sama posisi yang kamu incar.</p>
+        {deliveryEmail && (
+          <div className="mt-3 text-sm text-slate-600">
+            <p className="m-0">Nanti link download otomatis dikirim ke:</p>
+            <p className="m-0 font-medium text-slate-800 break-all">{deliveryEmail}</p>
+            <ResendEmail sessionSecret={sessionSecret ?? null} compact />
+          </div>
+        )}
       </div>
 
-      {/* Step list */}
       <div
-        className="rounded-[20px] p-4 my-4"
+        className="rounded-2xl p-6 my-4"
         style={{ background: 'rgba(248,250,252,0.8)', border: '1px solid rgba(148,163,184,0.18)' }}
       >
-        {STEP_DEFS.map((step, i) => {
-          const s = getStepStatus(progress, i, allDone);
-          return (
-            <div
-              key={i}
-              className="flex items-center gap-3 py-3 text-sm text-slate-600"
-              style={{ borderBottom: i < STEP_DEFS.length - 1 ? '1px solid rgba(226,232,240,0.6)' : 'none' }}
-            >
-              <span className="w-5 flex-shrink-0 flex items-center justify-center" aria-hidden="true">
-                {s === 'done'
-                  ? <span className="text-emerald-500 font-bold text-sm">✓</span>
-                  : s === 'active'
-                  ? <span className="block w-3.5 h-3.5 rounded-full border-2 border-blue-200 border-t-blue-600" style={{ animation: 'gasDownloadSpin 0.8s linear infinite' }} />
-                  : <span className="block w-2 h-2 rounded-full bg-slate-200" />
-                }
-              </span>
-              <span className={s === 'active' ? 'text-slate-800 font-medium' : ''}>{step.label}</span>
-            </div>
-          );
-        })}
+        <p
+          className="text-sm text-slate-500 mb-4 transition-opacity duration-150"
+          style={{ opacity: activityFade ? 0 : 1, minHeight: 20 }}
+          aria-live="polite"
+        >
+          {ACTIVITY_MSGS[activityIdx]}
+        </p>
+
+        {/* Step list */}
+        <div style={{ display: 'grid', gap: 18 }}>
+          {STEP_DEFS.map((step, i) => {
+            const s = getStepStatus(progress, i, allDone);
+            return (
+              <div
+                key={i}
+                className="flex items-center gap-3 text-sm text-slate-600"
+                style={{ paddingBottom: i < STEP_DEFS.length - 1 ? '18px' : '0', borderBottom: i < STEP_DEFS.length - 1 ? '1px solid rgba(226,232,240,0.7)' : 'none' }}
+              >
+                <span className="w-5 flex-shrink-0 flex items-center justify-center" aria-hidden="true">
+                  {s === 'done'
+                    ? <span className="text-emerald-500 font-bold text-sm">✓</span>
+                    : s === 'active'
+                    ? <span className="block w-3.5 h-3.5 rounded-full border-2 border-blue-200 border-t-blue-600" style={{ animation: 'gasDownloadSpin 0.8s linear infinite' }} />
+                    : <span className="block w-2 h-2 rounded-full bg-slate-200" />
+                  }
+                </span>
+                <span className={s === 'active' ? 'text-slate-800 font-medium' : ''}>{step.label}</span>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Timer */}
-      <p className="text-center text-[0.78rem] text-slate-400 tabular-nums my-2">{timerText}</p>
-
-      {/* Trust rotator */}
-      <p
-        className="text-center text-[0.78rem] text-slate-400 my-4 transition-opacity duration-150"
-        style={{ opacity: trustFade ? 0 : 1 }}
-        aria-live="polite"
-      >
-        {TRUST_MSGS[trustIdx]}
-      </p>
+      <p className="text-center text-[0.8rem] text-slate-500 tabular-nums my-2">{timerText}</p>
+      <p className="text-center text-[0.8rem] text-slate-500 my-3">Kamu bisa tunggu di sini, atau balik lagi lewat email begitu selesai.</p>
 
       {/* Cancel link */}
       <div className="text-center mt-3">
         <button
           onClick={() => {
-            if (window.confirm('Batalkan proses penulisan?')) onCancel();
+            if (window.confirm('Yakin mau batalkan proses ini?')) onCancel();
           }}
-          className="text-sm text-slate-400 hover:text-slate-600 transition-colors bg-transparent border-none cursor-pointer font-[inherit] min-h-[44px] px-3"
+          className="text-[13px] text-slate-400 hover:text-slate-600 transition-colors bg-transparent border-none cursor-pointer font-[inherit] min-h-[44px] px-3"
+          style={{ opacity: 0.65 }}
         >
-          ← Batalkan &amp; kembali ke hasil analisis
+          ← Batalkan &amp; balik ke hasil analisis
         </button>
       </div>
     </div>

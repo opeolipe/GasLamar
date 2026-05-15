@@ -67,7 +67,7 @@ ALLOWED:
  * Strategy: section-aware — keep header + 2 most recent experience entries + skills.
  * Falls back to a hard cut at 10 000 chars if section parsing yields no reduction.
  */
-function truncateCV(cvText) {
+function truncateCV(cvText, lang = 'id') {
   const THRESHOLD  = 4000;
   const HARD_LIMIT = 10000;
   if (cvText.length <= THRESHOLD) return cvText;
@@ -100,7 +100,10 @@ function truncateCV(cvText) {
       const result = kept.join('\n');
       if (result.length < cvText.length) {
         console.warn(JSON.stringify({ event: 'cv_truncated', original_len: cvText.length, result_len: result.length }));
-        return result + '\n\n[... sebagian entri pengalaman dihapus untuk efisiensi pemrosesan ...]';
+        const note = lang === 'en'
+          ? '[... some experience entries removed for processing efficiency ...]'
+          : '[... sebagian entri pengalaman dihapus untuk efisiensi pemrosesan ...]';
+        return result + '\n\n' + note;
       }
     }
   }
@@ -109,7 +112,10 @@ function truncateCV(cvText) {
     const slice = cvText.slice(0, HARD_LIMIT);
     const cutAt = Math.max(slice.lastIndexOf('\n'), HARD_LIMIT - 200);
     console.warn(JSON.stringify({ event: 'cv_truncated_hard', original_len: cvText.length }));
-    return cvText.slice(0, cutAt) + '\n\n[... CV diperpendek karena terlalu panjang ...]';
+    const note = lang === 'en'
+      ? '[... CV shortened because it exceeds the processing limit ...]'
+      : '[... CV diperpendek karena terlalu panjang ...]';
+    return cvText.slice(0, cutAt) + '\n\n' + note;
   }
 
   return cvText;
@@ -131,7 +137,7 @@ function truncateCV(cvText) {
  */
 export async function tailorCVID(cvText, jobDesc, env, mode = 'pdf', options = {}) {
   const { issue, previewSample, previewAfter, entitasKlaim = null, roleProfile = null, jdMode = 'targeted', extractedCV = null } = options;
-  const effectiveCVText = truncateCV(cvText);
+  const effectiveCVText = truncateCV(cvText, 'id');
 
   // KV cache keyed on raw content — post-processing is applied per-call (after cache read)
   const genKey   = `${GEN_KEY_PREFIX_ID}${await sha256Hex(effectiveCVText + '\x00' + jobDesc)}`;
@@ -192,21 +198,31 @@ YANG BOLEH DIUBAH:
 - Urutan keahlian (prioritaskan yang sesuai JD)
 
 Output CV dalam Bahasa Indonesia dengan urutan section di atas:
-- RINGKASAN PROFESIONAL: 3-4 kalimat, highlight yang paling relevan untuk posisi ini
-- PENGALAMAN KERJA: bullet points dengan kata kerja aktif Harvard, kuantifikasi achievement
+- RINGKASAN PROFESIONAL: 2–3 kalimat, highlight yang paling relevan untuk posisi ini
+- PENGALAMAN KERJA: bullet points dengan kata kerja aktif, kuantifikasi achievement
 - PENDIDIKAN
 - KEAHLIAN: Core Skills | Tools | Bahasa
 
 Output hanya teks CV, tidak ada komentar atau penjelasan tambahan.
 
 VERIFIKASI WAJIB sebelum output (cek setiap poin):
-· Setiap bullet dimulai dengan kata kerja aktif Harvard
+· Setiap bullet dimulai dengan kata kerja aktif
 · Tidak ada angka baru yang tidak ada di Ground Truth di atas
 · Keyword penting dari JD muncul secara alami di bullets yang relevan
 · Summary mencerminkan level seniority dari CV asli (bukan generik)
 · Tidak ada placeholder [...] dalam output
 · Nama, perusahaan, jabatan, tanggal — identik dengan CV asli
-· Setiap bullet 8–18 kata, satu baris`;
+· Setiap bullet 8–14 kata, satu baris
+· Tidak ada bullet berakhiran tujuan samar ("untuk meningkatkan...", "untuk memastikan...")
+· Tidak ada bullet yang berstruktur identik satu sama lain
+· Tidak ada kalimat pasif di bullets (Dilakukan / Dikerjakan / Ditugaskan / Diberikan)
+
+UJI PEMBACA sebelum finalisasi — bayangkan tiga pembaca membaca CV ini:
+1. HR Rekruter (scan 7 detik): apakah info penting langsung terlihat? bullet mudah dibaca?
+2. Hiring Manager (tahu industri): apakah bullet terdengar nyata dan relevan industri? atau terdengar generik?
+3. Rekan kerja (langsung curiga AI): apakah ada kalimat yang terdengar seperti template AI? jika ya, sederhanakan
+
+UJI BULLET GENERIK: Untuk setiap bullet, tanya — apakah bullet ini bisa ditulis oleh siapa saja di posisi ini? Jika iya, tambahkan SATU detail spesifik yang hanya kandidat ini punya: nama klien, wilayah, sistem, atau produk — yang sudah ada di CV asli.`;
 
     const result = await callClaude(env, systemPrompt, 'Tailoring CV sekarang.', 4096, 'claude-haiku-4-5-20251001');
     let text = result?.content?.[0]?.text?.trim() ?? '';
@@ -253,7 +269,7 @@ export async function tailorCVEN(cvText, jobDesc, env, mode = 'pdf', options = {
   // was provided. ISSUE_FALLBACK_EN contains English fallback suffixes, so the guard
   // works correctly for English CVs — the comment claiming otherwise was wrong.
   const { issue = null, previewSample, previewAfter, entitasKlaim = null, roleProfile = null, jdMode = 'targeted', extractedCV = null } = options;
-  const effectiveCVText = truncateCV(cvText);
+  const effectiveCVText = truncateCV(cvText, 'en');
 
   const genKey   = `${GEN_KEY_PREFIX_EN}${await sha256Hex(effectiveCVText + '\x00' + jobDesc)}`;
   const cached   = await env.GASLAMAR_SESSIONS.get(genKey);
@@ -311,21 +327,32 @@ WHAT YOU MAY CHANGE:
 - Skills ordering (prioritize those matching the JD)
 
 Output the CV in English with sections in that order:
-- PROFESSIONAL SUMMARY: 3-4 sentences, highlight most relevant for this role
-- WORK EXPERIENCE: Harvard action verb bullets, quantified achievements (only original numbers)
+- PROFESSIONAL SUMMARY: 2–3 sentences, highlight most relevant for this role
+- WORK EXPERIENCE: action verb bullets, quantified achievements (only original numbers)
 - EDUCATION
 - SKILLS: Core Skills | Tools | Languages
 
 Output only the CV text, no additional comments.
 
 MANDATORY VERIFICATION before output (check every point):
-· Every bullet starts with a Harvard action verb
+· Every bullet starts with an action verb
 · No new numbers not present in Ground Truth above
 · Key JD keywords appear naturally in relevant bullets
 · Summary reflects the candidate's actual seniority level (not generic)
 · No placeholders [...] anywhere in output
 · Names, companies, titles, dates — identical to original CV
-· Every bullet is 8–18 words, one line`;
+· Every bullet is 8–14 words, one line
+· No bullet ends with a vague purpose clause ("to improve...", "to ensure...", "to support...")
+· No two bullets are structurally identical
+· No passive voice in any bullet (Was responsible for / Was tasked with / Was involved in)
+· Verb tense: simple past for ended roles, present simple for current role ("Sekarang" / "present" date)
+
+READER PERSONA TEST before finalising — check through three readers:
+1. HR Recruiter (7-second scan): is the key info immediately visible? are bullets easy to scan?
+2. Hiring Manager (knows the industry): do bullets sound real and industry-specific? or generic?
+3. Peer colleague (spots AI instantly): does any sentence sound like an AI template? if yes, simplify it
+
+GENERIC BULLET TEST: For each bullet, ask — could this apply to any person in this role at any similar company? If yes, add ONE specific detail only this candidate could write: a client name, region, system, or product — already present in the original CV.`;
 
     const result = await callClaude(env, systemPrompt, 'Tailor the CV now.', 4096, 'claude-haiku-4-5-20251001');
     let text = result?.content?.[0]?.text?.trim() ?? '';

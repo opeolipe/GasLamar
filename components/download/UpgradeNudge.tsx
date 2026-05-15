@@ -3,9 +3,10 @@ const SHADOW = '0 18px 44px rgba(15, 23, 42, 0.08)';
 interface Props {
   /** If true, show the 3-Pack upsell (for coba/single users) */
   showUpsell?: boolean;
+  tier?: string;
 }
 
-export default function UpgradeNudge({ showUpsell = false }: Props) {
+export default function UpgradeNudge({ showUpsell = false, tier }: Props) {
   if (showUpsell) {
     return (
       <div
@@ -18,13 +19,13 @@ export default function UpgradeNudge({ showUpsell = false }: Props) {
         <div className="text-sm font-bold inline-block px-3 py-1 rounded-full mb-4" style={{ background: '#FEF3C7', color: '#92400E' }}>
           <span aria-hidden="true">💰</span> Hemat 40% vs beli satuan
         </div>
-        <h3 className="text-base font-semibold text-slate-900 mb-2"><span aria-hidden="true">🎯</span> Lagi banyak lamaran?</h3>
+        <h3 className="text-base font-semibold text-slate-900 mb-2"><span aria-hidden="true">🎯</span> Apply ke beberapa posisi minggu ini?</h3>
         <p className="text-sm text-blue-700 mb-5">
-          Upgrade ke <strong>3-Pack</strong> — Rp 149.000 untuk 3 CV bilingual.
-          <br />Lebih hemat, lebih banyak pilihan.
+          <strong>3-Pack</strong> — Rp 149.000 untuk 3 CV bilingual yang masing-masing di-tailor.
+          <br />Hemat 40% dibanding beli satuan.
         </p>
         <a
-          href="upload.html"
+          href="upload.html?new_package=1&tier=3pack"
           className="inline-flex items-center min-h-[44px] px-8 rounded-full font-bold text-white text-sm transition-all hover:-translate-y-[1px]"
           style={{ background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', boxShadow: '0 8px 24px rgba(37,99,235,0.30)' }}
           title="Mulai analisis CV baru dengan paket 3-Pack"
@@ -51,12 +52,12 @@ export default function UpgradeNudge({ showUpsell = false }: Props) {
         Kredit kamu sudah habis. Masih ada loker lain yang ingin kamu lamar? Beli paket baru untuk CV yang disesuaikan.
       </p>
       <a
-        href="upload.html"
+        href={`upload.html?new_package=1${tier ? `&tier=${encodeURIComponent(tier)}` : ''}`}
         className="inline-flex items-center min-h-[44px] px-6 rounded-full font-bold text-white text-sm transition-all hover:-translate-y-[1px]"
         style={{ background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', boxShadow: '0 8px 24px rgba(37,99,235,0.30)' }}
-        title="Upload CV baru untuk loker lain (memerlukan paket baru)"
+        title="Beli paket baru untuk loker lain"
       >
-        Upload CV untuk Loker Baru
+        Beli Paket untuk Loker Baru
       </a>
       <p className="text-sm text-slate-400 mt-3">Bisa pakai CV yang sama atau upload CV yang sudah diperbarui</p>
     </div>

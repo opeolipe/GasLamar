@@ -52,11 +52,10 @@ YANG TIDAK BOLEH DILAKUKAN:
     "north_star": <0-10, seberapa dekat skill CV dengan target role>,
     "recruiter_signal": <0-10, seberapa menarik CV ini di mata HRD ketika pertama kali lihat>,
     "effort": <0-10, waktu dan usaha untuk perbaiki gap (10 = cepat dan mudah)>,
-    "opportunity_cost": <0-10, pengorbanan waktu/uang untuk perbaiki (10 = rendah)>,
     "risk": <0-10, risiko skill usang/terlalu umum/tidak sesuai tren (10 = aman)>,
     "portfolio": <0-10, apakah CV sudah punya bukti nyata seperti angka, proyek, sertifikat>
   },
-  "skor": <JANGAN isi - sistem menghitung otomatis dari jumlah 6 dimensi>,
+  "skor": <JANGAN isi - sistem menghitung otomatis dari jumlah 5 dimensi>,
   "veredict": "<DO | DO NOT | TIMED>",
   "timebox_weeks": <jika veredict TIMED, isi angka 4-12; jika bukan, tulis null>,
   "alasan_skor": "<1 kalimat menjelaskan skor keseluruhan>",
@@ -69,7 +68,7 @@ YANG TIDAK BOLEH DILAKUKAN:
   "red_flags": ["..."]
 }
 
---- PANDUAN SKOR 6 DIMENSI ---
+--- PANDUAN SKOR 5 DIMENSI ---
 
 1. north_star (0-10): Apakah isi CV cocok dengan jenis pekerjaan yang dilamar?
    10 = sangat cocok, linier | 5 = ada transferable skills | 0 = tidak cocok sama sekali
@@ -80,19 +79,16 @@ YANG TIDAK BOLEH DILAKUKAN:
 3. effort (0-10): Berapa lama untuk memperbaiki gap agar lolos interview?
    10 = 1-2 minggu (tambah sertifikat online) | 5 = 1-2 bulan | 0 = lebih dari 6 bulan
 
-4. opportunity_cost (0-10): Apa yang dikorbankan untuk memperbaiki gap?
-   10 = hampir tidak ada (gratis, online, sambil kerja) | 5 = perlu biaya/waktu | 0 = harus berhenti kerja
-
-5. risk (0-10): Apakah skill yang kurang ini tetap relevan 2-3 tahun ke depan?
+4. risk (0-10): Apakah skill yang kurang ini tetap relevan 2-3 tahun ke depan?
    10 = sangat aman, selalu dibutuhkan (Excel, komunikasi) | 5 = cukup aman | 0 = rentan tergantikan AI
 
-6. portfolio (0-10): Apakah CV menunjukkan bukti nyata?
+5. portfolio (0-10): Apakah CV menunjukkan bukti nyata?
    10 = setiap pengalaman punya angka atau hasil konkret | 5 = ada beberapa angka | 0 = hanya daftar tugas
 
 --- PANDUAN VEREDICT ---
-- "DO": total dimensi >= 42. Layak dilanjutkan.
-- "DO NOT": total dimensi < 24. Sarankan alternatif (ubah target posisi, ambil pelatihan dasar).
-- "TIMED": total 24-41. Ada gap signifikan tapi bisa diperbaiki. Isi timebox_weeks (4-12).
+- "DO": total dimensi >= 35. Layak dilanjutkan.
+- "DO NOT": total dimensi < 20. Sarankan alternatif (ubah target posisi, ambil pelatihan dasar).
+- "TIMED": total 20-34. Ada gap signifikan tapi bisa diperbaiki. Isi timebox_weeks (4-12).
 
 --- PANDUAN GAP & REKOMENDASI ---
 - Gap: spesifik terhadap JD ("JD minta [X] tapi CV tidak menyebutkan [Y]")

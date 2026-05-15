@@ -70,32 +70,10 @@ const EDUCATION_LINE_PATTERN = /^(S[123]|D[123]|SMA|SMK|SD|Bachelor|Master|PhD|S
 const SUMMARY_START_RE = /^(?:RINGKASAN\s+(?:PROFESIONAL|EKSEKUTIF|SINGKAT)|PROFESSIONAL\s+SUMMARY|SUMMARY|PROFILE|PROFESSIONAL\s+PROFILE)\s*$/i;
 const SUMMARY_END_RE   = /^(?:PENGALAMAN\s+KERJA|WORK\s+EXPERIENCE|EMPLOYMENT\s+HISTORY|PENDIDIKAN|EDUCATION|KEAHLIAN|SKILLS|TECHNICAL\s+SKILLS|SERTIFIKASI|CERTIFICATIONS)\s*$/i;
 
-const DOCX_GUIDANCE_ID  = '(catatan: tambahkan hasil konkret jika ada, misalnya: waktu ↓ atau output ↑)';
-const DOCX_GUIDANCE_EN  = '(note: add concrete results if available, e.g., time ↓ or output ↑)';
-const DOCX_MAX_HINTS    = 3;
-
-// SYNC: Must stay identical to shared/rewriteRules.js ISSUE_FALLBACK_SUFFIX.
-const ISSUE_FALLBACK = {
-  portfolio:        ' untuk menunjukkan dampak kerja yang konkret dan terukur',
-  recruiter_signal: ' dengan fokus pada peran dan hasil yang spesifik',
-  north_star:       ' yang sesuai dengan kebutuhan posisi ini',
-  effort:           ' dengan konteks skill yang dibutuhkan untuk role ini',
-  risk:             ' menggunakan pendekatan yang masih relevan saat ini',
-};
-const GENERIC_FALLBACK_SUFFIX = ' dengan hasil yang lebih konkret dan terukur';
-
-const ISSUE_FALLBACK_EN = {
-  portfolio:        ' to demonstrate concrete and measurable work impact',
-  recruiter_signal: ' with focus on specific roles and outcomes',
-  north_star:       ' aligned with the requirements of this position',
-  effort:           ' with the skill context needed for this role',
-  risk:             ' using an approach that remains relevant today',
-};
-const GENERIC_FALLBACK_SUFFIX_EN = ' with more concrete and measurable results';
-
 // Phrases that must never appear in final CV output — stripped as a last defence.
+// SYNC: Must stay identical to shared/rewriteRules.js BANNED_OUTPUT_PHRASES.
 const BANNED_OUTPUT_PHRASES = [
-  // Indonesian
+  // Indonesian — placeholder artifacts
   'dengan hasil yang lebih jelas dan terstruktur',
   'yang relevan dengan posisi yang ditargetkan',
   '[sebutkan angka nyata]',
@@ -106,7 +84,19 @@ const BANNED_OUTPUT_PHRASES = [
   'masukkan angka',
   'tambahkan angka',
   'isi dengan angka',
-  // English
+  // Indonesian — AI corporate filler
+  'rekam jejak yang solid',
+  'rekam jejak solid',
+  'hasil yang terukur dan berkelanjutan',
+  'secara terstruktur dan efisien',
+  'dalam lingkungan yang dinamis',
+  'komitmen terhadap profesionalisme',
+  'berorientasi pada hasil',
+  'untuk mendukung pertumbuhan bisnis perusahaan',
+  'untuk memastikan kelancaran operasional',
+  'untuk mendukung operasional perusahaan',
+  'secara proaktif dan terstruktur',
+  // English — placeholder artifacts
   'with clearer and more structured results',
   'relevant to the target position',
   '[add specific number]',
@@ -114,6 +104,30 @@ const BANNED_OUTPUT_PHRASES = [
   'mention specific tools',
   'insert specific number',
   'add specific tools',
+  // English — passive voice openers (always wrong in CV bullets)
+  'was responsible for',
+  'was tasked with',
+  'was assigned to',
+  'was involved in',
+  'was dedicated to',
+  'was focused on',
+  'was expected to',
+  'was required to',
+  // English — AI corporate filler
+  'proven track record of delivering results',
+  'results-driven professional',
+  'highly motivated individual',
+  'in a fast-paced and dynamic environment',
+  'commitment to professionalism',
+  'to support business growth objectives',
+  'to ensure smooth operational continuity',
+  'to demonstrate concrete and measurable work impact',
+  // Anti-AI repetitive suffixes (kept from before)
+  'untuk menunjukkan dampak kerja yang konkret dan terukur',
+  'dengan fokus pada peran dan hasil yang spesifik',
+  'dengan konteks skill yang dibutuhkan untuk role ini',
+  'with focus on specific roles and outcomes',
+  'with the skill context needed for this role',
 ];
 
 // Pre-escaped at module load — avoids re-escaping on every postProcessCV() call.
@@ -235,12 +249,9 @@ export function validateRewrite(before, after, entitasKlaim = null) {
 }
 
 function applyValidationResult(severity, original, issue, lang = 'id') {
-  if (severity === 'medium') {
-    const fallbackMap = lang === 'en' ? ISSUE_FALLBACK_EN : ISSUE_FALLBACK;
-    const defaultSuffix = lang === 'en' ? GENERIC_FALLBACK_SUFFIX_EN : GENERIC_FALLBACK_SUFFIX;
-    return original + (fallbackMap[issue] ?? defaultSuffix);
-  }
-  return safeRewriteLine(original, issue, lang);
+  // For recruiter-readability, keep factual original wording rather than
+  // appending generic AI-sounding suffixes when validation fails.
+  return original;
 }
 
 // ── Logging ───────────────────────────────────────────────────────────────────
@@ -257,6 +268,22 @@ function logHallucination(event) {
 
 export function cleanLine(text) {
   return text.replace(/^[\s•\-*]\s*/, '').trim();
+}
+
+function stripMarkdownHeadingPrefix(text) {
+  return String(text || '').replace(/^\s{0,3}#{1,6}\s*/, '').trimEnd();
+}
+
+function normalizeLanguageLine(text, language = 'id') {
+  if (language !== 'id') return text;
+  return String(text || '')
+    .replace(/\bEast Java\b/gi, 'Jawa Timur')
+    .replace(/\bWest Java\b/gi, 'Jawa Barat')
+    .replace(/\bCentral Java\b/gi, 'Jawa Tengah')
+    .replace(/\bNorth Sulawesi\b/gi, 'Sulawesi Utara')
+    .replace(/\bSouth Sulawesi\b/gi, 'Sulawesi Selatan')
+    .replace(/\bPresent\b/gi, 'Sekarang')
+    .replace(/\bCurrent\b/gi, 'Sekarang');
 }
 
 function isBulletLine(line) {
@@ -377,13 +404,42 @@ function buildSafeSummary(cvText, lang = 'id') {
   return 'Profesional berpengalaman yang siap berkontribusi untuk posisi yang ditargetkan.';
 }
 
+// ── Purpose-suffix repetition guard ──────────────────────────────────────────
+
+// Detects bullets ending with a vague "untuk [generic-verb]..." purpose clause
+// — a common AI generation artifact. Strips the suffix from the 3rd+ occurrence
+// so the first two (which may be legitimate) are kept intact.
+const PURPOSE_CLAUSE_ID = /\s+untuk\s+(?:meningkatkan|memastikan|mendukung|menunjukkan|mengoptimalkan|memperkuat|membantu|mencapai|mewujudkan|mempertahankan|memperbaiki)\b[^.\n]*$/i;
+const PURPOSE_CLAUSE_EN = /\s+to\s+(?:improve|ensure|support|demonstrate|optimize|strengthen|help|achieve|maintain|enhance|facilitate|drive)\b[^.\n]*$/i;
+
+function stripRepeatedPurposeSuffixes(text, language = 'id') {
+  const PURPOSE_RE = language === 'en' ? PURPOSE_CLAUSE_EN : PURPOSE_CLAUSE_ID;
+  const lines = text.split('\n');
+  let purposeCount = 0;
+  const result = lines.map(line => {
+    const t = line.trim();
+    if (!isBulletLine(t)) return line;
+    if (PURPOSE_RE.test(t)) {
+      purposeCount++;
+      if (purposeCount > 2) {
+        const prefix = line.match(/^(\s*[-•*]\s*)/)?.[1] ?? '';
+        const clean = cleanLine(t);
+        const stripped = clean.replace(PURPOSE_RE, '').trim();
+        // Only strip if the remaining bullet is still meaningful (≥4 words)
+        if (stripped.split(/\s+/).filter(w => w.length > 0).length >= 4) {
+          return prefix + stripped;
+        }
+      }
+    }
+    return line;
+  });
+  return result.join('\n');
+}
+
 // ── Safe fallback ─────────────────────────────────────────────────────────────
 
 function safeRewriteLine(original, issue, lang = 'id') {
-  const fallbackMap = lang === 'en' ? ISSUE_FALLBACK_EN : ISSUE_FALLBACK;
-  const defaultSuffix = lang === 'en' ? GENERIC_FALLBACK_SUFFIX_EN : GENERIC_FALLBACK_SUFFIX;
-  const suffix = (issue && fallbackMap[issue]) ?? defaultSuffix;
-  return original + suffix;
+  return original;
 }
 
 // ── Main post-processor ───────────────────────────────────────────────────────
@@ -392,17 +448,17 @@ function safeRewriteLine(original, issue, lang = 'id') {
  * Post-process LLM CV output:
  * 1. Validate each bullet against original CV — fall back if hallucination detected
  * 2. Force preview line consistency (if previewSample + previewAfter provided)
- * 3. Append DOCX guidance notes (first DOCX_MAX_HINTS bullets only) if mode === 'docx'
+ * 3. Keep output clean for final recruiter-facing exports (no coaching hints)
  *
  * @param {string}        llmText        - Raw LLM output
  * @param {string}        originalCVText - User's original CV (for reference matching)
  * @param {string|null}   issue          - Primary issue key for issue-aware fallback
- * @param {string}        mode           - 'pdf' (clean) | 'docx' (with guidance notes)
+ * @param {string}        mode           - output flavor ('pdf' or 'docx'), both clean
  * @param {object}        opts
  * @param {string}        [opts.previewSample]  - Original line shown as "before" in Hasil
  * @param {string}        [opts.previewAfter]   - Rewrite shown as "after" in Hasil
  * @param {string[]|null} [opts.entitasKlaim]   - Whitelist of claims already in user's CV
- * @param {string}        [opts.language]       - 'id' (default) | 'en' — controls DOCX guidance language
+ * @param {string}        [opts.language]       - 'id' (default) | 'en'
  * @returns {{ text: string, isTrusted: boolean }}
  */
 export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf', opts = {}) {
@@ -433,12 +489,14 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
   // Step 1: validate each bullet line (graded severity)
   const outputLines = result.split('\n');
   const validated   = outputLines.map(line => {
-    const trimmed = line.trim();
+    const normalizedLine = stripMarkdownHeadingPrefix(line);
+    const localizedLine = normalizeLanguageLine(normalizedLine, language);
+    const trimmed = localizedLine.trim();
     if (!trimmed)                               return line;
-    if (SECTION_HEADING_PATTERN.test(trimmed))  return line;
-    if (META_LINE_PATTERN.test(trimmed))        return line;
-    if (isNonBulletCVLine(trimmed))             return line;
-    if (!isBulletLine(trimmed))                 return line;
+    if (SECTION_HEADING_PATTERN.test(trimmed))  return localizedLine;
+    if (META_LINE_PATTERN.test(trimmed))        return localizedLine;
+    if (isNonBulletCVLine(trimmed))             return localizedLine;
+    if (!isBulletLine(trimmed))                 return localizedLine;
 
     const clean = cleanLine(trimmed);
     if (clean.length < MIN_LINE_LENGTH)         return line;
@@ -465,7 +523,7 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
         const prefix = line.match(/^(\s*[-•*]\s*)/)?.[1] ?? '';
         return prefix + shortOriginal;
       }
-      return line;
+      return localizedLine;
     }
 
     const { valid, severity } = validateWithSeverity(original, clean, entitasKlaim);
@@ -477,7 +535,7 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
       return prefix + applyValidationResult(severity, original, issue, language);
     }
 
-    return line;
+    return localizedLine;
   });
 
   result = validated.join('\n');
@@ -485,7 +543,10 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
   // Step 1b: strip any remaining LLM placeholder brackets from ALL lines
   result = result.replace(/\[[^\]]{1,60}\]/g, '').replace(/[ \t]{2,}/g, ' ');
 
-  // Step 1c: strip banned output phrases (AI artifacts) — regexes pre-compiled at module load
+  // Step 1c: strip overused purpose-ending suffixes (AI repetition pattern)
+  result = stripRepeatedPurposeSuffixes(result, language);
+
+  // Step 1d: strip banned output phrases (AI artifacts) — regexes pre-compiled at module load
   for (const re of BANNED_OUTPUT_REGEXES) {
     result = result.replace(re, '');
   }
@@ -505,29 +566,6 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
       return line;
     });
     result = consistencyLines.join('\n');
-  }
-
-  // Step 3: DOCX mode — append guidance hint after first DOCX_MAX_HINTS experience bullets
-  if (mode === 'docx') {
-    const guidance = language === 'en' ? DOCX_GUIDANCE_EN : DOCX_GUIDANCE_ID;
-    let hintsAdded   = 0;
-    let inExpSection = false;
-    const EXP_HEADING = /^(PENGALAMAN KERJA|PENGALAMAN|WORK EXPERIENCE|EXPERIENCE|EMPLOYMENT HISTORY)$/i;
-    const ANY_HEADING = SECTION_HEADING_PATTERN;
-    const docxLines = result.split('\n').flatMap(line => {
-      const t = line.trim();
-      if (ANY_HEADING.test(t)) {
-        inExpSection = EXP_HEADING.test(t);
-        hintsAdded   = 0;
-        return [line];
-      }
-      if (!inExpSection)                         return [line];
-      if (hintsAdded >= DOCX_MAX_HINTS)          return [line];
-      if (!t || !isBulletLine(t))                return [line];
-      hintsAdded++;
-      return [line, `  ${guidance}`];
-    });
-    result = docxLines.join('\n');
   }
 
   // isTrusted: true if high-severity fallback rate < 20% (medium downgrades are acceptable)

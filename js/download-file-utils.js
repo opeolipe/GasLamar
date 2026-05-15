@@ -59,7 +59,7 @@ function buildCVFilename(cvText, jobTitle, company, lang, ext) {
   // Take the first word of the first non-blank, non-all-uppercase line
   // (all-uppercase lines are section headings — skip them)
   const nameLine = cvText
-    ? cvText.split('\n').map(function(l) { return l.trim(); })
+    ? cvText.split('\n').map(function(l) { return l.trim().replace(/^#+\s*/, ''); })
         .find(function(l) { return l.length > 1 && l.length < 60 && !/^[A-Z\s]{4,}$/.test(l); })
     : null;
   const firstName = nameLine ? sanitizeFilenamePart(nameLine.split(/\s+/)[0], 20) : null;

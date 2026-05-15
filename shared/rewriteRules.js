@@ -125,6 +125,68 @@ export const INFLATION_RULES = [
 ];
 
 /**
+ * Phrases that must never appear in final CV output.
+ * SYNC: Must stay identical to worker/src/rewriteGuard.js BANNED_OUTPUT_PHRASES.
+ */
+export const BANNED_OUTPUT_PHRASES = [
+  // Indonesian — placeholder artifacts
+  'dengan hasil yang lebih jelas dan terstruktur',
+  'yang relevan dengan posisi yang ditargetkan',
+  '[sebutkan angka nyata]',
+  '[angka nyata]',
+  'sebutkan tools spesifik',
+  'sebutkan tool spesifik',
+  'sebutkan angka',
+  'masukkan angka',
+  'tambahkan angka',
+  'isi dengan angka',
+  // Indonesian — AI corporate filler
+  'rekam jejak yang solid',
+  'rekam jejak solid',
+  'hasil yang terukur dan berkelanjutan',
+  'secara terstruktur dan efisien',
+  'dalam lingkungan yang dinamis',
+  'komitmen terhadap profesionalisme',
+  'berorientasi pada hasil',
+  'untuk mendukung pertumbuhan bisnis perusahaan',
+  'untuk memastikan kelancaran operasional',
+  'untuk mendukung operasional perusahaan',
+  'secara proaktif dan terstruktur',
+  // English — placeholder artifacts
+  'with clearer and more structured results',
+  'relevant to the target position',
+  '[add specific number]',
+  '[actual number]',
+  'mention specific tools',
+  'insert specific number',
+  'add specific tools',
+  // English — passive voice openers (always wrong in CV bullets)
+  'was responsible for',
+  'was tasked with',
+  'was assigned to',
+  'was involved in',
+  'was dedicated to',
+  'was focused on',
+  'was expected to',
+  'was required to',
+  // English — AI corporate filler
+  'proven track record of delivering results',
+  'results-driven professional',
+  'highly motivated individual',
+  'in a fast-paced and dynamic environment',
+  'commitment to professionalism',
+  'to support business growth objectives',
+  'to ensure smooth operational continuity',
+  'to demonstrate concrete and measurable work impact',
+  // Anti-AI repetitive suffixes
+  'untuk menunjukkan dampak kerja yang konkret dan terukur',
+  'dengan fokus pada peran dan hasil yang spesifik',
+  'dengan konteks skill yang dibutuhkan untuk role ini',
+  'with focus on specific roles and outcomes',
+  'with the skill context needed for this role',
+];
+
+/**
  * Issue-aware safe fallback suffixes.
  * Append to the original clean line when a generated rewrite fails validation.
  */

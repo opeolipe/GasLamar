@@ -4,13 +4,13 @@
  * Stage 1: EXTRACT      (LLM)   — callExtract()        — verbatim data from CV + JD
  * Stage 2: ANALYZE      (Code)  — runAnalysis()         — deterministic skill/format comparison
  * Stage 2.5: ROLE INFER (Code)  — inferRole()           — role, seniority, industry classification
- * Stage 3: SCORE        (Code)  — calculateScores()     — raw 6D scores, then role-weighted
+ * Stage 3: SCORE        (Code)  — calculateScores()     — raw 5D scores, then role-weighted
  * Stage 4: DIAGNOSE     (LLM)   — callDiagnose()        — human-readable explanations only
  * Stage 5: REWRITE      (LLM)   — tailoring.js          — unchanged, called from /generate
  * Stage 6: VALIDATE     (Code)  — validate.js           — called inside stage 1 and 4 modules
  *
  * Role inference (Stage 2.5) feeds:
- *   • weighted 6D scores (Stage 3)
+ *   • weighted 5D scores (Stage 3)
  *   • role context block in the diagnose prompt (Stage 4)
  *   • inferred-mode tailoring in /generate (Stage 5)
  */
@@ -77,8 +77,8 @@ export async function analyzeCV(cvText, jobDesc, env) {
   // Raw scores first, then weight-adjust by the inferred role's dimension biases.
   const rawSkor6d                   = calculateScores(extractedData, analysisResult);
   const skor_6d                     = applyRoleWeights(rawSkor6d, roleProfile);
-  const { total6D, skor }           = computeSkor(skor_6d);
-  const { veredict, timebox_weeks } = determineVeredict(total6D, analysisResult);
+  const { total5D, skor }           = computeSkor(skor_6d);
+  const { veredict, timebox_weeks } = determineVeredict(total5D, analysisResult);
   const skor_sesudah                = computeSkorSesudah(skor, analysisResult);
   const primary_issue_dim           = computePrimaryIssue(skor_6d);
 

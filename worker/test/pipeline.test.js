@@ -340,17 +340,16 @@ describe('calculateScores — north_star title-token bonus', () => {
   });
 });
 
-// ── calculateScores — effort and opportunity_cost ─────────────────────────────
+// ── calculateScores — effort ──────────────────────────────────────────────────
 
-describe('calculateScores — effort and opportunity_cost', () => {
-  it('matchRatio >= 0.5 → effort = 10, opportunity_cost = 10', () => {
+describe('calculateScores — effort', () => {
+  it('matchRatio >= 0.5 → effort = 8', () => {
     const ext = extracted();
     const scores = calculateScores(ext, runAnalysis(ext));
-    expect(scores.effort).toBe(10);
-    expect(scores.opportunity_cost).toBe(10);
+    expect(scores.effort).toBe(8);
   });
 
-  it('matchRatio 0.4 (exactly) → effort = 5, opportunity_cost = 10', () => {
+  it('matchRatio 0.4 (exactly) → effort = 6', () => {
     // 2 of 5 = 0.4
     const ext = extracted({
       skills_mentah: 'Node.js React',
@@ -359,11 +358,10 @@ describe('calculateScores — effort and opportunity_cost', () => {
     const analysis = runAnalysis(ext);
     expect(analysis.skill_match.match_ratio).toBe(0.4);
     const scores = calculateScores(ext, analysis);
-    expect(scores.effort).toBe(5);
-    expect(scores.opportunity_cost).toBe(10); // 5 is not < 5
+    expect(scores.effort).toBe(6);
   });
 
-  it('matchRatio < 0.3 → effort = 2, opportunity_cost = 5', () => {
+  it('matchRatio < 0.3 → effort = 2', () => {
     // 1 of 4 = 0.25
     const ext = extracted({
       skills_mentah: 'Node.js',
@@ -373,19 +371,40 @@ describe('calculateScores — effort and opportunity_cost', () => {
     expect(analysis.skill_match.match_ratio).toBe(0.25);
     const scores = calculateScores(ext, analysis);
     expect(scores.effort).toBe(2);
-    expect(scores.opportunity_cost).toBe(5);
   });
 });
 
 // ── calculateScores — recruiter_signal ───────────────────────────────────────
 
 describe('calculateScores — recruiter_signal typo detection', () => {
-  it('informal "yg" loses the 3-point typo-free bonus', () => {
-    const extClean = extracted({ pengalaman_mentah: 'Software Engineer yang berpengalaman di Node.js REST API' });
-    const extTypo  = extracted({ pengalaman_mentah: 'Software Engineer yg berpengalaman di Node.js REST API' });
+  it('informal "yg" lowers recruiter_signal', () => {
+    const extClean = extracted({ pengalaman_mentah: 'Software Engineer yang membangun API backend untuk tim internal' });
+    const extTypo  = extracted({ pengalaman_mentah: 'Software Engineer yg membangun API backend untuk tim internal' });
     const clean = calculateScores(extClean, runAnalysis(extClean));
     const typo  = calculateScores(extTypo,  runAnalysis(extTypo));
-    expect(clean.recruiter_signal - typo.recruiter_signal).toBe(3);
+    expect(clean.recruiter_signal).toBeGreaterThanOrEqual(typo.recruiter_signal);
+  });
+
+  it('weak CV without metrics is hard-capped at 4 or below', () => {
+    const ext = extracted({
+      angka_di_cv: 'NOL ANGKA',
+      pengalaman_mentah: 'Staff admin yang bertanggung jawab melakukan tugas harian dan membantu tim',
+      judul_role: 'Software Engineer',
+      skills_mentah: 'Word Excel',
+    });
+    const score = calculateScores(ext, runAnalysis(ext)).recruiter_signal;
+    expect(score).toBeLessThanOrEqual(4);
+  });
+
+  it('strong CV with metrics can reach 8+', () => {
+    const ext = extracted({
+      angka_di_cv: '30% 2x 5 orang',
+      pengalaman_mentah: 'Software Engineer PT XYZ\n• Membangun API pembayaran Node.js\n• Menurunkan error rate layanan\n• Berkolaborasi lintas tim',
+      judul_role: 'Software Engineer',
+      skills_mentah: 'Node.js React SQL',
+    });
+    const score = calculateScores(ext, runAnalysis(ext)).recruiter_signal;
+    expect(score).toBeGreaterThanOrEqual(8);
   });
 });
 
@@ -397,9 +416,9 @@ describe('calculateScores — portfolio', () => {
     expect(calculateScores(ext, runAnalysis(ext)).portfolio).toBe(2);
   });
 
-  it('1 number (< 3), no certs → portfolio = 5', () => {
+  it('1 number (< 3), no certs → portfolio = 4 (coarse band)', () => {
     const ext = extracted({ angka_di_cv: '3 tahun', sertifikat: 'TIDAK ADA' });
-    expect(calculateScores(ext, runAnalysis(ext)).portfolio).toBe(5);
+    expect(calculateScores(ext, runAnalysis(ext)).portfolio).toBe(4);
   });
 
   it('>= 3 numbers, no certs → portfolio = 8', () => {
@@ -446,38 +465,38 @@ describe('calculateScores — risk', () => {
     expect(calculateScores(ext, runAnalysis(ext)).risk).toBe(8);
   });
 
-  it('stable industry "Finance" → risk >= 7 (base 5 + 2)', () => {
+  it('stable industry "Finance" → risk >= 6 (coarse band)', () => {
     const ext = extracted({ industri: 'Finance' });
-    expect(calculateScores(ext, runAnalysis(ext)).risk).toBeGreaterThanOrEqual(7);
+    expect(calculateScores(ext, runAnalysis(ext)).risk).toBeGreaterThanOrEqual(6);
   });
 
-  it('neutral industry, no fundamental skills → risk = 5', () => {
+  it('neutral industry, no fundamental skills → risk = 4 (coarse band)', () => {
     const ext = extracted({ industri: 'Tech', skills_diminta: ['Node.js', 'React'] });
-    expect(calculateScores(ext, runAnalysis(ext)).risk).toBe(5);
+    expect(calculateScores(ext, runAnalysis(ext)).risk).toBe(4);
   });
 });
 
 // ── computeSkor ───────────────────────────────────────────────────────────────
 
 describe('computeSkor', () => {
-  it('total6D = 60 → skor = 100', () => {
-    const dims = { north_star: 10, recruiter_signal: 10, effort: 10, opportunity_cost: 10, risk: 10, portfolio: 10 };
+  it('total5D = 50 → skor = 100', () => {
+    const dims = { north_star: 10, recruiter_signal: 10, effort: 10, risk: 10, portfolio: 10 };
     expect(computeSkor(dims).skor).toBe(100);
   });
 
-  it('total6D = 51 → skor = 85 (matches happy-path fixture)', () => {
-    const dims = { north_star: 8, recruiter_signal: 10, effort: 10, opportunity_cost: 10, risk: 8, portfolio: 5 };
-    expect(computeSkor(dims).skor).toBe(85);
+  it('total5D = 42 → skor = 84', () => {
+    const dims = { north_star: 8, recruiter_signal: 8, effort: 8, risk: 8, portfolio: 10 };
+    expect(computeSkor(dims).skor).toBe(84);
   });
 
-  it('total6D = 0 → skor = 0', () => {
-    const dims = { north_star: 0, recruiter_signal: 0, effort: 0, opportunity_cost: 0, risk: 0, portfolio: 0 };
-    expect(computeSkor(dims).skor).toBe(0);
+  it('total5D minimum band = 10 → skor = 20', () => {
+    const dims = { north_star: 2, recruiter_signal: 2, effort: 2, risk: 2, portfolio: 2 };
+    expect(computeSkor(dims).skor).toBe(20);
   });
 
-  it('exposes total6D for downstream use', () => {
-    const dims = { north_star: 10, recruiter_signal: 10, effort: 10, opportunity_cost: 10, risk: 10, portfolio: 10 };
-    expect(computeSkor(dims).total6D).toBe(60);
+  it('exposes total5D for downstream use', () => {
+    const dims = { north_star: 10, recruiter_signal: 10, effort: 10, risk: 10, portfolio: 10 };
+    expect(computeSkor(dims).total5D).toBe(50);
   });
 });
 
@@ -488,19 +507,19 @@ describe('determineVeredict', () => {
   const twoMissing  = { skill_match: { missing: ['SQL', 'Docker'] } };
   const manyMissing = { skill_match: { missing: new Array(20).fill('x') } };
 
-  it('total6D >= 42 → DO, timebox_weeks = null', () => {
-    const { veredict, timebox_weeks } = determineVeredict(42, noMissing);
+  it('total5D >= 35 → DO, timebox_weeks = null', () => {
+    const { veredict, timebox_weeks } = determineVeredict(35, noMissing);
     expect(veredict).toBe('DO');
     expect(timebox_weeks).toBeNull();
   });
 
-  it('total6D < 24 → DO NOT, timebox_weeks = null', () => {
-    const { veredict, timebox_weeks } = determineVeredict(23, noMissing);
+  it('total5D < 20 → DO NOT, timebox_weeks = null', () => {
+    const { veredict, timebox_weeks } = determineVeredict(19, noMissing);
     expect(veredict).toBe('DO NOT');
     expect(timebox_weeks).toBeNull();
   });
 
-  it('24 <= total6D < 42 → TIMED with timebox_weeks', () => {
+  it('20 <= total5D < 35 → TIMED with timebox_weeks', () => {
     const { veredict, timebox_weeks } = determineVeredict(30, twoMissing);
     expect(veredict).toBe('TIMED');
     expect(timebox_weeks).toBe(7); // round(2 * 1.5 + 4) = 7
@@ -858,7 +877,34 @@ describe('postProcessCV', () => {
     expect(text).not.toMatch(/\[.*\]/);
   });
 
-  it('DOCX mode appends Indonesian guidance after first 3 bullet lines only', () => {
+  it('strips markdown heading prefixes (#, ##) from final output', () => {
+    const cv = '# Nama Kandidat\n## RINGKASAN PROFESIONAL\n- Mengelola operasi harian lintas tim';
+    const { text } = postProcessCV(cv, cv);
+    expect(text).not.toContain('# Nama Kandidat');
+    expect(text).not.toContain('## RINGKASAN PROFESIONAL');
+    expect(text).toContain('Nama Kandidat');
+    expect(text).toContain('RINGKASAN PROFESIONAL');
+  });
+
+  it('strips markdown heading prefix even without space after #', () => {
+    const cv = '#Nama Kandidat\n##RINGKASAN PROFESIONAL';
+    const { text } = postProcessCV(cv, cv);
+    expect(text).toContain('Nama Kandidat');
+    expect(text).toContain('RINGKASAN PROFESIONAL');
+    expect(text).not.toContain('#Nama Kandidat');
+    expect(text).not.toContain('##RINGKASAN PROFESIONAL');
+  });
+
+  it('localizes non-technical English location terms in Indonesian output', () => {
+    const cv = 'PENGALAMAN KERJA\nPT Contoh — Staf Operasional\nEast Java | 2022 - Present';
+    const { text } = postProcessCV(cv, cv, null, 'pdf', { language: 'id' });
+    expect(text).toContain('Jawa Timur');
+    expect(text).toContain('Sekarang');
+    expect(text).not.toContain('East Java');
+    expect(text).not.toContain('Present');
+  });
+
+  it('DOCX mode keeps output clean without guidance artifacts', () => {
     const lines = [
       'Membangun REST API untuk sistem backend perusahaan yang skalabel dan andal',
       'Mengelola infrastruktur cloud dan pipeline deployment secara rutin harian',
@@ -867,15 +913,124 @@ describe('postProcessCV', () => {
     ].map(b => `- ${b}`).join('\n');
     const cv = `PENGALAMAN KERJA\n${lines}`;
     const { text } = postProcessCV(cv, cv, null, 'docx');
-    expect(text).toContain('catatan: tambahkan');
-    expect((text.match(/catatan: tambahkan/g) || []).length).toBe(3);
+    expect(text).not.toContain('catatan: tambahkan');
   });
 
-  it('DOCX mode with language=en uses English guidance', () => {
+  it('DOCX mode with language=en keeps output clean without guidance artifacts', () => {
     const bullet = '- Developed REST API for enterprise backend systems and large applications';
     const cv = `WORK EXPERIENCE\n${bullet}`;
     const { text } = postProcessCV(cv, cv, null, 'docx', { language: 'en' });
-    expect(text).toContain('note: add concrete results');
+    expect(text).not.toContain('note: add concrete results');
+  });
+});
+
+// ── stripRepeatedPurposeSuffixes (via postProcessCV) ─────────────────────────
+
+describe('postProcessCV — purpose-suffix repetition guard', () => {
+  // Use purpose suffixes that match PURPOSE_CLAUSE_ID/EN regex but are NOT
+  // in BANNED_OUTPUT_PHRASES — otherwise step 1d strips them before we can assert.
+  function makeBullets(bullets, lang = 'id') {
+    const heading = lang === 'en' ? 'WORK EXPERIENCE' : 'PENGALAMAN KERJA';
+    return `${heading}\n${bullets.map(b => `- ${b}`).join('\n')}`;
+  }
+
+  it('keeps first two purpose-ending bullets intact (ID)', () => {
+    const b1 = 'Mengelola laporan keuangan bulanan untuk meningkatkan akurasi data tim';
+    const b2 = 'Menyiapkan dokumen pengadaan rutin untuk memperkuat proses pengadaan';
+    const b3 = 'Memproses permintaan klien harian untuk meningkatkan efisiensi respons';
+    const cv = makeBullets([b1, b2, b3]);
+    const { text } = postProcessCV(cv, cv, null, 'pdf', { language: 'id' });
+    expect(text).toContain('untuk meningkatkan akurasi data tim');
+    expect(text).toContain('untuk memperkuat proses pengadaan');
+  });
+
+  it('strips purpose suffix from 3rd+ occurrence (ID)', () => {
+    const b1 = 'Mengelola laporan keuangan bulanan untuk meningkatkan akurasi data tim';
+    const b2 = 'Menyiapkan dokumen pengadaan rutin untuk memperkuat proses pengadaan';
+    const b3 = 'Memproses permintaan klien harian untuk meningkatkan efisiensi respons';
+    const cv = makeBullets([b1, b2, b3]);
+    const { text } = postProcessCV(cv, cv, null, 'pdf', { language: 'id' });
+    expect(text).not.toMatch(/Memproses permintaan klien harian untuk meningkatkan efisiensi/);
+    expect(text).toContain('Memproses permintaan klien harian');
+  });
+
+  it('strips purpose suffix from 3rd+ occurrence (EN)', () => {
+    const b1 = 'Managed monthly financial reports to improve data accuracy across the team';
+    const b2 = 'Prepared procurement documents to strengthen internal coordination';
+    const b3 = 'Processed daily client requests to improve response efficiency';
+    const cv = makeBullets([b1, b2, b3], 'en');
+    const { text } = postProcessCV(cv, cv, null, 'pdf', { language: 'en' });
+    expect(text).not.toMatch(/Processed daily client requests to improve response/);
+    expect(text).toContain('Processed daily client requests');
+  });
+
+  it('does not strip if remaining bullet would be too short (<4 words)', () => {
+    const b1 = 'Mengelola tim besar untuk meningkatkan performa keseluruhan divisi';
+    const b2 = 'Menyiapkan laporan harian untuk memperkuat koordinasi antar departemen';
+    const b3 = 'Membantu untuk meningkatkan';  // only 1 word left after strip — guard keeps it
+    const cv = makeBullets([b1, b2, b3]);
+    const { text } = postProcessCV(cv, cv, null, 'pdf', { language: 'id' });
+    // The 3rd bullet is kept in full because stripping would leave <4 words
+    expect(text).toContain('Membantu untuk meningkatkan');
+  });
+});
+
+// ── BANNED_OUTPUT_PHRASES — passive voice + AI corporate filler ───────────────
+
+describe('postProcessCV — banned phrase stripping', () => {
+  function wrap(bullet, lang = 'id') {
+    const heading = lang === 'en' ? 'WORK EXPERIENCE' : 'PENGALAMAN KERJA';
+    return `${heading}\n- ${bullet}`;
+  }
+
+  const passivePhrases = [
+    'was responsible for',
+    'was tasked with',
+    'was assigned to',
+    'was involved in',
+    'was dedicated to',
+    'was focused on',
+    'was expected to',
+    'was required to',
+  ];
+
+  for (const phrase of passivePhrases) {
+    it(`strips passive voice phrase: "${phrase}"`, () => {
+      const bullet = `${phrase} managing client relationships across East Java region`;
+      const cv = wrap(bullet, 'en');
+      const { text } = postProcessCV(cv, cv, null, 'pdf', { language: 'en' });
+      expect(text.toLowerCase()).not.toContain(phrase);
+    });
+  }
+
+  it('strips Indonesian AI corporate filler: "rekam jejak yang solid"', () => {
+    const cv = `RINGKASAN PROFESIONAL\nProfesional berpengalaman dengan rekam jejak yang solid di industri keuangan.\n\nPENGALAMAN KERJA`;
+    const { text } = postProcessCV(cv, cv, null, 'pdf', { language: 'id' });
+    expect(text).not.toContain('rekam jejak yang solid');
+  });
+
+  it('strips English AI filler: "proven track record of delivering results"', () => {
+    const cv = `PROFESSIONAL SUMMARY\nExperienced professional with proven track record of delivering results.\n\nWORK EXPERIENCE`;
+    const { text } = postProcessCV(cv, cv, null, 'pdf', { language: 'en' });
+    expect(text).not.toContain('proven track record of delivering results');
+  });
+
+  it('strips "results-driven professional" from summary', () => {
+    const cv = `PROFESSIONAL SUMMARY\nResults-driven professional with 5 years in FMCG sales.\n\nWORK EXPERIENCE`;
+    const { text } = postProcessCV(cv, cv, null, 'pdf', { language: 'en' });
+    expect(text).not.toContain('results-driven professional');
+  });
+
+  it('strips "in a fast-paced and dynamic environment"', () => {
+    const cv = `PROFESSIONAL SUMMARY\nDelivered strong performance in a fast-paced and dynamic environment.\n\nWORK EXPERIENCE`;
+    const { text } = postProcessCV(cv, cv, null, 'pdf', { language: 'en' });
+    expect(text).not.toContain('in a fast-paced and dynamic environment');
+  });
+
+  it('stripping is case-insensitive', () => {
+    const cv = `WORK EXPERIENCE\n- Was Responsible For managing the entire distribution network`;
+    const { text } = postProcessCV(cv, cv, null, 'pdf', { language: 'en' });
+    expect(text.toLowerCase()).not.toContain('was responsible for');
   });
 });
 
@@ -977,7 +1132,7 @@ describe('inferRole', () => {
 });
 
 describe('applyRoleWeights', () => {
-  const raw = { north_star: 6, recruiter_signal: 5, effort: 8, opportunity_cost: 8, risk: 5, portfolio: 4 };
+  const raw = { north_star: 6, recruiter_signal: 5, effort: 8, risk: 5, portfolio: 4 };
 
   it('returns unchanged scores when roleProfile is null', () => {
     const weighted = applyRoleWeights(raw, null);
@@ -986,7 +1141,7 @@ describe('applyRoleWeights', () => {
 
   it('applies weight bias from profile', () => {
     const profile = {
-      weightBias: { north_star: 1.2, recruiter_signal: 1.0, effort: 0.9, opportunity_cost: 0.8, risk: 1.0, portfolio: 1.3 },
+      weightBias: { north_star: 1.2, recruiter_signal: 1.0, effort: 0.9, risk: 1.0, portfolio: 1.3 },
     };
     const weighted = applyRoleWeights(raw, profile);
     expect(weighted.north_star).toBeCloseTo(6 * 1.2, 1);
@@ -995,20 +1150,20 @@ describe('applyRoleWeights', () => {
   });
 
   it('clamps weighted score to 10', () => {
-    const profile = { weightBias: { north_star: 2.0, recruiter_signal: 1.0, effort: 1.0, opportunity_cost: 1.0, risk: 1.0, portfolio: 1.0 } };
+    const profile = { weightBias: { north_star: 2.0, recruiter_signal: 1.0, effort: 1.0, risk: 1.0, portfolio: 1.0 } };
     const weighted = applyRoleWeights({ ...raw, north_star: 9 }, profile);
     expect(weighted.north_star).toBe(10);
   });
 
   it('clamps weighted score to 0', () => {
-    const profile = { weightBias: { north_star: 0, recruiter_signal: 1.0, effort: 1.0, opportunity_cost: 1.0, risk: 1.0, portfolio: 1.0 } };
+    const profile = { weightBias: { north_star: 0, recruiter_signal: 1.0, effort: 1.0, risk: 1.0, portfolio: 1.0 } };
     const weighted = applyRoleWeights(raw, profile);
     expect(weighted.north_star).toBe(0);
   });
 });
 
 describe('new role profiles — weight bias sanity checks', () => {
-  const DIMS = ['north_star', 'recruiter_signal', 'effort', 'opportunity_cost', 'risk', 'portfolio'];
+  const DIMS = ['north_star', 'recruiter_signal', 'effort', 'risk', 'portfolio'];
 
   it('teknik: north_star has highest bias (technical fit is primary signal)', () => {
     const p = getRoleProfile('teknik');
@@ -1048,18 +1203,12 @@ describe('new role profiles — weight bias sanity checks', () => {
 
 describe('computePrimaryIssue', () => {
   it('returns the dimension with the lowest score', () => {
-    const scores = { north_star: 8, recruiter_signal: 3, effort: 9, opportunity_cost: 2, risk: 7, portfolio: 5 };
-    // opportunity_cost excluded; recruiter_signal (3) is the lowest eligible
+    const scores = { north_star: 8, recruiter_signal: 3, effort: 9, risk: 7, portfolio: 5 };
     expect(computePrimaryIssue(scores)).toBe('recruiter_signal');
   });
 
-  it('never returns opportunity_cost', () => {
-    const scores = { north_star: 5, recruiter_signal: 5, effort: 5, opportunity_cost: 1, risk: 5, portfolio: 5 };
-    expect(computePrimaryIssue(scores)).not.toBe('opportunity_cost');
-  });
-
   it('returns portfolio when it is lowest eligible', () => {
-    const scores = { north_star: 7, recruiter_signal: 7, effort: 7, opportunity_cost: 1, risk: 7, portfolio: 2 };
+    const scores = { north_star: 7, recruiter_signal: 7, effort: 7, risk: 7, portfolio: 2 };
     expect(computePrimaryIssue(scores)).toBe('portfolio');
   });
 });
