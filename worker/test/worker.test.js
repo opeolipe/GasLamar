@@ -8,6 +8,7 @@ import { SELF, env, fetchMock } from 'cloudflare:test';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { getCorsHeaders, isOriginAllowed } from '../src/cors.js';
 import { verifyMayarWebhook } from '../src/mayar.js';
+import { GEN_KEY_PREFIX_ID, GEN_KEY_PREFIX_EN } from '../src/cacheVersions.js';
 
 // ---- Test helpers ----
 
@@ -1764,14 +1765,8 @@ async function sha256Full(text) {
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-/** Compute first-32-char hex SHA-256 (mirrors worker's sha256Hex in utils.js). */
-async function sha256HexLocal(text) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
-}
-
 /**
- * Pre-populate tailoring KV cache (gen_id_v4_ / gen_en_v4_) so tailorCVID/tailorCVEN
+ * Pre-populate tailoring KV cache so tailorCVID/tailorCVEN
  * short-circuit without making real Claude API calls.
  * Use this instead of fetchMock for generate success-path tests — avoids an
  * unreliable interaction between MockPool and concurrent parallel fetch calls.
@@ -1779,8 +1774,8 @@ async function sha256HexLocal(text) {
  */
 async function preTailorCache(cvText, jobDesc) {
   const h = await sha256Full(cvText + '\x00' + jobDesc);
-  await env.GASLAMAR_SESSIONS.put(`gen_id_v4_${h}`, MOCK_CV_ID.content[0].text, { expirationTtl: 172800 });
-  await env.GASLAMAR_SESSIONS.put(`gen_en_v4_${h}`, MOCK_CV_EN.content[0].text, { expirationTtl: 172800 });
+  await env.GASLAMAR_SESSIONS.put(`${GEN_KEY_PREFIX_ID}${h}`, MOCK_CV_ID.content[0].text, { expirationTtl: 172800 });
+  await env.GASLAMAR_SESSIONS.put(`${GEN_KEY_PREFIX_EN}${h}`, MOCK_CV_EN.content[0].text, { expirationTtl: 172800 });
 }
 
 /**
