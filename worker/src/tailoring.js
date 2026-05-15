@@ -199,7 +199,7 @@ YANG BOLEH DIUBAH:
 
 Output CV dalam Bahasa Indonesia dengan urutan section di atas:
 - RINGKASAN PROFESIONAL: 3-4 kalimat, highlight yang paling relevan untuk posisi ini
-- PENGALAMAN KERJA: bullet points dengan kata kerja aktif Harvard, kuantifikasi achievement
+- PENGALAMAN KERJA: bullet points dengan kata kerja aktif, kuantifikasi achievement
 - PENDIDIKAN
 - KEAHLIAN: Core Skills | Tools | Bahasa
 
@@ -325,7 +325,7 @@ WHAT YOU MAY CHANGE:
 
 Output the CV in English with sections in that order:
 - PROFESSIONAL SUMMARY: 3-4 sentences, highlight most relevant for this role
-- WORK EXPERIENCE: Harvard action verb bullets, quantified achievements (only original numbers)
+- WORK EXPERIENCE: action verb bullets, quantified achievements (only original numbers)
 - EDUCATION
 - SKILLS: Core Skills | Tools | Languages
 
