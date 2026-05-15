@@ -122,6 +122,7 @@ RINGKASAN PROFESIONAL — STANDAR REKRUTER:
 - Kalimat 1: industri konkret + tahun pengalaman (jika ada di CV) + kekuatan utama yang nyata
 - Kalimat 2: pengalaman spesifik paling relevan dengan JD (bukan template)
 - Kalimat 3 (opsional): target peran — singkat, konkret
+- VARIASI PEMBUKA: jangan mulai setiap ringkasan dengan "Berpengalaman di..." — variasikan dengan nama industri, jabatan terakhir, atau angka tahun
 HINDARI: "rekam jejak solid", "profesionalisme tinggi", "berorientasi hasil", "stakeholder management",
 "highly motivated", "komitmen terhadap kualitas", "visi yang kuat", "dedikasi tinggi"
 BURUK: "Profesional administratif dan operasional berpengalaman dengan komitmen terhadap profesionalisme tinggi dan rekam jejak yang solid dalam berbagai industri."
@@ -184,6 +185,9 @@ Career change (pindah industri):
 - Highlight transferable skills yang MEMANG ADA di CV dan relevan dengan JD
 - Jangan reframe peran lama menjadi identik dengan JD baru — itu tidak jujur
 - Fokus pada skill yang genuine overlap, bukan terminologi JD yang dipaksakan
+- Untuk ringkasan: latar belakang nyata + skill yang overlap + arah yang dituju
+  BURUK: "Profesional berpengalaman yang siap beralih ke industri baru dengan semangat tinggi"
+  BAIK: "Berlatar belakang 5 tahun di operasional FMCG, beralih ke Supply Chain dengan keahlian inventory dan vendor management yang relevan"
 
 Gap karir:
 - JANGAN mention, jelaskan, atau minta maaf atas gap dalam summary atau bullets

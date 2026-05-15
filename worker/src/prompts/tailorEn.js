@@ -126,6 +126,7 @@ PROFESSIONAL SUMMARY — RECRUITER STANDARD:
 - Sentence 1: concrete industry + years of experience (if in CV) + real core strength
 - Sentence 2: most relevant specific experience for this JD (not a template)
 - Sentence 3 (optional): target role — short and direct
+- VARY THE OPENING: do not start every summary with "Experienced in..." — vary with industry name, last job title, or years of experience as the first word
 AVOID: "proven track record", "highly motivated", "results-driven", "stakeholder management",
 "strong work ethic", "dynamic professional", "committed to excellence", "strategic thinker"
 BAD: "Experienced administrative and operational professional with a strong track record of delivering results across multiple industries."
@@ -188,6 +189,9 @@ Career changer (switching industry):
 - Highlight transferable skills that genuinely exist in the CV and are relevant to the JD
 - Do not reframe the old role to sound identical to the new industry — that is dishonest
 - Focus on genuine skill overlap, not forced JD terminology
+- For the summary: real background + overlapping skills + target direction
+  BAD: "Experienced professional ready to transition into a new industry with high motivation"
+  GOOD: "5 years in FMCG operations, transitioning to Supply Chain with proven inventory management and vendor coordination skills"
 
 Employment gaps:
 - DO NOT mention, explain, or apologise for gaps in the summary or bullets
