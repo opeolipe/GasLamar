@@ -12,17 +12,17 @@ LLM = extraction + text only. All scoring is pure JS.
 
 | Stage | What |
 |---|---|
-| 1. EXTRACT | LLM → structured CV+JD data. Cache: `extract_v2_<hash>` 24h |
+| 1. EXTRACT | LLM → structured CV+JD data. Cache: `extract_v5_<hash>` 24h |
 | 2. ANALYZE | pure JS — skill match, format, archetype, red flags |
-| 3. SCORE | formula → 6D scores, verdict (DO/TIMED/DO NOT), timebox. Cache: `analysis_v6_<hash>` 48h |
+| 3. SCORE | formula → 6D scores, verdict (DO/TIMED/DO NOT), timebox. Cache: `analysis_v15_<hash>` 48h |
 | 4. DIAGNOSE | LLM → human-readable gap explanation only (cannot change scores) |
-| 5. REWRITE | LLM via `/generate` → tailored CV in ID + EN. Cache: `gen_id_v3_<hash>` / `gen_en_v3_<hash>` 48h |
+| 5. REWRITE | LLM via `/generate` → tailored CV in ID + EN. Cache: `gen_id_v4_<hash>` / `gen_en_v4_<hash>` 48h |
 | 6. VALIDATE | schema check + 1 retry after every LLM call |
 
-**Cache bump rule:** two independent versions in `analysis.js`:
-- `EXTRACT_CACHE_VERSION` (`extract_v2_*`) — bump when changing `pipeline/extract.js` or `prompts/extract.js`
-- `ANALYSIS_CACHE_VERSION` (`analysis_v6_*`) — bump when changing anything else in `pipeline/` or `prompts/`
-- Tailoring: bump `gen_id_v3_` / `gen_en_v3_` prefix in `tailoring.js` when changing tailor prompts
+**Cache bump rule:** two independent versions in `cacheVersions.js`:
+- `EXTRACT_CACHE_VERSION` (`extract_v5_*`) — bump when changing `pipeline/extract.js` or `prompts/extract.js`
+- `ANALYSIS_CACHE_VERSION` (`analysis_v15_*`) — bump when changing anything else in `pipeline/` or `prompts/`
+- Tailoring: bump `GEN_KEY_PREFIX_ID` / `GEN_KEY_PREFIX_EN` in `cacheVersions.js` when changing tailor prompts
 
 **Session state machine** (`worker/src/sessionStates.js`):
 
@@ -45,8 +45,9 @@ Routes → `router.js`. Handlers → `worker/src/handlers/<endpoint>.js`. Pipeli
 
 | File | Why non-obvious |
 |---|---|
-| `worker/src/analysis.js` | Cache key versions live here (`extract_v2`, `analysis_v6`) — bump here, not in pipeline files |
-| `worker/src/tailoring.js` | Gen key prefixes live here (`gen_id_v3_`, `gen_en_v3_`) — bump here when changing tailor prompts |
+| `worker/src/analysis.js` | Cache orchestrator — imports version constants from `cacheVersions.js` |
+| `worker/src/tailoring.js` | Gen key prefixes imported from `cacheVersions.js` — bump there, not here |
+| `worker/src/cacheVersions.js` | Central cache-key version constants — bump `EXTRACT_CACHE_VERSION`, `ANALYSIS_CACHE_VERSION`, `GEN_KEY_PREFIX_ID`/`EN` here when changing prompts or scoring |
 | `worker/src/roleProfiles.js` | Role-weighted scoring inputs — not in `score.js` |
 | `worker/src/sessionStates.js` | Canonical session state machine (states, transitions, `canStartGeneration()`, `isTerminal()`). Import from here — do not hardcode state strings in handlers. |
 | `worker/src/pipeline/archetypes.js` | Archetype detection called from `analyze.js` |
@@ -154,7 +155,7 @@ npm start                       # serve frontend locally on :3000
 
 ## Gotchas (common bug sources)
 
-- **Stale cache** — change prompt or scoring formula? Bump version in `analysis.js` (extract/analyze) or `tailoring.js` (gen). Old key = old result.
+- **Stale cache** — change prompt or scoring formula? Bump version in `cacheVersions.js`. Old key = old result.
 - **IP mismatch** — `cv_text_key` is bound to the uploading IP. Testing across IPs or proxies will reject with mismatch.
 - **Frontend not updating** — `js/dist/` and `js/vendor/` are gitignored. Run `npm run build` before testing; CI builds them fresh.
 - **Double-gen race** — session lock `lock_<id>` TTL 120s. Retrying within that window will silently block.

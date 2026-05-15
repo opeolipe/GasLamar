@@ -14,11 +14,12 @@ Requirements:
 interface Props {
   creditsRemaining: number;
   totalCredits:     number;
+  tier:             string;
   onGenerate:       (jobDesc: string) => Promise<void> | void;
   onUrlFetch:       (url: string) => Promise<string>;
 }
 
-export default function MultiCreditSection({ creditsRemaining, totalCredits, onGenerate, onUrlFetch }: Props) {
+export default function MultiCreditSection({ creditsRemaining, totalCredits, tier, onGenerate, onUrlFetch }: Props) {
   const [jobDesc,      setJobDesc]      = useState('');
   const [showUrlRow,   setShowUrlRow]   = useState(false);
   const [urlInput,     setUrlInput]     = useState('');
@@ -88,7 +89,7 @@ export default function MultiCreditSection({ creditsRemaining, totalCredits, onG
         <p className="text-sm text-slate-600 mt-2">CV dasarmu sudah tersimpan – tinggal masukkan job description loker berikutnya.</p>
         <p className="text-sm text-slate-400 mt-1">
           Mau pakai CV yang berbeda?{' '}
-          <a href="upload.html?new_package=1" className="text-blue-600 hover:underline" title="Upload CV baru (memerlukan paket baru)">
+          <a href={`upload.html?new_package=1${tier ? `&tier=${encodeURIComponent(tier)}` : ''}`} className="text-blue-600 hover:underline" title="Upload CV baru (memerlukan paket baru)">
             Mulai upload baru
           </a>{' '}
           (memerlukan paket baru)

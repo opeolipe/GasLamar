@@ -3,9 +3,10 @@ const SHADOW = '0 18px 44px rgba(15, 23, 42, 0.08)';
 interface Props {
   /** If true, show the 3-Pack upsell (for coba/single users) */
   showUpsell?: boolean;
+  tier?: string;
 }
 
-export default function UpgradeNudge({ showUpsell = false }: Props) {
+export default function UpgradeNudge({ showUpsell = false, tier }: Props) {
   if (showUpsell) {
     return (
       <div
@@ -51,7 +52,7 @@ export default function UpgradeNudge({ showUpsell = false }: Props) {
         Kredit kamu sudah habis. Masih ada loker lain yang ingin kamu lamar? Beli paket baru untuk CV yang disesuaikan.
       </p>
       <a
-        href="upload.html?new_package=1"
+        href={`upload.html?new_package=1${tier ? `&tier=${encodeURIComponent(tier)}` : ''}`}
         className="inline-flex items-center min-h-[44px] px-6 rounded-full font-bold text-white text-sm transition-all hover:-translate-y-[1px]"
         style={{ background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', boxShadow: '0 8px 24px rgba(37,99,235,0.30)' }}
         title="Beli paket baru untuk loker lain"

@@ -93,7 +93,7 @@ consumed (`download.js:336–339`).
 | Set `sessionStorage.gaslamar_tier = 'jobhunt'` after paying for `coba` | `/generate` ignores all client-supplied tier; reads `session.tier` from KV (set at payment time as `'coba'`) |
 | Inject `"credits_remaining": 99` into the `/generate` request body | The field is not read; `creditsRemaining` comes from `session.credits_remaining` in KV |
 | Call `/generate` directly after `/create-payment` (skip payment) | Session `status` is `'pending'`; `/get-session` returns 403, `/generate` requires `status = 'generating'` |
-| Replay a spent session | `deleteSession()` removed the KV entry on the last credit; all subsequent calls return 404 |
+| Replay a spent session | Session transitions to `status: 'exhausted'`; `/check-session` returns the exhausted status; `/get-session` and `/generate` reject sessions not in `paid`/`ready` state |
 | Reuse `cv_text_key` from a different IP | IP-binding check rejects with 403 |
 
 ---

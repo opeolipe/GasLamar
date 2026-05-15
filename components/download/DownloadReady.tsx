@@ -128,6 +128,11 @@ export default function DownloadReady({
       if (expiryDateStr) parts.push(`Aktif sampai ${expiryDateStr}`);
       return { text: parts.join(' · '), variant: 'credits' as const };
     }
+    if (multiCredit && creditsRemaining <= 0) {
+      const parts = [`${tierLabel}`, `Semua ${totalCredits} kredit sudah terpakai`];
+      if (expiryDateStr) parts.push(`Aktif sampai ${expiryDateStr}`);
+      return { text: parts.join(' · '), variant: 'info' as const };
+    }
     if (!multiCredit) {
       return { text: 'CV bisa diakses kembali selama 7 hari', variant: 'info' as const };
     }
@@ -138,6 +143,7 @@ export default function DownloadReady({
 
   // "Upload CV baru" only makes sense when user has credits remaining.
   // When 0 credits, replace with "Mulai paket baru" to avoid false affordance.
+  const tierParam = tier ? `&tier=${encodeURIComponent(tier)}` : '';
   const secondCard = creditsRemaining > 0
     ? {
         label: 'Upload CV baru',
@@ -147,7 +153,7 @@ export default function DownloadReady({
     : {
         label: 'Mulai paket baru',
         subtitle: 'Beli paket untuk CV posisi berikutnya',
-        href: 'upload.html?new_package=1',
+        href: `upload.html?new_package=1${tierParam}`,
       };
 
   // ── Scroll helpers ─────────────────────────────────────────────────────────
@@ -165,7 +171,9 @@ export default function DownloadReady({
     if (showMultiCredit) {
       jumpTo('multi-credit-section');
     } else {
-      window.location.href = 'upload.html?new_package=1';
+      window.location.href = tier
+        ? `upload.html?new_package=1&tier=${encodeURIComponent(tier)}`
+        : 'upload.html?new_package=1';
     }
   }
 
@@ -359,13 +367,13 @@ export default function DownloadReady({
 
       {showMultiCredit && (
         <div id="next-applications" style={{ marginBottom: '1.5rem' }}>
-          <MultiCreditSection creditsRemaining={creditsRemaining} totalCredits={totalCredits} onGenerate={onGenerateNext} onUrlFetch={onUrlFetch} />
+          <MultiCreditSection creditsRemaining={creditsRemaining} totalCredits={totalCredits} tier={tier} onGenerate={onGenerateNext} onUrlFetch={onUrlFetch} />
         </div>
       )}
 
       {showUpgradeNudge && (
         <div id="upgrade-nudge" className="mb-5">
-          <UpgradeNudge showUpsell={showUpsell} />
+          <UpgradeNudge showUpsell={showUpsell} tier={tier} />
         </div>
       )}
     </>

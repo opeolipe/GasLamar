@@ -146,23 +146,39 @@ function parseHarvardLines(cvText: string): HarvardLine[] {
   });
 }
 
+// ── CV accent color ───────────────────────────────────────────────────────────
+// Deep professional navy — matches JadeAI Professional template (#1e3a5f).
+// Used for section headings, accent bars, and separator rules in both PDF and DOCX.
+const CV_ACCENT = { r: 30, g: 58, b: 95 } as const;
+const CV_ACCENT_HEX = '1E3A5F' as const;
+
 // ── Harvard PDF renderer ──────────────────────────────────────────────────────
 
 function generateHarvardPDF(cvText: string): Blob {
   const doc        = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth  = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const marginX    = 15;
-  const marginY    = 15;
+  const marginX    = 17;
+  const marginY    = 17;
   const contentW   = pageWidth - marginX * 2;
   let y            = marginY;
   const lineH      = 5.5;
+
+  const ac = CV_ACCENT;
 
   const checkPage = () => {
     if (y > pageHeight - marginY) { doc.addPage(); y = marginY; }
   };
 
-  doc.setFont('times');
+  const resetColor = () => {
+    doc.setTextColor(20, 20, 20);
+    doc.setDrawColor(0, 0, 0);
+    doc.setFillColor(0, 0, 0);
+    doc.setLineWidth(0.5);
+  };
+
+  doc.setFont('helvetica');
+  doc.setTextColor(20, 20, 20);
 
   for (let i = 0, lines = parseHarvardLines(cvText); i < lines.length; i++) {
     const { type, content } = lines[i];
@@ -172,36 +188,50 @@ function generateHarvardPDF(cvText: string): Blob {
     checkPage();
 
     if (type === 'name') {
-      doc.setFontSize(18);
-      doc.setFont('times', 'bold');
+      doc.setFontSize(24);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(20, 20, 20);
+      doc.setCharSpace(0.6);
       doc.text(content, pageWidth / 2, y, { align: 'center' });
-      y += 8;
+      doc.setCharSpace(0);
+      y += 10;
 
     } else if (type === 'contact') {
-      doc.setFontSize(10);
-      doc.setFont('times', 'normal');
+      doc.setFontSize(9.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(80, 80, 80);
       doc.text(content, pageWidth / 2, y, { align: 'center' });
+      y += 5;
+      // Thin accent rule beneath contact block — separates header from body
+      doc.setDrawColor(ac.r, ac.g, ac.b);
+      doc.setLineWidth(0.5);
+      doc.line(pageWidth / 2 - 32, y, pageWidth / 2 + 32, y);
+      resetColor();
       y += 7;
 
     } else if (type === 'heading') {
-      // Reserve space for: 5mm before-gap + ~7mm text+rule + 5mm after-gap + 2 body lines.
-      // checkPage() alone isn't enough — it only prevents y overflowing the margin,
-      // not the case where the heading fits but its first body lines don't.
-      const HEADING_NEEDED = 5 + 7 + 5 + lineH * 2;
+      // Reserve space: gap + heading row + rule + after-gap + 2 body lines
+      const HEADING_NEEDED = 5 + 6 + 2 + 5 + lineH * 2;
       if (y + HEADING_NEEDED > pageHeight - marginY) { doc.addPage(); y = marginY; }
       y += 5;
-      doc.setFontSize(11);
-      doc.setFont('times', 'bold');
+      // Left accent bar in left margin (2.5 mm wide, spanning text height)
+      doc.setFillColor(ac.r, ac.g, ac.b);
+      doc.rect(marginX - 4, y - 4.2, 2.5, 5.5, 'F');
+      // Heading text in accent color
+      doc.setFontSize(10.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(ac.r, ac.g, ac.b);
       doc.text(content.toUpperCase(), marginX, y);
-      y += 1.5;
-      doc.setDrawColor(0, 0, 0);
-      doc.setLineWidth(0.5);
-      doc.line(marginX, y, marginX + contentW, y);
-      doc.setDrawColor(0);
+      y += 2;
+      // Bottom rule spanning full content width incl. the accent bar
+      doc.setDrawColor(ac.r, ac.g, ac.b);
+      doc.setLineWidth(0.7);
+      doc.line(marginX - 4, y, marginX + contentW, y);
+      resetColor();
       y += 5;
 
     } else if (type === 'company-role') {
-      // Small gap before each role entry so roles visually separate even without a blank line.
+      // Small gap before each role entry so roles visually separate without blank lines
       if (i > 0) y += 2;
       // Look ahead past blank lines for a location-date companion
       let nextIdx = i + 1;
@@ -212,67 +242,80 @@ function generateHarvardPDF(cvText: string): Blob {
 
       if (nextLine?.type === 'location-date') {
         const [location, dateRange] = nextLine.content.split(/\s\|\s/, 2);
-        // Line 1: Company (bold-left) | Location (right)
-        doc.setFontSize(10);
-        doc.setFont('times', 'bold');
+        // Line 1: Company (bold-left) | Location (gray right)
+        doc.setFontSize(10.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(20, 20, 20);
         doc.text(parsed.company, marginX, y);
-        doc.setFont('times', 'normal');
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(85, 85, 85);
         doc.text(location?.trim() ?? '', marginX + contentW, y, { align: 'right' });
         y += lineH;
         checkPage();
-        // Line 2: Role (italic-left) | Date range (right)
-        doc.setFont('times', 'italic');
+        // Line 2: Role (italic left) | Date range (gray right)
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(60, 60, 60);
         doc.text(parsed.role || '', marginX, y);
-        doc.setFont('times', 'normal');
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(85, 85, 85);
         doc.text(dateRange?.trim() ?? '', marginX + contentW, y, { align: 'right' });
         y += lineH;
         i = nextIdx;
 
       } else if (parsed.date) {
-        // Inline-date format: Company — Role (Date)
-        doc.setFontSize(10);
-        doc.setFont('times', 'bold');
+        doc.setFontSize(10.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(20, 20, 20);
         doc.text(parsed.company, marginX, y);
-        doc.setFont('times', 'normal');
-        if (parsed.location) doc.text(parsed.location, marginX + contentW, y, { align: 'right' });
+        doc.setFont('helvetica', 'normal');
+        if (parsed.location) {
+          doc.setTextColor(85, 85, 85);
+          doc.text(parsed.location, marginX + contentW, y, { align: 'right' });
+        }
         y += lineH;
         checkPage();
-        doc.setFont('times', 'italic');
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(60, 60, 60);
         doc.text(parsed.role, marginX, y);
-        doc.setFont('times', 'normal');
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(85, 85, 85);
         doc.text(parsed.date, marginX + contentW, y, { align: 'right' });
         y += lineH;
 
       } else {
-        // Fallback: company bold then role italic on next line
-        doc.setFontSize(10);
-        doc.setFont('times', 'bold');
+        doc.setFontSize(10.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(20, 20, 20);
         doc.text(parsed.company, marginX, y);
         y += lineH;
         if (parsed.role) {
           checkPage();
-          doc.setFont('times', 'italic');
+          doc.setFont('helvetica', 'italic');
+          doc.setTextColor(60, 60, 60);
           doc.text(parsed.role, marginX, y);
           y += lineH;
         }
       }
-      doc.setFont('times', 'normal');
+      resetColor();
+      doc.setFont('helvetica', 'normal');
 
     } else if (type === 'location-date') {
-      // Orphaned (not consumed by look-ahead): render as plain text
+      // Orphaned (not consumed by look-ahead): render as gray metadata text
       doc.setFontSize(10);
-      doc.setFont('times', 'normal');
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(85, 85, 85);
       doc.text(content, marginX, y);
+      resetColor();
       y += lineH;
 
     } else if (type === 'bullet') {
       doc.setFontSize(10);
-      doc.setFont('times', 'normal');
-      // True hanging indent: '•' at bulletX, text content at contentX.
-      // Continuation lines align to contentX, not to bulletX.
-      const bulletX  = marginX + 5;
-      const contentX = marginX + 9;
-      (doc.splitTextToSize(content, contentW - 9) as string[]).forEach((l, idx) => {
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(20, 20, 20);
+      // Hanging indent: bullet marker at bulletX, wrapped text lines at contentX
+      const bulletX  = marginX + 4;
+      const contentX = marginX + 8;
+      (doc.splitTextToSize(content, contentW - 8) as string[]).forEach((l, idx) => {
         checkPage();
         if (idx === 0) doc.text('•', bulletX, y);
         doc.text(l, contentX, y);
@@ -281,12 +324,25 @@ function generateHarvardPDF(cvText: string): Blob {
 
     } else {
       doc.setFontSize(10);
-      doc.setFont('times', 'normal');
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(20, 20, 20);
       (doc.splitTextToSize(content, contentW) as string[]).forEach(l => {
         checkPage();
         doc.text(l, marginX, y);
         y += lineH;
       });
+    }
+  }
+
+  // ── Page numbers (only when > 1 page) ────────────────────────────────────────
+  const totalPages = doc.getNumberOfPages();
+  if (totalPages > 1) {
+    for (let pg = 1; pg <= totalPages; pg++) {
+      doc.setPage(pg);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(150, 150, 150);
+      doc.text(`${pg} / ${totalPages}`, pageWidth / 2, pageHeight - 7, { align: 'center' });
     }
   }
 
@@ -298,9 +354,9 @@ function generateHarvardPDF(cvText: string): Blob {
 const DOCX_BULLET_REF = 'harvard-cv-bullets';
 
 async function generateHarvardDOCX(cvText: string): Promise<Blob> {
-  // A4 = 11906 twips wide. Margins 720 twips ≈ 1.27 cm. Content width = 10466 twips.
-  const MARGIN_TWIPS  = 720;
-  const CONTENT_TWIPS = 10466;
+  // A4 = 11906 twips wide. 17 mm margins ≈ 964 twips each. Content = 9978 twips.
+  const MARGIN_TWIPS  = 964;
+  const CONTENT_TWIPS = 9978;
 
   const children: Paragraph[] = [];
 
@@ -316,25 +372,33 @@ async function generateHarvardDOCX(cvText: string): Promise<Blob> {
       children.push(new Paragraph({
         alignment: AlignmentType.CENTER,
         spacing: { after: 60 },
-        children: [new TextRun({ text: content, size: 36, font: 'Times New Roman', bold: true })],
+        children: [new TextRun({ text: content, size: 48, font: 'Calibri', bold: true, color: '141414' })],
       }));
 
     } else if (type === 'contact') {
+      // Accent bottom border acts as the separator between header and body sections
       children.push(new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { after: 120 },
-        children: [new TextRun({ text: content, size: 20, font: 'Times New Roman' })],
+        spacing: { after: 180 },
+        border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: CV_ACCENT_HEX } },
+        children: [new TextRun({ text: content, size: 19, font: 'Calibri', color: '4B4B4B' })],
       }));
 
     } else if (type === 'heading') {
+      // Left accent bar (thick left border) + navy bottom rule + navy text — JadeAI Professional style
       children.push(new Paragraph({
-        spacing: { before: 200, after: 80 },
-        border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: '000000' } },
+        spacing: { before: 220, after: 80 },
+        indent: { left: 120 },
+        border: {
+          left:   { style: BorderStyle.SINGLE, size: 24, color: CV_ACCENT_HEX, space: 8 },
+          bottom: { style: BorderStyle.SINGLE, size:  6, color: CV_ACCENT_HEX },
+        },
         children: [new TextRun({
-          text: content.toUpperCase(),
-          size: 22,
-          font: 'Times New Roman',
-          bold: true,
+          text:  content.toUpperCase(),
+          size:  22,
+          font:  'Calibri',
+          bold:  true,
+          color: CV_ACCENT_HEX,
         })],
       }));
 
@@ -347,22 +411,22 @@ async function generateHarvardDOCX(cvText: string): Promise<Blob> {
 
       if (nextLine?.type === 'location-date') {
         const [location, dateRange] = nextLine.content.split(/\s\|\s/, 2);
-        // Line 1: Company\tLocation — right tab aligns location to margin
+        // Line 1: Company (bold) | Location (gray, right-aligned)
         children.push(new Paragraph({
           tabStops: [{ type: TabStopType.RIGHT, position: CONTENT_TWIPS }],
           spacing: { after: 0 },
           children: [
-            new TextRun({ text: parsed.company + '\t', font: 'Times New Roman', size: 20, bold: true }),
-            new TextRun({ text: location?.trim() ?? '', font: 'Times New Roman', size: 20 }),
+            new TextRun({ text: parsed.company + '\t', font: 'Calibri', size: 21, bold: true, color: '141414' }),
+            new TextRun({ text: location?.trim() ?? '', font: 'Calibri', size: 19, color: '555555' }),
           ],
         }));
-        // Line 2: Role\tDate range
+        // Line 2: Role (italic) | Date range (gray, right-aligned)
         children.push(new Paragraph({
           tabStops: [{ type: TabStopType.RIGHT, position: CONTENT_TWIPS }],
           spacing: { after: 60 },
           children: [
-            new TextRun({ text: (parsed.role || '') + '\t', font: 'Times New Roman', size: 20, italics: true }),
-            new TextRun({ text: dateRange?.trim() ?? '', font: 'Times New Roman', size: 20 }),
+            new TextRun({ text: (parsed.role || '') + '\t', font: 'Calibri', size: 20, italics: true, color: '3C3C3C' }),
+            new TextRun({ text: dateRange?.trim() ?? '', font: 'Calibri', size: 19, color: '555555' }),
           ],
         }));
         i = nextIdx;
@@ -372,28 +436,28 @@ async function generateHarvardDOCX(cvText: string): Promise<Blob> {
           tabStops: [{ type: TabStopType.RIGHT, position: CONTENT_TWIPS }],
           spacing: { after: 0 },
           children: [
-            new TextRun({ text: parsed.company + '\t', font: 'Times New Roman', size: 20, bold: true }),
-            new TextRun({ text: parsed.location || '', font: 'Times New Roman', size: 20 }),
+            new TextRun({ text: parsed.company + '\t', font: 'Calibri', size: 21, bold: true, color: '141414' }),
+            new TextRun({ text: parsed.location || '', font: 'Calibri', size: 19, color: '555555' }),
           ],
         }));
         children.push(new Paragraph({
           tabStops: [{ type: TabStopType.RIGHT, position: CONTENT_TWIPS }],
           spacing: { after: 60 },
           children: [
-            new TextRun({ text: parsed.role + '\t', font: 'Times New Roman', size: 20, italics: true }),
-            new TextRun({ text: parsed.date, font: 'Times New Roman', size: 20 }),
+            new TextRun({ text: parsed.role + '\t', font: 'Calibri', size: 20, italics: true, color: '3C3C3C' }),
+            new TextRun({ text: parsed.date, font: 'Calibri', size: 19, color: '555555' }),
           ],
         }));
 
       } else {
         children.push(new Paragraph({
           spacing: { after: 40 },
-          children: [new TextRun({ text: parsed.company, font: 'Times New Roman', size: 20, bold: true })],
+          children: [new TextRun({ text: parsed.company, font: 'Calibri', size: 21, bold: true, color: '141414' })],
         }));
         if (parsed.role) {
           children.push(new Paragraph({
             spacing: { after: 60 },
-            children: [new TextRun({ text: parsed.role, font: 'Times New Roman', size: 20, italics: true })],
+            children: [new TextRun({ text: parsed.role, font: 'Calibri', size: 20, italics: true, color: '3C3C3C' })],
           }));
         }
       }
@@ -401,27 +465,27 @@ async function generateHarvardDOCX(cvText: string): Promise<Blob> {
     } else if (type === 'location-date') {
       children.push(new Paragraph({
         spacing: { after: 60 },
-        children: [new TextRun({ text: content, font: 'Times New Roman', size: 20 })],
+        children: [new TextRun({ text: content, font: 'Calibri', size: 19, color: '555555' })],
       }));
 
     } else if (type === 'bullet') {
       children.push(new Paragraph({
         numbering: { reference: DOCX_BULLET_REF, level: 0 },
         spacing: { after: 40 },
-        children: [new TextRun({ text: content, font: 'Times New Roman', size: 20 })],
+        children: [new TextRun({ text: content, font: 'Calibri', size: 20, color: '1A1A1A' })],
       }));
 
     } else if (type === 'guidance') {
       children.push(new Paragraph({
         spacing: { after: 40 },
         indent: { left: 360 },
-        children: [new TextRun({ text: content, size: 18, font: 'Times New Roman', color: '888888', italics: true })],
+        children: [new TextRun({ text: content, size: 18, font: 'Calibri', color: '888888', italics: true })],
       }));
 
     } else {
       children.push(new Paragraph({
         spacing: { after: 60 },
-        children: [new TextRun({ text: content, font: 'Times New Roman', size: 20 })],
+        children: [new TextRun({ text: content, font: 'Calibri', size: 20, color: '1A1A1A' })],
       }));
     }
   }

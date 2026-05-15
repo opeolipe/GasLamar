@@ -50,13 +50,14 @@ function wrapLines(text, font, size, maxWidth) {
 
 export async function generateInterviewKitPdf(kit) {
   const doc     = await PDFDocument.create();
-  const regular = await doc.embedFont(StandardFonts.TimesRoman);
-  const bold    = await doc.embedFont(StandardFonts.TimesRomanBold);
-  const italic  = await doc.embedFont(StandardFonts.TimesRomanItalic);
+  const regular = await doc.embedFont(StandardFonts.Helvetica);
+  const bold    = await doc.embedFont(StandardFonts.HelveticaBold);
+  const italic  = await doc.embedFont(StandardFonts.HelveticaOblique);
 
-  const ink     = rgb(0.12, 0.12, 0.12);
-  const softInk = rgb(0.33, 0.33, 0.33);
-  const rule    = rgb(0.72, 0.72, 0.72);
+  const navy    = rgb(0.118, 0.227, 0.373); // #1E3A5F
+  const ink     = rgb(0.10,  0.10,  0.10);
+  const softInk = rgb(0.35,  0.35,  0.35);
+  const rule    = rgb(0.70,  0.70,  0.70);
 
   let page = doc.addPage([PAGE_W, PAGE_H]);
   let y    = PAGE_H - MARGIN;
@@ -82,15 +83,16 @@ export async function generateInterviewKitPdf(kit) {
   function drawSectionHeader(title) {
     ensureSpace(24 + IK_STYLE.sectionGap);
     if (y < PAGE_H - MARGIN - 20) y -= IK_STYLE.sectionGap;
+    // Accent bar in left margin: dimensions match jsPDF client (2.5mm × 5.5mm → ~7pt × 16pt)
+    page.drawRectangle({ x: MARGIN - 11, y: y - 3.7, width: 7, height: 15.6, color: navy });
+    drawTextBlock(title, bold, IK_STYLE.headingSize, navy, 0);
     page.drawLine({
-      start: { x: MARGIN, y: y + 2 },
-      end:   { x: PAGE_W - MARGIN, y: y + 2 },
-      thickness: 0.4,
-      color: rule,
+      start: { x: MARGIN - 11, y: y + 1 },
+      end:   { x: PAGE_W - MARGIN, y: y + 1 },
+      thickness: 0.7,
+      color: navy,
     });
-    y -= 5;
-    drawTextBlock(title, bold, IK_STYLE.headingSize, ink);
-    y -= 1.5;
+    y -= 2.5;
   }
 
   function drawBulletLine(text, indent = 0) {
@@ -118,7 +120,7 @@ export async function generateInterviewKitPdf(kit) {
   }
 
   // Title block
-  drawTextBlock('INTERVIEW KIT', bold, IK_STYLE.titleSize, ink);
+  drawTextBlock('INTERVIEW KIT', bold, IK_STYLE.titleSize, navy);
   y -= 2.5;
   drawTextBlock('Prepared for your application workflow', italic, IK_STYLE.subtitleSize, softInk);
   y -= 9;
@@ -171,6 +173,16 @@ export async function generateInterviewKitPdf(kit) {
       if (!phrase && !meaning) return;
       drawBulletLine(`${phrase}${phrase && meaning ? ': ' : ''}${meaning}`);
       y -= 0.8;
+    });
+  }
+
+  // ── Page numbers (only when > 1 page) ────────────────────────────────────────
+  const pages = doc.getPages();
+  if (pages.length > 1) {
+    pages.forEach((pg, idx) => {
+      const label = sanitize(`${idx + 1} / ${pages.length}`);
+      const w = regular.widthOfTextAtSize(label, 8);
+      pg.drawText(label, { x: (PAGE_W - w) / 2, y: MARGIN / 2, font: regular, size: 8, color: softInk });
     });
   }
 

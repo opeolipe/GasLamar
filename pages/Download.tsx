@@ -333,10 +333,24 @@ export default function Download() {
 
   // ── Derived values ────────────────────────────────────────────────────────
 
-  const content         = generate.content;
+  const content = generate.content;
   // For exhausted sessions, generate.content is null; fall back to KV-fetched result.
   const effectiveContent = content ?? restoredContent;
   const tier             = effectiveContent?.tier ?? session.sessionData?.tier ?? null;
+
+  // Persist the optimised CV text to sessionStorage so upload.html can pre-fill
+  // the CV field when the user buys a new package from the download page.
+  // Only writes when no draft exists so a fresh user-uploaded CV is never overwritten.
+  const effectiveContentCvId = effectiveContent?.cvId ?? null;
+  useEffect(() => {
+    if (!effectiveContentCvId) return;
+    try {
+      if (!sessionStorage.getItem('gaslamar_cv_draft')) {
+        sessionStorage.setItem('gaslamar_cv_draft', JSON.stringify({ type: 'txt', data: effectiveContentCvId }));
+        sessionStorage.setItem('gaslamar_filename_draft', 'cv-dioptimasi.txt');
+      }
+    } catch (_) {}
+  }, [effectiveContentCvId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [resultData] = useState<ResultData | null>(() => {
     try {

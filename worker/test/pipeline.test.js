@@ -924,6 +924,116 @@ describe('postProcessCV', () => {
   });
 });
 
+// ── stripRepeatedPurposeSuffixes (via postProcessCV) ─────────────────────────
+
+describe('postProcessCV — purpose-suffix repetition guard', () => {
+  // Use purpose suffixes that match PURPOSE_CLAUSE_ID/EN regex but are NOT
+  // in BANNED_OUTPUT_PHRASES — otherwise step 1d strips them before we can assert.
+  function makeBullets(bullets, lang = 'id') {
+    const heading = lang === 'en' ? 'WORK EXPERIENCE' : 'PENGALAMAN KERJA';
+    return `${heading}\n${bullets.map(b => `- ${b}`).join('\n')}`;
+  }
+
+  it('keeps first two purpose-ending bullets intact (ID)', () => {
+    const b1 = 'Mengelola laporan keuangan bulanan untuk meningkatkan akurasi data tim';
+    const b2 = 'Menyiapkan dokumen pengadaan rutin untuk memperkuat proses pengadaan';
+    const b3 = 'Memproses permintaan klien harian untuk meningkatkan efisiensi respons';
+    const cv = makeBullets([b1, b2, b3]);
+    const { text } = postProcessCV(cv, cv, null, 'pdf', { language: 'id' });
+    expect(text).toContain('untuk meningkatkan akurasi data tim');
+    expect(text).toContain('untuk memperkuat proses pengadaan');
+  });
+
+  it('strips purpose suffix from 3rd+ occurrence (ID)', () => {
+    const b1 = 'Mengelola laporan keuangan bulanan untuk meningkatkan akurasi data tim';
+    const b2 = 'Menyiapkan dokumen pengadaan rutin untuk memperkuat proses pengadaan';
+    const b3 = 'Memproses permintaan klien harian untuk meningkatkan efisiensi respons';
+    const cv = makeBullets([b1, b2, b3]);
+    const { text } = postProcessCV(cv, cv, null, 'pdf', { language: 'id' });
+    expect(text).not.toMatch(/Memproses permintaan klien harian untuk meningkatkan efisiensi/);
+    expect(text).toContain('Memproses permintaan klien harian');
+  });
+
+  it('strips purpose suffix from 3rd+ occurrence (EN)', () => {
+    const b1 = 'Managed monthly financial reports to improve data accuracy across the team';
+    const b2 = 'Prepared procurement documents to strengthen internal coordination';
+    const b3 = 'Processed daily client requests to improve response efficiency';
+    const cv = makeBullets([b1, b2, b3], 'en');
+    const { text } = postProcessCV(cv, cv, null, 'pdf', { language: 'en' });
+    expect(text).not.toMatch(/Processed daily client requests to improve response/);
+    expect(text).toContain('Processed daily client requests');
+  });
+
+  it('does not strip if remaining bullet would be too short (<4 words)', () => {
+    const b1 = 'Mengelola tim besar untuk meningkatkan performa keseluruhan divisi';
+    const b2 = 'Menyiapkan laporan harian untuk memperkuat koordinasi antar departemen';
+    const b3 = 'Membantu untuk meningkatkan';  // only 1 word left after strip — guard keeps it
+    const cv = makeBullets([b1, b2, b3]);
+    const { text } = postProcessCV(cv, cv, null, 'pdf', { language: 'id' });
+    // The 3rd bullet is kept in full because stripping would leave <4 words
+    expect(text).toContain('Membantu untuk meningkatkan');
+  });
+});
+
+// ── BANNED_OUTPUT_PHRASES — passive voice + AI corporate filler ───────────────
+
+describe('postProcessCV — banned phrase stripping', () => {
+  function wrap(bullet, lang = 'id') {
+    const heading = lang === 'en' ? 'WORK EXPERIENCE' : 'PENGALAMAN KERJA';
+    return `${heading}\n- ${bullet}`;
+  }
+
+  const passivePhrases = [
+    'was responsible for',
+    'was tasked with',
+    'was assigned to',
+    'was involved in',
+    'was dedicated to',
+    'was focused on',
+    'was expected to',
+    'was required to',
+  ];
+
+  for (const phrase of passivePhrases) {
+    it(`strips passive voice phrase: "${phrase}"`, () => {
+      const bullet = `${phrase} managing client relationships across East Java region`;
+      const cv = wrap(bullet, 'en');
+      const { text } = postProcessCV(cv, cv, null, 'pdf', { language: 'en' });
+      expect(text.toLowerCase()).not.toContain(phrase);
+    });
+  }
+
+  it('strips Indonesian AI corporate filler: "rekam jejak yang solid"', () => {
+    const cv = `RINGKASAN PROFESIONAL\nProfesional berpengalaman dengan rekam jejak yang solid di industri keuangan.\n\nPENGALAMAN KERJA`;
+    const { text } = postProcessCV(cv, cv, null, 'pdf', { language: 'id' });
+    expect(text).not.toContain('rekam jejak yang solid');
+  });
+
+  it('strips English AI filler: "proven track record of delivering results"', () => {
+    const cv = `PROFESSIONAL SUMMARY\nExperienced professional with proven track record of delivering results.\n\nWORK EXPERIENCE`;
+    const { text } = postProcessCV(cv, cv, null, 'pdf', { language: 'en' });
+    expect(text).not.toContain('proven track record of delivering results');
+  });
+
+  it('strips "results-driven professional" from summary', () => {
+    const cv = `PROFESSIONAL SUMMARY\nResults-driven professional with 5 years in FMCG sales.\n\nWORK EXPERIENCE`;
+    const { text } = postProcessCV(cv, cv, null, 'pdf', { language: 'en' });
+    expect(text).not.toContain('results-driven professional');
+  });
+
+  it('strips "in a fast-paced and dynamic environment"', () => {
+    const cv = `PROFESSIONAL SUMMARY\nDelivered strong performance in a fast-paced and dynamic environment.\n\nWORK EXPERIENCE`;
+    const { text } = postProcessCV(cv, cv, null, 'pdf', { language: 'en' });
+    expect(text).not.toContain('in a fast-paced and dynamic environment');
+  });
+
+  it('stripping is case-insensitive', () => {
+    const cv = `WORK EXPERIENCE\n- Was Responsible For managing the entire distribution network`;
+    const { text } = postProcessCV(cv, cv, null, 'pdf', { language: 'en' });
+    expect(text.toLowerCase()).not.toContain('was responsible for');
+  });
+});
+
 // ── Role inference ────────────────────────────────────────────────────────────
 
 function makeExtracted(overrides = {}) {
