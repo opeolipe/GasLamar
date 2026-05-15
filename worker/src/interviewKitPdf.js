@@ -83,13 +83,13 @@ export async function generateInterviewKitPdf(kit) {
   function drawSectionHeader(title) {
     ensureSpace(24 + IK_STYLE.sectionGap);
     if (y < PAGE_H - MARGIN - 20) y -= IK_STYLE.sectionGap;
-    page.drawRectangle({ x: MARGIN, y: y - 2, width: 2.5, height: IK_STYLE.headingSize + 2, color: navy });
-    y -= 2;
-    drawTextBlock(title, bold, IK_STYLE.headingSize, navy, 6);
+    // Accent bar in left margin: dimensions match jsPDF client (2.5mm × 5.5mm → ~7pt × 16pt)
+    page.drawRectangle({ x: MARGIN - 11, y: y - 3.7, width: 7, height: 15.6, color: navy });
+    drawTextBlock(title, bold, IK_STYLE.headingSize, navy, 0);
     page.drawLine({
-      start: { x: MARGIN, y: y + 1 },
+      start: { x: MARGIN - 11, y: y + 1 },
       end:   { x: PAGE_W - MARGIN, y: y + 1 },
-      thickness: 0.4,
+      thickness: 0.7,
       color: navy,
     });
     y -= 2.5;

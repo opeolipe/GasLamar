@@ -18,11 +18,11 @@ const CV_SECTION_HEADINGS = new Set([
 
 const EXPORT_STYLE = {
   bodyPt: 10.5,
-  headingPt: 11,
+  headingPt: 10.5,
   linePt: 14,
   paraGapPt: 7,
-  bulletIndentPt: 14,
-  bulletTextIndentPt: 26,
+  bulletIndentPt: 11,
+  bulletTextIndentPt: 23,
 };
 
 function sanitize(str) {
@@ -179,11 +179,11 @@ export async function generateCVPdf(cvText) {
 
     if (!nameFound && type !== 'blank') {
       nameFound = true;
-      ensureSpace(26);
+      ensureSpace(30);
       const safe = sanitize(content);
-      const w = textWidth(safe, bold, 18);
-      page.drawText(safe, { x: (PAGE_W - w) / 2, y, font: bold, size: 18, color: navy });
-      y -= 24;
+      const w = textWidth(safe, bold, 24);
+      page.drawText(safe, { x: (PAGE_W - w) / 2, y, font: bold, size: 24, color: dark });
+      y -= 28;
       continue;
     }
 
@@ -191,22 +191,23 @@ export async function generateCVPdf(cvText) {
       contactFound = true;
       ensureSpace(18);
       const safe = sanitize(content);
-      const w = textWidth(safe, regular, 9);
-      page.drawText(safe, { x: (PAGE_W - w) / 2, y, font: regular, size: 9, color: gray });
+      const w = textWidth(safe, regular, 9.5);
+      page.drawText(safe, { x: (PAGE_W - w) / 2, y, font: regular, size: 9.5, color: gray });
       y -= 13;
       const lineW = 180;
-      page.drawLine({ start: { x: (PAGE_W - lineW) / 2, y }, end: { x: (PAGE_W + lineW) / 2, y }, thickness: 0.8, color: navy });
+      page.drawLine({ start: { x: (PAGE_W - lineW) / 2, y }, end: { x: (PAGE_W + lineW) / 2, y }, thickness: 0.5, color: navy });
       y -= 9;
       continue;
     }
 
     if (type === 'heading') {
-      ensureSpace(22);
+      ensureSpace(49); // heading block + 2 body lines (orphan guard)
       y -= 4;
-      // accent bar on left
-      page.drawRectangle({ x: MARGIN, y: y - 2, width: 2.5, height: EXPORT_STYLE.headingPt + 2, color: navy });
-      drawWrapped(content.toUpperCase(), bold, EXPORT_STYLE.headingPt, navy, 6, EXPORT_STYLE.linePt);
-      page.drawLine({ start: { x: MARGIN, y: y + 1 }, end: { x: PAGE_W - MARGIN, y: y + 1 }, thickness: 0.4, color: navy });
+      // Accent bar in left margin: dimensions match jsPDF client (2.5mm × 5.5mm → ~7pt × 16pt)
+      page.drawRectangle({ x: MARGIN - 11, y: y - 3.7, width: 7, height: 15.6, color: navy });
+      drawWrapped(content.toUpperCase(), bold, EXPORT_STYLE.headingPt, navy, 0, EXPORT_STYLE.linePt);
+      // Bottom rule spanning from accent bar to right margin
+      page.drawLine({ start: { x: MARGIN - 11, y: y + 1 }, end: { x: PAGE_W - MARGIN, y: y + 1 }, thickness: 0.7, color: navy });
       y -= 3;
       continue;
     }
