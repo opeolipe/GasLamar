@@ -198,21 +198,31 @@ YANG BOLEH DIUBAH:
 - Urutan keahlian (prioritaskan yang sesuai JD)
 
 Output CV dalam Bahasa Indonesia dengan urutan section di atas:
-- RINGKASAN PROFESIONAL: 3-4 kalimat, highlight yang paling relevan untuk posisi ini
-- PENGALAMAN KERJA: bullet points dengan kata kerja aktif Harvard, kuantifikasi achievement
+- RINGKASAN PROFESIONAL: 2–3 kalimat, highlight yang paling relevan untuk posisi ini
+- PENGALAMAN KERJA: bullet points dengan kata kerja aktif, kuantifikasi achievement
 - PENDIDIKAN
 - KEAHLIAN: Core Skills | Tools | Bahasa
 
 Output hanya teks CV, tidak ada komentar atau penjelasan tambahan.
 
 VERIFIKASI WAJIB sebelum output (cek setiap poin):
-· Setiap bullet dimulai dengan kata kerja aktif Harvard
+· Setiap bullet dimulai dengan kata kerja aktif
 · Tidak ada angka baru yang tidak ada di Ground Truth di atas
 · Keyword penting dari JD muncul secara alami di bullets yang relevan
 · Summary mencerminkan level seniority dari CV asli (bukan generik)
 · Tidak ada placeholder [...] dalam output
 · Nama, perusahaan, jabatan, tanggal — identik dengan CV asli
-· Setiap bullet 8–18 kata, satu baris`;
+· Setiap bullet 8–14 kata, satu baris
+· Tidak ada bullet berakhiran tujuan samar ("untuk meningkatkan...", "untuk memastikan...")
+· Tidak ada bullet yang berstruktur identik satu sama lain
+· Tidak ada kalimat pasif di bullets (Dilakukan / Dikerjakan / Ditugaskan / Diberikan)
+
+UJI PEMBACA sebelum finalisasi — bayangkan tiga pembaca membaca CV ini:
+1. HR Rekruter (scan 7 detik): apakah info penting langsung terlihat? bullet mudah dibaca?
+2. Hiring Manager (tahu industri): apakah bullet terdengar nyata dan relevan industri? atau terdengar generik?
+3. Rekan kerja (langsung curiga AI): apakah ada kalimat yang terdengar seperti template AI? jika ya, sederhanakan
+
+UJI BULLET GENERIK: Untuk setiap bullet, tanya — apakah bullet ini bisa ditulis oleh siapa saja di posisi ini? Jika iya, tambahkan SATU detail spesifik yang hanya kandidat ini punya: nama klien, wilayah, sistem, atau produk — yang sudah ada di CV asli.`;
 
     const result = await callClaude(env, systemPrompt, 'Tailoring CV sekarang.', 4096, 'claude-haiku-4-5-20251001');
     let text = result?.content?.[0]?.text?.trim() ?? '';
@@ -317,21 +327,32 @@ WHAT YOU MAY CHANGE:
 - Skills ordering (prioritize those matching the JD)
 
 Output the CV in English with sections in that order:
-- PROFESSIONAL SUMMARY: 3-4 sentences, highlight most relevant for this role
-- WORK EXPERIENCE: Harvard action verb bullets, quantified achievements (only original numbers)
+- PROFESSIONAL SUMMARY: 2–3 sentences, highlight most relevant for this role
+- WORK EXPERIENCE: action verb bullets, quantified achievements (only original numbers)
 - EDUCATION
 - SKILLS: Core Skills | Tools | Languages
 
 Output only the CV text, no additional comments.
 
 MANDATORY VERIFICATION before output (check every point):
-· Every bullet starts with a Harvard action verb
+· Every bullet starts with an action verb
 · No new numbers not present in Ground Truth above
 · Key JD keywords appear naturally in relevant bullets
 · Summary reflects the candidate's actual seniority level (not generic)
 · No placeholders [...] anywhere in output
 · Names, companies, titles, dates — identical to original CV
-· Every bullet is 8–18 words, one line`;
+· Every bullet is 8–14 words, one line
+· No bullet ends with a vague purpose clause ("to improve...", "to ensure...", "to support...")
+· No two bullets are structurally identical
+· No passive voice in any bullet (Was responsible for / Was tasked with / Was involved in)
+· Verb tense: simple past for ended roles, present simple for current role ("Sekarang" / "present" date)
+
+READER PERSONA TEST before finalising — check through three readers:
+1. HR Recruiter (7-second scan): is the key info immediately visible? are bullets easy to scan?
+2. Hiring Manager (knows the industry): do bullets sound real and industry-specific? or generic?
+3. Peer colleague (spots AI instantly): does any sentence sound like an AI template? if yes, simplify it
+
+GENERIC BULLET TEST: For each bullet, ask — could this apply to any person in this role at any similar company? If yes, add ONE specific detail only this candidate could write: a client name, region, system, or product — already present in the original CV.`;
 
     const result = await callClaude(env, systemPrompt, 'Tailor the CV now.', 4096, 'claude-haiku-4-5-20251001');
     let text = result?.content?.[0]?.text?.trim() ?? '';

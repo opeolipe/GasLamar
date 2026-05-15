@@ -71,8 +71,9 @@ const SUMMARY_START_RE = /^(?:RINGKASAN\s+(?:PROFESIONAL|EKSEKUTIF|SINGKAT)|PROF
 const SUMMARY_END_RE   = /^(?:PENGALAMAN\s+KERJA|WORK\s+EXPERIENCE|EMPLOYMENT\s+HISTORY|PENDIDIKAN|EDUCATION|KEAHLIAN|SKILLS|TECHNICAL\s+SKILLS|SERTIFIKASI|CERTIFICATIONS)\s*$/i;
 
 // Phrases that must never appear in final CV output — stripped as a last defence.
+// SYNC: Must stay identical to shared/rewriteRules.js BANNED_OUTPUT_PHRASES.
 const BANNED_OUTPUT_PHRASES = [
-  // Indonesian
+  // Indonesian — placeholder artifacts
   'dengan hasil yang lebih jelas dan terstruktur',
   'yang relevan dengan posisi yang ditargetkan',
   '[sebutkan angka nyata]',
@@ -83,7 +84,19 @@ const BANNED_OUTPUT_PHRASES = [
   'masukkan angka',
   'tambahkan angka',
   'isi dengan angka',
-  // English
+  // Indonesian — AI corporate filler
+  'rekam jejak yang solid',
+  'rekam jejak solid',
+  'hasil yang terukur dan berkelanjutan',
+  'secara terstruktur dan efisien',
+  'dalam lingkungan yang dinamis',
+  'komitmen terhadap profesionalisme',
+  'berorientasi pada hasil',
+  'untuk mendukung pertumbuhan bisnis perusahaan',
+  'untuk memastikan kelancaran operasional',
+  'untuk mendukung operasional perusahaan',
+  'secara proaktif dan terstruktur',
+  // English — placeholder artifacts
   'with clearer and more structured results',
   'relevant to the target position',
   '[add specific number]',
@@ -91,11 +104,28 @@ const BANNED_OUTPUT_PHRASES = [
   'mention specific tools',
   'insert specific number',
   'add specific tools',
-  // Anti-AI repetitive suffixes
+  // English — passive voice openers (always wrong in CV bullets)
+  'was responsible for',
+  'was tasked with',
+  'was assigned to',
+  'was involved in',
+  'was dedicated to',
+  'was focused on',
+  'was expected to',
+  'was required to',
+  // English — AI corporate filler
+  'proven track record of delivering results',
+  'results-driven professional',
+  'highly motivated individual',
+  'in a fast-paced and dynamic environment',
+  'commitment to professionalism',
+  'to support business growth objectives',
+  'to ensure smooth operational continuity',
+  'to demonstrate concrete and measurable work impact',
+  // Anti-AI repetitive suffixes (kept from before)
   'untuk menunjukkan dampak kerja yang konkret dan terukur',
   'dengan fokus pada peran dan hasil yang spesifik',
   'dengan konteks skill yang dibutuhkan untuk role ini',
-  'to demonstrate concrete and measurable work impact',
   'with focus on specific roles and outcomes',
   'with the skill context needed for this role',
 ];
@@ -374,6 +404,38 @@ function buildSafeSummary(cvText, lang = 'id') {
   return 'Profesional berpengalaman yang siap berkontribusi untuk posisi yang ditargetkan.';
 }
 
+// ── Purpose-suffix repetition guard ──────────────────────────────────────────
+
+// Detects bullets ending with a vague "untuk [generic-verb]..." purpose clause
+// — a common AI generation artifact. Strips the suffix from the 3rd+ occurrence
+// so the first two (which may be legitimate) are kept intact.
+const PURPOSE_CLAUSE_ID = /\s+untuk\s+(?:meningkatkan|memastikan|mendukung|menunjukkan|mengoptimalkan|memperkuat|membantu|mencapai|mewujudkan|mempertahankan|memperbaiki)\b[^.\n]*$/i;
+const PURPOSE_CLAUSE_EN = /\s+to\s+(?:improve|ensure|support|demonstrate|optimize|strengthen|help|achieve|maintain|enhance|facilitate|drive)\b[^.\n]*$/i;
+
+function stripRepeatedPurposeSuffixes(text, language = 'id') {
+  const PURPOSE_RE = language === 'en' ? PURPOSE_CLAUSE_EN : PURPOSE_CLAUSE_ID;
+  const lines = text.split('\n');
+  let purposeCount = 0;
+  const result = lines.map(line => {
+    const t = line.trim();
+    if (!isBulletLine(t)) return line;
+    if (PURPOSE_RE.test(t)) {
+      purposeCount++;
+      if (purposeCount > 2) {
+        const prefix = line.match(/^(\s*[-•*]\s*)/)?.[1] ?? '';
+        const clean = cleanLine(t);
+        const stripped = clean.replace(PURPOSE_RE, '').trim();
+        // Only strip if the remaining bullet is still meaningful (≥4 words)
+        if (stripped.split(/\s+/).filter(w => w.length > 0).length >= 4) {
+          return prefix + stripped;
+        }
+      }
+    }
+    return line;
+  });
+  return result.join('\n');
+}
+
 // ── Safe fallback ─────────────────────────────────────────────────────────────
 
 function safeRewriteLine(original, issue, lang = 'id') {
@@ -481,7 +543,10 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
   // Step 1b: strip any remaining LLM placeholder brackets from ALL lines
   result = result.replace(/\[[^\]]{1,60}\]/g, '').replace(/[ \t]{2,}/g, ' ');
 
-  // Step 1c: strip banned output phrases (AI artifacts) — regexes pre-compiled at module load
+  // Step 1c: strip overused purpose-ending suffixes (AI repetition pattern)
+  result = stripRepeatedPurposeSuffixes(result, language);
+
+  // Step 1d: strip banned output phrases (AI artifacts) — regexes pre-compiled at module load
   for (const re of BANNED_OUTPUT_REGEXES) {
     result = result.replace(re, '');
   }
