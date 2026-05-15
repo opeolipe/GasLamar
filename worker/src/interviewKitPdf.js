@@ -113,7 +113,7 @@ export async function generateInterviewKitPdf(kit) {
 
   function cleanValue(value) {
     return String(value || '')
-      .replace(/^\s{0,3}#{1,6}\s*/gm, '')
+      .replace(/^\s{0,3}#{1,6}(?=\s*[A-Za-z\u00C0-\u017E])\s*/gm, '')
       .replace(/\[[^\]]{1,80}\]/g, '')
       .replace(/(?:\*\*|__|```)/g, '')
       .trim();

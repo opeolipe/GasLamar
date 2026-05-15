@@ -282,7 +282,7 @@ export function cleanLine(text) {
 }
 
 function stripMarkdownHeadingPrefix(text) {
-  return String(text || '').replace(/^\s{0,3}#{1,6}\s*/, '').trimEnd();
+  return String(text || '').replace(/^\s{0,3}#{1,6}(?=\s*[A-Za-z\u00C0-\u017E])\s*/, '').trimEnd();
 }
 
 function normalizeLanguageLine(text, language = 'id') {
