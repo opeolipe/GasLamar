@@ -120,12 +120,26 @@ function validateExportLines(parsed) {
   return hasHeading ? out : parsed.filter(r => r.type !== 'noise');
 }
 
+// ── parseExperienceLine ───────────────────────────────────────────────────────
+// Splits "Company — Role (Dates)" or "Company — Role" into structured parts.
+function parseExperienceLine(line) {
+  const withDate = line.match(/^(.*?)\s*[—–-]\s*(.*?)\s*\(([^)]+)\)\s*$/);
+  if (withDate) {
+    return { company: withDate[1].trim(), role: withDate[2].trim(), date: withDate[3].trim(), location: '' };
+  }
+  const dashOnly = line.match(/^(.*?)\s*[—–]\s*(.+)$/);
+  if (dashOnly) {
+    return { company: dashOnly[1].trim(), role: dashOnly[2].trim(), date: '', location: '' };
+  }
+  return { company: line, role: '', date: '', location: '' };
+}
+
 // ── generateDOCX ──────────────────────────────────────────────────────────────
 // Renders CV text into a .docx file and triggers a browser download.
 // Uses the docx.js UMD build loaded via <script> in download.html.
 function generateDOCX(cvText, lang, tier) {
   try {
-    const { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } = docx;
+    const { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle, TabStopType } = docx;
     let parsed = validateExportLines(parseLines(cvText));
     if (lang === 'id') {
       parsed = parsed.map(row => ({ ...row, content: localizeIndonesianText(row.content) }));
@@ -185,12 +199,35 @@ function generateDOCX(cvText, lang, tier) {
         }));
 
       } else if (type === 'role') {
+        // Look ahead past blanks for the companion meta (location-date) line
+        let nextIdx = idx + 1;
+        while (nextIdx < parsed.length && parsed[nextIdx].type === 'blank') nextIdx++;
+        const companion = nextIdx < parsed.length && parsed[nextIdx].type === 'meta' ? parsed[nextIdx] : null;
+        const exp = parseExperienceLine(content);
+        const [location, dateRange] = companion ? companion.content.split(/\s\|\s/, 2) : ['', ''];
+
+        // Line 1: Company (bold) TAB Location (gray, right-aligned via tab stop)
         children.push(new Paragraph({
-          children: [new TextRun({ text: content, size: S.bodyHalfPt + 1, bold: true, font: EXPORT_STYLE.fontFamily, color: '141414' })],
-          spacing: { after: S.spaceAfterBodyTwip },
+          tabStops: [{ type: TabStopType.RIGHT, position: S.contentTwip }],
+          spacing: { after: 0 },
           keepLines: true,
           keepNext: true,
+          children: [
+            new TextRun({ text: (exp.company || content) + '\t', size: S.bodyHalfPt + 1, bold: true, font: EXPORT_STYLE.fontFamily, color: '141414' }),
+            new TextRun({ text: (location || exp.location || '').trim(), size: 19, font: EXPORT_STYLE.fontFamily, color: '555555' }),
+          ],
         }));
+        // Line 2: Role (italic) TAB Date range (gray, right-aligned)
+        children.push(new Paragraph({
+          tabStops: [{ type: TabStopType.RIGHT, position: S.contentTwip }],
+          spacing: { after: S.spaceAfterBodyTwip },
+          keepLines: true,
+          children: [
+            new TextRun({ text: (exp.role || '') + '\t', size: 19, font: EXPORT_STYLE.fontFamily, italics: true, color: '555555' }),
+            new TextRun({ text: (dateRange || exp.date || '').trim(), size: 19, font: EXPORT_STYLE.fontFamily, color: '555555' }),
+          ],
+        }));
+        if (companion) idx = nextIdx; // skip consumed meta line
 
       } else if (type === 'meta') {
         children.push(new Paragraph({
@@ -283,7 +320,8 @@ function generatePDF(cvText, lang, tier) {
       }
     }
 
-    for (const { type, content } of parsed) {
+    for (let i = 0; i < parsed.length; i++) {
+      const { type, content } = parsed[i];
       if (type === 'blank') {
         if (lastType === 'blank') continue;
         y += EXPORT_STYLE.paraGapMm;
@@ -347,17 +385,39 @@ function generatePDF(cvText, lang, tier) {
       }
 
       if (type === 'role') {
-        ensureSpace(EXPORT_STYLE.lineMm);
+        // Look ahead past blanks for the companion meta (location-date) line
+        let nextIdx = i + 1;
+        while (nextIdx < parsed.length && parsed[nextIdx].type === 'blank') nextIdx++;
+        const companion = nextIdx < parsed.length && parsed[nextIdx].type === 'meta' ? parsed[nextIdx] : null;
+        const exp = parseExperienceLine(content);
+        const [location, dateRange] = companion ? companion.content.split(/\s\|\s/, 2) : ['', ''];
+
+        ensureSpace(EXPORT_STYLE.lineMm * 2 + 1);
+        // Line 1: Company (bold-left) | Location (gray right-aligned)
         doc.setFontSize(EXPORT_STYLE.bodyPt);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(20, 20, 20);
-        const roleLines = doc.splitTextToSize(content, contentWidth);
-        for (const line of roleLines) {
-          ensureSpace(EXPORT_STYLE.lineMm);
-          doc.text(line, marginX, y);
-          y += EXPORT_STYLE.lineMm;
+        doc.text(exp.company || content, marginX, y);
+        const loc = (location || exp.location || '').trim();
+        if (loc) {
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(75, 75, 75);
+          doc.text(loc, marginX + contentWidth, y, { align: 'right' });
         }
-        y += 0.5;
+        y += EXPORT_STYLE.lineMm;
+        // Line 2: Role (italic-left) | Date range (gray right-aligned)
+        ensureSpace(EXPORT_STYLE.lineMm);
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(60, 60, 60);
+        doc.text(exp.role || '', marginX, y);
+        const dr = (dateRange || exp.date || '').trim();
+        if (dr) {
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(75, 75, 75);
+          doc.text(dr, marginX + contentWidth, y, { align: 'right' });
+        }
+        y += EXPORT_STYLE.lineMm + 0.5;
+        if (companion) i = nextIdx; // skip consumed meta line
         resetColor();
         lastType = 'role';
         continue;
@@ -420,6 +480,18 @@ function generatePDF(cvText, lang, tier) {
         y += EXPORT_STYLE.lineMm;
       }
       lastType = 'text';
+    }
+
+    // ── Page numbers (only when > 1 page) ──────────────────────────────────────
+    const totalPages = doc.getNumberOfPages();
+    if (totalPages > 1) {
+      for (let pg = 1; pg <= totalPages; pg++) {
+        doc.setPage(pg);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(150, 150, 150);
+        doc.text(`${pg} / ${totalPages}`, pageWidth / 2, pageHeight - 7, { align: 'center' });
+      }
     }
 
     const filename = buildCVFilename(cvText, cvDataCache ? cvDataCache.job_title : null, cvDataCache ? cvDataCache.company : null, lang, 'pdf');
