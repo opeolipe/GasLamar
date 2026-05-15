@@ -37,7 +37,7 @@ function sanitize(str) {
 
 function normalizeCvLine(line, isIndonesian = false) {
   let text = String(line || '')
-    .replace(/^\s{0,3}#{1,6}\s*/, '')     // markdown headings
+    .replace(/^\s{0,3}#{1,6}(?=\s*[A-Za-z\u00C0-\u017E])\s*/, '') // markdown headings
     .replace(/\*\*(.*?)\*\*/g, '$1')      // bold markdown
     .replace(/__(.*?)__/g, '$1')          // underscore bold
     .replace(/\s+/g, ' ')

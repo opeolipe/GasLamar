@@ -4,6 +4,32 @@ import { generateInterviewKitPdf } from './interviewKitPdf.js';
 import { generateCVPdf } from './cvPdf.js';
 import { KV_CV_RESULT_PREFIX } from './constants.js';
 
+function sanitizeFinalExportText(text) {
+  return String(text || '')
+    .split('\n')
+    .map((line) =>
+      line
+        .replace(/^\s{0,3}#{1,6}(?=\s*[A-Za-z\u00C0-\u017E])\s*/, '')
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .replace(/__(.*?)__/g, '$1')
+        .trimEnd()
+    )
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function sanitizeInterviewKitPayload(value) {
+  if (typeof value === 'string') return sanitizeFinalExportText(value);
+  if (Array.isArray(value)) return value.map(sanitizeInterviewKitPayload);
+  if (value && typeof value === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) out[k] = sanitizeInterviewKitPayload(v);
+    return out;
+  }
+  return value;
+}
+
 function toBase64(bytes) {
   let binary = '';
   for (let i = 0; i < bytes.length; i++) {
@@ -277,9 +303,14 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
     if (cvResult) {
       const cvTier = cvResult.tier ?? session.tier;
       const isBilingualTier = cvTier !== 'coba';
+      const sanitizedIdCv = typeof cvResult.cv_id === 'string' ? sanitizeFinalExportText(cvResult.cv_id) : null;
+      const sanitizedEnCv = typeof cvResult.cv_en === 'string' ? sanitizeFinalExportText(cvResult.cv_en) : null;
+      // Keep DOCX variants sanitized too for parity and future attachment support.
+      if (typeof cvResult.cv_id_docx === 'string') cvResult.cv_id_docx = sanitizeFinalExportText(cvResult.cv_id_docx);
+      if (typeof cvResult.cv_en_docx === 'string') cvResult.cv_en_docx = sanitizeFinalExportText(cvResult.cv_en_docx);
 
-      if (cvResult.cv_id) {
-        const pdfId = await generateCVPdf(cvResult.cv_id);
+      if (sanitizedIdCv) {
+        const pdfId = await generateCVPdf(sanitizedIdCv);
         const nameParts = [
           cvResult.job_title ? cvResult.job_title.replace(/[^a-zA-Z0-9\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 30) : null,
           cvResult.company   ? cvResult.company.replace(/[^a-zA-Z0-9\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 20)   : null,
@@ -288,8 +319,8 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
         attachments.push({ filename: idFilename, content: toBase64(pdfId) });
       }
 
-      if (isBilingualTier && cvResult.cv_en) {
-        const pdfEn = await generateCVPdf(cvResult.cv_en);
+      if (isBilingualTier && sanitizedEnCv) {
+        const pdfEn = await generateCVPdf(sanitizedEnCv);
         const nameParts = [
           cvResult.job_title ? cvResult.job_title.replace(/[^a-zA-Z0-9\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 30) : null,
           cvResult.company   ? cvResult.company.replace(/[^a-zA-Z0-9\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 20)   : null,
@@ -307,7 +338,8 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
   try {
     const kitData = await readKitForEmail(env, sessionId);
     if (kitData) {
-      const pdfBytes = await generateInterviewKitPdf(kitData);
+      const sanitizedKitData = sanitizeInterviewKitPayload(kitData);
+      const pdfBytes = await generateInterviewKitPdf(sanitizedKitData);
       attachments.push({ filename: 'interview-kit.pdf', content: toBase64(pdfBytes) });
     }
   } catch {
