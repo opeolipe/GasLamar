@@ -15,8 +15,9 @@ import {
 } from '@/lib/uploadValidation';
 import { evaluateJDQuality }          from '@/utils/evaluateJDQuality';
 import { WORKER_URL, clearClientSessionData } from '@/lib/sessionUtils';
+import { PAGE_BG, NAV_STYLE, MAIN_CONTAINER_CLASS, MAIN_CONTAINER_MAX } from '@/lib/pageChrome';
 
-const SHADOW = '0 18px 44px rgba(15, 23, 42, 0.08)';
+const SHADOW = '0 18px 44px rgba(15,23,42,0.07), 0 1px 2px rgba(15,23,42,0.04)';
 
 type NoticeType = 'info' | 'warning' | 'error';
 interface Notice {
@@ -393,7 +394,7 @@ export default function Upload() {
   return (
     <div
       className="min-h-dvh w-full overflow-x-hidden text-gray-900 font-sans"
-      style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37,99,235,0.07), transparent)' }}
+      style={{ background: PAGE_BG }}
     >
       {/* Skip link */}
       <a
@@ -406,14 +407,14 @@ export default function Upload() {
       {/* Navbar */}
       <nav
         className="border-b py-4 px-6 flex items-center sticky top-0 z-50 backdrop-blur-[14px]"
-        style={{ borderColor: 'rgba(148,163,184,0.18)', background: 'rgba(255,255,255,0.88)' }}
+        style={NAV_STYLE}
       >
         <a href="index.html" className="no-underline min-h-[44px] inline-flex items-center">
           <img src="assets/logo.svg" alt="GasLamar" height="28" style={{ display: 'block' }} />
         </a>
       </nav>
 
-      <main className="w-full max-w-screen-xl mx-auto px-6 pt-12 pb-8" id="upload-form">
+      <main className={MAIN_CONTAINER_CLASS} style={{ maxWidth: MAIN_CONTAINER_MAX }} id="upload-form">
 
         {/* Notices */}
         {notices.map((n, i) => (
@@ -426,7 +427,7 @@ export default function Upload() {
         ))}
 
         {/* ZONE 1: Hero */}
-        <div className="text-center mb-10">
+        <div className="text-center mb-8">
           <h1
             className="font-bold leading-[1.1] text-slate-900 mb-0 mx-auto"
             style={{
@@ -468,8 +469,8 @@ export default function Upload() {
         <div
           className="w-full rounded-[24px] px-4 py-5 sm:px-8 sm:py-8 max-w-4xl mx-auto"
           style={{
-            background:     'rgba(255,255,255,0.90)',
-            border:         '1px solid rgba(148,163,184,0.13)',
+            background:     'rgba(255,255,255,0.92)',
+            border:         '1px solid rgba(148,163,184,0.14)',
             boxShadow:      SHADOW,
             backdropFilter: 'blur(14px)',
           }}

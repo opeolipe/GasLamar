@@ -7,8 +7,9 @@ import TrustRotator             from '@/components/analyzing/TrustRotator';
 import AnalysisError            from '@/components/analyzing/AnalysisError';
 import { useAnalysis }          from '@/hooks/useAnalysisPolling';
 import { extractCandidateDisplayName } from '@/lib/analysisUtils';
+import { PAGE_BG, NAV_STYLE }   from '@/lib/pageChrome';
 
-const SHADOW = '0 18px 44px rgba(15, 23, 42, 0.08)';
+const SHADOW = '0 18px 44px rgba(15,23,42,0.07), 0 1px 2px rgba(15,23,42,0.04)';
 
 const KEYFRAMES = `
   @keyframes gasAnalysisPulse {
@@ -146,7 +147,7 @@ export default function Analyzing() {
   return (
     <div
       className="min-h-dvh text-gray-900 font-sans"
-      style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -20%,rgba(37,99,235,0.08),transparent)' }}
+      style={{ background: PAGE_BG }}
     >
       <style>{KEYFRAMES}</style>
       <a
@@ -158,7 +159,7 @@ export default function Analyzing() {
 
       <nav
         className="border-b py-4 px-6 flex items-center sticky top-0 z-50 backdrop-blur-[14px]"
-        style={{ borderColor: 'rgba(148,163,184,0.18)', background: 'rgba(255,255,255,0.88)' }}
+        style={NAV_STYLE}
         aria-label="Site navigation"
       >
         <a href="index.html" className="no-underline inline-flex items-center min-h-[44px]">
@@ -170,7 +171,7 @@ export default function Analyzing() {
         <div
           className="rounded-[24px] px-6 py-6 sm:px-8 sm:py-9"
           style={{
-            background:     'rgba(255,255,255,0.88)',
+            background:     'rgba(255,255,255,0.92)',
             border:         '1px solid rgba(148,163,184,0.14)',
             boxShadow:      SHADOW,
             backdropFilter: 'blur(14px)',

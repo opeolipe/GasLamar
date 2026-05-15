@@ -19,6 +19,12 @@ import {
   buildSecretHeaders,
 } from '@/lib/sessionUtils';
 import { buildResultData } from '@/lib/resultUtils';
+import {
+  PAGE_BG,
+  NAV_STYLE,
+  MAIN_CONTAINER_CLASS,
+  MAIN_CONTAINER_MAX,
+} from '@/lib/pageChrome';
 import type { ResultData } from '@/types/result';
 import SessionError          from '@/components/download/SessionError';
 import WaitingPayment        from '@/components/download/WaitingPayment';
@@ -380,7 +386,7 @@ export default function Download() {
   return (
     <div
       className="min-h-dvh text-gray-900 font-sans"
-      style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37,99,235,0.08), transparent)' }}
+      style={{ background: PAGE_BG }}
     >
       {/* Skip link */}
       <a
@@ -413,9 +419,7 @@ export default function Download() {
         className="sticky z-50 flex items-center px-6 py-4"
         style={{
           top:          bannerHeight > 0 ? `${bannerHeight}px` : '0',
-          background:   'rgba(255,255,255,0.88)',
-          borderBottom: '1px solid rgba(148,163,184,0.18)',
-          backdropFilter: 'blur(14px)',
+          ...NAV_STYLE,
         }}
         aria-label="Site navigation"
       >
@@ -427,8 +431,8 @@ export default function Download() {
       {/* Main content */}
       <main
         id="download-main"
-        className="mx-auto px-5 sm:px-8 py-8 pb-20"
-        style={{ maxWidth: 1040, paddingTop: bannerHeight > 0 ? `calc(2rem + ${bannerHeight}px)` : '2rem' }}
+        className={MAIN_CONTAINER_CLASS}
+        style={{ maxWidth: MAIN_CONTAINER_MAX, paddingTop: bannerHeight > 0 ? `calc(2rem + ${bannerHeight}px)` : '2rem' }}
       >
         {view === 'error' && sessionError && !delivery && (
           <div style={{ maxWidth: 480, margin: '0 auto' }}>
