@@ -5,6 +5,21 @@ import { sha256Hex }       from './utils.js';
 import { postProcessCV }   from './rewriteGuard.js';
 import { GEN_KEY_PREFIX_ID, GEN_KEY_PREFIX_EN } from './cacheVersions.js';
 
+function sanitizeFinalExportText(text) {
+  return String(text || '')
+    .split('\n')
+    .map((line) =>
+      line
+        .replace(/^\s{0,3}#{1,6}(?=\s*[A-Za-z\u00C0-\u017E])\s*/, '')
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .replace(/__(.*?)__/g, '$1')
+        .trimEnd()
+    )
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 /**
  * Returns the first missing required section heading, 'too short' if the text
  * is under 200 chars, or null if the CV passes all checks.
@@ -133,10 +148,24 @@ function truncateCV(cvText, lang = 'id') {
  * @param {string[]|null} [options.entitasKlaim]  - Whitelist of claims already in user's CV
  * @param {object|null}   [options.roleProfile]   - Role profile from roleProfiles.js (inferred mode only)
  * @param {string}        [options.jdMode]        - 'targeted' | 'inferred'
+ * @param {number}        [options.roleConfidence]
+ * @param {string|null}   [options.inferredSeniority]
+ * @param {string}        [options.jobDesc]
  * @returns {Promise<{ text: string, docxText: string, isTrusted: boolean }>}
  */
 export async function tailorCVID(cvText, jobDesc, env, mode = 'pdf', options = {}) {
-  const { issue, previewSample, previewAfter, entitasKlaim = null, roleProfile = null, jdMode = 'targeted', extractedCV = null } = options;
+  const {
+    issue,
+    previewSample,
+    previewAfter,
+    entitasKlaim = null,
+    roleProfile = null,
+    roleConfidence = 0,
+    inferredSeniority = null,
+    jdMode = 'targeted',
+    extractedCV = null,
+    jobDesc: inputJobDesc = '',
+  } = options;
   const effectiveCVText = truncateCV(cvText, 'id');
 
   // KV cache keyed on raw content — post-processing is applied per-call (after cache read)
@@ -241,13 +270,26 @@ UJI BULLET GENERIK: Untuk setiap bullet, tanya — apakah bullet ini bisa dituli
     await env.GASLAMAR_SESSIONS.put(genKey, baseText, { expirationTtl: 172800 });
   }
 
-  const postOpts = { previewSample, previewAfter, entitasKlaim, language: 'id' };
+  const postOpts = {
+    previewSample,
+    previewAfter,
+    entitasKlaim,
+    language: 'id',
+    roleProfile,
+    roleConfidence,
+    inferredSeniority,
+    jobDesc: inputJobDesc || jobDesc,
+  };
 
   // Generate both variants from the same validated base text
   const { text: pdfText, isTrusted } = postProcessCV(baseText, effectiveCVText, issue, 'pdf',  postOpts);
   const { text: docxText }           = postProcessCV(baseText, effectiveCVText, issue, 'docx', postOpts);
 
-  return { text: pdfText, docxText, isTrusted };
+  return {
+    text: sanitizeFinalExportText(pdfText),
+    docxText: sanitizeFinalExportText(docxText),
+    isTrusted,
+  };
 }
 
 /**
@@ -261,6 +303,9 @@ UJI BULLET GENERIK: Untuk setiap bullet, tanya — apakah bullet ini bisa dituli
  * @param {string[]|null} [options.entitasKlaim]
  * @param {object|null}   [options.roleProfile]   - Role profile from roleProfiles.js (inferred mode only)
  * @param {string}        [options.jdMode]        - 'targeted' | 'inferred'
+ * @param {number}        [options.roleConfidence]
+ * @param {string|null}   [options.inferredSeniority]
+ * @param {string}        [options.jobDesc]
  * @returns {Promise<{ text: string, docxText: string, isTrusted: boolean }>}
  */
 export async function tailorCVEN(cvText, jobDesc, env, mode = 'pdf', options = {}) {
@@ -268,7 +313,18 @@ export async function tailorCVEN(cvText, jobDesc, env, mode = 'pdf', options = {
   // The previous code hard-coded null, disabling ISSUE_FALLBACK_EN even when an issue
   // was provided. ISSUE_FALLBACK_EN contains English fallback suffixes, so the guard
   // works correctly for English CVs — the comment claiming otherwise was wrong.
-  const { issue = null, previewSample, previewAfter, entitasKlaim = null, roleProfile = null, jdMode = 'targeted', extractedCV = null } = options;
+  const {
+    issue = null,
+    previewSample,
+    previewAfter,
+    entitasKlaim = null,
+    roleProfile = null,
+    roleConfidence = 0,
+    inferredSeniority = null,
+    jdMode = 'targeted',
+    extractedCV = null,
+    jobDesc: inputJobDesc = '',
+  } = options;
   const effectiveCVText = truncateCV(cvText, 'en');
 
   const genKey   = `${GEN_KEY_PREFIX_EN}${await sha256Hex(effectiveCVText + '\x00' + jobDesc)}`;
@@ -372,10 +428,23 @@ GENERIC BULLET TEST: For each bullet, ask — could this apply to any person in 
   }
 
   // For English CV: pass issue so ISSUE_FALLBACK_EN is used for medium-severity rewrites.
-  const postOpts = { previewSample, previewAfter, entitasKlaim, language: 'en' };
+  const postOpts = {
+    previewSample,
+    previewAfter,
+    entitasKlaim,
+    language: 'en',
+    roleProfile,
+    roleConfidence,
+    inferredSeniority,
+    jobDesc: inputJobDesc || jobDesc,
+  };
 
   const { text: pdfText, isTrusted } = postProcessCV(baseText, effectiveCVText, issue, 'pdf',  postOpts);
   const { text: docxText }           = postProcessCV(baseText, effectiveCVText, issue, 'docx', postOpts);
 
-  return { text: pdfText, docxText, isTrusted };
+  return {
+    text: sanitizeFinalExportText(pdfText),
+    docxText: sanitizeFinalExportText(docxText),
+    isTrusted,
+  };
 }

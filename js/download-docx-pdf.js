@@ -58,7 +58,7 @@ const CV_SECTION_HEADINGS = new Set([
 // @returns {{ type: 'heading'|'bullet'|'text'|'blank', content: string }[]}
 function parseLines(cvText) {
   return cvText.split('\n').map(function(line) {
-    const withoutMdHeading = line.replace(/^\s{0,3}#{1,6}\s*/, '');
+    const withoutMdHeading = line.replace(/^\s{0,3}#{1,6}(?=\s*[A-Za-z\u00C0-\u017E])\s*/, '');
     const trimmed = withoutMdHeading.trim();
     if (!trimmed) return { type: 'blank', content: '' };
 

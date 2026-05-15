@@ -69,6 +69,8 @@ const EDUCATION_LINE_PATTERN = /^(S[123]|D[123]|SMA|SMK|SD|Bachelor|Master|PhD|S
 // Summary section boundaries — used to extract and validate the professional summary block
 const SUMMARY_START_RE = /^(?:RINGKASAN\s+(?:PROFESIONAL|EKSEKUTIF|SINGKAT)|PROFESSIONAL\s+SUMMARY|SUMMARY|PROFILE|PROFESSIONAL\s+PROFILE)\s*$/i;
 const SUMMARY_END_RE   = /^(?:PENGALAMAN\s+KERJA|WORK\s+EXPERIENCE|EMPLOYMENT\s+HISTORY|PENDIDIKAN|EDUCATION|KEAHLIAN|SKILLS|TECHNICAL\s+SKILLS|SERTIFIKASI|CERTIFICATIONS)\s*$/i;
+const EDUCATION_START_RE = /^(?:PENDIDIKAN|EDUCATION)\s*$/i;
+const EDUCATION_END_RE = /^(?:KEAHLIAN|SKILLS|TECHNICAL\s+SKILLS|SERTIFIKASI|CERTIFICATIONS|PENGALAMAN\s+KERJA|WORK\s+EXPERIENCE)\s*$/i;
 
 // Phrases that must never appear in final CV output — stripped as a last defence.
 // SYNC: Must stay identical to shared/rewriteRules.js BANNED_OUTPUT_PHRASES.
@@ -194,6 +196,15 @@ function isWeakImprovement(before, after) {
   return WEAK_FILLER.some(phrase => lowerAfter.includes(phrase) && !lowerBefore.includes(phrase));
 }
 
+function isWeakGenericBullet(after, language = 'id') {
+  const clean = cleanLine(after);
+  const words = clean.split(/\s+/).filter(Boolean);
+  if (words.length > 7) return false;
+  const weakId = /\b(membantu|menangani|mengelola|melakukan)\b.*\b(tugas|pekerjaan|operasional|aktivitas)\b/i;
+  const weakEn = /\b(handled|managed|assisted|supported)\b.*\b(tasks?|operations|activities|duties)\b/i;
+  return language === 'en' ? weakEn.test(clean) : weakId.test(clean);
+}
+
 // ── Graded claim guards ───────────────────────────────────────────────────────
 
 // Checks only inflated claims (not tool terms) — used to distinguish high vs medium severity
@@ -271,7 +282,7 @@ export function cleanLine(text) {
 }
 
 function stripMarkdownHeadingPrefix(text) {
-  return String(text || '').replace(/^\s{0,3}#{1,6}\s*/, '').trimEnd();
+  return String(text || '').replace(/^\s{0,3}#{1,6}(?=\s*[A-Za-z\u00C0-\u017E])\s*/, '').trimEnd();
 }
 
 function normalizeLanguageLine(text, language = 'id') {
@@ -363,6 +374,15 @@ function findBestMatch(line, candidates) {
   return bestScore >= MATCH_THRESHOLD ? best : null;
 }
 
+function findClosestCandidate(line, candidates) {
+  let best = null, bestScore = -1;
+  for (const c of candidates) {
+    const score = wordOverlap(line, c);
+    if (score > bestScore) { bestScore = score; best = c; }
+  }
+  return best;
+}
+
 // ── Summary validation ────────────────────────────────────────────────────────
 
 function extractSummarySection(cvText) {
@@ -380,6 +400,55 @@ function extractSummarySection(cvText) {
   return summaryLines.length > 0 ? summaryLines.join(' ') : null;
 }
 
+function cleanSummarySentences(text, language = 'id') {
+  const summaryRe = /((?:RINGKASAN\s+(?:PROFESIONAL|EKSEKUTIF|SINGKAT)|PROFESSIONAL\s+SUMMARY|SUMMARY|PROFILE)\s*\n)([\s\S]*?)(?=\n(?:PENGALAMAN\s+KERJA|WORK\s+EXPERIENCE|EMPLOYMENT\s+HISTORY|PENDIDIKAN|EDUCATION|KEAHLIAN|SKILLS|TECHNICAL\s+SKILLS|SERTIFIKASI|CERTIFICATIONS)(?:\s|$))/i;
+  return text.replace(summaryRe, (_, heading, body) => {
+    let cleaned = String(body || '').replace(/\s+/g, ' ').trim();
+    const corporateNoise = language === 'en'
+      ? /\b(fast-paced|stakeholder|operational excellence|high professionalism|multitask coordination|proven track record|results-driven)\b/gi
+      : /\b(fast-paced|stakeholder|profesionalisme tinggi|rekam jejak solid|koordinasi multitask|efisiensi operasional)\b/gi;
+    const sentences = cleaned.split(/(?<=[.!?])\s+/).filter(Boolean);
+    const hasVerb = sentence => {
+      const s = String(sentence || '');
+      if (language === 'en') return /\b(manage|managed|handling|handled|support|supported|coordinate|coordinated|sell|sold|serve|served|build|built|develop|developed|maintain|maintained|work|worked)\b/i.test(s);
+      return /\b(me\w+|ber\w+|di\w+kan|di\w+i|menangani|melayani|mengelola|mendukung|mengembangkan|menjalankan|menyusun|berkoordinasi)\b/i.test(s);
+    };
+    const filtered = sentences
+      .map(s => s.replace(corporateNoise, '').replace(/\s{2,}/g, ' ').replace(/\s+,/g, ',').trim())
+      .filter(s => s.length >= 24 && hasVerb(s));
+    cleaned = filtered.slice(0, 2).join(' ').trim();
+    if (!cleaned) cleaned = language === 'en'
+      ? 'Professional with relevant experience aligned to the target position.'
+      : 'Profesional dengan pengalaman relevan yang selaras dengan posisi yang dituju.';
+    return `${heading}${cleaned}\n\n`;
+  });
+}
+
+function removeBasicEducationEntries(text, language = 'id') {
+  const lines = text.split('\n');
+  const out = [];
+  let inEdu = false;
+  for (const line of lines) {
+    const t = line.trim();
+    if (EDUCATION_START_RE.test(t)) {
+      inEdu = true;
+      out.push(line);
+      continue;
+    }
+    if (inEdu && EDUCATION_END_RE.test(t)) inEdu = false;
+    if (!inEdu) {
+      out.push(line);
+      continue;
+    }
+    const basicEdu = language === 'en'
+      ? /\b(elementary|primary school|junior high|middle school|senior high|high school)\b/i
+      : /\b(sd|smp|sma|smk|sekolah dasar|sekolah menengah pertama|sekolah menengah atas)\b/i;
+    if (basicEdu.test(t)) continue;
+    out.push(line);
+  }
+  return out.join('\n');
+}
+
 function validateSummaryBlock(summaryText, originalCVText, entitasKlaim) {
   // Use the full original CV as "before" — any number or tool already in the CV is allowed
   return addsNewNumbers(originalCVText, summaryText) ||
@@ -394,14 +463,27 @@ function buildSafeSummary(cvText, lang = 'id') {
 
   if (lang === 'en') {
     if (title && years) return `${title} with ${years} years of professional experience.`;
-    if (title)          return `Experienced ${title} seeking to contribute to the target role.`;
+    if (title)          return `Experienced ${title} prepared to contribute to the target position.`;
     if (years)          return `Professional with ${years} years of experience.`;
-    return 'Experienced professional seeking to contribute to the target role.';
+    return 'Experienced professional prepared to contribute to the target position.';
   }
   if (title && years) return `${title} dengan ${years} tahun pengalaman profesional.`;
-  if (title)          return `Profesional berpengalaman di bidang ${title}.`;
+  if (title)          return `Profesional berpengalaman di bidang ${title} yang siap berkontribusi sesuai kebutuhan posisi.`;
   if (years)          return `Profesional dengan ${years} tahun pengalaman.`;
-  return 'Profesional berpengalaman yang siap berkontribusi untuk posisi yang ditargetkan.';
+  return 'Profesional berpengalaman yang siap berkontribusi sesuai kebutuhan posisi yang dituju.';
+}
+
+function isLogicalBulletSentence(text, language = 'id') {
+  const t = cleanLine(String(text || '').trim());
+  if (!t) return false;
+  const words = t.split(/\s+/).filter(Boolean);
+  if (words.length < 4) return false;
+  // Fragment-like endings often produced by over-compressed AI rewriting.
+  if (/\b(dengan|untuk|agar|sehingga|yang|dan|to|for|with|while|by)\s*$/i.test(t)) return false;
+  const hasVerb = language === 'en'
+    ? /\b(manage|managed|handling|handled|support|supported|coordinate|coordinated|sell|sold|serve|served|build|built|develop|developed|maintain|maintained|prepare|prepared|follow[- ]?up|negotiate|negotiated|communicate|communicated)\b/i.test(t)
+    : /\b(me\w+|ber\w+|di\w+kan|di\w+i|menangani|melayani|mengelola|mendukung|mengembangkan|menjalankan|menyusun|berkoordinasi|menjual|negosiasi)\b/i.test(t);
+  return hasVerb;
 }
 
 // ── Purpose-suffix repetition guard ──────────────────────────────────────────
@@ -416,6 +498,7 @@ function stripRepeatedPurposeSuffixes(text, language = 'id') {
   const PURPOSE_RE = language === 'en' ? PURPOSE_CLAUSE_EN : PURPOSE_CLAUSE_ID;
   const lines = text.split('\n');
   let purposeCount = 0;
+  let trimmedCount = 0;
   const result = lines.map(line => {
     const t = line.trim();
     if (!isBulletLine(t)) return line;
@@ -427,13 +510,14 @@ function stripRepeatedPurposeSuffixes(text, language = 'id') {
         const stripped = clean.replace(PURPOSE_RE, '').trim();
         // Only strip if the remaining bullet is still meaningful (≥4 words)
         if (stripped.split(/\s+/).filter(w => w.length > 0).length >= 4) {
+          trimmedCount++;
           return prefix + stripped;
         }
       }
     }
     return line;
   });
-  return result.join('\n');
+  return { text: result.join('\n'), trimmedCount };
 }
 
 // ── Safe fallback ─────────────────────────────────────────────────────────────
@@ -469,6 +553,7 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
   let fallbackCount  = 0;
   let downgradeCount = 0;
   let totalBullets   = 0;
+  let weakGenericReverts = 0;
 
   let result = llmText;
 
@@ -516,6 +601,14 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
 
     const original = findBestMatch(clean, originalLines);
     if (!original) {
+      if (isWeakGenericBullet(clean, language)) {
+        const closest = findClosestCandidate(clean, originalLines);
+        if (closest) {
+          const prefix = line.match(/^(\s*[-•*]\s*)/)?.[1] ?? '';
+          weakGenericReverts++;
+          return prefix + closest;
+        }
+      }
       const shortOriginal = findExpandedShortLine(clean, shortOriginalLines);
       if (shortOriginal) {
         logHallucination({ stage: 'bullet', severity: 'high', reason: 'expanded_short' });
@@ -535,6 +628,19 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
       return prefix + applyValidationResult(severity, original, issue, language);
     }
 
+    if (isWeakGenericBullet(clean, language)) {
+      const prefix = line.match(/^(\s*[-•*]\s*)/)?.[1] ?? '';
+      weakGenericReverts++;
+      return prefix + original;
+    }
+
+    if (!isLogicalBulletSentence(clean, language)) {
+      const prefix = line.match(/^(\s*[-•*]\s*)/)?.[1] ?? '';
+      logHallucination({ stage: 'bullet', severity: 'low', reason: 'illogical_fragment' });
+      downgradeCount++;
+      return prefix + original;
+    }
+
     return localizedLine;
   });
 
@@ -544,13 +650,16 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
   result = result.replace(/\[[^\]]{1,60}\]/g, '').replace(/[ \t]{2,}/g, ' ');
 
   // Step 1c: strip overused purpose-ending suffixes (AI repetition pattern)
-  result = stripRepeatedPurposeSuffixes(result, language);
+  const purposeResult = stripRepeatedPurposeSuffixes(result, language);
+  result = purposeResult.text;
 
   // Step 1d: strip banned output phrases (AI artifacts) — regexes pre-compiled at module load
   for (const re of BANNED_OUTPUT_REGEXES) {
     result = result.replace(re, '');
   }
   result = result.replace(/[ \t]{2,}/g, ' ');
+  result = cleanSummarySentences(result, language);
+  result = removeBasicEducationEntries(result, language);
 
   // Step 2: force preview consistency
   if (previewSample && previewAfter) {
@@ -571,6 +680,21 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
   // isTrusted: true if high-severity fallback rate < 20% (medium downgrades are acceptable)
   const fallbackRate = totalBullets > 0 ? fallbackCount / totalBullets : 0;
   const isTrusted    = fallbackRate < 0.2;
+
+  // Deterministic 20% sampling for quality metrics logging to limit log volume.
+  const summaryText = extractSummarySection(result) || '';
+  const sampleSeed = `${language}|${summaryText.length}|${originalCVText.length}|${totalBullets}`;
+  const sampleBucket = Array.from(sampleSeed).reduce((n, ch) => (n + ch.charCodeAt(0)) % 10, 0);
+  if (sampleBucket < 2) {
+    console.log(JSON.stringify({
+      event: 'rewrite_quality_metrics',
+      language,
+      trimmed_purpose: purposeResult.trimmedCount,
+      weak_generic_reverts: weakGenericReverts,
+      summary_chars: summaryText.length,
+      fallback_rate: Number(fallbackRate.toFixed(3)),
+    }));
+  }
 
   return { text: result, isTrusted };
 }
