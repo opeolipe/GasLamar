@@ -26,7 +26,7 @@ const EXPORT_STYLE = {
     contentTwip: 9978,          // A4 (11906) - 2×964
     bodyHalfPt: 20,             // 10pt
     headingHalfPt: 22,          // 11pt
-    nameHalfPt: 44,             // 22pt
+    nameHalfPt: 48,             // 24pt
     spaceAfterBodyTwip: 120,    // 6pt
     spaceAfterHeadingTwip: 80,  // 4pt
     spaceBeforeHeadingTwip: 220,// 11pt
@@ -262,7 +262,7 @@ function generatePDF(cvText, lang, tier) {
     const ac           = EXPORT_STYLE.accentRgb; // [30, 58, 95]
     let y              = marginY;
 
-    doc.setFont('times');
+    doc.setFont('helvetica');
     doc.setTextColor(20, 20, 20);
     let lastType       = 'blank';
     let nameEmitted    = false;
@@ -295,11 +295,13 @@ function generatePDF(cvText, lang, tier) {
       if (!nameEmitted && type !== 'heading') {
         nameEmitted = true;
         ensureSpace(12);
-        doc.setFontSize(22);
-        doc.setFont('times', 'bold');
+        doc.setFontSize(24);
+        doc.setFont('helvetica', 'bold');
         doc.setTextColor(20, 20, 20);
+        doc.setCharSpace(0.6);
         doc.text(content, pageWidth / 2, y, { align: 'center' });
-        y += 9;
+        doc.setCharSpace(0);
+        y += 10;
         lastType = 'name';
         continue;
       }
@@ -309,7 +311,7 @@ function generatePDF(cvText, lang, tier) {
         contactEmitted = true;
         ensureSpace(10);
         doc.setFontSize(9.5);
-        doc.setFont('times', 'normal');
+        doc.setFont('helvetica', 'normal');
         doc.setTextColor(80, 80, 80);
         doc.text(content, pageWidth / 2, y, { align: 'center' });
         y += 5;
@@ -330,7 +332,7 @@ function generatePDF(cvText, lang, tier) {
         doc.rect(marginX - 4, y - 4.2, 2.5, 5.5, 'F');
         // Heading text in accent color, uppercase bold
         doc.setFontSize(EXPORT_STYLE.headingPt);
-        doc.setFont('times', 'bold');
+        doc.setFont('helvetica', 'bold');
         doc.setTextColor(ac[0], ac[1], ac[2]);
         doc.text(content.toUpperCase(), marginX, y);
         y += 2;
@@ -347,7 +349,7 @@ function generatePDF(cvText, lang, tier) {
       if (type === 'role') {
         ensureSpace(EXPORT_STYLE.lineMm);
         doc.setFontSize(EXPORT_STYLE.bodyPt);
-        doc.setFont('times', 'bold');
+        doc.setFont('helvetica', 'bold');
         doc.setTextColor(20, 20, 20);
         const roleLines = doc.splitTextToSize(content, contentWidth);
         for (const line of roleLines) {
@@ -363,7 +365,7 @@ function generatePDF(cvText, lang, tier) {
 
       if (type === 'meta') {
         doc.setFontSize(EXPORT_STYLE.bodyPt - 0.5);
-        doc.setFont('times', 'italic');
+        doc.setFont('helvetica', 'italic');
         doc.setTextColor(75, 75, 75);
         const metaLines = doc.splitTextToSize(content, contentWidth);
         for (const line of metaLines) {
@@ -378,7 +380,7 @@ function generatePDF(cvText, lang, tier) {
 
       if (type === 'contact') {
         doc.setFontSize(EXPORT_STYLE.bodyPt - 0.5);
-        doc.setFont('times', 'normal');
+        doc.setFont('helvetica', 'normal');
         doc.setTextColor(75, 75, 75);
         const contactLines = doc.splitTextToSize(content, contentWidth);
         for (const line of contactLines) {
@@ -393,7 +395,7 @@ function generatePDF(cvText, lang, tier) {
 
       if (type === 'bullet') {
         doc.setFontSize(EXPORT_STYLE.bodyPt);
-        doc.setFont('times', 'normal');
+        doc.setFont('helvetica', 'normal');
         doc.setTextColor(20, 20, 20);
         const bulletX     = marginX + EXPORT_STYLE.bulletIndentMm;
         const contentX    = marginX + EXPORT_STYLE.bulletTextIndentMm;
@@ -409,7 +411,7 @@ function generatePDF(cvText, lang, tier) {
       }
 
       doc.setFontSize(EXPORT_STYLE.bodyPt);
-      doc.setFont('times', 'normal');
+      doc.setFont('helvetica', 'normal');
       doc.setTextColor(20, 20, 20);
       const textLines = doc.splitTextToSize(content, contentWidth);
       for (const line of textLines) {
