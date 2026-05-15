@@ -220,7 +220,9 @@ VERIFIKASI WAJIB sebelum output (cek setiap poin):
 UJI PEMBACA sebelum finalisasi — bayangkan tiga pembaca membaca CV ini:
 1. HR Rekruter (scan 7 detik): apakah info penting langsung terlihat? bullet mudah dibaca?
 2. Hiring Manager (tahu industri): apakah bullet terdengar nyata dan relevan industri? atau terdengar generik?
-3. Rekan kerja (langsung curiga AI): apakah ada kalimat yang terdengar seperti template AI? jika ya, sederhanakan`;
+3. Rekan kerja (langsung curiga AI): apakah ada kalimat yang terdengar seperti template AI? jika ya, sederhanakan
+
+UJI BULLET GENERIK: Untuk setiap bullet, tanya — apakah bullet ini bisa ditulis oleh siapa saja di posisi ini? Jika iya, tambahkan SATU detail spesifik yang hanya kandidat ini punya: nama klien, wilayah, sistem, atau produk — yang sudah ada di CV asli.`;
 
     const result = await callClaude(env, systemPrompt, 'Tailoring CV sekarang.', 4096, 'claude-haiku-4-5-20251001');
     let text = result?.content?.[0]?.text?.trim() ?? '';
@@ -348,7 +350,9 @@ MANDATORY VERIFICATION before output (check every point):
 READER PERSONA TEST before finalising — check through three readers:
 1. HR Recruiter (7-second scan): is the key info immediately visible? are bullets easy to scan?
 2. Hiring Manager (knows the industry): do bullets sound real and industry-specific? or generic?
-3. Peer colleague (spots AI instantly): does any sentence sound like an AI template? if yes, simplify it`;
+3. Peer colleague (spots AI instantly): does any sentence sound like an AI template? if yes, simplify it
+
+GENERIC BULLET TEST: For each bullet, ask — could this apply to any person in this role at any similar company? If yes, add ONE specific detail only this candidate could write: a client name, region, system, or product — already present in the original CV.`;
 
     const result = await callClaude(env, systemPrompt, 'Tailor the CV now.', 4096, 'claude-haiku-4-5-20251001');
     let text = result?.content?.[0]?.text?.trim() ?? '';

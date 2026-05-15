@@ -5,5 +5,5 @@ export const EXTRACT_CACHE_VERSION = 'v5';
 export const ANALYSIS_CACHE_VERSION = 'v15';
 
 // Prefixes intentionally include trailing underscore.
-export const GEN_KEY_PREFIX_ID = 'gen_id_v9_';
-export const GEN_KEY_PREFIX_EN = 'gen_en_v9_';
+export const GEN_KEY_PREFIX_ID = 'gen_id_v10_';
+export const GEN_KEY_PREFIX_EN = 'gen_en_v10_';

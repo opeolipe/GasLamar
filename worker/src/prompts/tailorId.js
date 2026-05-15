@@ -176,6 +176,9 @@ Fresh grad / pengalaman minimal:
 - Jangan tambahkan bullet yang tidak ada di CV — gunakan apa adanya
 - Boleh angkat kegiatan organisasi, proyek kuliah, atau magang jika ada di CV asli
 - Jangan inflate peran magang menjadi terdengar seperti full-time senior role
+- Untuk ringkasan: bidang studi + skill paling relevan + satu pengalaman terkuat dari CV
+  BURUK: "Fresh graduate yang bersemangat dan siap belajar dengan motivasi tinggi"
+  BAIK: "Lulusan Manajemen Bisnis dengan pengalaman magang sales di FMCG dan proyek riset konsumen"
 
 Career change (pindah industri):
 - Highlight transferable skills yang MEMANG ADA di CV dan relevan dengan JD

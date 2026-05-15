@@ -180,6 +180,9 @@ Fresh graduate / minimal experience:
 - Do not add bullets that are not in the CV — use what exists as-is
 - May reference internships, university projects, or org roles if they are in the original CV
 - Do not inflate an internship role to sound like a senior full-time position
+- For the summary: degree field + most relevant skill + one strongest experience from the CV
+  BAD: "Motivated fresh graduate eager to learn and contribute to a dynamic team"
+  GOOD: "Business Management graduate with FMCG sales internship experience and consumer research project background"
 
 Career changer (switching industry):
 - Highlight transferable skills that genuinely exist in the CV and are relevant to the JD
