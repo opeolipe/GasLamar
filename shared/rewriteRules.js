@@ -160,6 +160,15 @@ export const BANNED_OUTPUT_PHRASES = [
   'mention specific tools',
   'insert specific number',
   'add specific tools',
+  // English — passive voice openers (always wrong in CV bullets)
+  'was responsible for',
+  'was tasked with',
+  'was assigned to',
+  'was involved in',
+  'was dedicated to',
+  'was focused on',
+  'was expected to',
+  'was required to',
   // English — AI corporate filler
   'proven track record of delivering results',
   'results-driven professional',

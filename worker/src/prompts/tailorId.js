@@ -60,7 +60,7 @@ LARANGAN POLA BERULANG (KRITIS):
   "...untuk mendukung pertumbuhan", "...untuk menunjukkan dampak"
   Ganti dengan: konteks nyata, objek spesifik, atau perpendekan bullet
 
-ACHIEVEMENT VS TUGAS (PENTING — dari resume-lm standard):
+ACHIEVEMENT VS TUGAS (PENTING):
 Bullet harus menunjukkan AKSI + KONTEKS NYATA, bukan sekadar deskripsi job description.
 BURUK (hanya tugas): "Mengelola hubungan dengan klien" — ini cuma deskripsi jabatan
 BAIK (ada konteks): "Mengelola komunikasi rutin dengan klien distribusi wilayah Surabaya"

@@ -60,7 +60,7 @@ NO REPETITIVE PATTERNS (CRITICAL):
   "...to support business growth", "...to demonstrate impact"
   Replace with: real context, a specific object, or shorten the bullet
 
-ACHIEVEMENT VS JOB DUTY (IMPORTANT — resume-lm standard):
+ACHIEVEMENT VS JOB DUTY (IMPORTANT):
 Bullets must show ACTION + REAL CONTEXT, not just a job description restatement.
 BAD (duty only): "Managed client relationships" — this is just a job title description
 GOOD (has context): "Managed day-to-day communication with B2B distribution clients across East Java"
@@ -74,9 +74,15 @@ BAD: "Handled various client requests" — "various" hides the absence of a real
 GOOD: "Handled daily client requests from FMCG distribution partners" — concrete without a number
 If there are no numbers → write real operational context, not vague quantity substitutes.
 
+VERB TENSE — MANDATORY CONSISTENCY:
+- Roles that have ended: simple past tense — "Managed", "Led", "Built", "Delivered"
+- Current role only (date shows "present" or "current"): present simple — "Manage", "Lead", "Build"
+- Do not mix tenses within the same role's bullets
+- Do not use present tense for a role that has ended — recruiters notice immediately
+
 NO PASSIVE VOICE (signals AI, spotted instantly by recruiters):
-BANNED: "Was responsible for", "Was tasked with", "Was assigned to", "Was involved in"
-(These are already in the REJECT list — also ban passive constructions more broadly)
+BANNED: "Was responsible for", "Was tasked with", "Was assigned to", "Was involved in",
+"Was dedicated to", "Was focused on", "Was expected to", "Was required to"
 USE INSTEAD: active verbs — "Managed", "Led", "Handled", "Delivered", "Executed"
 
 ACTION VERBS (use variety — not exclusively from this list):
