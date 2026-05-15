@@ -2253,7 +2253,7 @@ describe('POST /fetch-job-url — LinkedIn guest API and JSON-LD extraction', ()
   });
 
   it("returns 422 with linkedin_auth_required on \"Verify you're human\" challenge", async () => {
-    const gateHtml = `<html><body>Verify you're human. Please complete this security check. ${'z'.repeat(100)}</body></html>`;
+    const gateHtml = `<html><body>Verify you're human. ${'z'.repeat(100)}</body></html>`;
     fetchMock
       .get('https://www.linkedin.com')
       .intercept({ path: '/jobs-guest/jobs/api/jobPosting/7777777' })
@@ -2269,6 +2269,133 @@ describe('POST /fetch-job-url — LinkedIn guest API and JSON-LD extraction', ()
     expect(res.status).toBe(422);
     const body = await res.json();
     expect(body.linkedin_auth_required).toBe(true);
+  });
+
+  it('does NOT block a valid security-engineer job posting that mentions "security check"', async () => {
+    // "security check" was previously in LINKEDIN_GATE_MARKERS — it falsely blocked
+    // security-engineer jobs. Verify it no longer triggers a gate response.
+    const pageHtml = '<html><body>About the job: Looking for a Security Engineer. Must pass a background security check and obtain a clearance. ' +
+      'Requirements: 5 years of penetration testing experience. Strong knowledge of OWASP top 10. ' +
+      'You will perform security checks on production systems and audit cloud infrastructure.</body></html>';
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs-guest/jobs/api/jobPosting/8888888' })
+      .reply(404, 'Not Found', { headers: { 'content-type': 'text/html' } })
+      .times(1);
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs/view/8888888' })
+      .reply(200, pageHtml, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.linkedin.com/jobs/view/8888888' }, {}, nextIp());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.job_desc).toContain('penetration testing');
+  });
+
+  it('extracts JSON-LD with @type array form ["JobPosting","Thing"]', async () => {
+    const jsonLd = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': ['JobPosting', 'Thing'],
+      title: 'DevOps Engineer',
+      hiringOrganization: { '@type': 'Organization', name: 'CloudCo' },
+      description: 'We need a DevOps Engineer with Kubernetes and Terraform skills for our platform.',
+    });
+    const pageHtml = `<html><head><script type="application/ld+json">${jsonLd}</script></head><body><nav>nav</nav></body></html>`;
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs-guest/jobs/api/jobPosting/9900001' })
+      .reply(404, 'Not Found', { headers: { 'content-type': 'text/html' } })
+      .times(1);
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs/view/9900001' })
+      .reply(200, pageHtml, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.linkedin.com/jobs/view/9900001' }, {}, nextIp());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.job_desc).toContain('DevOps Engineer');
+    expect(body.job_desc).toContain('Terraform');
+  });
+
+  it('extracts JSON-LD with hiringOrganization as array', async () => {
+    const jsonLd = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'JobPosting',
+      title: 'Product Manager',
+      hiringOrganization: [{ '@type': 'Organization', name: 'ArrayCorp' }],
+      description: 'We are hiring a Product Manager with 3 years experience in agile product development.',
+    });
+    const pageHtml = `<html><head><script type="application/ld+json">${jsonLd}</script></head><body></body></html>`;
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs-guest/jobs/api/jobPosting/9900002' })
+      .reply(404, 'Not Found', { headers: { 'content-type': 'text/html' } })
+      .times(1);
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs/view/9900002' })
+      .reply(200, pageHtml, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.linkedin.com/jobs/view/9900002' }, {}, nextIp());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.job_desc).toContain('ArrayCorp');
+    expect(body.job_desc).toContain('agile');
+  });
+
+  it('decodes HTML entities in JSON-LD description', async () => {
+    const jsonLd = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'JobPosting',
+      title: 'Frontend Engineer',
+      hiringOrganization: { '@type': 'Organization', name: 'EntitiesCo' },
+      description: 'We use React &amp; TypeScript. Salary: &gt;Rp 20 juta. &#8220;Great team&#8221; &amp; flexible work.',
+    });
+    const pageHtml = `<html><head><script type="application/ld+json">${jsonLd}</script></head><body></body></html>`;
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs-guest/jobs/api/jobPosting/9900003' })
+      .reply(404, 'Not Found', { headers: { 'content-type': 'text/html' } })
+      .times(1);
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs/view/9900003' })
+      .reply(200, pageHtml, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.linkedin.com/jobs/view/9900003' }, {}, nextIp());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // Entities should be decoded to real characters, not literal &amp; etc.
+    expect(body.job_desc).toContain('React & TypeScript');
+    expect(body.job_desc).not.toContain('&amp;');
+  });
+
+  it('returns null from guest API and falls through when guest API redirects (redirect:manual)', async () => {
+    // A 3xx from the guest API (e.g. LinkedIn redirecting to /authwall) should
+    // NOT be followed — return null and fall through to full-page scraping.
+    const pageHtml = '<html><body>About the job: React developer with 3 years TypeScript experience for our web team.</body></html>';
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs-guest/jobs/api/jobPosting/9900004' })
+      .reply(302, '', { headers: { 'content-type': 'text/html', location: 'https://www.linkedin.com/authwall' } })
+      .times(1);
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs/view/9900004' })
+      .reply(200, pageHtml, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.linkedin.com/jobs/view/9900004' }, {}, nextIp());
+    // Falls through to page scraping which finds the job content
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.job_desc).toContain('TypeScript');
   });
 
   it('does not attempt guest API for non-/jobs/view/ LinkedIn URLs', async () => {

@@ -92,6 +92,12 @@ function classifyHostname(hostname) {
 // contain no job content: cookie/privacy consent, login walls, and bot
 // verification challenges. Any of these phrases in the extracted text means
 // the page is a gate, not a job posting.
+//
+// Deliberately narrow — a false positive silently blocks a valid job posting.
+// Removed: 'security check' / 'pemeriksaan keamanan' — too broad; security-engineer
+//   job postings routinely say "must pass a background security check".
+// Removed: 'cf-challenge' — that is a CSS class/HTML attribute, not visible text;
+//   it is stripped by tag-removal and can never appear in extracted content.
 const LINKEDIN_GATE_MARKERS = [
   // Legacy cookie/privacy consent
   'authwall',
@@ -108,13 +114,11 @@ const LINKEDIN_GATE_MARKERS = [
   'Sign in to apply',
   'Masuk untuk melamar',
   'Masuk untuk melihat',
-  // Bot / verification challenges
+  // Bot / verification challenges — use visible page text, not HTML class names
   "Verify you're human",
   'Verifikasi bahwa Anda',
   'Verifikasi manusia',
-  'security check',
-  'pemeriksaan keamanan',
-  'cf-challenge',
+  'Checking your browser before accessing',
 ];
 
 // ---- Browser-like request headers -------------------------------------------
@@ -145,8 +149,22 @@ const FETCH_HEADERS = {
 // even when the rest of the page is a JavaScript SPA, making it far more
 // reliable than body-text extraction which only sees the pre-hydration shell.
 
+// Decode the most common HTML entities that appear in JSON-LD description fields.
+// schema.org descriptions are often HTML strings with encoded characters.
+function decodeHtmlEntities(str) {
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+}
+
 function stripHtmlTags(str) {
-  return str.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  return decodeHtmlEntities(str.replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
 }
 
 /**
@@ -162,12 +180,16 @@ function extractJobFromJsonLd(jsonLdTexts) {
     const items = Array.isArray(data['@graph']) ? data['@graph'] : [data];
 
     for (const item of items) {
-      if (item['@type'] !== 'JobPosting') continue;
+      // @type can be a string OR an array e.g. ["JobPosting","Thing"]
+      const types = Array.isArray(item['@type']) ? item['@type'] : [item['@type']];
+      if (!types.includes('JobPosting')) continue;
 
       const parts = [];
       if (item.title) parts.push(`Job Title: ${item.title}`);
 
-      const org = item.hiringOrganization;
+      // hiringOrganization can be a single object or an array
+      const orgRaw = item.hiringOrganization;
+      const org = Array.isArray(orgRaw) ? orgRaw[0] : orgRaw;
       if (org?.name) parts.push(`Company: ${org.name}`);
 
       const loc = item.jobLocation;
@@ -203,19 +225,31 @@ function extractLinkedInJobId(pathname) {
   return m ? m[1] : null;
 }
 
+// 500 KB is generous for a lightweight API fragment; prevents RAM exhaustion
+// if a slow/compromised server streams a large body quickly.
+const GUEST_API_MAX_BYTES = 500_000;
+
 async function fetchLinkedInGuestApi(jobId, signal) {
   const apiUrl = `https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/${jobId}`;
   let res;
   try {
-    res = await fetch(apiUrl, { headers: FETCH_HEADERS, redirect: 'follow', signal });
+    // redirect:'manual' keeps us consistent with the main scraping path — we do not
+    // blindly follow redirects to unknown destinations from this endpoint either.
+    // A 3xx here (e.g. LinkedIn sending to /authwall) means the job isn't public;
+    // return null so the handler falls through to full-page scraping.
+    res = await fetch(apiUrl, { headers: FETCH_HEADERS, redirect: 'manual', signal });
   } catch { return null; }
 
+  // Any redirect or error → not a usable response
   if (!res.ok) return null;
   const ct = res.headers.get('content-type') || '';
   if (!ct.includes('text/html')) return null;
 
   let html;
   try { html = await res.text(); } catch { return null; }
+
+  // Cap before running regexes — prevents RAM exhaustion on unexpectedly large bodies.
+  if (html.length > GUEST_API_MAX_BYTES) html = html.slice(0, GUEST_API_MAX_BYTES);
 
   // Strip script/style blocks then all remaining tags for clean plain text
   const cleaned = html
