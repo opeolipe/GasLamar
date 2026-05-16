@@ -64,7 +64,6 @@ function isPrivateIPv6(rawHostname) {
     : rawHostname;
   const lower = addr.toLowerCase();
   if (lower === '::1' || lower === '0:0:0:0:0:0:0:1') return true; // loopback
-  // M5: Also block all-zeros (unspecified address) — same threat class as loopback.
   if (lower === '::' || lower === '0:0:0:0:0:0:0:0') return true;  // unspecified
   if (lower.startsWith('fe80:')) return true;          // fe80::/10 link-local
   if (lower.startsWith('fc') || lower.startsWith('fd')) return true; // fc00::/7 unique local
@@ -85,6 +84,192 @@ function classifyHostname(hostname) {
     return { isIP: true, isPrivate: isPrivateIPv6(hostname) };
   }
   return { isIP: false, isPrivate: false };
+}
+
+// ---- Gate markers ------------------------------------------------------------
+
+// LinkedIn serves several types of interstitial pages with HTTP 200 that
+// contain no job content: cookie/privacy consent, login walls, and bot
+// verification challenges. Any of these phrases in the extracted text means
+// the page is a gate, not a job posting.
+//
+// Deliberately narrow — a false positive silently blocks a valid job posting.
+// Removed: 'security check' / 'pemeriksaan keamanan' — too broad; security-engineer
+//   job postings routinely say "must pass a background security check".
+// Removed: 'cf-challenge' — that is a CSS class/HTML attribute, not visible text;
+//   it is stripped by tag-removal and can never appear in extracted content.
+const LINKEDIN_GATE_MARKERS = [
+  // Legacy cookie/privacy consent
+  'authwall',
+  'LinkedIn menghargai privasi',
+  'Kebijakan Cookie',
+  'cookie policy',
+  'We use cookies',
+  'Kami menggunakan cookie',
+  'Accept cookies',
+  'Terima cookie',
+  // Auth / identity gates
+  'Join to apply',
+  'Sign in to view',
+  'Sign in to apply',
+  'Masuk untuk melamar',
+  'Masuk untuk melihat',
+  // Bot / verification challenges — use visible page text, not HTML class names
+  "Verify you're human",
+  'Verifikasi bahwa Anda',
+  'Verifikasi manusia',
+  'Checking your browser before accessing',
+];
+
+// ---- Browser-like request headers -------------------------------------------
+//
+// These headers mirror a Chrome browser making a top-level navigation request.
+// They reduce bot-fingerprinting by LinkedIn and other job boards that check
+// for missing or inconsistent browser signals.
+const FETCH_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+  'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
+  'Accept-Encoding': 'gzip, deflate, br',
+  'Cache-Control': 'no-cache',
+  'Referer': 'https://www.google.com/',
+  'sec-fetch-dest': 'document',
+  'sec-fetch-mode': 'navigate',
+  'sec-fetch-site': 'cross-site',
+  'sec-fetch-user': '?1',
+  'Upgrade-Insecure-Requests': '1',
+  'DNT': '1',
+};
+
+// ---- JSON-LD extraction ------------------------------------------------------
+//
+// LinkedIn (and most major job boards) embed structured job data as
+// <script type="application/ld+json"> in the page head using the JobPosting
+// schema (https://schema.org/JobPosting). This data is server-rendered for SEO
+// even when the rest of the page is a JavaScript SPA, making it far more
+// reliable than body-text extraction which only sees the pre-hydration shell.
+
+// Decode the most common HTML entities that appear in JSON-LD description fields.
+// schema.org descriptions are often HTML strings with encoded characters.
+function decodeHtmlEntities(str) {
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+}
+
+function stripHtmlTags(str) {
+  return decodeHtmlEntities(str.replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Given an array of raw JSON-LD text strings, returns a formatted job
+ * description string if any of them contains a JobPosting schema, or null.
+ */
+function extractJobFromJsonLd(jsonLdTexts) {
+  for (const raw of jsonLdTexts) {
+    let data;
+    try { data = JSON.parse(raw.trim()); } catch { continue; }
+    // JSON.parse('null') = null — accessing null['@graph'] throws TypeError.
+    // Also skip primitives (number, boolean, string) — none are valid schema.org objects.
+    if (!data || typeof data !== 'object') continue;
+
+    // Some pages wrap multiple schema objects in an @graph array
+    const items = Array.isArray(data['@graph']) ? data['@graph'] : [data];
+
+    for (const item of items) {
+      // Guard against null/non-object elements inside an @graph array
+      if (!item || typeof item !== 'object') continue;
+      // @type can be a string OR an array e.g. ["JobPosting","Thing"]
+      const types = Array.isArray(item['@type']) ? item['@type'] : [item['@type']];
+      if (!types.includes('JobPosting')) continue;
+
+      const parts = [];
+      if (item.title) parts.push(`Job Title: ${item.title}`);
+
+      // hiringOrganization can be a single object or an array
+      const orgRaw = item.hiringOrganization;
+      const org = Array.isArray(orgRaw) ? orgRaw[0] : orgRaw;
+      if (org?.name) parts.push(`Company: ${org.name}`);
+
+      const loc = item.jobLocation;
+      const address = Array.isArray(loc) ? loc[0]?.address : loc?.address;
+      if (address?.addressLocality) {
+        const region = address.addressRegion ? `, ${address.addressRegion}` : '';
+        parts.push(`Location: ${address.addressLocality}${region}`);
+      }
+
+      if (item.employmentType) parts.push(`Employment Type: ${item.employmentType}`);
+
+      if (item.description) {
+        const desc = stripHtmlTags(item.description).slice(0, 4500);
+        if (desc) parts.push(desc);
+      }
+
+      // Need at least title/company + description to be useful
+      if (parts.length >= 2) return parts.join('\n\n');
+    }
+  }
+  return null;
+}
+
+// ---- LinkedIn guest API ------------------------------------------------------
+//
+// LinkedIn exposes an unauthenticated endpoint that returns a lightweight
+// HTML fragment for most public job postings without login walls or SPA
+// overhead. This is the most reliable extraction path for LinkedIn job links
+// that contain a numeric job ID.
+
+function extractLinkedInJobId(pathname) {
+  const m = pathname.match(/\/jobs\/view\/(\d+)/);
+  return m ? m[1] : null;
+}
+
+// 500 KB is generous for a lightweight API fragment; prevents RAM exhaustion
+// if a slow/compromised server streams a large body quickly.
+const GUEST_API_MAX_BYTES = 500_000;
+
+async function fetchLinkedInGuestApi(jobId, signal) {
+  const apiUrl = `https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/${jobId}`;
+  let res;
+  try {
+    // redirect:'manual' keeps us consistent with the main scraping path — we do not
+    // blindly follow redirects to unknown destinations from this endpoint either.
+    // A 3xx here (e.g. LinkedIn sending to /authwall) means the job isn't public;
+    // return null so the handler falls through to full-page scraping.
+    res = await fetch(apiUrl, { headers: FETCH_HEADERS, redirect: 'manual', signal });
+  } catch { return null; }
+
+  // Any redirect or error → not a usable response
+  if (!res.ok) return null;
+  const ct = res.headers.get('content-type') || '';
+  if (!ct.includes('text/html')) return null;
+
+  let html;
+  try { html = await res.text(); } catch { return null; }
+
+  // Cap before running regexes — prevents RAM exhaustion on unexpectedly large bodies.
+  if (html.length > GUEST_API_MAX_BYTES) html = html.slice(0, GUEST_API_MAX_BYTES);
+
+  // Strip script/style blocks, all remaining tags, then decode HTML entities
+  const cleaned = decodeHtmlEntities(
+    html
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+  ).replace(/\s{2,}/g, ' ').trim().slice(0, 5000);
+
+  if (cleaned.length < 50) return null;
+  if (LINKEDIN_GATE_MARKERS.some(m => cleaned.toLowerCase().includes(m.toLowerCase()))) return null;
+
+  return cleaned;
 }
 
 // ---- Handler -----------------------------------------------------------------
@@ -114,8 +299,6 @@ export async function handleFetchJobUrl(request, env) {
   }
 
   // ── Step 2: Enforce HTTPS ────────────────────────────────────────────────────
-  // HTTP is blocked unconditionally — we only retrieve content over TLS.
-  // Non-http(s) schemes (file:, ftp:, data:, …) are also blocked here.
   if (parsed.protocol !== 'https:') {
     return jsonResponse({ message: 'URL harus menggunakan HTTPS.' }, 400, request, env);
   }
@@ -123,9 +306,6 @@ export async function handleFetchJobUrl(request, env) {
   const { hostname } = parsed;
 
   // ── Step 3: Block private / reserved IP addresses ───────────────────────────
-  // Defense layer 1 — catches direct IP-address SSRF attempts even before the
-  // allowlist is consulted. We use the hostname extracted by the URL parser, so
-  // encoding tricks (%31%32%37 for 127) are already normalised.
   const { isIP, isPrivate } = classifyHostname(hostname);
   if (isIP && isPrivate) {
     log('fetch_job_url_blocked', { reason: 'private_ip', hostname, requesterIp: ip });
@@ -133,16 +313,6 @@ export async function handleFetchJobUrl(request, env) {
   }
 
   // ── Step 4: Domain allowlist ─────────────────────────────────────────────────
-  // Defense layer 2 — only known job board domains (and their subdomains) are
-  // allowed. Because we test parsed.hostname (not the raw URL string), common
-  // bypass patterns are neutralised automatically by the URL parser:
-  //
-  //   https://linkedin.com@evil.com   → hostname = evil.com      ✗
-  //   https://linkedin.com.evil.com   → hostname = linkedin.com.evil.com  ✗
-  //   https://evil.com/linkedin.com   → hostname = evil.com      ✗
-  //
-  // Public bare IPs (not caught by step 3) also fail here since they don't
-  // match any domain in the allowlist.
   if (!isAllowedDomain(hostname)) {
     log('fetch_job_url_blocked', { reason: 'domain_not_allowed', hostname, requesterIp: ip });
     return jsonResponse(
@@ -156,29 +326,38 @@ export async function handleFetchJobUrl(request, env) {
   const isGlassdoor = hostname === 'glassdoor.com'      || hostname.endsWith('.glassdoor.com');
   const isJobStreet = hostname === 'jobstreet.co.id'    || hostname.endsWith('.jobstreet.co.id');
 
-  // ── Step 5: Fetch the page ───────────────────────────────────────────────────
-  // All SSRF checks have passed; make the outbound request.
+  // Shared abort controller covers all outbound requests in this handler call.
   // Abort after 10s — prevents the Worker from being occupied by a slow host.
-  //
-  // We use redirect:'manual' to intercept each redirect and re-validate the
-  // destination URL against the domain allowlist before following it. This
-  // prevents an open-redirect on any allowlisted job board from being used
-  // to proxy arbitrary external URLs through this endpoint.
-  const FETCH_HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
-    'Cache-Control': 'no-cache',
-  };
-
   const fetchController = new AbortController();
   const fetchTimeoutId = setTimeout(() => fetchController.abort(), 10000);
 
+  // ── Step 5 (LinkedIn only): Try guest API for direct job links ───────────────
+  // The guest API endpoint returns a lightweight HTML fragment without auth
+  // walls for most public job postings. Try it before full-page scraping.
+  if (isLinkedIn) {
+    const jobId = extractLinkedInJobId(parsed.pathname);
+    if (jobId) {
+      const guestText = await fetchLinkedInGuestApi(jobId, fetchController.signal);
+      if (guestText) {
+        clearTimeout(fetchTimeoutId);
+        if (hasPromptInjection(guestText)) {
+          log('fetch_job_url_blocked', { reason: 'injection_detected', url, requesterIp: ip });
+          return jsonResponse({ message: 'Halaman mengandung konten yang tidak diizinkan. Coba copy-paste manual.' }, 422, request, env);
+        }
+        return jsonResponse({ job_desc: sanitizeForLLM(guestText) }, 200, request, env);
+      }
+      // Guest API failed or returned a gate page — fall through to full-page scraping
+    }
+  }
+
+  // ── Step 6: Fetch the page ───────────────────────────────────────────────────
+  // We use redirect:'manual' to intercept each redirect and re-validate the
+  // destination URL against the domain allowlist before following it.
+  const MAX_STREAM_BYTES = 2 * 1024 * 1024; // 2 MB hard cap on bytes streamed
   let pageRes;
   let currentUrl = url;
   try {
-    // C2 FIX: Reduced from 5 to 2 hops — legitimate job boards redirect at most once
-    // (e.g., HTTP→HTTPS or www-normalisation). More hops increase SSRF surface.
+    // Legitimate job boards redirect at most once (e.g., HTTP→HTTPS or www-normalisation).
     for (let hop = 0; hop < 2; hop++) {
       // eslint-disable-next-line no-await-in-loop
       const res = await fetch(currentUrl, {
@@ -189,7 +368,7 @@ export async function handleFetchJobUrl(request, env) {
 
       if (res.status >= 300 && res.status < 400) {
         const location = res.headers.get('location');
-        if (!location) break; // no Location header — treat as terminal response
+        if (!location) break;
 
         // Resolve relative redirects against the current URL
         let nextUrl;
@@ -206,9 +385,7 @@ export async function handleFetchJobUrl(request, env) {
             422, request, env
           );
         }
-        // C2 FIX: Also re-run the private-IP check on every redirect destination.
-        // The initial check only covers the user-supplied URL, not redirect hops.
-        // A compromised allowlisted server could redirect to an internal IP address.
+        // Re-run the private-IP check on every redirect destination.
         const { isIP: nextIsIP, isPrivate: nextIsPrivate } = classifyHostname(nextParsed.hostname);
         if (nextIsIP && nextIsPrivate) {
           log('fetch_job_url_blocked', { reason: 'redirect_private_ip', dest: nextParsed.hostname, requesterIp: ip });
@@ -273,10 +450,7 @@ export async function handleFetchJobUrl(request, env) {
 
   // M6: Enforce byte limit during streaming via TransformStream.
   // The Content-Length header is advisory — a malicious server can lie and send
-  // more data. We terminate the stream once MAX_STREAM_BYTES have been read,
-  // regardless of what the server claims. The 500KB extraction cap below is a
-  // second, independent layer that limits what we actually store.
-  const MAX_STREAM_BYTES = 2 * 1024 * 1024; // 2 MB hard cap on bytes streamed
+  // more data. We terminate the stream once MAX_STREAM_BYTES have been read.
   let streamBytesRead = 0;
   const { readable: limitedReadable, writable: limitedWritable } = new TransformStream({
     transform(chunk, controller) {
@@ -291,12 +465,29 @@ export async function handleFetchJobUrl(request, env) {
   pageRes.body.pipeTo(limitedWritable).catch(() => {});
   const limitedRes = new Response(limitedReadable, { headers: pageRes.headers });
 
-  // Extract text using HTMLRewriter — drop script/style noise, collect body text.
-  // Cap total extracted bytes at 500KB; further chunks are dropped.
+  // ── Step 7: Extract content via HTMLRewriter ─────────────────────────────────
+  // Two things happen in one streaming pass:
+  //   a) JSON-LD scripts are collected separately for structured job data
+  //   b) Body text is accumulated as the body-text fallback
   const MAX_EXTRACT_BYTES = 500 * 1024;
   let extractedBytes = 0;
   const chunks = [];
+  const jsonLdTexts = [];
+
   await new HTMLRewriter()
+    // Collect each <script type="application/ld+json"> into its own buffer.
+    // element() fires on the opening tag → pushes a new slot.
+    // text() appends to the most recent slot (always the current script's).
+    .on('script[type="application/ld+json"]', {
+      element() {
+        jsonLdTexts.push({ text: '' });
+      },
+      text(text) {
+        if (jsonLdTexts.length > 0) {
+          jsonLdTexts[jsonLdTexts.length - 1].text += text.text;
+        }
+      },
+    })
     .on('script, style, noscript', {
       text() { /* drop */ },
     })
@@ -313,26 +504,20 @@ export async function handleFetchJobUrl(request, env) {
     .transform(limitedRes)
     .text();
 
-  let raw = chunks.join(' ').replace(/\s{3,}/g, '\n\n').trim();
+  // ── Step 8: Prefer JSON-LD structured data; fall back to body text ───────────
+  const jsonLdJob = extractJobFromJsonLd(jsonLdTexts.map(b => b.text));
+  let raw;
+  if (jsonLdJob) {
+    raw = jsonLdJob;
+  } else {
+    raw = chunks.join(' ').replace(/\s{3,}/g, '\n\n').trim();
+  }
 
   if (!raw || raw.length < 50) {
     return jsonResponse({ message: 'Tidak bisa mengekstrak teks dari halaman ini. Coba copy-paste manual.' }, 422, request, env);
   }
 
-  // LinkedIn gate detection — covers two distinct interstitials served with HTTP 200:
-  //   1. Auth wall (body contains "authwall")
-  //   2. Cookie / privacy consent page (body contains consent-specific phrases)
-  // Both cases return no useful JD content; reject early with a clear user message.
-  const LINKEDIN_GATE_MARKERS = [
-    'authwall',
-    'LinkedIn menghargai privasi',
-    'Kebijakan Cookie',
-    'cookie policy',
-    'We use cookies',
-    'Kami menggunakan cookie',
-    'Accept cookies',
-    'Terima cookie',
-  ];
+  // LinkedIn gate detection — covers HTTP-200 interstitials that don't redirect.
   if (isLinkedIn && LINKEDIN_GATE_MARKERS.some(m => raw.toLowerCase().includes(m.toLowerCase()))) {
     return jsonResponse({
       message: 'Tidak dapat mengambil job posting dari LinkedIn. Silakan copy-paste bagian Requirements & Responsibilities secara manual.',
@@ -341,8 +526,6 @@ export async function handleFetchJobUrl(request, env) {
   }
 
   // Content-based auth-gate detection for other platforms.
-  // Only triggered after content extraction — catches HTTP-200 login walls that
-  // don't redirect (URL-based checks above cover redirect-based gates).
   const OTHER_PLATFORM_GATES = [
     {
       active: isIndeed,
@@ -366,29 +549,28 @@ export async function handleFetchJobUrl(request, env) {
     }
   }
 
-  // LinkedIn-specific: JD content appears after significant nav text.
-  // Trim to the first known JD section marker when it appears in the first 60 % of the text.
-  const JD_MARKERS = [
-    'About the job', 'Job Description', 'Deskripsi pekerjaan',
-    'Requirements', 'Qualifications', 'Responsibilities',
-    'Kualifikasi', 'Persyaratan', 'Tanggung Jawab',
-    'About this role', "What you'll do", "What we're looking for",
-  ];
-  let trimStart = 0;
-  for (const marker of JD_MARKERS) {
-    const idx = raw.indexOf(marker);
-    if (idx !== -1 && idx < raw.length * 0.6) {
-      trimStart = idx;
-      break;
+  // JD content trimming — only needed for body-text fallback; JSON-LD is already clean.
+  if (!jsonLdJob) {
+    const JD_MARKERS = [
+      'About the job', 'Job Description', 'Deskripsi pekerjaan',
+      'Requirements', 'Qualifications', 'Responsibilities',
+      'Kualifikasi', 'Persyaratan', 'Tanggung Jawab',
+      'About this role', "What you'll do", "What we're looking for",
+    ];
+    let trimStart = 0;
+    for (const marker of JD_MARKERS) {
+      const idx = raw.indexOf(marker);
+      if (idx !== -1 && idx < raw.length * 0.6) {
+        trimStart = idx;
+        break;
+      }
     }
+    if (trimStart > 0) raw = raw.slice(trimStart);
   }
-  if (trimStart > 0) raw = raw.slice(trimStart);
 
   if (raw.length > 5000) raw = raw.slice(0, 5000);
 
   // Reject scraped content that contains injection patterns before sending to caller.
-  // Unlikely from allowlisted job boards, but defence-in-depth against a compromised
-  // page or future redirect to an attacker-controlled allowed subdomain.
   if (hasPromptInjection(raw)) {
     log('fetch_job_url_blocked', { reason: 'injection_detected', url, requesterIp: ip });
     return jsonResponse({ message: 'Halaman mengandung konten yang tidak diizinkan. Coba copy-paste manual.' }, 422, request, env);
