@@ -21,6 +21,7 @@ export async function handleCheckSession(request, env) {
   // requiring the secret is not necessary for integrity — it only blocks legitimate users.
   const providedSecret = request.headers.get('X-Session-Secret');
   const usedFallback   = !!paramSessionId && paramSessionId.startsWith('sess_') && !providedSecret;
+  const queryOnlyFallback = usedFallback && !cookieSessionId;
   const sessionId      = cookieSessionId || (usedFallback ? paramSessionId : null);
   const ua             = request.headers.get('user-agent') || '';
   const uaFamily       = /Safari/.test(ua) && !/Chrome|Chromium|CriOS/.test(ua)
@@ -128,6 +129,13 @@ export async function handleCheckSession(request, env) {
   const ttlSecs = session.created_at
     ? Math.max(0, Math.floor((session.created_at + getSessionTtl(session) * 1000 - Date.now()) / 1000))
     : null;
+
+  if (queryOnlyFallback) {
+    return jsonResponse({
+      status: session.status,
+      tier: session.tier,
+    }, 200, request, env);
+  }
 
   return jsonResponse({
     status: session.status,

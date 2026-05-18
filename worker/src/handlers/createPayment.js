@@ -47,6 +47,11 @@ export async function handleCreatePayment(request, env) {
     return jsonResponse({ message: 'Data tidak lengkap' }, 400, request, env);
   }
 
+  if (typeof rawSecret !== 'string' || rawSecret.length < 16 || rawSecret.length > 256) {
+    log('create_payment_missing_secret_rejected', { ip });
+    return jsonResponse({ message: 'session_secret wajib disertakan dan harus 16–256 karakter' }, 400, request, env);
+  }
+
   // Look up extracted CV text from KV (set by /analyze) — never re-extract
   if (!cv_text_key.startsWith('cvtext_')) {
     return jsonResponse({ message: 'cv_text_key tidak valid' }, 400, request, env);
@@ -80,10 +85,7 @@ export async function handleCreatePayment(request, env) {
 
   const credits = TIER_CREDITS[tier] ?? 1;
 
-  // Compute secret hash — only store it if the client provided a secret
-  const secretHash = (rawSecret && typeof rawSecret === 'string' && rawSecret.length >= 16 && rawSecret.length <= 256)
-    ? await sha256Full(rawSecret)
-    : null;
+  const secretHash = await sha256Full(rawSecret);
 
   // Validate Mayar API key before creating a session (gives a clear 503 instead of a
   // cryptic Mayar error when the secret is absent in staging/sandbox).

@@ -1,5 +1,5 @@
 import { getSession } from './sessions.js';
-import { hexToken } from './utils.js';
+import { hexToken, sha256Hex } from './utils.js';
 import { generateInterviewKitPdf } from './interviewKitPdf.js';
 import { generateCVPdf } from './cvPdf.js';
 import { generateCVDocx } from './cvDocx.js';
@@ -88,6 +88,15 @@ function buildEmailFilename(cvText, jobTitle, company, lang, ext) {
   const parts = [firstName, sanitizeFilenamePart(jobTitle, 20), sanitizeFilenamePart(company, 20), langLabel].filter(Boolean);
   if (parts.length === 1) return `CV-${langLabel}.${ext}`;
   return parts.join('_') + '.' + ext;
+}
+
+async function emailHashForLog(email) {
+  if (!email || typeof email !== 'string') return null;
+  return (await sha256Hex(email.trim().toLowerCase())).slice(0, 8);
+}
+
+function redactEmailsForLog(value) {
+  return String(value ?? '').replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[email]');
 }
 
 async function readKitForEmail(env, sessionId) {
@@ -235,10 +244,10 @@ Butuh bantuan: support@gaslamar.com`;
   });
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    console.error(JSON.stringify({ event: 'resend_api_error', status: res.status, body: body.slice(0, 300), session_id: sessionId }));
+    console.error(JSON.stringify({ event: 'resend_api_error', status: res.status, body: redactEmailsForLog(body).slice(0, 300), session_id: sessionId }));
     throw new Error(`Email gagal terkirim (Resend ${res.status})`);
   }
-  console.log(JSON.stringify({ event: 'resend_email_sent', session_id: sessionId, to: session.email }));
+  console.log(JSON.stringify({ event: 'resend_email_sent', session_id: sessionId, to_hash: await emailHashForLog(session.email) }));
 }
 
 export async function sendResendAccessEmail(sessionId, env) {
@@ -307,10 +316,10 @@ Butuh bantuan: support@gaslamar.com`;
   });
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    console.error(JSON.stringify({ event: 'resend_access_email_error', status: res.status, body: body.slice(0, 300), session_id: sessionId }));
+    console.error(JSON.stringify({ event: 'resend_access_email_error', status: res.status, body: redactEmailsForLog(body).slice(0, 300), session_id: sessionId }));
     throw new Error(`Access email gagal terkirim (Resend ${res.status})`);
   }
-  console.log(JSON.stringify({ event: 'resend_access_email_sent', session_id: sessionId, to: session.email }));
+  console.log(JSON.stringify({ event: 'resend_access_email_sent', session_id: sessionId, to_hash: await emailHashForLog(session.email) }));
 }
 
 // Sends a "CV siap" email after generation completes, with score badge + gaps + upsell.
@@ -514,8 +523,8 @@ Butuh bantuan: support@gaslamar.com`;
   });
   if (!cvRes.ok) {
     const body = await cvRes.text().catch(() => '');
-    console.error(JSON.stringify({ event: 'resend_cv_ready_error', status: cvRes.status, body: body.slice(0, 300), session_id: sessionId }));
+    console.error(JSON.stringify({ event: 'resend_cv_ready_error', status: cvRes.status, body: redactEmailsForLog(body).slice(0, 300), session_id: sessionId }));
     throw new Error(`CV ready email gagal terkirim (Resend ${cvRes.status})`);
   }
-  console.log(JSON.stringify({ event: 'resend_cv_ready_sent', session_id: sessionId, to: session.email }));
+  console.log(JSON.stringify({ event: 'resend_cv_ready_sent', session_id: sessionId, to_hash: await emailHashForLog(session.email) }));
 }

@@ -2,6 +2,7 @@ import { callClaude } from './claude.js';
 import { sanitizeForLLM, hasPromptInjection } from './sanitize.js';
 
 const INJECTION_ERROR = 'CV mengandung konten yang tidak diizinkan. Pastikan file CV tidak berisi perintah sistem.';
+const MAX_DOCX_XML_BYTES = 1_500_000;
 
 // ---- File Validation ----
 
@@ -196,14 +197,19 @@ export async function extractTextFromDOCX(base64Data) {
 
     let xmlBytes;
     if (comprMethod === 0) {
+      if (compressed.byteLength > MAX_DOCX_XML_BYTES) {
+        console.warn(JSON.stringify({ event: 'zip_bomb_rejected', inflated_bytes: compressed.byteLength, max_bytes: MAX_DOCX_XML_BYTES }));
+        throw new Error('File DOCX terlalu besar setelah diekstrak. Coba simpan ulang atau kompres file CV.');
+      }
       xmlBytes = compressed; // stored, no compression
     } else if (comprMethod === 8) {
       // raw DEFLATE (ZIP uses no zlib header)
       const ds = new DecompressionStream('deflate-raw');
+      const readPromise = readLimitedBytes(ds.readable, MAX_DOCX_XML_BYTES);
       const writer = ds.writable.getWriter();
-      writer.write(compressed);
-      writer.close();
-      xmlBytes = new Uint8Array(await new Response(ds.readable).arrayBuffer());
+      await writer.write(compressed);
+      await writer.close();
+      xmlBytes = await readPromise;
     } else {
       throw new Error('File CV tampak rusak atau tidak lengkap. Coba upload file yang berbeda.');
     }
@@ -221,4 +227,32 @@ export async function extractTextFromDOCX(base64Data) {
   }
 
   throw new Error('File CV tampak rusak atau tidak lengkap. Coba upload file yang berbeda.');
+}
+
+async function readLimitedBytes(readable, maxBytes) {
+  const reader = readable.getReader();
+  const chunks = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        console.warn(JSON.stringify({ event: 'zip_bomb_rejected', inflated_bytes: total, max_bytes: maxBytes }));
+        throw new Error('File DOCX terlalu besar setelah diekstrak. Coba simpan ulang atau kompres file CV.');
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return out;
 }
