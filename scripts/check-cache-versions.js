@@ -5,13 +5,13 @@
  * CI guard: fails if worker/src/pipeline/ or worker/src/prompts/ files changed
  * without a corresponding bump to the cache version constants:
  *
- *   - ANALYSIS_CACHE_VERSION in worker/src/analysis.js
+ *   - ANALYSIS_CACHE_VERSION in worker/src/cacheVersions.js
  *     (required when any pipeline/ or prompts/ file changes)
  *
- *   - EXTRACT_CACHE_VERSION in worker/src/analysis.js
+ *   - EXTRACT_CACHE_VERSION in worker/src/cacheVersions.js
  *     (required specifically when pipeline/extract.js or prompts/extract.js changes)
  *
- *   - GEN_KEY_PREFIX_ID / GEN_KEY_PREFIX_EN in worker/src/tailoring.js
+ *   - GEN_KEY_PREFIX_ID / GEN_KEY_PREFIX_EN in worker/src/cacheVersions.js
  *     (required when any worker/src/prompts/tailor*.js file changes)
  *
  * Compares HEAD against HEAD~1. If there is no parent commit the check is
@@ -72,26 +72,23 @@ if (!pipelineOrPromptsChanged) {
 
 // ---- read current + previous constants ----
 
-const analysisRel  = 'worker/src/analysis.js';
-const tailoringRel = 'worker/src/tailoring.js';
+const cacheVersionsRel = 'worker/src/cacheVersions.js';
 
-const analysis     = fs.readFileSync(path.join(ROOT, analysisRel), 'utf8');
-const tailoring    = fs.readFileSync(path.join(ROOT, tailoringRel), 'utf8');
-const prevAnalysis  = gitShow('HEAD~1', analysisRel);
-const prevTailoring = gitShow('HEAD~1', tailoringRel);
+const cacheVersions = fs.readFileSync(path.join(ROOT, cacheVersionsRel), 'utf8');
+const prevCacheVersions = gitShow('HEAD~1', cacheVersionsRel);
 
 let failed = false;
 
 // ---- ANALYSIS_CACHE_VERSION ----
 
-const curAnalysis  = extract(analysis,     'ANALYSIS_CACHE_VERSION');
-const prevAnalysis_ = extract(prevAnalysis, 'ANALYSIS_CACHE_VERSION');
+const curAnalysis  = extract(cacheVersions, 'ANALYSIS_CACHE_VERSION');
+const prevAnalysis_ = extract(prevCacheVersions, 'ANALYSIS_CACHE_VERSION');
 
 if (curAnalysis === prevAnalysis_) {
   console.error(
     `[check-cache-versions] FAIL: pipeline/prompts changed but ANALYSIS_CACHE_VERSION is still '${curAnalysis}'.`
   );
-  console.error('  → Bump ANALYSIS_CACHE_VERSION in worker/src/analysis.js');
+  console.error('  → Bump ANALYSIS_CACHE_VERSION in worker/src/cacheVersions.js');
   failed = true;
 } else {
   console.log(`[check-cache-versions] OK: ANALYSIS_CACHE_VERSION ${prevAnalysis_} → ${curAnalysis}`);
@@ -100,14 +97,14 @@ if (curAnalysis === prevAnalysis_) {
 // ---- EXTRACT_CACHE_VERSION ----
 
 if (extractSpecificChanged) {
-  const curExtract  = extract(analysis,     'EXTRACT_CACHE_VERSION');
-  const prevExtract = extract(prevAnalysis, 'EXTRACT_CACHE_VERSION');
+  const curExtract  = extract(cacheVersions, 'EXTRACT_CACHE_VERSION');
+  const prevExtract = extract(prevCacheVersions, 'EXTRACT_CACHE_VERSION');
 
   if (curExtract === prevExtract) {
     console.error(
       `[check-cache-versions] FAIL: extract pipeline/prompts changed but EXTRACT_CACHE_VERSION is still '${curExtract}'.`
     );
-    console.error('  → Bump EXTRACT_CACHE_VERSION in worker/src/analysis.js');
+    console.error('  → Bump EXTRACT_CACHE_VERSION in worker/src/cacheVersions.js');
     failed = true;
   } else {
     console.log(`[check-cache-versions] OK: EXTRACT_CACHE_VERSION ${prevExtract} → ${curExtract}`);
@@ -117,14 +114,14 @@ if (extractSpecificChanged) {
 // ---- GEN_KEY_PREFIX ----
 
 if (tailorPromptsChanged) {
-  const curPrefix  = extract(tailoring,     'GEN_KEY_PREFIX_ID');
-  const prevPrefix = extract(prevTailoring, 'GEN_KEY_PREFIX_ID');
+  const curPrefix  = extract(cacheVersions, 'GEN_KEY_PREFIX_ID');
+  const prevPrefix = extract(prevCacheVersions, 'GEN_KEY_PREFIX_ID');
 
   if (curPrefix === prevPrefix) {
     console.error(
       `[check-cache-versions] FAIL: tailor prompts changed but GEN_KEY_PREFIX_ID is still '${curPrefix}'.`
     );
-    console.error('  → Bump GEN_KEY_PREFIX_ID and GEN_KEY_PREFIX_EN in worker/src/tailoring.js');
+    console.error('  → Bump GEN_KEY_PREFIX_ID and GEN_KEY_PREFIX_EN in worker/src/cacheVersions.js');
     failed = true;
   } else {
     console.log(`[check-cache-versions] OK: GEN_KEY_PREFIX_ID ${prevPrefix} → ${curPrefix}`);
