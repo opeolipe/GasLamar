@@ -19,8 +19,8 @@ const CV_SECTION_HEADINGS = new Set([
 const EXPORT_STYLE = {
   bodyPt: 10.5,
   headingPt: 10.5,
-  linePt: 14,
-  paraGapPt: 7,
+  linePt: 15.6,    // 5.5mm × 2.8346 pt/mm — matches jsPDF lineH
+  paraGapPt: 11,   // 4mm × 2.8346 — matches jsPDF blank-line gap
   bulletIndentPt: 11,
   bulletTextIndentPt: 23,
 };
@@ -76,11 +76,15 @@ function parseExperienceLine(line) {
 function parseHarvardLines(cvText, isIndonesian = false) {
   let nameFound    = false;
   let contactFound = false;
+  // Normalise line endings — Windows (\r\n) would corrupt word boundaries after split.
+  const lines = cvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
 
-  return cvText.split('\n').map(line => {
+  return lines.map(line => {
+    // Test guidance pattern on the raw line (before normalization) so leading-space
+    // detection (/^\s{2}/) isn't destroyed by .trim() inside normalizeCvLine.
+    if (/^\s{2}\((catatan:|note:)/i.test(line)) return { type: 'noise', content: '' };
     const trimmed = normalizeCvLine(line, isIndonesian);
     if (!trimmed) return { type: 'blank', content: '' };
-    if (/^\s*\((catatan:|note:)/i.test(trimmed)) return { type: 'noise', content: '' };
 
     // Name and contact detected BEFORE heading/em-dash checks to avoid misclassification
     if (!nameFound) { nameFound = true; return { type: 'name', content: trimmed }; }
@@ -207,26 +211,26 @@ export async function generateCVPdf(cvText) {
     }
 
     if (type === 'contact') {
-      ensureSpace(18);
+      ensureSpace(20);
       const safe = sanitize(content);
       const w = regular.widthOfTextAtSize(safe, 9.5);
       page.drawText(safe, { x: (PAGE_W - w) / 2, y, font: regular, size: 9.5, color: gray });
-      y -= 13;
+      y -= 14;  // 5mm — matches jsPDF contact-to-rule gap
       const lineW = 180;
       page.drawLine({ start: { x: (PAGE_W - lineW) / 2, y }, end: { x: (PAGE_W + lineW) / 2, y }, thickness: 0.5, color: navy });
-      y -= 9;
+      y -= 20;  // 7mm — matches jsPDF rule-to-body gap
       continue;
     }
 
     if (type === 'heading') {
-      ensureSpace(49); // heading block + 2 body lines (orphan guard)
-      y -= 4;
+      ensureSpace(80); // gap + heading row + rule + after-gap + 2 body lines
+      y -= 14;  // 5mm gap before heading — matches jsPDF
       // Accent bar in left margin: dimensions match jsPDF client (2.5mm × 5.5mm → ~7pt × 16pt)
       page.drawRectangle({ x: MARGIN - 11, y: y - 3.7, width: 7, height: 15.6, color: navy });
       drawWrapped(content.toUpperCase(), bold, EXPORT_STYLE.headingPt, navy, 0, EXPORT_STYLE.linePt);
       // Bottom rule spanning from accent bar to right margin
       page.drawLine({ start: { x: MARGIN - 11, y: y + 1 }, end: { x: PAGE_W - MARGIN, y: y + 1 }, thickness: 0.7, color: navy });
-      y -= 3;
+      y -= 14;  // 5mm gap after rule — matches jsPDF
       continue;
     }
 
