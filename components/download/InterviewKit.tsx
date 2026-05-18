@@ -104,12 +104,17 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
         clearTimeout(timeout);
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error((data as any).message || 'Gagal menghasilkan Interview Kit.');
+          throw new Error((data as any).message || (
+            activeLang === 'en' ? 'Failed to generate Interview Kit.' : 'Gagal menghasilkan Interview Kit.'
+          ));
         }
         const data = await res.json();
         if (cancelled) return;
         if (!isValidKit(data.kit)) {
-          throw new Error('Interview Kit tidak lengkap. Coba lagi.');
+          throw new Error(activeLang === 'en'
+            ? 'Interview Kit is incomplete. Please try again.'
+            : 'Interview Kit tidak lengkap. Coba lagi.'
+          );
         }
         setCache(prev => ({ ...prev, [activeLang]: data.kit }));
         setLoading(false);
@@ -117,8 +122,8 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
         clearTimeout(timeout);
         if (cancelled) return;
         const msg = e?.name === 'AbortError'
-          ? 'Interview Kit timeout. Coba lagi.'
-          : (e?.message || 'Interview Kit belum tersedia. Coba lagi.');
+          ? (activeLang === 'en' ? 'Interview Kit timed out. Please try again.' : 'Interview Kit timeout. Coba lagi.')
+          : (e?.message || (activeLang === 'en' ? 'Interview Kit unavailable. Please try again.' : 'Interview Kit belum tersedia. Coba lagi.'));
         logError('interview_kit_failed', { message: e?.message });
         setError(msg);
         setLoading(false);
@@ -156,7 +161,9 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
       <div className="mb-5">
         <h2 className="text-xl font-bold text-slate-800">Interview Kit</h2>
         <p className="text-sm text-slate-500 mt-1">
-          Gunakan ini untuk langsung melamar dan menjawab pertanyaan pertama dengan percaya diri
+          {activeLang === 'en'
+            ? 'Use this to apply confidently and nail your first interview question'
+            : 'Gunakan ini untuk langsung melamar dan menjawab pertanyaan pertama dengan percaya diri'}
         </p>
       </div>
 
