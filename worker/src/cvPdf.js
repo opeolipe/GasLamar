@@ -19,8 +19,8 @@ const CV_SECTION_HEADINGS = new Set([
 const EXPORT_STYLE = {
   bodyPt: 10.5,
   headingPt: 10.5,
-  linePt: 14,
-  paraGapPt: 7,
+  linePt: 15.6,    // 5.5mm × 2.8346 pt/mm — matches jsPDF lineH
+  paraGapPt: 11,   // 4mm × 2.8346 — matches jsPDF blank-line gap
   bulletIndentPt: 11,
   bulletTextIndentPt: 23,
 };
@@ -207,26 +207,26 @@ export async function generateCVPdf(cvText) {
     }
 
     if (type === 'contact') {
-      ensureSpace(18);
+      ensureSpace(20);
       const safe = sanitize(content);
       const w = regular.widthOfTextAtSize(safe, 9.5);
       page.drawText(safe, { x: (PAGE_W - w) / 2, y, font: regular, size: 9.5, color: gray });
-      y -= 13;
+      y -= 14;  // 5mm — matches jsPDF contact-to-rule gap
       const lineW = 180;
       page.drawLine({ start: { x: (PAGE_W - lineW) / 2, y }, end: { x: (PAGE_W + lineW) / 2, y }, thickness: 0.5, color: navy });
-      y -= 9;
+      y -= 20;  // 7mm — matches jsPDF rule-to-body gap
       continue;
     }
 
     if (type === 'heading') {
-      ensureSpace(49); // heading block + 2 body lines (orphan guard)
-      y -= 4;
+      ensureSpace(80); // gap + heading row + rule + after-gap + 2 body lines
+      y -= 14;  // 5mm gap before heading — matches jsPDF
       // Accent bar in left margin: dimensions match jsPDF client (2.5mm × 5.5mm → ~7pt × 16pt)
       page.drawRectangle({ x: MARGIN - 11, y: y - 3.7, width: 7, height: 15.6, color: navy });
       drawWrapped(content.toUpperCase(), bold, EXPORT_STYLE.headingPt, navy, 0, EXPORT_STYLE.linePt);
       // Bottom rule spanning from accent bar to right margin
       page.drawLine({ start: { x: MARGIN - 11, y: y + 1 }, end: { x: PAGE_W - MARGIN, y: y + 1 }, thickness: 0.7, color: navy });
-      y -= 3;
+      y -= 14;  // 5mm gap after rule — matches jsPDF
       continue;
     }
 
