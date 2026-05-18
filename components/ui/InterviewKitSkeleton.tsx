@@ -21,7 +21,7 @@ const CYCLE_MS      = 3500;
 const FILL_DURATION_S = 28;
 const TICK_MS       = 500; // update progress every 500ms, not every frame
 
-function ShimmerRow({ wide = false, height = 'h-[44px]' }: { wide?: boolean; height?: string }) {
+function ShimmerRow({ wide = false, height = 'h-[44px]', reducedMotion = false }: { wide?: boolean; height?: string; reducedMotion?: boolean }) {
   return (
     <div
       aria-hidden="true"
@@ -29,13 +29,13 @@ function ShimmerRow({ wide = false, height = 'h-[44px]' }: { wide?: boolean; hei
       style={{
         background: 'linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%)',
         backgroundSize: '200% 100%',
-        animation: 'ikShimmer 1.6s ease-in-out infinite',
+        animation: reducedMotion ? 'none' : 'ikShimmer 1.6s ease-in-out infinite',
       }}
     />
   );
 }
 
-function SectionLabel() {
+function SectionLabel({ reducedMotion = false }: { reducedMotion?: boolean }) {
   return (
     <div
       aria-hidden="true"
@@ -43,7 +43,7 @@ function SectionLabel() {
       style={{
         background: 'linear-gradient(90deg, #e2e8f0 25%, #cbd5e1 50%, #e2e8f0 75%)',
         backgroundSize: '200% 100%',
-        animation: 'ikShimmer 1.6s ease-in-out infinite',
+        animation: reducedMotion ? 'none' : 'ikShimmer 1.6s ease-in-out infinite',
       }}
     />
   );
@@ -94,8 +94,7 @@ export default function InterviewKitSkeleton({ language = 'id' }: InterviewKitSk
           100% { opacity: 0; transform: translateY(-4px); }
         }
         @media (prefers-reduced-motion: reduce) {
-          .ik-shimmer-row { animation: none !important; }
-          .ik-fade-msg    { animation: none !important; }
+          .ik-fade-msg { animation: none !important; }
         }
       `}</style>
 
@@ -138,16 +137,16 @@ export default function InterviewKitSkeleton({ language = 'id' }: InterviewKitSk
 
       {/* Skeleton accordions — aria-hidden so screen readers skip empty placeholders */}
       <div aria-hidden="true">
-        <SectionLabel />
-        <ShimmerRow />
-        <ShimmerRow wide />
-        <ShimmerRow />
+        <SectionLabel reducedMotion={reducedMotion} />
+        <ShimmerRow reducedMotion={reducedMotion} />
+        <ShimmerRow wide reducedMotion={reducedMotion} />
+        <ShimmerRow reducedMotion={reducedMotion} />
 
-        <SectionLabel />
-        <ShimmerRow wide />
+        <SectionLabel reducedMotion={reducedMotion} />
+        <ShimmerRow wide reducedMotion={reducedMotion} />
 
-        <SectionLabel />
-        <ShimmerRow />
+        <SectionLabel reducedMotion={reducedMotion} />
+        <ShimmerRow reducedMotion={reducedMotion} />
       </div>
     </div>
   );

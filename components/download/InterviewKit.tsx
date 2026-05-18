@@ -173,7 +173,7 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
           <button
             key={lang}
             onClick={() => handleLangSwitch(lang)}
-            className={`min-h-[44px] px-5 rounded-full font-semibold text-sm transition-all duration-200 ${
+            className={`flex-1 min-w-0 min-h-[44px] px-3 rounded-full font-semibold text-sm transition-all duration-200 ${
               activeLang === lang
                 ? 'bg-blue-600 text-white shadow-sm'
                 : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300 hover:-translate-y-[1px]'
