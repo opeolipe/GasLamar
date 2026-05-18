@@ -1,3 +1,5 @@
+import StateCard from '@/components/ui/StateCard';
+
 interface Props {
   message:     string;
   onRetry:     () => void;
@@ -5,18 +7,18 @@ interface Props {
 }
 
 export default function AnalysisError({ message, onRetry, isFileError = false }: Props) {
+  const recoveryLine = isFileError
+    ? 'Tenang, ini biasanya karena format file sulit dibaca.'
+    : 'Proses belum berhasil, tapi progres kamu aman dan bisa lanjut lagi.';
+
   return (
-    <div data-testid="error-message" className="text-center py-8">
-      <div className="text-4xl mb-3" aria-hidden="true">⚠️</div>
-      <h3
-        className="font-semibold text-lg text-slate-900 mb-2"
-        style={{ fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}
-      >
-        Analisis Gagal
-      </h3>
-      <p className="text-slate-500 text-[0.85rem] mb-6 max-w-sm mx-auto leading-relaxed">
-        {message}
-      </p>
+    <StateCard
+      icon={<span className="text-3xl">⚠️</span>}
+      title="Analisis Gagal"
+      message={message}
+      helper={recoveryLine}
+      tone={isFileError ? 'warning' : 'danger'}
+    >
       {isFileError && (
         <p className="text-amber-600 text-[0.8rem] mb-4 max-w-xs mx-auto">
           <span aria-hidden="true">💡</span><span className="sr-only">Tip: </span> Klik "Ganti CV / Job" untuk upload ulang dalam format DOCX atau TXT agar bisa dibaca.
@@ -39,6 +41,6 @@ export default function AnalysisError({ message, onRetry, isFileError = false }:
           Ganti CV / Job
         </a>
       </div>
-    </div>
+    </StateCard>
   );
 }

@@ -291,6 +291,9 @@ export default function Access() {
                 <p className="mt-4 text-sm font-medium text-blue-600">
                   Buka email kamu untuk lanjutkan akses.
                 </p>
+                <p className="mt-2 text-xs text-slate-500">
+                  Progres CV kamu tetap aman selama masa aktif.
+                </p>
               </>
             ) : (
               /* ── Form state ── */
@@ -435,7 +438,7 @@ export default function Access() {
 
                   {status === 'error' && (
                     <p className="text-xs text-red-500 text-center mt-1" role="alert">
-                      Terjadi kendala. Coba lagi dalam beberapa detik.
+                      Terjadi kendala sementara. Progres kamu tetap aman, coba lagi dalam beberapa detik.
                     </p>
                   )}
                 </form>

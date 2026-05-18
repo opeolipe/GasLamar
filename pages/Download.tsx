@@ -19,6 +19,7 @@ import {
   buildSecretHeaders,
 } from '@/lib/sessionUtils';
 import { buildResultData } from '@/lib/resultUtils';
+import { getExperimentVariant, trackExperimentExposure } from '@/lib/experiments';
 import {
   PAGE_BG,
   NAV_STYLE,
@@ -52,6 +53,7 @@ export default function Download() {
   const generate = useGenerateCV();
 
   const [view,            setView]            = useState<PageView>('waiting');
+  const [closureFirst,    setClosureFirst]    = useState(true);
   const [countdownText,   setCountdownText]   = useState<string | null>(null);
   const [countdownWarn,   setCountdownWarn]   = useState(false);
   const [expiryText,      setExpiryText]      = useState('');
@@ -73,6 +75,17 @@ export default function Download() {
   viewRef.current         = view;
 
   // ── Redirect guard ────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    const closureFlag = 'download_closure_first_v1';
+    const closureVariant = getExperimentVariant(closureFlag, 'on');
+    const closureEnabled = closureVariant !== 'control' && closureVariant !== 'off';
+    setClosureFirst(closureEnabled);
+    trackExperimentExposure(closureFlag, closureEnabled ? 'on' : 'control');
+    const stickyFlag = 'sticky_cta_after_tier_v1';
+    const stickyVariant = getExperimentVariant(stickyFlag, 'off');
+    trackExperimentExposure(stickyFlag, stickyVariant);
+  }, []);
 
   useEffect(() => {
     // Check both storages: after credits are exhausted useGenerateCV removes
@@ -505,6 +518,7 @@ export default function Download() {
               onGenerateNext={handleGenerateForNewJob}
               onUrlFetch={handleUrlFetch}
               showMobileFallback={showMobileFb}
+              closureFirst={closureFirst}
               dimensions={dimensions}
               primaryIssue={resultData?.primaryIssue ?? null}
               isTrusted={effectiveContent?.isTrusted ?? false}

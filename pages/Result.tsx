@@ -13,6 +13,7 @@ import { useSessionCountdown }                 from '@/hooks/useSessionCountdown
 import {
   WORKER_URL, TIER_CONFIG, buildResultData, DIM_LABELS,
 } from '@/lib/resultUtils';
+import { getExperimentVariant, trackExperimentExposure } from '@/lib/experiments';
 import {
   PAGE_BG,
   NAV_STYLE,
@@ -51,8 +52,8 @@ const ROLE_LABELS: Record<string, string> = {
 function scoreHeadline(score: number): string {
   if (score >= 75) return 'CV kamu sudah cukup kompetitif';
   if (score >= 60) return 'CV kamu sudah di jalur yang benar';
-  if (score >= 50) return 'Masih beberapa hal yang bikin HR ragu';
-  return 'CV kamu belum cukup kuat untuk posisi ini';
+  if (score >= 50) return 'Masih ada beberapa hal yang bikin HR ragu';
+  return 'Peluangmu belum optimal, tapi masih bisa dikejar';
 }
 
 function verdictDesc(verdict: string | undefined, score: number): string {
@@ -65,7 +66,7 @@ function verdictDesc(verdict: string | undefined, score: number): string {
 function scoreInterpretation(score: number): string {
   if (score >= 75) return 'Beberapa perbaikan kecil sudah cukup untuk memperkuat peluang kamu di posisi ini.';
   if (score >= 60) return 'Beberapa gap kecil masih bisa diperbaiki untuk memperkuat peluang kamu.';
-  return 'Beberapa pengalaman dan keyword penting belum terlihat di CV kamu.';
+  return 'Beberapa pengalaman dan keyword penting belum terlihat, mulai dari 2 gap utama di bawah.';
 }
 
 function buildSnippetPreview(raw: string | null | undefined): string | null {
@@ -97,6 +98,8 @@ export default function Result() {
   );
 
   const [showAllDimensions,     setShowAllDimensions]     = useState(false);
+  const [resultFlowVariant,     setResultFlowVariant]     = useState<'on' | 'control'>('on');
+  const [stickyPayVariant,      setStickyPayVariant]      = useState<'on' | 'off'>('off');
   const [selectedTier,          setSelectedTier]          = useState<string | null>(null);
   const [email,                 setEmail]                 = useState('');
   const [emailError,            setEmailError]            = useState('');
@@ -116,6 +119,19 @@ export default function Result() {
   useEffect(() => {
     const saved = sessionStorage.getItem('gaslamar_tier') || localStorage.getItem('gaslamar_tier');
     if (saved && TIER_CONFIG[saved]) setSelectedTier(saved);
+  }, []);
+
+  useEffect(() => {
+    const flagKey = 'result_simplified_v1';
+    const variant = getExperimentVariant(flagKey, 'on');
+    const normalized = variant === 'control' ? 'control' : 'on';
+    setResultFlowVariant(normalized);
+    trackExperimentExposure(flagKey, normalized);
+    const stickyFlagKey = 'sticky_cta_after_tier_v1';
+    const stickyVariant = getExperimentVariant(stickyFlagKey, 'off');
+    const stickyNormalized = stickyVariant === 'on' ? 'on' : 'off';
+    setStickyPayVariant(stickyNormalized);
+    trackExperimentExposure(stickyFlagKey, stickyNormalized);
   }, []);
 
   useEffect(() => {
@@ -560,6 +576,14 @@ export default function Result() {
 
               <RedFlags redFlags={data.red_flags || []} />
 
+              {(data.gap || []).length === 0 && (data.red_flags || []).length === 0 && (
+                <div style={{ background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: 14, padding: '0.9rem 1.1rem', marginBottom: '1rem' }}>
+                  <p style={{ margin: 0, fontSize: '0.87rem', color: '#166534', lineHeight: 1.55 }}>
+                    Bagian utama CV kamu sudah cukup rapi. Fokus berikutnya: pertajam hasil kerja terukur agar lebih meyakinkan recruiter.
+                  </p>
+                </div>
+              )}
+
               {result6d && (
                 <>
                   <button
@@ -584,7 +608,11 @@ export default function Result() {
                       transition:     'background 0.15s',
                     }}
                   >
-                    {showAllDimensions ? 'Sembunyikan ↑' : 'Lihat analisis lengkap →'}
+                    {showAllDimensions
+                      ? 'Sembunyikan detail ↑'
+                      : resultFlowVariant === 'control'
+                      ? 'Lihat analisis lengkap →'
+                      : 'Ringkasan: 2 area perlu diperbaiki. Lihat detail →'}
                   </button>
                   {showAllDimensions && (
                     <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid rgba(148,163,184,0.14)' }}>
@@ -643,30 +671,43 @@ export default function Result() {
             </div>
 
             {/* ── SECTION 3: Yang perlu diperbaiki ── */}
-            <div style={CARD_STYLE}>
-              <h2 style={SECTION_HEADING}>Yang perlu diperbaiki</h2>
-
-              {(data.rekomendasi || []).length > 0 && (
-                <div data-testid="fix-before-after" style={{ marginBottom: '1.25rem' }}>
-                  <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    {(data.rekomendasi || []).map((r, i) => (
-                      <li key={i} style={{ fontSize: '0.9rem', color: '#111827', display: 'flex', gap: '0.65rem', alignItems: 'flex-start' }}>
-                        <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 3 }}>→</span>
-                        <span style={{
-                          minWidth:     0,
-                          lineHeight:   1.6,
-                          overflowWrap: 'break-word',
-                          wordBreak:    'break-word',
-                        }}>
-                          {r}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+            {resultFlowVariant === 'control' ? (
+              <div style={CARD_STYLE}>
+                <h2 style={SECTION_HEADING}>Yang perlu diperbaiki</h2>
+                {(data.rekomendasi || []).length > 0 && (
+                  <div data-testid="fix-before-after" style={{ marginBottom: '1.25rem' }}>
+                    <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      {(data.rekomendasi || []).map((r, i) => (
+                        <li key={i} style={{ fontSize: '0.9rem', color: '#111827', display: 'flex', gap: '0.65rem', alignItems: 'flex-start' }}>
+                          <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 3 }}>→</span>
+                          <span style={{ minWidth: 0, lineHeight: 1.6, overflowWrap: 'break-word', wordBreak: 'break-word' }}>{r}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <details style={CARD_STYLE}>
+                <summary style={{ ...SECTION_HEADING, marginBottom: 0, cursor: 'pointer', minHeight: 44, display: 'flex', alignItems: 'center' }}>
+                  Rencana perbaikan CV (opsional dilihat)
+                </summary>
+                <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(148,163,184,0.14)', paddingTop: '1rem' }}>
+                  {(data.rekomendasi || []).length > 0 && (
+                    <div data-testid="fix-before-after" style={{ marginBottom: '1.25rem' }}>
+                      <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {(data.rekomendasi || []).map((r, i) => (
+                          <li key={i} style={{ fontSize: '0.9rem', color: '#111827', display: 'flex', gap: '0.65rem', alignItems: 'flex-start' }}>
+                            <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 3 }}>→</span>
+                            <span style={{ minWidth: 0, lineHeight: 1.6, overflowWrap: 'break-word', wordBreak: 'break-word' }}>{r}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
-              )}
-
-            </div>
+              </details>
+            )}
 
             {/* ── SECTION 3.5: CV Snippet Preview ── */}
             {snippetPreviewText && (
@@ -842,6 +883,42 @@ export default function Result() {
       `}</style>
 
       <PaymentTransition invoiceUrl={transitionInvoiceUrl} />
+
+      {stickyPayVariant === 'on' && selectedTier && !transitionInvoiceUrl && (
+        <div
+          className="md:hidden"
+          style={{
+            position: 'fixed',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 100,
+            background: 'rgba(255,255,255,0.96)',
+            borderTop: '1px solid rgba(148,163,184,0.18)',
+            backdropFilter: 'blur(14px)',
+            padding: '0.75rem 1rem',
+            paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))',
+          }}
+        >
+          <button
+            type="button"
+            onClick={scrollToPricing}
+            style={{
+              width: '100%',
+              minHeight: 48,
+              borderRadius: 16,
+              border: 'none',
+              background: '#1B4FE8',
+              color: 'white',
+              fontWeight: 700,
+              fontSize: '0.95rem',
+              boxShadow: '0 8px 24px rgba(37,99,235,0.30)',
+            }}
+          >
+            Lanjut ke pembayaran aman →
+          </button>
+        </div>
+      )}
     </div>
   );
 }

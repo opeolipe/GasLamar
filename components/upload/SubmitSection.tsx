@@ -44,6 +44,7 @@ export default function SubmitSection({ isLoading, hasCv = false, showJdHint, jd
               Isi job description posisi yang dilamar
             </span>
           </div>
+          <p className="text-xs text-slate-400 mt-2">Setelah ini, analisis biasanya selesai kurang dari 1 menit.</p>
         </div>
       ) : showCvHint ? (
         <p className="text-center text-sm text-slate-500 mt-3">

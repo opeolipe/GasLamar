@@ -40,6 +40,7 @@ interface Props {
   onGenerateNext: (jobDesc: string) => Promise<void> | void;
   onUrlFetch: (url: string) => Promise<string>;
   showMobileFallback: boolean;
+  closureFirst?: boolean;
   dimensions?: Record<string, number>;
   primaryIssue?: string | null;
   isTrusted?: boolean;
@@ -87,6 +88,7 @@ export default function DownloadReady({
   onGenerateNext,
   onUrlFetch,
   showMobileFallback,
+  closureFirst = true,
   dimensions,
   primaryIssue,
   isTrusted = false,
@@ -168,6 +170,10 @@ export default function DownloadReady({
         ? `upload.html?new_package=1&tier=${encodeURIComponent(tier)}`
         : 'upload.html?new_package=1';
     }
+  }
+
+  function handleInterviewKitCta() {
+    jumpTo('interview-kit-section');
   }
 
   return (
@@ -288,6 +294,19 @@ export default function DownloadReady({
             </div>
           )}
 
+          {interviewKitNode && (
+            <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(148,163,184,0.14)' }}>
+              <button
+                type="button"
+                onClick={handleInterviewKitCta}
+                className="min-h-[44px] px-4 rounded-full text-sm font-semibold transition-all hover:-translate-y-[1px]"
+                style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', color: '#1D4ED8' }}
+              >
+                Siap interview? Lihat Interview Kit →
+              </button>
+            </div>
+          )}
+
           {expiryText && (
             <div style={{ marginTop: '1rem' }}>
               {expiryText.split('\n').map((line, i) => (
@@ -300,33 +319,41 @@ export default function DownloadReady({
 
       {showMobileFallback && <MobileFallback cvTextId={cvTextId} cvTextEn={cvTextEn} bilingual={bilingual} />}
 
-      {hasDimensions && (
-        <section className="gl-fade-up gl-fade-up-d2" style={CARD_STYLE}>
-          <h2 style={SECTION_HEADING}>Insight Recruiter (Ringkas)</h2>
-          <p className="text-sm text-slate-600 mb-4">Yang paling perlu diperbaiki untuk lamaran berikutnya:</p>
-
-          <div className="space-y-2 mb-4">
-            {priorityWeaknesses.map(dim => (
-              <div key={dim.key} className="rounded-[12px] px-3 py-2" style={{ background: '#FFF7ED', border: '1px solid #FED7AA', boxShadow: '0 1px 0 rgba(245,158,11,0.07)' }}>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-semibold text-slate-800">{dim.label}</span>
-                  <span className="text-xs font-bold text-amber-700">{dim.score}/10</span>
-                </div>
-                <p className="text-xs text-slate-600 mt-1 mb-0">{dim.hint}</p>
-              </div>
-            ))}
-          </div>
-
-          <details className="gl-analysis-details">
-            <summary className="cursor-pointer text-sm font-semibold text-blue-700 transition-colors hover:text-blue-800">Lihat analisis lengkap</summary>
-            <div className="mt-4 gl-analysis-content" id="analysis-full">
-              <ScoreBars dimensions={dimensions!} mode="full" primaryKey={primaryIssue ?? undefined} />
-            </div>
-          </details>
+      {showDownloadGrid && interviewKitNode && closureFirst && (
+        <section id="interview-kit-section" className="gl-fade-up gl-fade-up-d3" style={{ marginBottom: '1.5rem' }}>
+          {interviewKitNode}
         </section>
       )}
 
-      {showDownloadGrid && interviewKitNode && (
+      {hasDimensions && (
+        <details className="gl-fade-up gl-fade-up-d2" style={CARD_STYLE} open={!closureFirst}>
+          <summary style={{ ...SECTION_HEADING, marginBottom: 0, cursor: 'pointer', minHeight: 44, display: 'flex', alignItems: 'center' }}>Insight Recruiter (Opsional)</summary>
+          <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(148,163,184,0.14)', paddingTop: '1rem' }}>
+            <p className="text-sm text-slate-600 mb-4">Yang paling perlu diperbaiki untuk lamaran berikutnya:</p>
+
+            <div className="space-y-2 mb-4">
+              {priorityWeaknesses.map(dim => (
+                <div key={dim.key} className="rounded-[12px] px-3 py-2" style={{ background: '#FFF7ED', border: '1px solid #FED7AA', boxShadow: '0 1px 0 rgba(245,158,11,0.07)' }}>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-semibold text-slate-800">{dim.label}</span>
+                    <span className="text-xs font-bold text-amber-700">{dim.score}/10</span>
+                  </div>
+                  <p className="text-xs text-slate-600 mt-1 mb-0">{dim.hint}</p>
+                </div>
+              ))}
+            </div>
+
+            <details className="gl-analysis-details">
+              <summary className="cursor-pointer text-sm font-semibold text-blue-700 transition-colors hover:text-blue-800 inline-flex items-center min-h-[44px]">Lihat analisis lengkap</summary>
+              <div className="mt-4 gl-analysis-content" id="analysis-full">
+                <ScoreBars dimensions={dimensions!} mode="full" primaryKey={primaryIssue ?? undefined} />
+              </div>
+            </details>
+          </div>
+        </details>
+      )}
+
+      {showDownloadGrid && interviewKitNode && !closureFirst && (
         <section id="interview-kit-section" className="gl-fade-up gl-fade-up-d3" style={{ marginBottom: '1.5rem' }}>
           {interviewKitNode}
         </section>
