@@ -546,7 +546,14 @@ function safeRewriteLine(original, issue, lang = 'id') {
  * @returns {{ text: string, isTrusted: boolean }}
  */
 export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf', opts = {}) {
-  const { previewSample, previewAfter, entitasKlaim = null, language = 'id' } = opts;
+  const {
+    previewSample,
+    previewAfter,
+    entitasKlaim = null,
+    language = 'id',
+    onlyLineIndexes = null,
+    skipSummaryValidation = false,
+  } = opts;
   const originalLines      = extractBulletLines(originalCVText);
   const shortOriginalLines = extractShortOriginalLines(originalCVText);
 
@@ -561,7 +568,7 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
   // summary sentences carry no bullet marker. Replaces with original or a safe fallback.
   const llmSummary  = extractSummarySection(result);
   const origSummary = extractSummarySection(originalCVText);
-  if (llmSummary && validateSummaryBlock(llmSummary, originalCVText, entitasKlaim)) {
+  if (!skipSummaryValidation && llmSummary && validateSummaryBlock(llmSummary, originalCVText, entitasKlaim)) {
     logHallucination({ stage: 'summary', language });
     const safeSummary = origSummary ?? buildSafeSummary(originalCVText, language);
     result = result.replace(
@@ -573,7 +580,7 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
 
   // Step 1: validate each bullet line (graded severity)
   const outputLines = result.split('\n');
-  const validated   = outputLines.map(line => {
+  const validated   = outputLines.map((line, idx) => {
     const normalizedLine = stripMarkdownHeadingPrefix(line);
     const localizedLine = normalizeLanguageLine(normalizedLine, language);
     const trimmed = localizedLine.trim();
@@ -590,6 +597,9 @@ export function postProcessCV(llmText, originalCVText, issue = null, mode = 'pdf
     if (wordCount < MIN_WORD_COUNT)             return line;
 
     totalBullets++;
+    if (Array.isArray(onlyLineIndexes) && !onlyLineIndexes.includes(idx)) {
+      return localizedLine;
+    }
 
     if (PLACEHOLDER_PATTERN.test(clean)) {
       const original = findBestMatch(clean, originalLines);
