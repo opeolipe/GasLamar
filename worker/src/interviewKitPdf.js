@@ -30,7 +30,7 @@ function sanitize(str) {
 
 function wrapLines(text, font, size, maxWidth) {
   const out = [];
-  for (const para of sanitize(text).split('\n')) {
+  for (const para of sanitize(text).replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')) {
     const words = para.split(/\s+/).filter(Boolean);
     if (!words.length) { out.push(''); continue; }
     let line = '';

@@ -76,11 +76,15 @@ function parseExperienceLine(line) {
 function parseHarvardLines(cvText, isIndonesian = false) {
   let nameFound    = false;
   let contactFound = false;
+  // Normalise line endings — Windows (\r\n) would corrupt word boundaries after split.
+  const lines = cvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
 
-  return cvText.split('\n').map(line => {
+  return lines.map(line => {
+    // Test guidance pattern on the raw line (before normalization) so leading-space
+    // detection (/^\s{2}/) isn't destroyed by .trim() inside normalizeCvLine.
+    if (/^\s{2}\((catatan:|note:)/i.test(line)) return { type: 'noise', content: '' };
     const trimmed = normalizeCvLine(line, isIndonesian);
     if (!trimmed) return { type: 'blank', content: '' };
-    if (/^\s*\((catatan:|note:)/i.test(trimmed)) return { type: 'noise', content: '' };
 
     // Name and contact detected BEFORE heading/em-dash checks to avoid misclassification
     if (!nameFound) { nameFound = true; return { type: 'name', content: trimmed }; }

@@ -43,8 +43,8 @@ function parseExperienceLine(line) {
   return { company: line, role: '', date: '', location: '' };
 }
 
-function normalizeDocxLine(line) {
-  return String(line || '')
+function normalizeDocxLine(line, isIndonesian = false) {
+  let text = String(line || '')
     .replace(/^\s{0,3}#{1,6}(?=\s*[A-Za-zÀ-ž])\s*/, '')
     .replace(/\*\*(.*?)\*\*/g, '$1')
     .replace(/__(.*?)__/g, '$1')
@@ -52,17 +52,35 @@ function normalizeDocxLine(line) {
     .replace(/\s+(untuk menunjukkan dampak kerja yang konkret dan terukur)$/i, '')
     .replace(/\s+(to demonstrate concrete and measurable work impact)$/i, '')
     .trim();
+
+  if (isIndonesian) {
+    text = text
+      .replace(/\bEast Java\b/gi,       'Jawa Timur')
+      .replace(/\bWest Java\b/gi,       'Jawa Barat')
+      .replace(/\bCentral Java\b/gi,    'Jawa Tengah')
+      .replace(/\bNorth Sulawesi\b/gi,  'Sulawesi Utara')
+      .replace(/\bSouth Sulawesi\b/gi,  'Sulawesi Selatan')
+      .replace(/\bPresent\b/gi,         'Sekarang')
+      .replace(/\bCurrent\b/gi,         'Sekarang');
+  }
+
+  return text;
 }
 
 function parseHarvardLines(cvText) {
   let nameFound    = false;
   let contactFound = false;
+  // Normalise line endings so Windows-formatted CV text (\r\n) doesn't corrupt
+  // the first/last word of each line during split.
+  const lines = cvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  // Detect language from section headings to apply locale transforms (e.g. Present→Sekarang)
+  const isIndonesian = /(RINGKASAN PROFESIONAL|PENGALAMAN KERJA|PENDIDIKAN|KEAHLIAN)/i.test(cvText);
 
-  return cvText.split('\n').map(raw => {
+  return lines.map(raw => {
     // Guidance lines must be tested BEFORE normalisation (pattern uses leading spaces)
     if (GUIDANCE_LINE_PATTERN.test(raw)) return { type: 'guidance', content: raw.trim() };
 
-    const trimmed = normalizeDocxLine(raw);
+    const trimmed = normalizeDocxLine(raw, isIndonesian);
     if (!trimmed) return { type: 'blank', content: '' };
 
     if (!nameFound) { nameFound = true; return { type: 'name', content: trimmed }; }
@@ -92,9 +110,10 @@ function parseHarvardLines(cvText) {
 /**
  * Generates a Harvard-style CV DOCX from plain-text CV content.
  * Typography and layout match the website's generateHarvardDOCX exactly.
- * Uses the `docx` npm package (compatible with Cloudflare Workers via nodejs_compat).
+ * Uses the `docx` npm package with Packer.toBase64String() — the only Packer
+ * method that works in all environments (Node.js, browser, Cloudflare Workers).
  * @param {string} cvText
- * @returns {Promise<Buffer>} DOCX file bytes
+ * @returns {Promise<string>} base64-encoded DOCX — pass directly to Resend `content` field
  */
 export async function generateCVDocx(cvText) {
   // A4 = 11906 twips wide. 17mm margins ≈ 964 twips each. Content = 9978 twips.
@@ -251,5 +270,6 @@ export async function generateCVDocx(cvText) {
     }],
   });
 
-  return Packer.toBuffer(doc);
+  // toBase64String uses JSZip's "base64" type — no Buffer dependency, works everywhere.
+  return Packer.toBase64String(doc);
 }
