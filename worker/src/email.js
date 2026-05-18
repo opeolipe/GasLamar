@@ -32,11 +32,11 @@ function sanitizeInterviewKitPayload(value) {
 }
 
 function toBase64(bytes) {
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
+  // Pre-collect into an array then join once — avoids O(n) string copies from repeated +=
+  // which causes quadratic memory behaviour on large PDFs (e.g. 2 MB → ~8 MB peak).
+  const chars = new Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) chars[i] = String.fromCharCode(bytes[i]);
+  return btoa(chars.join(''));
 }
 
 function escapeHtml(str) {
