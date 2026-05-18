@@ -1792,9 +1792,182 @@
     </div>
   </section>
 
-  <!-- ── 17. GOTCHAS ── -->
+  <!-- ── 17. EMAIL DELIVERY FLOW ── -->
   <section class="section">
-    <div class="section-label">17 — Developer Gotchas</div>
+    <div class="section-label">17 — Email Delivery Flow</div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px;">
+      <div>
+        <div style="margin-bottom: 12px; font-size: 12px; font-weight: 500; color: #fff;">3 Email Types</div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div style="padding: 12px 16px; background: var(--bg3); border: 1px solid var(--border); border-left: 2px solid var(--accent); border-radius: 3px;">
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent); margin-bottom: 4px;">1 · Payment Confirmation</div>
+            <div style="font-size: 11px; color: var(--text-dim);">Sent when Mayar webhook confirms payment (<span class="mono">pending_payment → paid</span>). Contains a single-use download link with a 128-bit email token. Sent via <span class="mono">ctx.waitUntil</span> — non-blocking.</div>
+          </div>
+          <div style="padding: 12px 16px; background: var(--bg3); border: 1px solid var(--border); border-left: 2px solid var(--accent4); border-radius: 3px;">
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent4); margin-bottom: 4px;">2 · CV Ready</div>
+            <div style="font-size: 11px; color: var(--text-dim);">Sent after generation when session reaches <span class="mono">exhausted</span> (last credit used). Contains score badge, top gaps, and an upsell. Triggered from <span class="mono">POST /generate</span>.</div>
+          </div>
+          <div style="padding: 12px 16px; background: var(--bg3); border: 1px solid var(--border); border-left: 2px solid var(--accent6); border-radius: 3px;">
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent6); margin-bottom: 4px;">3 · Session Recovery (resend-access)</div>
+            <div style="font-size: 11px; color: var(--text-dim);">Sent on <span class="mono">POST /resend-access</span>. User enters email → worker looks up session → sends new download link. Always returns generic success regardless of whether email exists (prevents enumeration).</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div style="margin-bottom: 12px; font-size: 12px; font-weight: 500; color: #fff;">Token Exchange Flow (email link → session)</div>
+        <div class="flow-container">
+          <div class="flow-row">
+            <div class="flow-node"><div class="flow-node-title">Email arrives</div><div class="flow-node-sub">link: /download.html?token=&lt;hex&gt;</div></div>
+          </div>
+          <div class="flow-connector-v">↓</div>
+          <div class="flow-row">
+            <div class="flow-node"><div class="flow-node-title">download-guard.js</div><div class="flow-node-sub">detects ?token= param, redirects to exchange-token.html</div></div>
+          </div>
+          <div class="flow-connector-v">↓</div>
+          <div class="flow-row">
+            <div class="flow-node"><div class="flow-node-title">POST /exchange-token</div><div class="flow-node-sub">looks up email_token_&lt;token&gt; in KV → deletes it (single-use)</div></div>
+          </div>
+          <div class="flow-connector-v">↓</div>
+          <div class="flow-row">
+            <div class="flow-node"><div class="flow-node-title">Set HttpOnly cookie</div><div class="flow-node-sub">session_id + session_secret issued</div></div>
+          </div>
+          <div class="flow-connector-v">↓</div>
+          <div class="flow-row">
+            <div class="flow-node" style="border-color: rgba(0,212,255,0.3);"><div class="flow-node-title" style="color: var(--accent)">Redirect → download.html</div><div class="flow-node-sub">authenticated — works cross-device</div></div>
+          </div>
+        </div>
+        <div style="margin-top: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: var(--text-dimmer); line-height: 1.7;">
+          Token: 128-bit hex · 1h TTL · stored as <span class="mono">email_token_&lt;token&gt;</span> in KV · deleted on first use<br>
+          Silent no-op if <span class="mono">RESEND_API_KEY</span> absent — no error thrown<br>
+          Base URL is environment-aware (staging tokens point to staging Pages)
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 18. HALLUCINATION GUARD ── -->
+  <section class="section">
+    <div class="section-label">18 — Hallucination Guard (rewriteGuard.js)</div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <div>
+        <div style="margin-bottom: 12px; font-size: 12px; font-weight: 500; color: #fff;">How it works</div>
+        <div style="font-size: 11px; color: var(--text-dim); line-height: 1.7; margin-bottom: 14px;">
+          Called by <span class="mono">postProcessCV()</span> in <span class="mono">tailoring.js</span> after every LLM rewrite. Validates each bullet line individually, assigning a severity grade. All failures fall back to the original text from the CV — no AI-invented content ever reaches the output.
+        </div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text-dimmer); margin-bottom: 8px; font-weight: 600;">CHECKS (in order)</div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div style="padding: 8px 12px; background: rgba(255,107,53,0.06); border: 1px solid rgba(255,107,53,0.15); border-radius: 3px; font-size: 10px; color: var(--text-dim);">
+            <span style="color: var(--accent2); font-family: 'IBM Plex Mono', monospace; font-weight: 600;">HIGH</span> — Adds new numbers (metrics not in original CV)
+          </div>
+          <div style="padding: 8px 12px; background: rgba(255,107,53,0.06); border: 1px solid rgba(255,107,53,0.15); border-radius: 3px; font-size: 10px; color: var(--text-dim);">
+            <span style="color: var(--accent2); font-family: 'IBM Plex Mono', monospace; font-weight: 600;">HIGH</span> — Inflated claims (e.g. "led a team", "increased revenue") without implied context in original
+          </div>
+          <div style="padding: 8px 12px; background: rgba(255,209,102,0.06); border: 1px solid rgba(255,209,102,0.15); border-radius: 3px; font-size: 10px; color: var(--text-dim);">
+            <span style="color: var(--accent5); font-family: 'IBM Plex Mono', monospace; font-weight: 600;">MEDIUM</span> — New tool/technology terms not in <span class="mono">entitasKlaim</span> ground-truth block
+          </div>
+          <div style="padding: 8px 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 3px; font-size: 10px; color: var(--text-dim);">
+            <span style="color: var(--text-dim); font-family: 'IBM Plex Mono', monospace; font-weight: 600;">LOW</span> — Unchanged rewrite (before === after), truncated output (&lt;4 words), weak/illogical improvement
+          </div>
+        </div>
+      </div>
+      <div>
+        <div style="margin-bottom: 12px; font-size: 12px; font-weight: 500; color: #fff;">Severity → Action</div>
+        <div class="card" style="padding: 0; overflow: hidden; margin-bottom: 12px;">
+          <table class="transitions-table">
+            <thead>
+              <tr><th>SEVERITY</th><th>ACTION</th><th>COUNTED IN FALLBACK RATE</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="color: var(--accent2); font-family: 'IBM Plex Mono', monospace; font-size: 10px;">HIGH</td>
+                <td class="t-trigger">Revert to original bullet text</td>
+                <td class="t-trigger" style="color: var(--accent2);">Yes — increments fallbackCount</td>
+              </tr>
+              <tr>
+                <td style="color: var(--accent5); font-family: 'IBM Plex Mono', monospace; font-size: 10px;">MEDIUM</td>
+                <td class="t-trigger">Revert to original bullet text</td>
+                <td class="t-trigger" style="color: var(--text-dimmer);">No (acceptable downgrade)</td>
+              </tr>
+              <tr>
+                <td style="color: var(--text-dim); font-family: 'IBM Plex Mono', monospace; font-size: 10px;">LOW</td>
+                <td class="t-trigger">Revert to original bullet text</td>
+                <td class="t-trigger" style="color: var(--text-dimmer);">No</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="padding: 12px 16px; background: var(--bg3); border: 1px solid var(--border); border-radius: 3px; font-size: 11px; color: var(--text-dim); line-height: 1.7;">
+          <span style="color: var(--text); font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600;">Trust threshold:</span> <span class="mono">isTrusted = fallbackRate &lt; 0.20</span><br>
+          If &gt;20% of bullets are HIGH-severity fallbacks, the output is flagged as untrustworthy.<br><br>
+          <span style="color: var(--text); font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600;">Ground-truth anchor:</span> <span class="mono">entitasKlaim</span> (named entities from CV) + <span class="mono">angka_di_cv</span> (numbers from CV) injected into tailor prompt — rewriteGuard cross-checks against these.<br><br>
+          Adding/removing patterns in this file affects both ID and EN rewrites.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 19. ARCHETYPE SYSTEM ── -->
+  <section class="section">
+    <div class="section-label">19 — Archetype System (pipeline/archetypes.js)</div>
+    <div style="margin-bottom: 14px; font-size: 11px; color: var(--text-dim); line-height: 1.6;">
+      Detected from the JD's <span class="mono">judul_role</span> field in Stage 2 via <span class="mono">detectArchetype()</span>. Feeds scoring weight bias and tailoring tone. Falls back to <span class="mono">Lainnya</span> for unrecognised titles. Order matters — first match wins.
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 12px;">
+      <div style="padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-top: 2px solid var(--accent4); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; color: var(--accent4); margin-bottom: 5px;">IT / Software</div>
+        <div style="font-size: 10px; color: var(--text-dim);">software, developer, data analyst/engineer/scientist, devops, frontend, backend, fullstack, mobile dev, cloud, product manager, QA</div>
+      </div>
+      <div style="padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-top: 2px solid var(--accent2); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; color: var(--accent2); margin-bottom: 5px;">Marketing / Sales</div>
+        <div style="font-size: 10px; color: var(--text-dim);">marketing, digital marketing, sales, business dev, account exec/manager, brand, copywriter, growth, partnership</div>
+      </div>
+      <div style="padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-top: 2px solid var(--accent5); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; color: var(--accent5); margin-bottom: 5px;">Finance / Akuntansi</div>
+        <div style="font-size: 10px; color: var(--text-dim);">finance, keuangan, accounting, audit, tax, treasury, risk analyst, budgeting, cost accountant</div>
+      </div>
+      <div style="padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-top: 2px solid var(--accent6); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; color: var(--accent6); margin-bottom: 5px;">Teknik / Manufaktur</div>
+        <div style="font-size: 10px; color: var(--text-dim);">civil/mechanical/electrical/chemical eng, manufacturing, produksi, QA/QC, plant, maintenance, structural</div>
+      </div>
+      <div style="padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-top: 2px solid var(--accent); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; color: var(--accent); margin-bottom: 5px;">Manajemen / Leader</div>
+        <div style="font-size: 10px; color: var(--text-dim);">manager, direktur, kepala, head of, lead, supervisor, VP, chief — checked LAST to avoid false hits</div>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 14px;">
+      <div style="padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; color: var(--text-dim); margin-bottom: 4px;">Administrasi / GA</div>
+        <div style="font-size: 10px; color: var(--text-dimmer);">admin, GA, office staff, secretary</div>
+      </div>
+      <div style="padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; color: var(--text-dim); margin-bottom: 4px;">HRD</div>
+        <div style="font-size: 10px; color: var(--text-dimmer);">HR, human resource, rekrut, talent, people ops, C&B, L&D</div>
+      </div>
+      <div style="padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; color: var(--text-dim); margin-bottom: 4px;">Operasional / Logistik</div>
+        <div style="font-size: 10px; color: var(--text-dimmer);">logistik, supply chain, warehouse, procurement, distribusi, inventory</div>
+      </div>
+      <div style="padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; color: var(--text-dim); margin-bottom: 4px;">Kreatif / Desain</div>
+        <div style="font-size: 10px; color: var(--text-dimmer);">designer, graphic, UI/UX, fotografer, content creator, animator, art director</div>
+      </div>
+      <div style="padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; color: var(--text-dim); margin-bottom: 4px;">+ 4 more</div>
+        <div style="font-size: 10px; color: var(--text-dimmer);">Kesehatan · Pendidikan · Hospitality/F&B · Customer Service · Fresh Graduate · Lainnya (fallback)</div>
+      </div>
+    </div>
+    <div class="card" style="padding: 12px 16px; font-size: 10px; color: var(--text-dim); font-family: 'IBM Plex Mono', monospace; line-height: 1.7;">
+      <span style="color: var(--text); font-weight: 600;">Ordering rules:</span>
+      Fresh Graduate checked first (trainee/intern appears in any title) ·
+      Teknik/Manufaktur before IT/Software (prevents "Mechanical Engineer" hitting IT) ·
+      Kreatif/Desain before Marketing/Sales (Content Creator is design, not marketing) ·
+      Manajemen/Leader last (manager/lead/supervisor appears in every senior title)
+    </div>
+  </section>
+
+  <!-- ── 20. GOTCHAS ── -->
+  <section class="section">
+    <div class="section-label">20 — Developer Gotchas</div>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
       <div style="padding: 12px 16px; background: var(--bg2); border: 1px solid rgba(255,209,102,0.15); border-left: 2px solid var(--accent5); border-radius: 3px;">
         <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent5); margin-bottom: 5px;">Stale cache</div>
