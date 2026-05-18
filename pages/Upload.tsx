@@ -26,6 +26,15 @@ interface Notice {
   link?: { href: string; label: string };
 }
 
+function prioritizeNotices(items: Notice[]): Notice[] {
+  if (!items.length) return items;
+  const rank: Record<NoticeType, number> = { error: 3, warning: 2, info: 1 };
+  const sorted = [...items].sort((a, b) => rank[b.type] - rank[a.type]);
+  const primary = sorted[0];
+  const secondary = sorted.find(n => n !== primary && n.type === 'info');
+  return secondary ? [primary, secondary] : [primary];
+}
+
 const STALE_KEYS = [
   'gaslamar_scoring', 'gaslamar_cv_key', 'gaslamar_cv_pending', 'gaslamar_jd_pending',
   'gaslamar_filename', 'gaslamar_tier', 'gaslamar_email', 'gaslamar_analyze_time',
@@ -159,7 +168,7 @@ export default function Upload() {
       }
     }
 
-    if (newNotices.length) setNotices(newNotices);
+    if (newNotices.length) setNotices(prioritizeNotices(newNotices));
 
     // Restore JD draft
     const savedJd = sessionStorage.getItem('gaslamar_jd_draft');

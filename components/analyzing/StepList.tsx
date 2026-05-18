@@ -8,7 +8,7 @@ export default function StepList({ steps }: Props) {
       {steps.map((step, i) => (
         <div
           key={step.id}
-          className={`flex items-start gap-3 px-4 text-[0.85rem] ${
+          className={`flex items-start gap-3 px-4 text-[0.9rem] ${
             i < steps.length - 1 ? 'border-b border-slate-100' : ''
           } ${step.status === 'active' ? 'py-3.5' : 'py-3'} ${step.status === 'pending' ? 'text-slate-400' : 'text-slate-700'}`}
         >
@@ -30,7 +30,7 @@ export default function StepList({ steps }: Props) {
               {step.icon} {step.label}
             </span>
             {step.status === 'active' && step.activeDesc && (
-              <span className="text-xs text-blue-500 font-normal leading-snug">
+              <span className="text-[0.8rem] text-blue-600 font-normal leading-snug">
                 {step.activeDesc}
               </span>
             )}
