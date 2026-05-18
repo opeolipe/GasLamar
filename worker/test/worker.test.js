@@ -607,13 +607,25 @@ describe('POST /analyze — DOCX data descriptor (mocked Claude)', () => {
 });
 
 describe('POST /create-payment — validation', () => {
+  it('rejects missing session_secret before invoice creation → 400', async () => {
+    const key = await seedCVTextKey(undefined, '10.97.2.1');
+    const res = await post('/create-payment', { tier: 'single', cv_text_key: key }, {}, '10.97.2.1');
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/session_secret/i);
+  });
+
   it('rejects missing cv_text_key → 400', async () => {
     const res = await post('/create-payment', { tier: 'single' });
     expect(res.status).toBe(400);
   });
 
   it('rejects cv_text_key without cvtext_ prefix → 400', async () => {
-    const res = await post('/create-payment', { tier: 'single', cv_text_key: 'sess_abc' });
+    const res = await post('/create-payment', {
+      tier: 'single',
+      cv_text_key: 'sess_abc',
+      session_secret: FIXED_TEST_SECRET,
+    });
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.message).toContain('cv_text_key');
@@ -627,7 +639,11 @@ describe('POST /create-payment — validation', () => {
   });
 
   it('rejects expired / missing cv_text_key → 400', async () => {
-    const res = await post('/create-payment', { tier: 'single', cv_text_key: 'cvtext_nonexistent' });
+    const res = await post('/create-payment', {
+      tier: 'single',
+      cv_text_key: 'cvtext_nonexistent',
+      session_secret: FIXED_TEST_SECRET,
+    });
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.message).toContain('kedaluwarsa');
@@ -637,7 +653,11 @@ describe('POST /create-payment — validation', () => {
     // Seed the key bound to IP 10.97.0.1
     const key = await seedCVTextKey(undefined, '10.97.0.1');
     // Attempt to use it from a different IP
-    const res = await post('/create-payment', { tier: 'single', cv_text_key: key }, {}, '10.97.0.2');
+    const res = await post('/create-payment', {
+      tier: 'single',
+      cv_text_key: key,
+      session_secret: FIXED_TEST_SECRET,
+    }, {}, '10.97.0.2');
     expect(res.status).toBe(403);
     const body = await res.json();
     expect(body.message).toMatch(/tidak valid/i);
@@ -671,14 +691,22 @@ describe('POST /create-payment — one-time key consumption', () => {
       .times(1);
 
     // Use unique IP
-    const res1 = await post('/create-payment', { tier: 'single', cv_text_key: key }, {}, '10.0.0.2');
+    const res1 = await post('/create-payment', {
+      tier: 'single',
+      cv_text_key: key,
+      session_secret: FIXED_TEST_SECRET,
+    }, {}, '10.0.0.2');
     expect(res1.status).toBe(200);
     const body1 = await res1.json();
     expect(body1.session_id).toMatch(/^sess_/);
     expect(body1.invoice_url).toBeTruthy();
 
     // Key is consumed — second call fails
-    const res2 = await post('/create-payment', { tier: 'single', cv_text_key: key }, {}, '10.0.0.2');
+    const res2 = await post('/create-payment', {
+      tier: 'single',
+      cv_text_key: key,
+      session_secret: FIXED_TEST_SECRET,
+    }, {}, '10.0.0.2');
     expect(res2.status).toBe(400);
     const body2 = await res2.json();
     expect(body2.message).toContain('kedaluwarsa');
@@ -809,6 +837,14 @@ describe('GET /check-session', () => {
     expect(body.status).toBe('paid');
   });
 
+  it('minimizes ?session= only fallback response to status and tier', async () => {
+    const sessionId = await seedSession('ready', '3pack');
+    const res = await get(`/check-session?session=${sessionId}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toEqual({ status: 'ready', tier: '3pack' });
+  });
+
   it('returns 404 for unknown session_id in cookie', async () => {
     const res = await get('/check-session', sessionCookie('sess_nonexistent_id'));
     expect(res.status).toBe(404);
@@ -834,6 +870,8 @@ describe('GET /check-session', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.status).toBe('paid');
+    expect(body.credits_remaining).toBeDefined();
+    expect(body.ttl_seconds).toBeDefined();
   });
 
   it('still uses strict secret check when X-Session-Secret IS provided with cookie (no ?session= needed)', async () => {
@@ -1803,6 +1841,82 @@ async function seedSessionWithSecret(status = 'paid', tier = 'single') {
   }), { expirationTtl: 1800 });
   return { sessionId, secret };
 }
+
+describe('POST /resend-email — recovery index migration', () => {
+  it('moves recovery index entries using hashed email keys', async () => {
+    const { sessionId, secret } = await seedSessionWithSecret('ready', 'single');
+    const oldEmail = 'old@example.com';
+    const newEmail = 'new@example.com';
+    const oldHash = await sha256Full(oldEmail);
+    const newHash = await sha256Full(newEmail);
+    await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
+      ...(await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' })),
+      email: oldEmail,
+    }), { expirationTtl: 1800 });
+    await env.GASLAMAR_SESSIONS.put(`email_session_${oldHash}`, JSON.stringify({ session_ids: [sessionId] }), { expirationTtl: 1800 });
+
+    const res = await post('/resend-email', { email: newEmail }, {
+      ...sessionCookie(sessionId),
+      'X-Session-Secret': secret,
+    }, '10.55.0.1');
+    expect(res.status).toBe(200);
+
+    expect(await env.GASLAMAR_SESSIONS.get(`email_session_${oldHash}`, { type: 'json' })).toBeNull();
+    expect(await env.GASLAMAR_SESSIONS.get(`email_session_${oldEmail}`, { type: 'json' })).toBeNull();
+    expect(await env.GASLAMAR_SESSIONS.get(`email_session_${newEmail}`, { type: 'json' })).toBeNull();
+    expect(await env.GASLAMAR_SESSIONS.get(`email_session_${newHash}`, { type: 'json' }))
+      .toEqual({ session_ids: [sessionId] });
+  });
+
+  it('falls back to legacy plaintext email index and migrates to hashed key', async () => {
+    const { sessionId, secret } = await seedSessionWithSecret('ready', 'single');
+    const oldEmail = 'legacy@example.com';
+    const newEmail = 'migrated@example.com';
+    const newHash = await sha256Full(newEmail);
+    await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
+      ...(await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' })),
+      email: oldEmail,
+    }), { expirationTtl: 1800 });
+    await env.GASLAMAR_SESSIONS.put(`email_session_${oldEmail}`, JSON.stringify({ session_ids: [sessionId] }), { expirationTtl: 1800 });
+
+    const res = await post('/resend-email', { email: newEmail }, {
+      ...sessionCookie(sessionId),
+      'X-Session-Secret': secret,
+    }, '10.55.0.2');
+    expect(res.status).toBe(200);
+
+    expect(await env.GASLAMAR_SESSIONS.get(`email_session_${oldEmail}`, { type: 'json' })).toBeNull();
+    expect(await env.GASLAMAR_SESSIONS.get(`email_session_${newEmail}`, { type: 'json' })).toBeNull();
+    expect(await env.GASLAMAR_SESSIONS.get(`email_session_${newHash}`, { type: 'json' }))
+      .toEqual({ session_ids: [sessionId] });
+  });
+
+  it('migrates remaining legacy plaintext index entries to hashed keys', async () => {
+    const { sessionId, secret } = await seedSessionWithSecret('ready', 'single');
+    const remainingId = 'sess_11111111-1111-4111-8111-111111111111';
+    const oldEmail = 'shared-legacy@example.com';
+    const newEmail = 'shared-new@example.com';
+    const oldHash = await sha256Full(oldEmail);
+    const newHash = await sha256Full(newEmail);
+    await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
+      ...(await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' })),
+      email: oldEmail,
+    }), { expirationTtl: 1800 });
+    await env.GASLAMAR_SESSIONS.put(`email_session_${oldEmail}`, JSON.stringify({ session_ids: [remainingId, sessionId] }), { expirationTtl: 1800 });
+
+    const res = await post('/resend-email', { email: newEmail }, {
+      ...sessionCookie(sessionId),
+      'X-Session-Secret': secret,
+    }, '10.55.0.3');
+    expect(res.status).toBe(200);
+
+    expect(await env.GASLAMAR_SESSIONS.get(`email_session_${oldEmail}`, { type: 'json' })).toBeNull();
+    expect(await env.GASLAMAR_SESSIONS.get(`email_session_${oldHash}`, { type: 'json' }))
+      .toEqual({ session_ids: [remainingId] });
+    expect(await env.GASLAMAR_SESSIONS.get(`email_session_${newHash}`, { type: 'json' }))
+      .toEqual({ session_ids: [sessionId] });
+  });
+});
 
 describe('Session secret — POST /get-session', () => {
   it('returns 403 when secret is missing and session has a hash', async () => {
