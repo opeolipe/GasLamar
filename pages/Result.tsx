@@ -251,7 +251,10 @@ export default function Result() {
         if (pending.invoice_url && notExpired) {
           if (tierMatches && noNewUpload) {
             let urlSafe = false;
-            try { urlSafe = new URL(pending.invoice_url).protocol === 'https:'; } catch (_) {}
+            try {
+              const p = new URL(pending.invoice_url);
+              urlSafe = p.protocol === 'https:' && (p.hostname.endsWith('.mayar.id') || p.hostname.endsWith('.mayar.club'));
+            } catch (_) {}
             if (!urlSafe) throw new Error('invalid_invoice_url');
             setPaymentInProgress(true);
             setPayBtnOverride('Mengalihkan ke halaman pembayaran...');
@@ -333,7 +336,7 @@ export default function Result() {
       if (!response.ok) {
         const err    = await response.json().catch(() => ({}));
         const errMsg = (err as any).message || `Server error: ${response.status}`;
-        if ((response.status === 400 && errMsg.includes('kedaluwarsa')) || response.status === 403) {
+        if ((response.status === 400 && (err as any).code === 'cv_expired') || response.status === 403) {
           setSessionExpiredByPay(true);
           setPayBtnOverride(null);
           setPaymentInProgress(false);
@@ -759,6 +762,12 @@ export default function Result() {
                 score={data.skor}
               />
 
+              {!selectedTier && (
+                <p role="status" style={{ margin: '0.4rem 0 0.6rem', fontSize: '0.8rem', color: '#6B7280', textAlign: 'center' }}>
+                  <span aria-hidden="true">↑</span> Pilih paket di atas untuk melanjutkan pembayaran
+                </p>
+              )}
+
               {/* Payment block — email + CTA grouped */}
               <div style={{
                 background:   'rgba(37,99,235,0.03)',
@@ -820,7 +829,7 @@ export default function Result() {
                 </button>
 
                 {emailIsConfirmed && !sessionExpiredByPay && (
-                  <p style={{ fontSize: '0.8rem', color: '#374151', textAlign: 'center', marginTop: '0.5rem' }}>
+                  <p role="status" style={{ fontSize: '0.8rem', color: '#374151', textAlign: 'center', marginTop: '0.5rem' }}>
                     <span aria-hidden="true">📬</span> CV akan dikirim ke: <strong>{email.trim()}</strong>
                   </p>
                 )}

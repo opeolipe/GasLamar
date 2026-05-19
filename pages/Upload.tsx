@@ -154,7 +154,8 @@ export default function Upload() {
       }
 
       const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
-      if (analyzeTime && sessionStorage.getItem('gaslamar_scoring')) {
+      const cvKey = sessionStorage.getItem('gaslamar_cv_key') || '';
+      if (analyzeTime && cvKey.startsWith('cvtext_')) {
         const remaining = 7200 - Math.floor((Date.now() - analyzeTime) / 1000);
         if (remaining > 0) {
           const h = Math.floor(remaining / 3600);

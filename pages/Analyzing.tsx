@@ -136,9 +136,9 @@ export default function Analyzing() {
 
   useEffect(() => {
     if (ready) return;
-    const scoring     = sessionStorage.getItem('gaslamar_scoring');
+    const cvKey       = sessionStorage.getItem('gaslamar_cv_key') || '';
     const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
-    const isFresh     = !!(scoring && analyzeTime && (Date.now() - analyzeTime) < 7_200_000);
+    const isFresh     = !!(cvKey.startsWith('cvtext_') && analyzeTime && (Date.now() - analyzeTime) < 7_200_000);
     window.location.replace(isFresh ? 'hasil.html' : 'upload.html?reason=missing_data');
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
