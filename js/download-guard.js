@@ -6,20 +6,16 @@
  * preventing any flash of unauthenticated content.
  *
  * Why not check the session_id cookie directly?
- *   The session_id cookie is HttpOnly — JavaScript cannot read it. Instead,
- *   download.js uses localStorage('gaslamar_session') as the client-side
- *   session reference (stored by payment.js right after /create-payment).
- *   The guard mirrors this: it checks localStorage, not document.cookie.
- *   The HttpOnly cookie is still sent automatically on every credentialed
- *   fetch inside download.js (credentials:'include').
+ *   The session_id cookie is HttpOnly — JavaScript cannot read it. The Worker
+ *   performs the production page gate before serving /download.html, while
+ *   download.js bootstraps from either localStorage or the cookie-backed
+ *   /check-session endpoint.
  *
  * Valid entry paths — guard allows these through:
  *   1. ?token=<hex>  — email link; download.js will call /exchange-token
- *   2. gaslamar_session — normal post-payment flow set by payment.js
- *   3. gaslamar_delivery — email delivery confirmed; React handles session state
+ *   2. normal page load — server gate + download.js cookie/localStorage bootstrap
  *
- * All other cases → immediate replace-redirect to /
- * (window.location.replace so the download page is not added to browser history).
+ * Invalid token format → immediate replace-redirect to /
  */
 (function () {
   var params = new URLSearchParams(location.search);
@@ -29,20 +25,5 @@
   // from a garbage token that would pass the guard but fail server-side.
   var token = params.get('token');
   if (token && /^[0-9a-f]{32}$/.test(token)) return;
-
-  // Path 2: normal flow — session_id stored by payment.js after /create-payment
-  try {
-    var sessionId = localStorage.getItem('gaslamar_session');
-    if (sessionId && sessionId.startsWith('sess_')) return;
-  } catch (_) {
-    // localStorage blocked (e.g. Safari strict private mode) — redirect safely
-  }
-
-  // Path 3: delivery flow — email was sent; React renders the delivery section
-  try {
-    if (localStorage.getItem('gaslamar_delivery')) return;
-  } catch (_) {}
-
-  // No valid entry — redirect before body renders
-  window.location.replace('/');
+  if (token) window.location.replace('/');
 })();

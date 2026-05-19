@@ -352,11 +352,6 @@ async function proceedToPayment() {
   if (errEl) errEl.classList.add('hidden');
   if (emailInput) emailInput.classList.remove('input-error');
 
-  // Store email in sessionStorage for use on download page
-  if (capturedEmail && emailValid) {
-    sessionStorage.setItem('gaslamar_email', capturedEmail);
-  }
-
   if (window.Analytics) {
     // PII: email used intentionally for user identification (user provided it for payment).
     // No CV text, JD text, or sensitive data in event properties.
@@ -378,15 +373,6 @@ async function proceedToPayment() {
   btn.disabled = true;
   btn.textContent = 'Membuat invoice...';
 
-  // Generate a cryptographically random secret — stored client-side and used
-  // to bind subsequent requests (get-session, generate) to this browser session.
-  // The worker stores only SHA-256(secret), so possession of the session ID
-  // alone is insufficient to access CV data.
-  // crypto.randomUUID() is Safari 15.4+; fall back to getRandomValues for older Safari
-  const sessionSecret = crypto.randomUUID
-    ? crypto.randomUUID()
-    : Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
-
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 25000);
 
@@ -401,7 +387,6 @@ async function proceedToPayment() {
       body: JSON.stringify({
         tier: selectedTier,
         cv_text_key: cvTextKey,
-        session_secret: sessionSecret,
         ...(capturedEmail ? { email: capturedEmail } : {}),
       }),
       signal: controller.signal
@@ -429,10 +414,6 @@ async function proceedToPayment() {
 
     // Save session ID to localStorage (survives tab close; not sensitive — no auth value alone).
     localStorage.setItem('gaslamar_session', session_id);
-    // Secret stored in sessionStorage only (tab-scoped). Survives the Mayar redirect
-    // because sessionStorage persists within the same tab. After tab close, users must
-    // use their email link (?token=) to re-access — this is intentional security hardening.
-    sessionStorage.setItem('gaslamar_secret_' + session_id, sessionSecret);
     // Note: gaslamar_tier is intentionally NOT persisted to localStorage.
     // The authoritative tier is always read from the server (/check-session → data.tier)
     // and written to sessionStorage there. Client-side storage of tier is display-only.

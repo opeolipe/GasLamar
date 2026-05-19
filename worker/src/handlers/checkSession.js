@@ -1,6 +1,6 @@
 import { jsonResponse } from '../cors.js';
 import { log, logError, clientIp } from '../utils.js';
-import { getSession, getSessionTtl, verifySessionSecret } from '../sessions.js';
+import { getSession, getSessionTtl } from '../sessions.js';
 import { getSessionIdFromCookie } from '../cookies.js';
 import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
 
@@ -10,17 +10,10 @@ export async function handleCheckSession(request, env) {
   const paramSessionId  = url.searchParams.get('session');
   const ip              = clientIp(request);
 
-  // Primary auth: cookie + X-Session-Secret.
-  // Fallback (no secret check): when ?session= is present AND X-Session-Secret is absent.
-  // This covers three real-world scenarios where the secret is unavailable:
-  //   (a) Mobile Safari ITP clears sessionStorage during the cross-origin Mayar redirect
-  //   (b) User closes the tab and opens a new one (sessionStorage is tab-scoped)
-  //   (c) User clicks the email link on a different device (/exchange-token sets the cookie
-  //       but the sessionStorage secret is gone on the new browser)
-  // /check-session returns only low-sensitivity metadata (status/tier/credits/ttl) so
-  // requiring the secret is not necessary for integrity — it only blocks legitimate users.
-  const providedSecret = request.headers.get('X-Session-Secret');
-  const usedFallback   = !!paramSessionId && paramSessionId.startsWith('sess_') && !providedSecret;
+  // Primary auth: HttpOnly session cookie. The ?session= path remains as a
+  // low-sensitivity compatibility fallback for browsers that lose cookies during
+  // the payment redirect; it returns reduced metadata when no cookie is present.
+  const usedFallback   = !!paramSessionId && paramSessionId.startsWith('sess_') && !cookieSessionId;
   const queryOnlyFallback = usedFallback && !cookieSessionId;
   const sessionId      = cookieSessionId || (usedFallback ? paramSessionId : null);
   const ua             = request.headers.get('user-agent') || '';
@@ -44,7 +37,7 @@ export async function handleCheckSession(request, env) {
     mode: usedFallback ? 'fallback' : 'strict',
     ip,
     has_cookie: !!cookieSessionId,
-    has_secret: !!providedSecret,
+    auth: cookieSessionId ? 'cookie' : 'fallback',
     ua_family: uaFamily,
   });
 
@@ -101,14 +94,6 @@ export async function handleCheckSession(request, env) {
     return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa.', reason: 'expired' }, 404, request, env);
   }
 
-  // Secret check only applies on the non-fallback path.
-  if (!usedFallback) {
-    if (!await verifySessionSecret(session, providedSecret)) {
-      logError('check_session_secret_mismatch', { ip, ua_family: uaFamily });
-      return jsonResponse({ message: 'Akses ditolak: token sesi tidak valid', reason: 'unauthorized' }, 403, request, env);
-    }
-  }
-
   if (usedFallback) {
     log('session_query_fallback_used', {
       session_id: sessionId,
@@ -138,6 +123,7 @@ export async function handleCheckSession(request, env) {
   }
 
   return jsonResponse({
+    session_id: sessionId,
     status: session.status,
     credits_remaining: session.credits_remaining ?? 1,
     total_credits: session.total_credits ?? 1,

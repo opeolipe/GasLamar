@@ -1627,7 +1627,7 @@
         <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent); margin-bottom: 12px; letter-spacing: 0.1em;">SESSION + AUTH</div>
         <div class="invariant-item" style="margin-bottom: 8px; border: none; padding: 6px 0; background: none;">
           <div class="invariant-icon">🔒</div>
-          <div><b style="color: var(--text)">HttpOnly session cookie</b> — <span class="mono">session_id</span> in cookie, <span class="mono">session_secret</span> in header. Constant-time comparison prevents timing attacks.</div>
+          <div><b style="color: var(--text)">HttpOnly session cookie</b> — <span class="mono">session_id</span> is the server-validated auth credential and is never readable by frontend JavaScript.</div>
         </div>
         <div class="invariant-item" style="margin-bottom: 8px; border: none; padding: 6px 0; background: none;">
           <div class="invariant-icon">🔒</div>
@@ -1829,7 +1829,7 @@
           </div>
           <div class="flow-connector-v">↓</div>
           <div class="flow-row">
-            <div class="flow-node"><div class="flow-node-title">Set HttpOnly cookie</div><div class="flow-node-sub">session_id + session_secret issued</div></div>
+            <div class="flow-node"><div class="flow-node-title">Set HttpOnly cookie</div><div class="flow-node-sub">session_id issued; no browser-readable session secret</div></div>
           </div>
           <div class="flow-connector-v">↓</div>
           <div class="flow-row">

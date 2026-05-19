@@ -44,8 +44,6 @@ interface Props {
   dimensions?: Record<string, number>;
   primaryIssue?: string | null;
   isTrusted?: boolean;
-  deliveryEmail?: string | null;
-  sessionSecret: string | null;
   interviewKitNode?: ReactNode;
 }
 
@@ -92,8 +90,6 @@ export default function DownloadReady({
   dimensions,
   primaryIssue,
   isTrusted = false,
-  deliveryEmail,
-  sessionSecret,
   interviewKitNode,
 }: Props) {
   const bilingual      = isBilingual(tier);
@@ -286,13 +282,7 @@ export default function DownloadReady({
             )}
           </div>
 
-          {deliveryEmail && (
-            <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid rgba(148,163,184,0.14)' }}>
-              <p className="text-sm text-slate-500 mb-0.5">Link download dikirim ke:</p>
-              <p className="text-sm font-semibold text-slate-700 mb-0 break-all">{deliveryEmail}</p>
-              <ResendEmail sessionSecret={sessionSecret} compact />
-            </div>
-          )}
+          <ResendEmail compact />
 
           {interviewKitNode && (
             <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(148,163,184,0.14)' }}>

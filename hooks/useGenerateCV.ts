@@ -2,7 +2,6 @@ import { useState, useRef, useCallback } from 'react';
 import {
   WORKER_URL,
   clearClientSessionData,
-  buildSecretHeaders,
 } from '@/lib/sessionUtils';
 import { getPrimaryIssue } from '@/lib/resultUtils';
 
@@ -33,7 +32,6 @@ export type GenerateStatus = 'idle' | 'running' | 'done' | 'error';
 
 export interface GenerateCVParams {
   sessionId:     string;
-  sessionSecret: string | null;
   jobDesc?:      string;
 }
 
@@ -81,10 +79,7 @@ export function useGenerateCV(): UseGenerateCVReturn {
     setContent(null);
     setTier(null);
 
-    const baseHeaders = {
-      'Content-Type': 'application/json',
-      ...buildSecretHeaders(params.sessionSecret),
-    };
+    const baseHeaders = { 'Content-Type': 'application/json' };
 
     ;(window as any).Analytics?.track?.('cv_generation_started', {
       tier:     sessionStorage.getItem('gaslamar_tier')     || undefined,

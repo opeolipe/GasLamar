@@ -37,7 +37,7 @@ function prioritizeNotices(items: Notice[]): Notice[] {
 
 const STALE_KEYS = [
   'gaslamar_scoring', 'gaslamar_cv_key', 'gaslamar_cv_pending', 'gaslamar_jd_pending',
-  'gaslamar_filename', 'gaslamar_tier', 'gaslamar_email', 'gaslamar_analyze_time',
+  'gaslamar_filename', 'gaslamar_tier', 'gaslamar_analyze_time',
   'gaslamar_cv_draft', 'gaslamar_filename_draft', 'gaslamar_cv_paste_raw',
   'gaslamar_6d_scores', 'gaslamar_skor', 'gaslamar_skor_sesudah', 'gaslamar_gap',
   'gaslamar_sample_line', 'gaslamar_sample_context',

@@ -1,6 +1,6 @@
 import { jsonResponseWithCookie } from '../cors.js';
 import { jsonResponse } from '../cors.js';
-import { clientIp, sha256Full, sha256Hex, log } from '../utils.js';
+import { clientIp, sha256Hex, log } from '../utils.js';
 import { checkRateLimit, rateLimitResponse } from '../rateLimit.js';
 import { TIER_CREDITS, SESSION_TTL_MULTI, VALID_TIERS } from '../constants.js';
 import { createMayarInvoice, logMayarEnvironment } from '../mayar.js';
@@ -23,7 +23,7 @@ export async function handleCreatePayment(request, env) {
     return jsonResponse({ message: 'Request body tidak valid' }, 400, request, env);
   }
 
-  const { tier, cv_text_key, email: rawEmail, session_secret: rawSecret, coupon_code: rawCoupon } = body;
+  const { tier, cv_text_key, email: rawEmail, coupon_code: rawCoupon } = body;
 
   // Sanitize coupon code — uppercase, strip non-alphanumeric, max 64 chars
   const couponCode = (rawCoupon && typeof rawCoupon === 'string')
@@ -45,11 +45,6 @@ export async function handleCreatePayment(request, env) {
 
   if (!cv_text_key) {
     return jsonResponse({ message: 'Data tidak lengkap' }, 400, request, env);
-  }
-
-  if (typeof rawSecret !== 'string' || rawSecret.length < 16 || rawSecret.length > 256) {
-    log('create_payment_missing_secret_rejected', { ip });
-    return jsonResponse({ message: 'session_secret wajib disertakan dan harus 16–256 karakter' }, 400, request, env);
   }
 
   // Look up extracted CV text from KV (set by /analyze) — never re-extract
@@ -84,8 +79,6 @@ export async function handleCreatePayment(request, env) {
   const sessionId = `sess_${crypto.randomUUID()}`;
 
   const credits = TIER_CREDITS[tier] ?? 1;
-
-  const secretHash = await sha256Full(rawSecret);
 
   // Validate Mayar API key before creating a session (gives a clear 503 instead of a
   // cryptic Mayar error when the secret is absent in staging/sandbox).
@@ -123,7 +116,6 @@ export async function handleCreatePayment(request, env) {
         total_credits: credits,
         ip,
         ...(sessionEmail ? { email: sessionEmail } : {}),
-        ...(secretHash ? { session_secret_hash: secretHash } : {}),
       };
       await createSession(env, sessionId, sessionData);
 

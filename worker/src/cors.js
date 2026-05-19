@@ -18,10 +18,25 @@ export function isOriginAllowed(request, env) {
   return Boolean(origin && getAllowedOrigins(env).includes(origin));
 }
 
+export function isUnsafeOrigin(request, env) {
+  const method = request.method.toUpperCase();
+  if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return false;
+
+  const origin = request.headers.get('Origin');
+  const fetchSite = request.headers.get('Sec-Fetch-Site');
+
+  if (origin) return origin === 'null' || !getAllowedOrigins(env).includes(origin);
+  return fetchSite === 'cross-site';
+}
+
+export function forbiddenOriginResponse(request, env) {
+  return jsonResponse({ message: 'Forbidden origin' }, 403, request, env);
+}
+
 export function getCorsHeaders(request, env) {
   const headers = {
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Session-Secret',
+    'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',

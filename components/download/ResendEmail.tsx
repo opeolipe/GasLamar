@@ -1,18 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { validateEmail }               from '@/utils/emailValidation';
-import { WORKER_URL, buildSecretHeaders } from '@/lib/sessionUtils';
+import { WORKER_URL } from '@/lib/sessionUtils';
 import { logError } from '@/lib/logger';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-interface DeliveryState {
-  sessionId: string;
-  email:     string;
-  sentAt:    number;
-}
-
 interface Props {
-  sessionSecret: string | null;
   compact?: boolean;
 }
 
@@ -22,14 +13,7 @@ const COOLDOWN_SECS = 30;
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function ResendEmail({ sessionSecret, compact = false }: Props) {
-  const [delivery, setDelivery] = useState<DeliveryState | null>(() => {
-    try {
-      const raw = localStorage.getItem('gaslamar_delivery');
-      return raw ? JSON.parse(raw) : null;
-    } catch { return null; }
-  });
-
+export default function ResendEmail({ compact = false }: Props) {
   const [showChange,        setShowChange]        = useState(false);
   const [newEmail,          setNewEmail]          = useState('');
   const [emailError,        setEmailError]        = useState('');
@@ -63,14 +47,9 @@ export default function ResendEmail({ sessionSecret, compact = false }: Props) {
     }, 1000);
   }
 
-  function persistDelivery(updated: DeliveryState) {
-    setDelivery(updated);
-    try { localStorage.setItem('gaslamar_delivery', JSON.stringify(updated)); } catch (_) {}
-  }
-
   // ── API call ──────────────────────────────────────────────────────────────
 
-  async function doResend(targetEmail: string, isChange: boolean) {
+  async function doResend(targetEmail: string | null, isChange: boolean) {
     // Start cooldown immediately to block spam even if the request fails
     startCooldown();
     setSending(true);
@@ -81,13 +60,12 @@ export default function ResendEmail({ sessionSecret, compact = false }: Props) {
       const body = isChange ? { email: targetEmail } : {};
       const res  = await fetch(`${WORKER_URL}/resend-email`, {
         method:      'POST',
-        headers:     { 'Content-Type': 'application/json', ...buildSecretHeaders(sessionSecret) },
+        headers:     { 'Content-Type': 'application/json' },
         credentials: 'include',
         body:        JSON.stringify(body),
       });
 
       if (res.status === 401 || res.status === 404) {
-        localStorage.removeItem('gaslamar_delivery');
         window.location.href = '/';
         return;
       }
@@ -106,18 +84,16 @@ export default function ResendEmail({ sessionSecret, compact = false }: Props) {
         return;
       }
 
-      const updated = { ...(delivery!), email: targetEmail, sentAt: Date.now() };
-      persistDelivery(updated);
-
       if (isChange) {
         ;(window as any).Analytics?.track?.('email_changed', {
-          old_domain: delivery?.email.split('@')[1],
-          new_domain: targetEmail.split('@')[1],
+          new_domain: targetEmail?.split('@')[1],
         });
         setShowChange(false);
         setNewEmail('');
       }
-      setSuccessMsg(`CV berhasil dikirim ulang ke ${targetEmail}.`);
+      setSuccessMsg(isChange && targetEmail
+        ? `CV berhasil dikirim ulang ke ${targetEmail}.`
+        : 'CV berhasil dikirim ulang ke email terdaftar.');
       ;(window as any).Analytics?.track?.('resend_success');
 
     } catch (_) {
@@ -132,17 +108,16 @@ export default function ResendEmail({ sessionSecret, compact = false }: Props) {
   // ── Handlers ─────────────────────────────────────────────────────────────
 
   function handleResendSame() {
-    if (!delivery) return;
     if (sending) return;
     ;(window as any).Analytics?.track?.('resend_clicked', { action: 'same_email' });
-    doResend(delivery.email, false);
+    doResend(null, false);
   }
 
   function handleToggleChange() {
     const next = !showChange;
     setShowChange(next);
     if (next) {
-      setNewEmail(delivery?.email ?? '');
+      setNewEmail('');
       setEmailError('');
       setEmailSuggestion(null);
       setEmailIsDisposable(false);
@@ -192,10 +167,6 @@ export default function ResendEmail({ sessionSecret, compact = false }: Props) {
     doResend(newEmail.trim().toLowerCase(), true);
   }
 
-  // ── Early return ──────────────────────────────────────────────────────────
-
-  if (!delivery) return null;
-
   // ── Render ────────────────────────────────────────────────────────────────
 
   const inputBorder = emailError ? '#DC2626' : emailIsConfirmed ? '#16A34A' : '#CBD5E1';
@@ -242,7 +213,7 @@ export default function ResendEmail({ sessionSecret, compact = false }: Props) {
                 wordBreak:    'break-all' as const,
               }}
             >
-              {`Resend ke ${delivery.email}`}
+              Kirim ulang ke email terdaftar
             </button>
 
             <button

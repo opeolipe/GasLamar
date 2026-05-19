@@ -1,6 +1,5 @@
 import { jsonResponse }                      from '../cors.js';
-import { getSession, updateSession,
-         verifySessionSecret }               from '../sessions.js';
+import { getSession, updateSession }         from '../sessions.js';
 import { getSessionIdFromCookie }            from '../cookies.js';
 import { clientIp, log, logError, sha256Hex } from '../utils.js';
 import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
@@ -55,11 +54,6 @@ export async function handleResendEmail(request, env) {
       { message: 'Sesi tidak ditemukan atau sudah kedaluwarsa.', reason: 'expired' },
       404, request, env,
     );
-  }
-
-  const providedSecret = request.headers.get('X-Session-Secret');
-  if (!await verifySessionSecret(session, providedSecret)) {
-    return jsonResponse({ message: 'Akses ditolak.' }, 403, request, env);
   }
 
   if (!PAID_STATUSES.has(session.status)) {

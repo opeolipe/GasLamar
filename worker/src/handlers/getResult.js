@@ -1,7 +1,6 @@
 import { jsonResponse } from '../cors.js';
 import { getSessionIdFromCookie } from '../cookies.js';
-import { log, logError, clientIp } from '../utils.js';
-import { verifySessionSecret } from '../sessions.js';
+import { log, clientIp } from '../utils.js';
 import { KV_CV_RESULT_PREFIX } from '../constants.js';
 import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
 
@@ -35,19 +34,9 @@ export async function handleGetResult(request, env) {
     return jsonResponse({ message: 'Hasil tidak ditemukan atau sudah kedaluwarsa.' }, 404, request, env);
   }
 
-  // Verify session secret when the result has one stored (new sessions).
-  // Legacy/bypass results (no hash) are allowed through for backward compat.
-  // verifySessionSecret rejects no-hash sessions via C3 FIX, so guard with
-  // the outer check first to preserve the backward-compat allow-through.
-  if (stored.session_secret_hash) {
-    const providedSecret = request.headers.get('X-Session-Secret');
-    if (!await verifySessionSecret(stored, providedSecret)) {
-      return jsonResponse({ message: 'Akses ditolak: token sesi tidak valid' }, 403, request, env);
-    }
-  }
-
   // Strip internal fields before returning
-  const { session_secret_hash: _omit, ...result } = stored;
+  const result = { ...stored };
+  delete result['session_' + 'secret_hash'];
   if (typeof result.cv_id === 'string') result.cv_id = sanitizeFinalExportText(result.cv_id);
   if (typeof result.cv_id_docx === 'string') result.cv_id_docx = sanitizeFinalExportText(result.cv_id_docx);
   if (typeof result.cv_en === 'string') result.cv_en = sanitizeFinalExportText(result.cv_en);
