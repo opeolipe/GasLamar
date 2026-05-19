@@ -51,7 +51,13 @@ export default function Download() {
   const session  = useDownloadSession();
   const generate = useGenerateCV();
 
-  const [delivery,        setDelivery]        = useState<DeliveryData | null>(null);
+  const [delivery] = useState<DeliveryData | null>(() => {
+    try {
+      const raw = localStorage.getItem('gaslamar_delivery');
+      if (raw) return JSON.parse(raw) as DeliveryData;
+    } catch (_) {}
+    return null;
+  });
   const [view,            setView]            = useState<PageView>('waiting');
   const [closureFirst,    setClosureFirst]    = useState(true);
   const [countdownText,   setCountdownText]   = useState<string | null>(null);
@@ -81,14 +87,7 @@ export default function Download() {
 
   useEffect(() => {
     // Delivery mode: email was already sent; user returns only to resend it.
-    // gaslamar_delivery is set by the email-delivery flow and carries { sessionId, email, sentAt }.
-    const deliveryRaw = localStorage.getItem('gaslamar_delivery');
-    if (deliveryRaw) {
-      try {
-        setDelivery(JSON.parse(deliveryRaw) as DeliveryData);
-        return; // delivery present — skip session redirect
-      } catch (_) {}
-    }
+    if (delivery) return;
 
     // Check both storages: after credits are exhausted useGenerateCV removes
     // localStorage.gaslamar_session, but the session stays in sessionStorage for
@@ -470,13 +469,13 @@ export default function Download() {
           </div>
         )}
 
-        {view === 'waiting' && session.phase === 'init' && (
+        {!delivery && view === 'waiting' && session.phase === 'init' && (
           <div style={{ maxWidth: 760, margin: '0 auto' }}>
             <DownloadSkeleton />
           </div>
         )}
 
-        {view === 'waiting' && session.phase !== 'init' && (
+        {!delivery && view === 'waiting' && session.phase !== 'init' && (
           <div style={{ maxWidth: 480, margin: '0 auto' }}>
             <WaitingPayment
               statusText={session.statusText}
