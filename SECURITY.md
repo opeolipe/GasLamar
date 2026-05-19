@@ -118,21 +118,30 @@ PostCSS is pinned to `>=8.5.14` via `overrides` in both `package.json` and `work
 and both lockfiles resolve to exactly `8.5.14`. The pin is intentionally a floor (`>=`) so future
 patch releases are not blocked.
 
-### jsPDF / DOMPurify advisory status
+### jsPDF / DOMPurify — resolved
 
-As of the `security/postcss-hardening` review, `npm ls dompurify` shows DOMPurify is transitive
-only through `jspdf@2.5.1`; app code does not import or call `DOMPurify.sanitize()` directly.
-`npm audit --omit=dev` reports DOMPurify advisories through `jspdf <=4.2.0`, and the available
-audit fix requires upgrading to `jspdf@4.2.1`, which is a breaking, user-facing export-rendering
-change.
+Upgraded to `jspdf@4.2.1` (issue #385). `npm audit --omit=dev` reports 0 vulnerabilities.
+DOMPurify advisory through `jspdf <=4.2.0` is cleared.
 
-The jsPDF upgrade is intentionally deferred to a separate branch with PDF/DOCX export regression
-coverage. Current compensating controls:
+### Dev-only advisories (frontend `package.json`)
 
-- No `addJS` usage.
-- No AcroForm API usage.
-- No user-controlled images are passed into jsPDF.
-- CV PDF content is generated from structured text, not raw uploaded HTML.
+`axios@1.15.1` (via `wait-on`) and `fast-uri@3.1.0` (via `serve → ajv`) were both flagged.
+Fixed by `npm audit fix` in the same pass: `axios → 1.16.1`, `fast-uri → 3.1.2`.
+Neither package is shipped to production browsers. `npm audit` (full, including dev) now reports 0 vulnerabilities.
 
-Revisit the jsPDF upgrade by 2026-08-19, or sooner if app code starts using jsPDF active-content,
-form, HTML, or user-image APIs. Tracked in issue #385.
+### Dev-only advisories (worker `package.json`)
+
+`worker/` reports 12 advisories (7 moderate, 5 high) all rooted in dev tooling:
+
+| Package | Via | Version |
+|---------|-----|---------|
+| `defu` | `@cloudflare/vitest-pool-workers@0.5.41` | 6.1.4 |
+| `devalue` | `@cloudflare/vitest-pool-workers@0.5.41` | 4.3.3 |
+| `esbuild` | `wrangler@3.114.17`, `vitest@2.1.9` | 0.17.19 |
+| `undici` | `wrangler@3.114.17` → `miniflare` | 5.29.0 |
+| `ws` | `wrangler@3.114.17` → `miniflare` | 8.20.0 |
+
+`npm audit --omit=dev` in `worker/` reports **0 vulnerabilities** — none of these ship to production.
+The fix requires `npm audit fix --force` which would upgrade `@cloudflare/vitest-pool-workers` to
+`0.16.7` (a breaking major version jump). Deferred until the test suite is validated against the
+new pool-workers API. Tracked separately from issue #385.

@@ -23,7 +23,7 @@ const copies = [
   {
     src: path.join(ROOT, 'node_modules', 'jspdf', 'dist', 'jspdf.umd.min.js'),
     dst: path.join(VENDOR, 'jspdf.umd.min.js'),
-    label: 'jspdf@2.5.1',
+    label: 'jspdf@4.2.1',
   },
 ];
 
