@@ -92,3 +92,14 @@ Store scoring in cvtext_ KV entry at /analyze time; serve via GET /get-scoring.
 - scoring.js fetches from /get-scoring; falls back to legacy sessionStorage blob for old sessions
 - hasil-guard.js simplified — no scoring blob validation; just checks cv_text_key format + analyze_time
 - Security: /get-scoring returns only the scoring portion, never cv_text or job_desc
+
+## Session ID must not appear in URL query parameters (2026-05-19)
+
+Passing `?session=sess_...` to GET endpoints leaks session IDs into browser history, server logs,
+and Referer headers on any subsequent navigation. Even a "reduced metadata" fallback path carries risk.
+
+**Pattern to use instead:**
+- Send session ID in a custom request header: `'X-Session-Id': sessionId`
+- Register the header in CORS config: `'Access-Control-Allow-Headers': 'Content-Type, X-Session-Id'`
+- Server reads `request.headers.get('X-Session-Id') || url.searchParams.get('session')` — the query param fallback can stay temporarily for rollout compat, then be removed
+- `gaslamar_session` in localStorage is a UI pointer only (auth is the HttpOnly cookie) — it is acceptable there, but must never be URL-encoded into a GET query string
