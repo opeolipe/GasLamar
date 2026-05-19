@@ -6,16 +6,18 @@
  * preventing any flash of unauthenticated content.
  *
  * Why not check the session_id cookie directly?
- *   The session_id cookie is HttpOnly — JavaScript cannot read it. The Worker
- *   performs the production page gate before serving /download.html, while
- *   download.js bootstraps from either localStorage or the cookie-backed
- *   /check-session endpoint.
+ *   The session_id cookie is HttpOnly — JavaScript cannot read it. In production
+ *   the Worker performs a server-side gate before proxying /download.html. This
+ *   JS guard handles the fallback for staging and direct-Pages access where the
+ *   server-side gate does not run.
  *
  * Valid entry paths — guard allows these through:
- *   1. ?token=<hex>  — email link; download.js will call /exchange-token
- *   2. normal page load — server gate + download.js cookie/localStorage bootstrap
+ *   1. ?token=<hex>      — email link; download.js will call /exchange-token
+ *   2. gaslamar_session  — normal post-payment flow set by payment.js
+ *   3. gaslamar_delivery — email delivery confirmed; React handles session state
  *
- * Invalid token format → immediate replace-redirect to /
+ * All other cases → immediate replace-redirect to /
+ * (window.location.replace so the download page is not added to browser history).
  */
 (function () {
   var params = new URLSearchParams(location.search);
@@ -25,5 +27,23 @@
   // from a garbage token that would pass the guard but fail server-side.
   var token = params.get('token');
   if (token && /^[0-9a-f]{32}$/.test(token)) return;
-  if (token) window.location.replace('/');
+  if (token) { window.location.replace('/'); return; }
+
+  // Path 2: normal flow — session_id stored by payment.js after /create-payment.
+  // In production the server-side Worker gate already verified the session cookie,
+  // but this check also guards staging and direct-Pages access.
+  try {
+    var sessionId = localStorage.getItem('gaslamar_session');
+    if (sessionId && sessionId.startsWith('sess_')) return;
+  } catch (_) {
+    // localStorage blocked (e.g. Safari strict private mode) — redirect safely
+  }
+
+  // Path 3: delivery flow — email was sent; React renders the delivery section.
+  try {
+    if (localStorage.getItem('gaslamar_delivery')) return;
+  } catch (_) {}
+
+  // No valid entry — redirect before body renders.
+  window.location.replace('/');
 })();
