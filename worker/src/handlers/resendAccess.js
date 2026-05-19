@@ -1,7 +1,7 @@
 import { jsonResponse }                        from '../cors.js';
 import { getSession }                          from '../sessions.js';
 import { clientIp, log, logError, sha256Hex } from '../utils.js';
-import { checkRateLimitKV }                    from '../rateLimit.js';
+import { checkRateLimit, checkRateLimitKV }    from '../rateLimit.js';
 import { sendResendAccessEmail }               from '../email.js';
 import { SESSION_STATES }                      from '../sessionStates.js';
 
@@ -28,6 +28,13 @@ export async function handleResendAccess(request, env) {
   }
   const email = rawEmail.toLowerCase();
   const ip    = clientIp(request);
+
+  // Atomic burst guard — native CF rate limiter, no TOCTOU race.
+  // Checked before hashing email to short-circuit quickly on burst abuse.
+  if (!await checkRateLimit(env, env.RATE_LIMITER_RESEND_ACCESS, ip)) {
+    log('resend_access_attempt', { rateLimited: true, ip, reason: 'cf_burst' });
+    return jsonResponse(GENERIC_OK, 200, request, env);
+  }
 
   // Hash email before using it as a rate-limit key (avoid plaintext PII in KV key space).
   const emailHash = await sha256Hex(email);

@@ -852,6 +852,43 @@ describe('Rate limiting — /analyze (3 req/min per IP)', () => {
   });
 });
 
+describe('Rate limiting — /resend-access', () => {
+  // Unique IP range to avoid cross-suite contamination
+  const RL_RESEND_IP_CF  = '10.99.5.1';
+  const RL_RESEND_IP_KV  = '10.99.5.2';
+
+  it('CF native rate limiter returns GENERIC_OK (200) not 429 after burst', async () => {
+    // Exhaust the 5-req/min native limit (uses unique emails to avoid hitting per-email KV limit)
+    for (let i = 0; i < 5; i++) {
+      const res = await post('/resend-access', { email: `rl-cf-${i}@example.com` }, {}, RL_RESEND_IP_CF);
+      expect(res.status).toBe(200);
+    }
+    // 6th request: CF rate limited — security design returns GENERIC_OK, not 429
+    const res = await post('/resend-access', { email: `rl-cf-6@example.com` }, {}, RL_RESEND_IP_CF);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.message).toMatch(/link baru/);
+  });
+
+  it('per-email KV rate limit triggers after 2 requests from same email', async () => {
+    const email = `rl-kv-email-${Date.now()}@example.com`;
+    // First 2 requests: allowed (no session exists, returns GENERIC_OK)
+    for (let i = 0; i < 2; i++) {
+      const res = await post('/resend-access', { email }, {}, RL_RESEND_IP_KV);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+    }
+    // 3rd request with same email: per-email KV rate limited — still returns GENERIC_OK (security design)
+    const res = await post('/resend-access', { email }, {}, RL_RESEND_IP_KV);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.message).toMatch(/link baru/);
+  });
+});
+
 describe('POST /session/ping', () => {
   it('returns 401 when no session cookie is present', async () => {
     // Handlers now read session_id from Cookie header; missing cookie → 401
