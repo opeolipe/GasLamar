@@ -35,6 +35,13 @@ const MOCK_ANALYZE_RESPONSE = {
 
 const SAMPLE_CV_PATH = path.resolve('tests/fixtures/sample-cv.pdf');
 const SHORT_CV_PATH  = path.resolve('tests/fixtures/short-cv.txt');
+const XSS_PAYLOADS = [
+  '<img src=x onerror=alert(1)>',
+  '<script>alert(1)</script>',
+  '"><svg onload=alert(1)>',
+  '&lt;img src=x onerror=alert(1)&gt;',
+  '<img src=x onerror=alert(1)>\u202E',
+];
 
 // ---------- HELPERS ----------
 
@@ -491,6 +498,39 @@ test.describe('GasLamar CV Flow', () => {
     // Recovery banner must appear; no_session message must not
     await expect(page.locator('[role="status"]').filter({ hasText: 'Kamu sudah upload CV' })).toBeVisible({ timeout: 5000 });
     await expect(page.locator('text=Sesi tidak ditemukan')).not.toBeVisible();
+  });
+
+  test('scoring output renders CV/JD-derived injection payloads as text', async ({ page }) => {
+    const dialogs: string[] = [];
+    page.on('dialog', async dialog => {
+      dialogs.push(dialog.message());
+      await dialog.dismiss();
+    });
+
+    const payload = XSS_PAYLOADS.join(' ');
+    await page.evaluate((scoring) => {
+      sessionStorage.setItem('gaslamar_cv_key', 'cvtext_xss-test-key');
+      sessionStorage.setItem('gaslamar_analyze_time', String(Date.now()));
+      sessionStorage.setItem('gaslamar_scoring', JSON.stringify(scoring));
+    }, {
+      ...MOCK_ANALYZE_RESPONSE,
+      gap: [payload],
+      rekomendasi: [payload],
+      kekuatan: [payload],
+      red_flags: [payload],
+      hr_7_detik: { kuat: [payload], diabaikan: [payload] },
+      alasan_skor: payload,
+    });
+
+    await page.goto('/hasil');
+    const fixSection = page.locator('[data-testid="fix-before-after"]');
+    await expect(fixSection).toContainText(payload);
+    for (const item of XSS_PAYLOADS) {
+      await expect(fixSection).toContainText(item);
+    }
+    await expect(fixSection.locator('img,svg,script')).toHaveCount(0);
+    await expect(page.locator('[src="x"]')).toHaveCount(0);
+    expect(dialogs).toEqual([]);
   });
 
   // Coupon input removed — users enter discount codes directly on Mayar's checkout page.

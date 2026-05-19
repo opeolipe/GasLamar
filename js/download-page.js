@@ -117,20 +117,28 @@ async function fetchNewJobFromUrl() {
     const data = await res.json();
     if (!res.ok) {
       statusEl.className = 'url-status url-status-err';
-      statusEl.innerHTML = '<span aria-hidden="true">⚠️</span> ' + (data.message || 'Gagal mengambil. Coba copy-paste manual.');
+      setNewUrlFetchStatus(statusEl, '⚠️', data.message || 'Gagal mengambil. Coba copy-paste manual.');
     } else {
       document.getElementById('new-job-desc').value = data.job_desc;
       updateNewCharCount();
       statusEl.className = 'url-status url-status-ok';
-      statusEl.innerHTML = '<span aria-hidden="true">✅</span> Job description berhasil diambil. Periksa dan edit seperlunya.';
+      setNewUrlFetchStatus(statusEl, '✅', 'Job description berhasil diambil. Periksa dan edit seperlunya.');
     }
   } catch {
     statusEl.className = 'url-status url-status-err';
-    statusEl.innerHTML = '<span aria-hidden="true">⚠️</span> Tidak bisa terhubung ke server. Coba lagi.';
+    setNewUrlFetchStatus(statusEl, '⚠️', 'Tidak bisa terhubung ke server. Coba lagi.');
   } finally {
     submitBtn.disabled = false;
     submitBtn.textContent = 'Ambil';
   }
+}
+
+function setNewUrlFetchStatus(statusEl, icon, message) {
+  statusEl.textContent = '';
+  const iconEl = document.createElement('span');
+  iconEl.setAttribute('aria-hidden', 'true');
+  iconEl.textContent = icon;
+  statusEl.append(iconEl, ' ', String(message));
 }
 
 function updateNewCharCount() {

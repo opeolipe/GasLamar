@@ -99,20 +99,28 @@ async function fetchJobFromUrl() {
 
     if (!res.ok) {
       statusEl.style.color = '#DC2626';
-      statusEl.innerHTML = '<span aria-hidden="true">⚠️</span> ' + (data.message || 'Gagal mengambil. Coba copy-paste manual.');
+      setUrlFetchStatus(statusEl, '⚠️', data.message || 'Gagal mengambil. Coba copy-paste manual.');
     } else {
       document.getElementById('job-desc').value = data.job_desc;
       updateCharCount();
       statusEl.style.color = '#059669';
-      statusEl.innerHTML = '<span aria-hidden="true">✅</span> Job description berhasil diambil. Periksa dan edit seperlunya.';
+      setUrlFetchStatus(statusEl, '✅', 'Job description berhasil diambil. Periksa dan edit seperlunya.');
     }
   } catch {
     statusEl.style.color = '#DC2626';
-    statusEl.innerHTML = '<span aria-hidden="true">⚠️</span> Tidak bisa terhubung ke server. Coba lagi.';
+    setUrlFetchStatus(statusEl, '⚠️', 'Tidak bisa terhubung ke server. Coba lagi.');
   } finally {
     submitBtn.disabled = false;
     submitBtn.textContent = 'Ambil';
   }
+}
+
+function setUrlFetchStatus(statusEl, icon, message) {
+  statusEl.textContent = '';
+  const iconEl = document.createElement('span');
+  iconEl.setAttribute('aria-hidden', 'true');
+  iconEl.textContent = icon;
+  statusEl.append(iconEl, ' ', String(message));
 }
 
 // Allow Enter key in URL input to trigger fetch
