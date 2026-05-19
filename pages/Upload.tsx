@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import TierIndicator       from '@/components/upload/TierIndicator';
 import UploadSteps         from '@/components/upload/UploadSteps';
 import CvDropzone          from '@/components/upload/CvDropzone';
@@ -351,6 +352,7 @@ export default function Upload() {
   }
 
   function handleSubmit() {
+    if (loading) return;
     const cvMissing = !hasFile;
     const jdMissing = !evaluateJDQuality(jd).isValid;
 
@@ -376,9 +378,12 @@ export default function Upload() {
       }
       return;
     }
-    const jobDesc = jd.trim();
 
-    setLoading(true);
+    // flushSync forces a synchronous re-render so the button is visibly disabled
+    // before sessionStorage writes and navigation — this also prevents rapid
+    // double-clicks from invoking handleSubmit again before React re-renders.
+    flushSync(() => setLoading(true));
+
     try {
       const safeJd = jd.trim().replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
       sessionStorage.setItem('gaslamar_cv_pending', cvText);
