@@ -62,7 +62,8 @@ export async function handleResendAccess(request, env) {
     }
   }
   // Support both old { session_id } and new { session_ids } format.
-  const sessionIds = indexRaw?.session_ids ?? (indexRaw?.session_id ? [indexRaw.session_id] : []);
+  // Deduplicate: overlapping legacy+hashed keys for the same email could produce duplicate IDs.
+  const sessionIds = [...new Set(indexRaw?.session_ids ?? (indexRaw?.session_id ? [indexRaw.session_id] : []))];
 
   if (!sessionIds.length) {
     log('resend_access_attempt', { email_hash: emailHash.slice(0, 16), hasSession: false, rateLimited: false, ip });

@@ -898,8 +898,13 @@ describe('Rate limiting — /resend-access', () => {
 
   it('finds session via legacy plaintext email key when hashed key is absent', async () => {
     const legacyEmail = `legacy-resend-${Date.now()}@example.com`;
+    const legacyHash  = await sha256Full(legacyEmail);
     const sessionId   = await seedSession('paid', 'single');
-    // Store index under plaintext key (pre-migration format)
+
+    // Confirm hashed key is absent — proves only the legacy path is available
+    expect(await env.GASLAMAR_SESSIONS.get(`email_session_${legacyHash}`)).toBeNull();
+
+    // Store index under plaintext key only (pre-migration format)
     await env.GASLAMAR_SESSIONS.put(
       `email_session_${legacyEmail}`,
       JSON.stringify({ session_ids: [sessionId] }),
@@ -914,6 +919,31 @@ describe('Rate limiting — /resend-access', () => {
     // Plaintext key still present — resendAccess does not migrate legacy keys
     const record = await env.GASLAMAR_SESSIONS.get(`email_session_${legacyEmail}`, { type: 'json' });
     expect(record).not.toBeNull();
+    // Hashed key must still be absent — handler does not migrate
+    expect(await env.GASLAMAR_SESSIONS.get(`email_session_${legacyHash}`)).toBeNull();
+  });
+
+  it('per-IP KV rate limit returns 429 when IP counter reaches 10', async () => {
+    const RL_RESEND_IP_IP = '10.99.5.4';
+    const now = Math.floor(Date.now() / 1000);
+    // Pre-seed the counter at 9 — avoids making 9 real requests that would
+    // exhaust the CF native rate limiter (5/60s) before the IP KV limit (10/hr) fires.
+    await env.GASLAMAR_SESSIONS.put(
+      `rate_limit_resend_access_ip_${RL_RESEND_IP_IP}`,
+      JSON.stringify({ start: now, count: 9 }),
+      { expirationTtl: 3600 },
+    );
+
+    // 10th request: allowed (KV counter 9 → 10)
+    const res10 = await post('/resend-access', { email: `rl-ip-10@example.com` }, {}, RL_RESEND_IP_IP);
+    expect(res10.status).toBe(200);
+
+    // 11th request: IP KV rate limited → 429
+    const res11 = await post('/resend-access', { email: `rl-ip-11@example.com` }, {}, RL_RESEND_IP_IP);
+    expect(res11.status).toBe(429);
+    expect(Number(res11.headers.get('Retry-After'))).toBeGreaterThan(0);
+    const body = await res11.json();
+    expect(body.error).toBe('Too many requests');
   });
 });
 
