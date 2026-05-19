@@ -17,7 +17,7 @@ function startPolling(sessionId) {
 // ── restartPolling ────────────────────────────────────────────────────────────
 // Called by the "Check Again" button after auto-polling has exhausted MAX_POLLS.
 function restartPolling() {
-  const sessionId = sessionIdCache || localStorage.getItem('gaslamar_session');
+  const sessionId = sessionIdCache;
   if (!sessionId) {
     showSessionError('Sesi tidak ditemukan', 'Link download tidak valid.');
     return;
@@ -66,10 +66,7 @@ async function poll(sessionId) {
   updatePollUI();
 
   try {
-    // Session ID travels via the HttpOnly cookie set by /create-payment.
-    // credentials:'include' sends it cross-origin.
-    // X-Session-Id header provides the reduced-metadata fallback path if a browser
-    // loses the cookie during the payment redirect, without exposing the ID in the URL.
+    // Session auth travels only via the HttpOnly cookie set by /create-payment.
     const checkUrl = WORKER_URL + '/check-session';
     const res = await fetch(checkUrl, {
       credentials: 'include',

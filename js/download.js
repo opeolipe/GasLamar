@@ -58,7 +58,6 @@ function downloadFile(lang, format) {
       if (res.ok) {
         const data = await res.json();
         if (data.session_id) {
-          localStorage.setItem('gaslamar_session', data.session_id);
           sessionIdCache     = data.session_id;
         }
         history.replaceState(null, '', location.pathname);
@@ -77,38 +76,27 @@ function downloadFile(lang, format) {
     return;
   }
 
-  // ── Path 2: cookie + localStorage (normal post-payment flow) ───────────────
-  // After /create-payment the browser holds a session_id cookie for the Worker
-  // origin, and payment.js stored the session_id in localStorage. Both are used:
-  // the cookie is sent automatically with credentialed fetches; localStorage
-  // keeps the ID accessible for client-side credit management.
-  const sessionId = localStorage.getItem('gaslamar_session');
-  if (!sessionId || !sessionId.startsWith('sess_')) {
-    showState('waiting-payment');
-    try {
-      const res = await fetch(WORKER_URL + '/check-session', {
-        credentials: 'include',
-      });
-      if (!res.ok) {
-        showSessionError('Sesi tidak ditemukan', 'Link download tidak valid. Coba lagi dari awal.');
-        return;
-      }
-      const data = await res.json();
-      if (!data.session_id || !data.session_id.startsWith('sess_')) {
-        showSessionError('Sesi tidak ditemukan', 'Link download tidak valid. Coba lagi dari awal.');
-        return;
-      }
-      localStorage.setItem('gaslamar_session', data.session_id);
-      sessionIdCache = data.session_id;
-      startPolling(data.session_id);
-    } catch (_) {
-      showSessionError('Terjadi Kesalahan', 'Tidak dapat menghubungi server. Coba refresh halaman ini.');
+  // ── Path 2: cookie-only normal flow ───────────────────────────────────────
+  // The Worker validates the HttpOnly session cookie and returns the session_id
+  // for in-memory UI state only. The browser never persists it in localStorage.
+  showState('waiting-payment');
+  try {
+    const res = await fetch(WORKER_URL + '/check-session', {
+      credentials: 'include',
+    });
+    if (!res.ok) {
+      showSessionError('Sesi tidak ditemukan', 'Link download tidak valid. Coba lagi dari awal.');
+      return;
     }
+    const data = await res.json();
+    if (!data.session_id || !data.session_id.startsWith('sess_')) {
+      showSessionError('Sesi tidak ditemukan', 'Link download tidak valid. Coba lagi dari awal.');
+      return;
+    }
+    sessionIdCache = data.session_id;
+    startPolling(data.session_id);
+  } catch (_) {
+    showSessionError('Terjadi Kesalahan', 'Tidak dapat menghubungi server. Coba refresh halaman ini.');
     return;
   }
-
-  sessionIdCache = sessionId;
-
-  showState('waiting-payment');
-  startPolling(sessionId);
 })();

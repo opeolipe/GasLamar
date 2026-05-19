@@ -181,6 +181,7 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
 
     // Clear session storage only when all credits are exhausted
     if (!credits_remaining || credits_remaining <= 0) {
+      sessionStorage.removeItem('gaslamar_session');
       localStorage.removeItem('gaslamar_session');
       localStorage.removeItem('gaslamar_tier');  // belt-and-suspenders for legacy data
       sessionStorage.removeItem('gaslamar_tier');

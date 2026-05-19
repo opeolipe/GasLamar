@@ -85,20 +85,6 @@ export default function Download() {
     trackExperimentExposure(stickyFlag, stickyVariant);
   }, []);
 
-  useEffect(() => {
-    // Delivery mode: email was already sent; user returns only to resend it.
-    if (delivery) return;
-
-    // Check both storages: after credits are exhausted useGenerateCV removes
-    // localStorage.gaslamar_session, but the session stays in sessionStorage for
-    // the current tab. Checking only localStorage causes a spurious redirect.
-    const sessionInStorage = localStorage.getItem('gaslamar_session')
-                          ?? sessionStorage.getItem('gaslamar_session');
-    if (!sessionInStorage) {
-      window.location.replace('/');
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
   // ── Session → view transitions ────────────────────────────────────────────
 
   useEffect(() => {

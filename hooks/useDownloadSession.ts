@@ -147,12 +147,9 @@ export function useDownloadSession(): UseDownloadSessionReturn {
     }
 
     try {
-      // Send session ID as query param so check-session can resolve the session even
-      // when the cross-site HttpOnly cookie is blocked (e.g. Safari ITP / private mode).
-      const sessionParam = encodeURIComponent(sId);
       const checkUrl = devModeRef.current
-        ? `${WORKER_URL}/check-session?dev=1&session=${sessionParam}`
-        : `${WORKER_URL}/check-session?session=${sessionParam}`;
+        ? `${WORKER_URL}/check-session?dev=1`
+        : `${WORKER_URL}/check-session`;
       const res = await fetch(checkUrl, { credentials: 'include' });
 
       if (!mountedRef.current) return;
@@ -308,9 +305,7 @@ export function useDownloadSession(): UseDownloadSessionReturn {
   // ── Manual check-now ──────────────────────────────────────────────────────
 
   const onCheckNow = useCallback(() => {
-    const sId = sessionIdRef.current
-             || sessionStorage.getItem('gaslamar_session')
-             || localStorage.getItem('gaslamar_session');
+    const sId = sessionIdRef.current;
     if (!sId) {
       showError('Sesi tidak ditemukan', 'Link download tidak valid.');
       return;
@@ -347,7 +342,6 @@ export function useDownloadSession(): UseDownloadSessionReturn {
           if (res.ok) {
             const data = await res.json() as { session_id?: string };
             if (data.session_id) {
-              sessionStorage.setItem('gaslamar_session', data.session_id);
               sessionIdRef.current = data.session_id;
               setSessionId(data.session_id);
             }
@@ -370,47 +364,35 @@ export function useDownloadSession(): UseDownloadSessionReturn {
       return;
     }
 
-    // ── Path 2: sessionStorage → localStorage ───────────────────────────────
-    // Fall back to localStorage: Result.tsx writes to both storages, but if
-    // Mayar redirected in a new tab, sessionStorage for this origin was never
-    // populated. localStorage survives cross-tab navigation.
-    const sId = sessionStorage.getItem('gaslamar_session')
-             ?? localStorage.getItem('gaslamar_session');
-    if (!sId || !sId.startsWith('sess_')) {
-      (async () => {
-        setPhase('waiting');
-        try {
-          const res = await fetch(`${WORKER_URL}/check-session`, { credentials: 'include' });
-          if (!mountedRef.current) return;
+    // ── Path 2: cookie-only bootstrap ───────────────────────────────────────
+    // The session_id cookie is HttpOnly, so the client asks the server for the
+    // current session metadata and keeps the returned ID only in React memory.
+    (async () => {
+      setPhase('waiting');
+      try {
+        const res = await fetch(`${WORKER_URL}/check-session`, { credentials: 'include' });
+        if (!mountedRef.current) return;
 
-          if (!res.ok) {
-            showError('Sesi tidak ditemukan', 'Link download tidak valid. Coba lagi dari awal.');
-            return;
-          }
-
-          const data = await res.json() as { session_id?: string };
-          if (!data.session_id || !data.session_id.startsWith('sess_')) {
-            showError('Sesi tidak ditemukan', 'Link download tidak valid. Coba lagi dari awal.');
-            return;
-          }
-
-          sessionStorage.setItem('gaslamar_session', data.session_id);
-          localStorage.setItem('gaslamar_session', data.session_id);
-          sessionIdRef.current = data.session_id;
-          setSessionId(data.session_id);
-          startPolling(data.session_id);
-        } catch (_) {
-          if (mountedRef.current) {
-            showError('Terjadi Kesalahan', 'Tidak dapat menghubungi server. Coba refresh halaman ini.');
-          }
+        if (!res.ok) {
+          showError('Sesi tidak ditemukan', 'Link download tidak valid. Coba lagi dari awal.');
+          return;
         }
-      })();
-      return;
-    }
 
-    sessionIdRef.current = sId;
-    setSessionId(sId);
-    startPolling(sId);
+        const data = await res.json() as { session_id?: string };
+        if (!data.session_id || !data.session_id.startsWith('sess_')) {
+          showError('Sesi tidak ditemukan', 'Link download tidak valid. Coba lagi dari awal.');
+          return;
+        }
+
+        sessionIdRef.current = data.session_id;
+        setSessionId(data.session_id);
+        startPolling(data.session_id);
+      } catch (_) {
+        if (mountedRef.current) {
+          showError('Terjadi Kesalahan', 'Tidak dapat menghubungi server. Coba refresh halaman ini.');
+        }
+      }
+    })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
