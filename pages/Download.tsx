@@ -16,7 +16,6 @@ import {
   isMultiCredit,
   clearClientSessionData,
   WORKER_URL,
-  buildSecretHeaders,
 } from '@/lib/sessionUtils';
 import { buildResultData } from '@/lib/resultUtils';
 import { getExperimentVariant, trackExperimentExposure } from '@/lib/experiments';
@@ -40,12 +39,6 @@ import ResendEmail           from '@/components/download/ResendEmail';
 
 type PageView     = 'waiting' | 'generating' | 'ready' | 'credits-dashboard' | 'error';
 
-interface LocalDelivery {
-  sessionId: string;
-  email:     string;
-  sentAt:    number;
-}
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function Download() {
@@ -59,14 +52,6 @@ export default function Download() {
   const [expiryText,      setExpiryText]      = useState('');
   const [showMobileFb,    setShowMobileFb]    = useState(false);
   const [restoredContent, setRestoredContent] = useState<CVContent | null>(null);
-
-  // Read delivery state from localStorage once on mount
-  const [delivery] = useState<{ sessionId: string; email: string; sentAt: number } | null>(() => {
-    try {
-      const raw = localStorage.getItem('gaslamar_delivery');
-      return raw ? JSON.parse(raw) : null;
-    } catch { return null; }
-  });
 
   const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const viewRef           = useRef<PageView>('waiting');
@@ -93,7 +78,7 @@ export default function Download() {
     // the current tab. Checking only localStorage causes a spurious redirect.
     const sessionInStorage = localStorage.getItem('gaslamar_session')
                           ?? sessionStorage.getItem('gaslamar_session');
-    if (!delivery && !sessionInStorage) {
+    if (!sessionInStorage) {
       window.location.replace('access.html?expired=1&source=download');
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -102,10 +87,10 @@ export default function Download() {
 
   useEffect(() => {
     if (session.phase === 'confirmed' && viewRef.current === 'waiting') {
-      const { sessionId, sessionSecret } = session;
+      const { sessionId } = session;
       if (!sessionId) return;
       setView('generating');
-      generate.startGeneration({ sessionId, sessionSecret });
+      generate.startGeneration({ sessionId });
     }
   }, [session.phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -170,8 +155,6 @@ export default function Download() {
   // Fetch the stored CV result from KV so the user can download from the page.
   // Runs in two cases:
   //   1. Exhausted session: credits=0, no in-memory content — normal returning flow.
-  //   2. Error + delivery: session polling failed but delivery is confirmed — try KV
-  //      restore before giving up (covers gaslamar_session-cleared-but-cookie-valid).
   useEffect(() => {
     const isExhaustedRestore =
       view === 'credits-dashboard' &&
@@ -179,20 +162,11 @@ export default function Download() {
       session.sessionData?.creditsRemaining === 0 &&
       !!session.sessionId;
 
-    const isErrorWithDelivery =
-      view === 'error' &&
-      generate.content === null &&
-      restoredContent === null &&
-      delivery !== null &&
-      !!session.sessionId;
-
-    if (!isExhaustedRestore && !isErrorWithDelivery) return;
+    if (!isExhaustedRestore) return;
 
     fetch(`${WORKER_URL}/get-result`, {
       method:      'POST',
-      // Secret may be null if gaslamar_secret_<id> was cleared; buildSecretHeaders
-      // returns {} in that case. Server returns 403 which we handle gracefully below.
-      headers:     buildSecretHeaders(session.sessionSecret),
+      headers:     { 'Content-Type': 'application/json' },
       credentials: 'include',
     })
       .then(r => {
@@ -226,7 +200,7 @@ export default function Download() {
         setView('ready');
       })
       .catch(err => logError('cv_result_restore_failed', { message: (err as Error)?.message }));
-  }, [view, generate.content, restoredContent, delivery, session.sessionData?.creditsRemaining, session.sessionId, session.sessionSecret]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [view, generate.content, restoredContent, session.sessionData?.creditsRemaining, session.sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Countdown helpers ─────────────────────────────────────────────────────
 
@@ -304,17 +278,16 @@ export default function Download() {
 
 
   const handleGenerateForNewJob = useCallback(async (jobDesc: string) => {
-    const { sessionId, sessionSecret } = session;
+    const { sessionId } = session;
     if (!sessionId) return;
     setView('generating');
-    generate.startGeneration({ sessionId, sessionSecret, jobDesc });
-  }, [session.sessionId, session.sessionSecret]); // eslint-disable-line react-hooks/exhaustive-deps
+    generate.startGeneration({ sessionId, jobDesc });
+  }, [session.sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleUrlFetch = useCallback(async (url: string): Promise<string> => {
-    const { sessionId, sessionSecret } = session;
     const res = await fetch(`${WORKER_URL}/fetch-job-url`, {
       method:      'POST',
-      headers:     { 'Content-Type': 'application/json', ...buildSecretHeaders(sessionSecret) },
+      headers:     { 'Content-Type': 'application/json' },
       credentials: 'include',
       body:        JSON.stringify({ url }),
     });
@@ -328,7 +301,7 @@ export default function Download() {
     }
     const data = await res.json() as { job_desc?: string; job_description?: string; text?: string };
     return data.job_desc || data.job_description || data.text || '';
-  }, [session.sessionId, session.sessionSecret]);
+  }, []);
 
   const handleCancelGeneration = useCallback(() => {
     const prev = session.sessionData;
@@ -447,7 +420,7 @@ export default function Download() {
         className={MAIN_CONTAINER_CLASS}
         style={{ maxWidth: MAIN_CONTAINER_MAX, paddingTop: bannerHeight > 0 ? `calc(2rem + ${bannerHeight}px)` : '2rem' }}
       >
-        {view === 'error' && sessionError && !delivery && (
+        {view === 'error' && sessionError && (
           <div style={{ maxWidth: 480, margin: '0 auto' }}>
             <SessionError
               title={sessionError.title}
@@ -466,19 +439,7 @@ export default function Download() {
           </div>
         )}
 
-        {delivery && (view === 'error' || (view === 'waiting' && session.phase !== 'init')) && (
-          <div style={{ maxWidth: 520, margin: '0 auto' }}>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', marginBottom: '0.5rem', lineHeight: 1.3 }}>
-              CV kamu sudah siap digunakan
-            </h1>
-            <p style={{ fontSize: '0.95rem', color: '#475569', marginBottom: '1.5rem' }}>
-              File CV kamu sudah dikirimkan ke email. Cek inbox atau folder spam.
-            </p>
-            <ResendEmail sessionSecret={session.sessionSecret} />
-          </div>
-        )}
-
-        {view === 'waiting' && !delivery && session.phase !== 'init' && (
+        {view === 'waiting' && session.phase !== 'init' && (
           <div style={{ maxWidth: 480, margin: '0 auto' }}>
             <WaitingPayment
               statusText={session.statusText}
@@ -496,8 +457,6 @@ export default function Download() {
               status="running"
               filename={filename}
               tier={tier}
-              deliveryEmail={delivery?.email ?? null}
-              sessionSecret={session?.sessionSecret ?? null}
               onCancel={handleCancelGeneration}
             />
           </div>
@@ -522,11 +481,8 @@ export default function Download() {
               dimensions={dimensions}
               primaryIssue={resultData?.primaryIssue ?? null}
               isTrusted={effectiveContent?.isTrusted ?? false}
-              deliveryEmail={delivery?.email ?? null}
-              sessionSecret={session.sessionSecret}
               interviewKitNode={view === 'ready' ? (
                 <InterviewKit
-                  sessionSecret={session.sessionSecret}
                   language="id"
                   initialKit={effectiveContent?.interviewKit ?? null}
                 />

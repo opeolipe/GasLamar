@@ -297,7 +297,6 @@ export default function Result() {
     setEmailSuggestion(null);
 
     const capturedEmail = email.trim();
-    try { sessionStorage.setItem('gaslamar_email', capturedEmail); } catch (_) {}
 
     ;(window as any).Analytics?.identify?.(capturedEmail, { tier: selectedTier, tier_price_idr: TIER_CONFIG[selectedTier].price });
     ;(window as any).Analytics?.track?.('payment_initiated', {
@@ -313,10 +312,6 @@ export default function Result() {
     setPaymentError(null);
     setPayBtnOverride('Membuat invoice...');
 
-    const sessionSecret = crypto.randomUUID
-      ? crypto.randomUUID()
-      : Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
-
     const controller = new AbortController();
     const timeout    = setTimeout(() => controller.abort(), 25000);
 
@@ -328,7 +323,6 @@ export default function Result() {
         body: JSON.stringify({
           tier:           selectedTier,
           cv_text_key:    cvTextKey,
-          session_secret: sessionSecret,
           email:          capturedEmail,
         }),
         signal: controller.signal,
@@ -353,13 +347,8 @@ export default function Result() {
       ;(window as any).Analytics?.track?.('payment_session_created', { tier: selectedTier, tier_price_idr: TIER_CONFIG[selectedTier].price });
 
       sessionStorage.setItem('gaslamar_session', session_id);
-      sessionStorage.setItem(`gaslamar_secret_${session_id}`, sessionSecret);
       try {
         localStorage.setItem('gaslamar_session', session_id);
-        localStorage.setItem(`gaslamar_secret_${session_id}`, sessionSecret);
-      } catch (_) {}
-      try {
-        localStorage.setItem('gaslamar_delivery', JSON.stringify({ sessionId: session_id, email: capturedEmail, sentAt: Date.now() }));
       } catch (_) {}
 
       let validUrl = false;

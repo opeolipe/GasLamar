@@ -6,8 +6,6 @@ import {
   isBilingual,
   isMultiCredit,
   clearClientSessionData,
-  getSessionSecret,
-  buildSecretHeaders,
 } from '@/lib/sessionUtils';
 export {
   WORKER_URL,
@@ -15,8 +13,6 @@ export {
   isBilingual,
   isMultiCredit,
   clearClientSessionData,
-  getSessionSecret,
-  buildSecretHeaders,
 };
 
 // Server-side guidance lines are prefixed with two spaces and wrapped in parens.

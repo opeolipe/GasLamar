@@ -12,11 +12,13 @@ const MIN_JD_LENGTH = 100;
 let selectedFile = null;
 let cvText = '';
 let jdTouched = false; // true once user has interacted with the JD field
+let uploadSubmitInProgress = false;
 
 // ---- Drag & Drop ----
 
 function handleDragOver(e) {
   e.preventDefault();
+  if (uploadSubmitInProgress) return;
   document.getElementById('drop-zone').classList.add('drop-zone-active');
 }
 
@@ -57,7 +59,7 @@ function processFile(file) {
   // Clear any stale data from a previous flow before starting fresh
   ['gaslamar_scoring', 'gaslamar_cv_key', 'gaslamar_cv_pending',
    'gaslamar_jd_pending', 'gaslamar_filename', 'gaslamar_tier',
-   'gaslamar_email', 'gaslamar_analyze_time',
+   'gaslamar_analyze_time',
    'gaslamar_cv_draft', 'gaslamar_filename_draft',
   ].forEach(k => sessionStorage.removeItem(k));
 
@@ -351,7 +353,10 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
 
   // Store CV data and redirect to analyzing page (which makes the API call)
   const submitBtn = document.getElementById('submit-btn');
+  const originalSubmitText = submitBtn ? submitBtn.textContent : '';
+  uploadSubmitInProgress = true;
   submitBtn.disabled = true;
+  submitBtn.textContent = 'Menganalisis...';
 
   try {
     // C5 FIX: Removed the unreliable /<[^>]*>/g tag-stripping step.
@@ -366,7 +371,9 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
   } catch (_) {
     // Safari private mode blocks sessionStorage writes — inform user
     showError('file-error', 'Browser kamu memblokir penyimpanan sementara (mode pribadi?). Coba gunakan mode normal.');
+    uploadSubmitInProgress = false;
     submitBtn.disabled = false;
+    submitBtn.textContent = originalSubmitText;
     return;
   }
   // Note: gaslamar_jd_draft is cleared by analyzing-page.js on successful analysis,

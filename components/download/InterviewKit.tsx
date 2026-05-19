@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
-import { copyToClipboard, buildSecretHeaders, WORKER_URL } from '@/lib/sessionUtils';
+import { copyToClipboard, WORKER_URL } from '@/lib/sessionUtils';
 import { logError } from '@/lib/logger';
 import InterviewKitSkeleton from '@/components/ui/InterviewKitSkeleton';
 
@@ -13,7 +13,6 @@ interface InterviewKitData {
 }
 
 interface InterviewKitProps {
-  sessionSecret: string | null;
   language?: 'id' | 'en';
   initialKit?: unknown | null;
 }
@@ -63,7 +62,7 @@ function GroupLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function InterviewKit({ sessionSecret, language = 'id', initialKit = null }: InterviewKitProps) {
+export default function InterviewKit({ language = 'id', initialKit = null }: InterviewKitProps) {
   const [cache, setCache]           = useState<Partial<Record<'id' | 'en', InterviewKitData>>>(() =>
     isValidKit(initialKit) ? { [language]: initialKit as InterviewKitData } : {}
   );
@@ -72,8 +71,6 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
   const [error, setError]           = useState<string | null>(null);
   const [copiedKey, setCopiedKey]   = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
-  const sessionSecretRef            = useRef(sessionSecret);
-  sessionSecretRef.current          = sessionSecret;
 
   const kit = cache[activeLang] ?? null;
 
@@ -96,7 +93,7 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
       try {
         const res = await fetch(`${WORKER_URL}/interview-kit`, {
           method:  'POST',
-          headers: { 'Content-Type': 'application/json', ...buildSecretHeaders(sessionSecretRef.current) },
+          headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body:    JSON.stringify({ language: activeLang }),
           signal:  ctrl.signal,

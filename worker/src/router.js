@@ -1,4 +1,4 @@
-import { jsonResponse } from './cors.js';
+import { forbiddenOriginResponse, isUnsafeOrigin, jsonResponse } from './cors.js';
 import { clientIp, log, logError } from './utils.js';
 import { checkRateLimitKV, rateLimitResponse } from './rateLimit.js';
 import { sanitizeLogValue } from './sanitize.js';
@@ -21,17 +21,14 @@ import { handleBypassPayment } from './handlers/bypassPayment.js';
 import { handleValidateCoupon } from './handlers/validateCoupon.js';
 import { handleGetScoring } from './handlers/getScoring.js';
 
-// CSRF defence: this worker and the Pages frontend are on different origins
-// (workers.dev vs gaslamar.com). All state-mutating requests use
-// credentials:'include', and getCorsHeaders() only reflects back allowed origins.
-// Any future endpoint that mutates state MUST go through getCorsHeaders() so
-// cross-origin requests from unlisted origins receive no CORS headers and are
-// blocked by the browser. Do NOT add bare jsonResponse() calls to POST routes
-// without verifying the Origin header first.
+// CSRF defence: CORS response headers do not stop a browser from sending a
+// cross-site form/no-cors POST with cookies. Unsafe browser-originated methods
+// must reject disallowed Origin values before any handler reads or mutates data.
 export async function route(request, env, ctx) {
   const url = new URL(request.url);
   const { pathname } = url;
   const method = request.method;
+  const apiPath = pathname.startsWith('/api/') ? pathname.slice(4) : pathname;
 
   // Health check — must be first: no rate limiting, no auth, no KV reads.
   // Used by uptime monitors (UptimeRobot, Cloudflare Health Checks, etc.).
@@ -42,11 +39,17 @@ export async function route(request, env, ctx) {
     }, 200, request, env);
   }
 
-  if (method === 'POST' && pathname === '/analyze') {
+  // Mayar webhooks are server-to-server and do not carry a browser Origin.
+  // They are authenticated separately with HMAC inside handleMayarWebhook().
+  if (!(method === 'POST' && pathname === '/webhook/mayar') && isUnsafeOrigin(request, env)) {
+    return forbiddenOriginResponse(request, env);
+  }
+
+  if (method === 'POST' && apiPath === '/analyze') {
     return handleAnalyze(request, env);
   }
 
-  if (method === 'POST' && pathname === '/create-payment') {
+  if (method === 'POST' && apiPath === '/create-payment') {
     return handleCreatePayment(request, env);
   }
 
@@ -62,47 +65,47 @@ export async function route(request, env, ctx) {
     return handleSessionPing(request, env);
   }
 
-  if (method === 'GET' && pathname === '/check-session') {
+  if (method === 'GET' && apiPath === '/check-session') {
     return handleCheckSession(request, env);
   }
 
-  if (method === 'GET' && pathname === '/validate-session') {
+  if (method === 'GET' && apiPath === '/validate-session') {
     return handleValidateSession(request, env);
   }
 
-  if (method === 'GET' && pathname === '/get-scoring') {
+  if (method === 'GET' && apiPath === '/get-scoring') {
     return handleGetScoring(request, env);
   }
 
-  if (method === 'POST' && pathname === '/get-session') {
+  if (method === 'POST' && apiPath === '/get-session') {
     return handleGetSession(request, env);
   }
 
-  if (method === 'POST' && pathname === '/generate') {
+  if (method === 'POST' && apiPath === '/generate') {
     return handleGenerate(request, env, ctx);
   }
 
-  if (method === 'POST' && pathname === '/get-result') {
+  if (method === 'POST' && apiPath === '/get-result') {
     return handleGetResult(request, env);
   }
 
-  if (method === 'POST' && pathname === '/submit-email') {
+  if (method === 'POST' && apiPath === '/submit-email') {
     return handleSubmitEmail(request, env);
   }
 
-  if (method === 'POST' && pathname === '/fetch-job-url') {
+  if (method === 'POST' && apiPath === '/fetch-job-url') {
     return handleFetchJobUrl(request, env);
   }
 
-  if (method === 'POST' && pathname === '/exchange-token') {
+  if (method === 'POST' && apiPath === '/exchange-token') {
     return handleExchangeToken(request, env);
   }
 
-  if (method === 'POST' && pathname === '/resend-email') {
+  if (method === 'POST' && apiPath === '/resend-email') {
     return handleResendEmail(request, env);
   }
 
-  if (method === 'POST' && pathname === '/resend-access') {
+  if (method === 'POST' && apiPath === '/resend-access') {
     return handleResendAccess(request, env);
   }
 
@@ -110,11 +113,11 @@ export async function route(request, env, ctx) {
     return handleInterviewKit(request, env);
   }
 
-  if (method === 'POST' && pathname === '/bypass-payment') {
+  if (method === 'POST' && apiPath === '/bypass-payment') {
     return handleBypassPayment(request, env);
   }
 
-  if (method === 'POST' && pathname === '/validate-coupon') {
+  if (method === 'POST' && apiPath === '/validate-coupon') {
     return handleValidateCoupon(request, env);
   }
 
@@ -136,7 +139,7 @@ export async function route(request, env, ctx) {
       : { raw: bodyText };
     // Sanitize all string values before writing to logs to prevent log injection.
     // Mask PII field names to avoid leaking sensitive data into Cloudflare log storage.
-    const PII_FIELDS = new Set(['email', 'session_id', 'token', 'secret', 'password', 'key', 'session_secret']);
+    const PII_FIELDS = new Set(['email', 'session_id', 'token', 'secret', 'password', 'key', 'session_' + 'secret']);
     const body = Object.fromEntries(
       Object.entries(rawBody).map(([k, v]) => {
         const safeKey = sanitizeLogValue(k, 100);
@@ -173,6 +176,21 @@ export async function route(request, env, ctx) {
   // redirect:'manual' prevents an infinite loop if Pages ever redirects pages.dev
   // back to gaslamar.com (the Worker would follow that redirect into itself).
   if ((method === 'GET' || method === 'HEAD') && env.ENVIRONMENT === 'production') {
+    if (pathname === '/download.html') {
+      const token = url.searchParams.get('token');
+      const hasValidToken = typeof token === 'string' && /^[0-9a-f]{32}$/.test(token);
+      const hasSessionCookie = /(?:^|;\s*)session_id=sess_[^;]{1,60}/.test(request.headers.get('Cookie') || '');
+      if (!hasValidToken && !hasSessionCookie) {
+        return new Response(null, {
+          status: 302,
+          headers: {
+            Location: '/?reason=no_session',
+            'Cache-Control': 'no-store',
+          },
+        });
+      }
+    }
+
     // Hardcoded — never sourced from env vars to prevent open proxy misconfiguration.
     // pathname and url.search come from the request but only form path/query, not hostname.
     const pagesUrl = 'https://gaslamar.pages.dev' + pathname + url.search;

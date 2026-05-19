@@ -383,8 +383,7 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
     // proceed without CV attachments
   }
 
-  // Interview kit PDF
-  // KV stores { kit: {...}, session_secret_hash } — extract the inner kit.
+  // Interview kit PDF. KV stores { kit: {...} } — extract the inner kit.
   try {
     const kitData = await readKitForEmail(env, sessionId);
     if (kitData) {

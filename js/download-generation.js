@@ -23,7 +23,7 @@ async function fetchAndGenerateCV(sessionId) {
   try {
     const res = await fetch(WORKER_URL + '/get-session', {
       method:      'POST',
-      headers:     Object.assign({ 'Content-Type': 'application/json' }, getSecretHeaders()),
+      headers:     { 'Content-Type': 'application/json' },
       credentials: 'include',
       signal:      controller.signal,
     });
@@ -110,7 +110,7 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
 
     const res = await fetch(WORKER_URL + '/generate', {
       method:      'POST',
-      headers:     Object.assign({ 'Content-Type': 'application/json' }, getSecretHeaders()),
+      headers:     { 'Content-Type': 'application/json' },
       credentials: 'include',
       body:        JSON.stringify(reqBody),
       signal:      controller.signal,
@@ -287,7 +287,7 @@ async function generateForNewJob() {
     // Step 1: call /get-session to transition session to 'generating' status
     const gsRes = await fetch(WORKER_URL + '/get-session', {
       method:      'POST',
-      headers:     Object.assign({ 'Content-Type': 'application/json' }, getSecretHeaders()),
+      headers:     { 'Content-Type': 'application/json' },
       credentials: 'include',
     });
 

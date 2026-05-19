@@ -2,8 +2,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   WORKER_URL,
   clearClientSessionData,
-  getSessionSecret,
-  buildSecretHeaders,
 } from '@/lib/sessionUtils';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -27,7 +25,6 @@ export type SessionPhase = 'init' | 'waiting' | 'confirmed' | 'returning' | 'err
 export interface UseDownloadSessionReturn {
   phase:           SessionPhase;
   sessionId:       string | null;
-  sessionSecret:   string | null;
   sessionData:     SessionData | null;
   statusText:      string;
   showCheckButton: boolean;
@@ -55,7 +52,6 @@ function getBackoffDelay(pollCount: number): number {
 export function useDownloadSession(): UseDownloadSessionReturn {
   const [phase,           setPhase]           = useState<SessionPhase>('init');
   const [sessionId,       setSessionId]       = useState<string | null>(null);
-  const [sessionSecret,   setSessionSecret]   = useState<string | null>(null);
   const [sessionData,     setSessionData]     = useState<SessionData | null>(null);
   const [statusText,      setStatusText]      = useState('Memeriksa status pembayaran...');
   const [showCheckButton, setShowCheckButton] = useState(false);
@@ -68,7 +64,6 @@ export function useDownloadSession(): UseDownloadSessionReturn {
   const pollTimerRef          = useRef<ReturnType<typeof setTimeout> | null>(null);
   const heartbeatTimerRef     = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionIdRef          = useRef<string | null>(null);
-  const sessionSecretRef      = useRef<string | null>(null);
   const mountedRef            = useRef(true);
   // Set to true on staging hostname or when ?dev=1 is in the URL. Captured at
   // init time before history.replaceState strips the token query param.
@@ -109,7 +104,7 @@ export function useDownloadSession(): UseDownloadSessionReturn {
       try {
         const res = await fetch(`${WORKER_URL}/session/ping`, {
           method:  'POST',
-          headers: { 'Content-Type': 'application/json', ...buildSecretHeaders(sessionSecretRef.current) },
+          headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
         });
         if (res.status === 404 && mountedRef.current) {
@@ -212,7 +207,7 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         return;
       }
 
-      const data     = await res.json() as { status: string; tier?: string; credits_remaining?: number; total_credits?: number; expires_at?: number };
+      const data     = await res.json() as { status: string; tier?: string; credits_remaining?: number; total_credits?: number; expires_at?: number; session_id?: string };
       const { status } = data;
 
       // Non-blocking debug log so the payment flow can be traced in browser DevTools
@@ -353,10 +348,8 @@ export function useDownloadSession(): UseDownloadSessionReturn {
             const data = await res.json() as { session_id?: string };
             if (data.session_id) {
               sessionStorage.setItem('gaslamar_session', data.session_id);
-              sessionIdRef.current     = data.session_id;
-              sessionSecretRef.current = getSessionSecret(data.session_id);
+              sessionIdRef.current = data.session_id;
               setSessionId(data.session_id);
-              setSessionSecret(sessionSecretRef.current);
             }
             history.replaceState(null, '', location.pathname);
             startPolling(sessionIdRef.current!);
@@ -377,42 +370,52 @@ export function useDownloadSession(): UseDownloadSessionReturn {
       return;
     }
 
-    // ── Path 2: sessionStorage → localStorage → delivery fallback ───────────
+    // ── Path 2: sessionStorage → localStorage ───────────────────────────────
     // Fall back to localStorage: Result.tsx writes to both storages, but if
     // Mayar redirected in a new tab, sessionStorage for this origin was never
     // populated. localStorage survives cross-tab navigation.
-    // Last resort: derive session ID from gaslamar_delivery, which the download
-    // guard accepts as a valid entry path and which stores sessionId. This covers
-    // the case where gaslamar_session was cleared (e.g. clearClientSessionData)
-    // but the delivery entry remains — the HttpOnly session cookie is still valid.
     const sId = sessionStorage.getItem('gaslamar_session')
-             ?? localStorage.getItem('gaslamar_session')
-             ?? (() => {
-                  try {
-                    const raw = localStorage.getItem('gaslamar_delivery');
-                    const d   = raw ? JSON.parse(raw) : null;
-                    return (typeof d?.sessionId === 'string' && d.sessionId.startsWith('sess_'))
-                      ? d.sessionId
-                      : null;
-                  } catch { return null; }
-                })();
+             ?? localStorage.getItem('gaslamar_session');
     if (!sId || !sId.startsWith('sess_')) {
-      showError('Sesi tidak ditemukan', 'Link download tidak valid. Coba lagi dari awal.');
+      (async () => {
+        setPhase('waiting');
+        try {
+          const res = await fetch(`${WORKER_URL}/check-session`, { credentials: 'include' });
+          if (!mountedRef.current) return;
+
+          if (!res.ok) {
+            showError('Sesi tidak ditemukan', 'Link download tidak valid. Coba lagi dari awal.');
+            return;
+          }
+
+          const data = await res.json() as { session_id?: string };
+          if (!data.session_id || !data.session_id.startsWith('sess_')) {
+            showError('Sesi tidak ditemukan', 'Link download tidak valid. Coba lagi dari awal.');
+            return;
+          }
+
+          sessionStorage.setItem('gaslamar_session', data.session_id);
+          localStorage.setItem('gaslamar_session', data.session_id);
+          sessionIdRef.current = data.session_id;
+          setSessionId(data.session_id);
+          startPolling(data.session_id);
+        } catch (_) {
+          if (mountedRef.current) {
+            showError('Terjadi Kesalahan', 'Tidak dapat menghubungi server. Coba refresh halaman ini.');
+          }
+        }
+      })();
       return;
     }
 
-    const secret         = getSessionSecret(sId);
-    sessionIdRef.current     = sId;
-    sessionSecretRef.current = secret;
+    sessionIdRef.current = sId;
     setSessionId(sId);
-    setSessionSecret(secret);
     startPolling(sId);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     phase,
     sessionId,
-    sessionSecret,
     sessionData,
     statusText,
     showCheckButton,

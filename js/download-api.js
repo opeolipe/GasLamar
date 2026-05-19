@@ -68,13 +68,11 @@ async function poll(sessionId) {
   try {
     // Session ID travels via the HttpOnly cookie set by /create-payment.
     // credentials:'include' sends it cross-origin.
-    // ?session= is always appended so the server can use the lenient fallback path
-    // when X-Session-Secret is absent (Safari ITP clears sessionStorage mid-redirect,
-    // tab close, or email-link re-access on a different device).
+    // ?session= is appended so the server can use the reduced-metadata fallback path
+    // if a browser loses the cookie during the payment redirect.
     const checkUrl = WORKER_URL + '/check-session?session=' + encodeURIComponent(sessionId);
     const res = await fetch(checkUrl, {
       credentials: 'include',
-      headers: getSecretHeaders(),
     });
 
     if (res.status === 400) {
@@ -100,7 +98,7 @@ async function poll(sessionId) {
       try {
         const resultRes = await fetch(WORKER_URL + '/get-result', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...getSecretHeaders() },
+          headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
         });
         if (resultRes.ok) {
@@ -143,7 +141,7 @@ async function poll(sessionId) {
       try {
         const resultRes = await fetch(WORKER_URL + '/get-result', {
           method: 'POST',
-          headers: Object.assign({ 'Content-Type': 'application/json' }, getSecretHeaders()),
+          headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
         });
         if (resultRes.ok) {
@@ -201,7 +199,7 @@ function startSessionHeartbeat(sessionId, totalCredits) {
     try {
       const res = await fetch(WORKER_URL + '/session/ping', {
         method:      'POST',
-        headers:     Object.assign({ 'Content-Type': 'application/json' }, getSecretHeaders()),
+        headers:     { 'Content-Type': 'application/json' },
         credentials: 'include',
       });
       if (res.status === 404) {

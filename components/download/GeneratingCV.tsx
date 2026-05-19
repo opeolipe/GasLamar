@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TIER_LABELS } from '@/lib/sessionUtils';
-import ResendEmail from '@/components/download/ResendEmail';
 
 const SHADOW = '0 18px 44px rgba(15, 23, 42, 0.08)';
 
@@ -40,12 +39,10 @@ interface Props {
   status:    'running' | 'done';
   filename:  string;
   tier:      string | null;
-  deliveryEmail?: string | null;
-  sessionSecret?: string | null;
   onCancel:  () => void;
 }
 
-export default function GeneratingCV({ progress, status, filename, tier, deliveryEmail, sessionSecret, onCancel }: Props) {
+export default function GeneratingCV({ progress, status, filename, tier, onCancel }: Props) {
   const [activityIdx,  setActivityIdx]  = useState(0);
   const [activityFade, setActivityFade] = useState(false);
   const [timerText,    setTimerText]    = useState('Biasanya CV selesai dalam 30-60 detik');
@@ -116,13 +113,6 @@ export default function GeneratingCV({ progress, status, filename, tier, deliver
         </div>
         <h3 className="font-semibold text-lg text-slate-900" style={{ fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>AI lagi menyiapkan CV kamu</h3>
         <p className="text-sm text-slate-500 mt-1">CV kamu lagi ditulis ulang supaya lebih cocok sama posisi yang kamu incar.</p>
-        {deliveryEmail && (
-          <div className="mt-3 text-sm text-slate-600">
-            <p className="m-0">Nanti link download otomatis dikirim ke:</p>
-            <p className="m-0 font-medium text-slate-800 break-all">{deliveryEmail}</p>
-            <ResendEmail sessionSecret={sessionSecret ?? null} compact />
-          </div>
-        )}
       </div>
 
       <div

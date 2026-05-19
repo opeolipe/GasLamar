@@ -1,5 +1,5 @@
 import { jsonResponse, jsonResponseWithCookie } from '../cors.js';
-import { clientIp, log, sha256Full } from '../utils.js';
+import { clientIp, log } from '../utils.js';
 import { TIER_CREDITS, VALID_TIERS } from '../constants.js';
 import { checkRateLimitKV } from '../rateLimit.js';
 import { createSession } from '../sessions.js';
@@ -83,16 +83,6 @@ export async function handleBypassPayment(request, env) {
   const sessionId = `sess_${crypto.randomUUID()}`;
   const credits = TIER_CREDITS[tier] ?? 1;
 
-  // Callers must supply their own session_secret so they can use it in subsequent
-  // /get-session and /generate calls. A server-generated secret that is not returned
-  // in the response would produce a session impossible to use — failing silently at
-  // generation time rather than here, making E2E failures hard to diagnose.
-  if (typeof body.session_secret !== 'string' || body.session_secret.length < 16 || body.session_secret.length > 256) {
-    return jsonResponse({ message: 'session_secret wajib disertakan dan harus 16–256 karakter' }, 400, request, env);
-  }
-  const testSecret = body.session_secret;
-  const secretHash = await sha256Full(testSecret);
-
   await createSession(env, sessionId, {
     cv_text: stored.text,
     job_desc: stored.job_desc,
@@ -102,7 +92,6 @@ export async function handleBypassPayment(request, env) {
     total_credits: credits,
     ip,
     mayar_invoice_id: 'bypass_sandbox',
-    session_secret_hash: secretHash,
   });
   // Delete cv_text_key AFTER createSession succeeds — mirrors production payment flow.
   // If createSession throws, cv_text_key is still intact and the user can retry.

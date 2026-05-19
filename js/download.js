@@ -6,7 +6,7 @@
 //
 // Load order (BUNDLES.download in scripts/build.js):
 //   download-state.js       constants + mutable state + clearClientSessionData
-//                           + getSecretHeaders + syncTierFromServer
+//                           + syncTierFromServer
 //   download-ui.js          showState, showSessionError, setProgress …
 //   download-file-utils.js  triggerDownload, buildCVFilename …
 //   download-docx-pdf.js    parseLines, generateDOCX, generatePDF
@@ -37,6 +37,7 @@ function downloadFile(lang, format) {
 // Runs immediately on page load. Two entry paths:
 //   Path 1 — ?token=  Email link with a single-use token → exchange for cookie
 //   Path 2 — normal   Cookie + localStorage session set by payment.js
+//   Path 3 — cookie   HttpOnly cookie only, after storage was cleared/blocked
 (async function init() {
   const params     = new URLSearchParams(location.search);
   const emailToken = params.get('token');
@@ -59,10 +60,6 @@ function downloadFile(lang, format) {
         if (data.session_id) {
           localStorage.setItem('gaslamar_session', data.session_id);
           sessionIdCache     = data.session_id;
-          // Token-exchange: the session DOES have a secret hash (set at /create-payment),
-          // but the secret itself is in sessionStorage — absent on a different device.
-          // When null, poll() uses the ?session= fallback path which skips secret verification.
-          sessionSecretCache = sessionStorage.getItem('gaslamar_secret_' + data.session_id) || null;
         }
         history.replaceState(null, '', location.pathname);
         startPolling(sessionIdCache);
@@ -87,15 +84,30 @@ function downloadFile(lang, format) {
   // keeps the ID accessible for client-side credit management.
   const sessionId = localStorage.getItem('gaslamar_session');
   if (!sessionId || !sessionId.startsWith('sess_')) {
-    showSessionError('Sesi tidak ditemukan', 'Link download tidak valid. Coba lagi dari awal.');
+    showState('waiting-payment');
+    try {
+      const res = await fetch(WORKER_URL + '/check-session', {
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        showSessionError('Sesi tidak ditemukan', 'Link download tidak valid. Coba lagi dari awal.');
+        return;
+      }
+      const data = await res.json();
+      if (!data.session_id || !data.session_id.startsWith('sess_')) {
+        showSessionError('Sesi tidak ditemukan', 'Link download tidak valid. Coba lagi dari awal.');
+        return;
+      }
+      localStorage.setItem('gaslamar_session', data.session_id);
+      sessionIdCache = data.session_id;
+      startPolling(data.session_id);
+    } catch (_) {
+      showSessionError('Terjadi Kesalahan', 'Tidak dapat menghubungi server. Coba refresh halaman ini.');
+    }
     return;
   }
 
-  sessionIdCache     = sessionId;
-  // Secret is stored in sessionStorage (tab-scoped). Null after tab close — in that
-  // case requests proceed without X-Session-Secret (server accepts for legacy sessions
-  // without a hash; users with a secret must use their email link to re-access).
-  sessionSecretCache = sessionStorage.getItem('gaslamar_secret_' + sessionId) || null;
+  sessionIdCache = sessionId;
 
   showState('waiting-payment');
   startPolling(sessionId);

@@ -1,6 +1,6 @@
 import { jsonResponse } from '../cors.js';
 import { log, logError, clientIp } from '../utils.js';
-import { getSession, verifySessionSecret } from '../sessions.js';
+import { getSession } from '../sessions.js';
 import { getSessionIdFromCookie } from '../cookies.js';
 import { callClaude } from '../claude.js';
 import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
@@ -67,33 +67,11 @@ export async function handleInterviewKit(request, env) {
   const language = rawLang === 'en' ? 'en' : 'id';
   const cacheKey = `kit_${session_id}_${language}`;
 
-  // Cache-first: return pre-generated kit without requiring an active session.
-  // The cache entry stores session_secret_hash so the secret can be verified even
-  // after the live session is deleted, providing consistent auth for all callers.
+  // Cache-first: return pre-generated kit for the authenticated session cookie.
   try {
     const cachedEntry = await env.GASLAMAR_SESSIONS.get(cacheKey, { type: 'json' });
     if (cachedEntry) {
-      const { session_secret_hash: cachedHash, kit: cachedKit } = cachedEntry;
-      const providedSecret = request.headers.get('X-Session-Secret');
-
-      if (cachedHash) {
-        // Verify secret against the stored hash — same auth bar regardless of session state.
-        // Re-use verifySessionSecret by passing an object with the expected field shape.
-        if (!await verifySessionSecret({ session_secret_hash: cachedHash }, providedSecret)) {
-          return jsonResponse({ message: 'Akses ditolak: token sesi tidak valid' }, 403, request, env);
-        }
-      } else {
-        // Legacy cache entry without hash — verify against live session if it still exists.
-        // If both hash and live session are absent, deny rather than allow anonymous access.
-        const liveSession = await getSession(env, session_id);
-        if (liveSession) {
-          if (!await verifySessionSecret(liveSession, providedSecret)) {
-            return jsonResponse({ message: 'Akses ditolak: token sesi tidak valid' }, 403, request, env);
-          }
-        } else {
-          return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa' }, 404, request, env);
-        }
-      }
+      const { kit: cachedKit } = cachedEntry;
 
       log('interview_kit_cache_hit', { session_id, language });
       return jsonResponse({ success: true, kit: cachedKit ?? cachedEntry }, 200, request, env);
@@ -106,11 +84,6 @@ export async function handleInterviewKit(request, env) {
   const session = await getSession(env, session_id);
   if (!session) {
     return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa' }, 404, request, env);
-  }
-
-  const providedSecret = request.headers.get('X-Session-Secret');
-  if (!await verifySessionSecret(session, providedSecret)) {
-    return jsonResponse({ message: 'Akses ditolak: token sesi tidak valid' }, 403, request, env);
   }
 
   // 'exhausted' is included so users who used their last credit can still access the kit.
@@ -127,9 +100,7 @@ export async function handleInterviewKit(request, env) {
 
   try {
     const parsedKit = await generateInterviewKit(cv_text, job_desc, language, env);
-    // Store secret hash alongside kit so future cache hits can verify the secret
-    // even after the live session is deleted (last credit exhausted).
-    const cacheEntry = { kit: parsedKit, session_secret_hash: session.session_secret_hash ?? null };
+    const cacheEntry = { kit: parsedKit };
     await env.GASLAMAR_SESSIONS.put(cacheKey, JSON.stringify(cacheEntry), { expirationTtl: 86400 });
     log('interview_kit_generated', { session_id, language });
     return jsonResponse({ success: true, kit: parsedKit }, 200, request, env);
