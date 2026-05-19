@@ -253,7 +253,11 @@ export default function Result() {
             let urlSafe = false;
             try {
               const p = new URL(pending.invoice_url);
-              urlSafe = p.protocol === 'https:' && (p.hostname.endsWith('.mayar.id') || p.hostname.endsWith('.mayar.club'));
+              const h = p.hostname;
+              urlSafe = p.protocol === 'https:' && (
+                h === 'mayar.id' || h.endsWith('.mayar.id') ||
+                h === 'mayar.club' || h.endsWith('.mayar.club')
+              );
             } catch (_) {}
             if (!urlSafe) throw new Error('invalid_invoice_url');
             setPaymentInProgress(true);

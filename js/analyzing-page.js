@@ -56,7 +56,7 @@ function setStepDone(n) {
 function setStepActive(n) {
   const icon = document.getElementById('step' + n + 'Icon');
   if (!icon) return;
-  icon.textContent = '⟳';
+  icon.innerHTML = '<span aria-hidden="true">⟳</span>';
   icon.className = 'step-status spinning';
   icon.style.color = '#0F172A';
 }
@@ -288,6 +288,11 @@ if (_editBackLink) _editBackLink.addEventListener('click', (e) => {
 // Retry button
 const _retryBtn = document.getElementById('retry-analysis-btn');
 if (_retryBtn) _retryBtn.addEventListener('click', retryAnalysis);
+
+// Reset in-progress guard if user navigates back via BFCache after a successful analysis
+window.addEventListener('pageshow', function(e) {
+  if (e.persisted) retryInProgress = false;
+});
 
 // Start analysis
 runAnalysis();

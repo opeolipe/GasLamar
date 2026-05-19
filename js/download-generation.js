@@ -158,12 +158,14 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
       return;
     }
 
-    const { cv_id, cv_en, credits_remaining, total_credits, job_title, company, persist_failed } = await res.json();
+    const { cv_id, cv_en, cv_id_docx, cv_en_docx, credits_remaining, total_credits, job_title, company, persist_failed } = await res.json();
 
     // Cache for retries and for buildCVFilename in download-docx-pdf.js
     cvDataCache = {
       cv_id:         cv_id,
       cv_en:         cv_en,
+      cv_id_docx:    cv_id_docx != null ? cv_id_docx : null,
+      cv_en_docx:    cv_en_docx != null ? cv_en_docx : null,
       tier:          tier,
       total_credits: total_credits,
       job_title:     job_title  != null ? job_title  : null,

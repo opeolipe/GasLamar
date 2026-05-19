@@ -19,7 +19,7 @@ export default function VerdictCard({ verdict, timeboxWeeks }: Props) {
     <div
       style={{ borderRadius: 10, padding: '0.6rem 1rem', margin: '0.5rem 0', fontSize: '0.875rem', fontWeight: 600, textAlign: 'center', background: cfg.bg, color: cfg.color, border: `1.5px solid ${cfg.border}`, wordBreak: 'break-word' }}
     >
-      <span style={{ fontSize: '1rem' }}>{cfg.icon}</span>{' '}
+      <span style={{ fontSize: '1rem' }} aria-hidden="true">{cfg.icon}</span>{' '}
       <strong>{cfg.label}</strong>
       <br />
       <span style={{ fontWeight: 400, fontSize: '0.875rem' }}>{desc}</span>

@@ -22,7 +22,7 @@ export default function TierIndicator({ tier }: Props) {
   return (
     <div className="mb-5">
       <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${TIER_CLS[t]}`}>
-        {td.icon}&nbsp;Paket: {td.name} — {td.desc}
+        <span aria-hidden="true">{td.icon}</span>&nbsp;Paket: {td.name} — {td.desc}
       </div>
       <p className="text-xs text-slate-400 mt-1">
         Analisis gratis dulu — konfirmasi dan bayar setelah lihat hasilnya.

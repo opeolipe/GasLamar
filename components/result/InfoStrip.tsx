@@ -25,7 +25,7 @@ export default function InfoStrip({ children, type = 'info' }: Props) {
   const s = STYLES[type];
   return (
     <div
-      role="status"
+      role={type === 'expired' ? 'alert' : 'status'}
       style={{
         background:   s.background,
         color:        s.color,

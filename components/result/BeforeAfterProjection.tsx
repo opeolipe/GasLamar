@@ -13,7 +13,7 @@ export default function BeforeAfterProjection({ beforeScore, afterScore }: Props
           <div style={{ fontSize: '0.875rem', color: '#6B7280', fontWeight: 600, marginBottom: '0.25rem' }}>Sebelum</div>
           <div style={{ fontSize: '2.2rem', fontWeight: 800, color: '#EF4444' }}>{beforeScore}%</div>
         </div>
-        <div style={{ fontSize: '1.8rem', color: '#9CA3AF' }}>→</div>
+        <div style={{ fontSize: '1.8rem', color: '#9CA3AF' }} aria-hidden="true">→</div>
         <div>
           <div style={{ fontSize: '0.875rem', color: '#6B7280', fontWeight: 600, marginBottom: '0.25rem' }}>Sesudah perbaikan</div>
           <div style={{ fontSize: '2.2rem', fontWeight: 800, color: '#10B981' }}>{afterScore}%</div>
