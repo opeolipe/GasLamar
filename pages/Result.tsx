@@ -251,7 +251,10 @@ export default function Result() {
         if (pending.invoice_url && notExpired) {
           if (tierMatches && noNewUpload) {
             let urlSafe = false;
-            try { urlSafe = new URL(pending.invoice_url).protocol === 'https:'; } catch (_) {}
+            try {
+              const p = new URL(pending.invoice_url);
+              urlSafe = p.protocol === 'https:' && (p.hostname.endsWith('.mayar.id') || p.hostname.endsWith('.mayar.club'));
+            } catch (_) {}
             if (!urlSafe) throw new Error('invalid_invoice_url');
             setPaymentInProgress(true);
             setPayBtnOverride('Mengalihkan ke halaman pembayaran...');
@@ -333,7 +336,7 @@ export default function Result() {
       if (!response.ok) {
         const err    = await response.json().catch(() => ({}));
         const errMsg = (err as any).message || `Server error: ${response.status}`;
-        if ((response.status === 400 && errMsg.includes('kedaluwarsa')) || response.status === 403) {
+        if ((response.status === 400 && (err as any).code === 'cv_expired') || response.status === 403) {
           setSessionExpiredByPay(true);
           setPayBtnOverride(null);
           setPaymentInProgress(false);
@@ -826,7 +829,7 @@ export default function Result() {
                 </button>
 
                 {emailIsConfirmed && !sessionExpiredByPay && (
-                  <p style={{ fontSize: '0.8rem', color: '#374151', textAlign: 'center', marginTop: '0.5rem' }}>
+                  <p role="status" style={{ fontSize: '0.8rem', color: '#374151', textAlign: 'center', marginTop: '0.5rem' }}>
                     <span aria-hidden="true">📬</span> CV akan dikirim ke: <strong>{email.trim()}</strong>
                   </p>
                 )}

@@ -42,6 +42,7 @@ export default function PricingSection() {
                 style={{
                   /* minWidth:0 prevents grid children from overflowing their cell */
                   minWidth:      0,
+                  minHeight:     44,
                   background:    'white',
                   borderRadius:  16,
                   padding:       '1rem',

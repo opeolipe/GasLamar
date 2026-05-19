@@ -35,6 +35,7 @@ let abortController = new AbortController();
 // Distinguish user-initiated cancel from our timeout abort
 let isTimedOut = false;
 let analysisTimeoutId = null;
+let retryInProgress = false;
 
 const trustMessages = [
   '🔒 CV tidak disimpan — aman',
@@ -215,10 +216,13 @@ async function runAnalysis() {
     document.getElementById('analyze-error-msg').textContent = msg;
     document.getElementById('analyze-error').style.display = 'block';
     document.getElementById('analyzeCard').style.display = 'none';
+    retryInProgress = false; // allow the retry button to work again
   }
 }
 
 function retryAnalysis() {
+  if (retryInProgress) return;
+  retryInProgress = true;
   document.getElementById('analyze-error').style.display = 'none';
   document.getElementById('analyzeCard').style.display = '';
   completedStep = 0;
@@ -265,7 +269,8 @@ function retryAnalysis() {
 }
 
 // Edit back link
-document.getElementById('editBackLink').addEventListener('click', (e) => {
+const _editBackLink = document.getElementById('editBackLink');
+if (_editBackLink) _editBackLink.addEventListener('click', (e) => {
   e.preventDefault();
   if (confirm('Batalkan analisis dan kembali ke halaman upload? Data tidak akan tersimpan.')) {
     clearTimeout(analysisTimeoutId);
@@ -281,7 +286,8 @@ document.getElementById('editBackLink').addEventListener('click', (e) => {
 });
 
 // Retry button
-document.getElementById('retry-analysis-btn').addEventListener('click', retryAnalysis);
+const _retryBtn = document.getElementById('retry-analysis-btn');
+if (_retryBtn) _retryBtn.addEventListener('click', retryAnalysis);
 
 // Start analysis
 runAnalysis();

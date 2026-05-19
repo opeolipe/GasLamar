@@ -256,12 +256,22 @@ async function showExhaustedResult(data) {
 
 // ── retryGeneration ───────────────────────────────────────────────────────────
 // Called by the "Coba Lagi" error button. Reloads if session ID is gone.
+let retryGenerationInProgress = false;
 async function retryGeneration() {
+  if (retryGenerationInProgress) return;
   if (!sessionIdCache) { window.location.reload(); return; }
+  retryGenerationInProgress = true;
+  const retryBtn = document.getElementById('error-retry-btn');
+  if (retryBtn) retryBtn.disabled = true;
   if (window.Analytics) Analytics.track('cv_generation_retry', {
     tier: sessionStorage.getItem('gaslamar_tier') || undefined,
   });
-  await fetchAndGenerateCV(sessionIdCache);
+  try {
+    await fetchAndGenerateCV(sessionIdCache);
+  } finally {
+    retryGenerationInProgress = false;
+    if (retryBtn) retryBtn.disabled = false;
+  }
 }
 
 // ── generateForNewJob ─────────────────────────────────────────────────────────
