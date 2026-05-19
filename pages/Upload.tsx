@@ -352,6 +352,7 @@ export default function Upload() {
   }
 
   function handleSubmit() {
+    if (loading) return;
     const cvMissing = !hasFile;
     const jdMissing = !evaluateJDQuality(jd).isValid;
 
@@ -377,7 +378,6 @@ export default function Upload() {
       }
       return;
     }
-    const jobDesc = jd.trim();
 
     // flushSync forces a synchronous re-render so the button is visibly disabled
     // before sessionStorage writes and navigation — this also prevents rapid
