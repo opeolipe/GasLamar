@@ -30,29 +30,37 @@ export async function handleResendAccess(request, env) {
   const ip    = clientIp(request);
 
   // Atomic burst guard — native CF rate limiter, no TOCTOU race.
-  // Checked before hashing email to short-circuit quickly on burst abuse.
+  // Checked before any KV work to short-circuit quickly on burst abuse.
   if (!await checkRateLimit(env, env.RATE_LIMITER_RESEND_ACCESS, ip)) {
     log('resend_access_attempt', { rateLimited: true, ip, reason: 'cf_burst' });
     return jsonResponse(GENERIC_OK, 200, request, env);
   }
 
-  // Hash email before using it as a rate-limit key (avoid plaintext PII in KV key space).
+  // Per-IP KV check before hashing email — cheaper and guards credential stuffing first.
+  const rlIp = await checkRateLimitKV(env, ip, 10, 3600, 'resend_access_ip');
+  if (!rlIp.allowed) {
+    log('resend_access_attempt', { rateLimited: true, ip });
+    return jsonResponse(GENERIC_OK, 200, request, env);
+  }
+
+  // Hash email for rate-limit key and index lookup (avoids plaintext PII in KV key space).
   const emailHash = await sha256Hex(email);
-  // Dual-layer rate limiting — silent on both to avoid enumeration.
-  // Per-email: 2 per hour. Per-IP: 10 per hour (catches credential stuffing).
+  // Per-email: 2 per hour (silent — avoids revealing whether email has a session).
   const rlEmail = await checkRateLimitKV(env, emailHash, 2, 3600, 'resend_access');
   if (!rlEmail.allowed) {
     log('resend_access_attempt', { email_hash: emailHash.slice(0, 16), rateLimited: true, ip });
     return jsonResponse(GENERIC_OK, 200, request, env);
   }
-  const rlIp = await checkRateLimitKV(env, ip, 10, 3600, 'resend_access_ip');
-  if (!rlIp.allowed) {
-    log('resend_access_attempt', { email_hash: emailHash.slice(0, 16), rateLimited: true, ip });
-    return jsonResponse(GENERIC_OK, 200, request, env);
-  }
 
-  const indexRaw = await env.GASLAMAR_SESSIONS.get(`email_session_${emailHash}`, { type: 'json' });
-  // Support both old { session_id } and new { session_ids } format
+  // Look up hashed key first; fall back to legacy plaintext key for pre-migration sessions.
+  let indexRaw = await env.GASLAMAR_SESSIONS.get(`email_session_${emailHash}`, { type: 'json' });
+  if (!indexRaw) {
+    indexRaw = await env.GASLAMAR_SESSIONS.get(`email_session_${email}`, { type: 'json' });
+    if (indexRaw) {
+      console.warn(JSON.stringify({ event: 'resend_access_legacy_key_used', email_hash: emailHash.slice(0, 8) }));
+    }
+  }
+  // Support both old { session_id } and new { session_ids } format.
   const sessionIds = indexRaw?.session_ids ?? (indexRaw?.session_id ? [indexRaw.session_id] : []);
 
   if (!sessionIds.length) {
@@ -75,14 +83,15 @@ export async function handleResendAccess(request, env) {
 
   log('resend_access_attempt', { email_hash: emailHash.slice(0, 16), hasSession: true, count: activeIds.length, rateLimited: false, ip });
 
-  for (const id of activeIds.slice(0, 3)) {
+  const toSend = activeIds.slice(0, 3);
+  for (const id of toSend) {
     try {
       await sendResendAccessEmail(id, env);
     } catch (e) {
       logError('resend_access_email_failed', { error: e.message });
     }
   }
-  log('resend_access_sent', { email_hash: emailHash.slice(0, 16), count: activeIds.length, ip });
+  log('resend_access_sent', { email_hash: emailHash.slice(0, 16), count: toSend.length, capped: activeIds.length > 3, ip });
 
   return jsonResponse(GENERIC_OK, 200, request, env);
 }
