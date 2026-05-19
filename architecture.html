@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
 <title>GasLamar — System Architecture</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
@@ -985,7 +986,7 @@
         <div class="stage-detail">
           Deterministic skill match scoring, format issue detection, archetype classification, red-flag detection.
         </div>
-        <div class="stage-cache">part of analysis_v15_* · 48h</div>
+        <div class="stage-cache">part of analysis_v16_* · 48h</div>
       </div>
       <div class="pipeline-stage stage-25">
         <div class="stage-num">STAGE 2.5</div>
@@ -994,7 +995,7 @@
         <div class="stage-detail">
           Keyword-based role / seniority / industry classifier. Feeds weight bias into scoring, diagnose context, and tailor mode.
         </div>
-        <div class="stage-cache">part of analysis_v15_* · 48h</div>
+        <div class="stage-cache">part of analysis_v16_* · 48h</div>
       </div>
       <div class="pipeline-stage stage-3">
         <div class="stage-num">STAGE 3</div>
@@ -1003,7 +1004,7 @@
         <div class="stage-detail">
           5D weighted formula → skor [0–100], verdict (DO / TIMED / DO NOT), skor_sesudah, timebox_weeks. Role-weight bias applied.
         </div>
-        <div class="stage-cache">part of analysis_v15_* · 48h</div>
+        <div class="stage-cache">part of analysis_v16_* · 48h</div>
       </div>
       <div class="pipeline-stage stage-4">
         <div class="stage-num">STAGE 4</div>
@@ -1012,7 +1013,7 @@
         <div class="stage-detail">
           Claude generates human-readable gap explanations, recommendations, strengths. Cannot alter scores — read-only.
         </div>
-        <div class="stage-cache">part of analysis_v15_* · 48h</div>
+        <div class="stage-cache">part of analysis_v16_* · 48h</div>
       </div>
       <div class="pipeline-stage stage-5">
         <div class="stage-num">STAGE 5</div>
@@ -1021,7 +1022,7 @@
         <div class="stage-detail">
           Claude tailors CV bullets to match JD keywords. Ground-truth block (angka_di_cv, entitas_klaim) prevents hallucination. rewriteGuard validates every bullet.
         </div>
-        <div class="stage-cache">gen_id_v4_* / gen_en_v4_* · 48h</div>
+        <div class="stage-cache">gen_id_v13_* / gen_en_v13_* · 48h</div>
       </div>
     </div>
     <div style="margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
@@ -1175,7 +1176,7 @@
             <td style="color: var(--text-dimmer)">EXTRACT_CACHE_VERSION</td>
           </tr>
           <tr>
-            <td>analysis_v15_&lt;hash&gt;</td>
+            <td>analysis_v16_&lt;hash&gt;</td>
             <td style="color: var(--text-dim)">Stages 1–4 — full scoring + diagnose bundle</td>
             <td><span class="ttl-badge ttl-48">48h</span></td>
             <td style="color: var(--text-dimmer)">ANALYSIS_CACHE_VERSION</td>
@@ -1187,13 +1188,13 @@
             <td style="color: var(--text-dimmer)">—</td>
           </tr>
           <tr>
-            <td>gen_id_v4_&lt;hash&gt;</td>
+            <td>gen_id_v13_&lt;hash&gt;</td>
             <td style="color: var(--text-dim)">Tailored CV — Bahasa Indonesia</td>
             <td><span class="ttl-badge ttl-48">48h</span></td>
             <td style="color: var(--text-dimmer)">GEN_KEY_PREFIX_ID</td>
           </tr>
           <tr>
-            <td>gen_en_v4_&lt;hash&gt;</td>
+            <td>gen_en_v13_&lt;hash&gt;</td>
             <td style="color: var(--text-dim)">Tailored CV — English</td>
             <td><span class="ttl-badge ttl-48">48h</span></td>
             <td style="color: var(--text-dimmer)">GEN_KEY_PREFIX_EN</td>

@@ -108,6 +108,16 @@ tampered webhook requests are rejected before any session state is updated.
 
 ## Dependency Advisory Notes
 
+### PostCSS — build-time advisory (transitive via tailwindcss)
+
+PostCSS is a **build-time-only** dependency pulled in transitively by `tailwindcss`. It is not
+shipped in the production browser bundle and poses no runtime risk to end users. Any PostCSS
+vulnerability affects the CI/CD build environment only.
+
+PostCSS is pinned to `>=8.5.14` via `overrides` in both `package.json` and `worker/package.json`,
+and both lockfiles resolve to exactly `8.5.14`. The pin is intentionally a floor (`>=`) so future
+patch releases are not blocked.
+
 ### jsPDF / DOMPurify advisory status
 
 As of the `security/postcss-hardening` review, `npm ls dompurify` shows DOMPurify is transitive
@@ -125,4 +135,4 @@ coverage. Current compensating controls:
 - CV PDF content is generated from structured text, not raw uploaded HTML.
 
 Revisit the jsPDF upgrade by 2026-08-19, or sooner if app code starts using jsPDF active-content,
-form, HTML, or user-image APIs.
+form, HTML, or user-image APIs. Tracked in issue #385.
