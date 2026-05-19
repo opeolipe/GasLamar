@@ -69,7 +69,7 @@ export default function PricingSelector({ selectedTier, onSelect, score, hasErro
             >
               {(isRec || selected) && (
                 <div style={{ position: 'absolute', top: -11, left: '50%', transform: 'translateX(-50%)', background: '#2563EB', color: 'white', fontSize: '0.7rem', padding: '0.18rem 0.75rem', borderRadius: 60, fontWeight: 700, whiteSpace: 'nowrap', letterSpacing: '0.03em' }}>
-                  {selected ? '✦ DIPILIH' : '✦ PALING COCOK'}
+                  <span aria-hidden="true">✦</span>{selected ? ' DIPILIH' : ' PALING COCOK'}
                 </div>
               )}
 

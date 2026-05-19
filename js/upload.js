@@ -322,6 +322,9 @@ function updateCharCount() {
 document.getElementById('upload-form').addEventListener('submit', async (e) => {
   e.preventDefault();
 
+  // Rapid-click guard — first click wins; subsequent clicks before navigation are ignored
+  if (uploadSubmitInProgress) return;
+
   // Submission guard — reject if the raw value is still over the limit
   // (devtools bypass or race condition on programmatic assignment).
   const rawJd = document.getElementById('job-desc').value;
@@ -572,7 +575,10 @@ document.getElementById('job-desc').addEventListener('blur', () => {
 // Re-sync submit button when page is restored from BFcache (back-navigation or tab switch).
 // Without this, the button stays disabled if the user navigated away mid-submit.
 window.addEventListener('pageshow', (e) => {
-  if (e.persisted) syncSubmitBtn();
+  if (e.persisted) {
+    uploadSubmitInProgress = false;
+    syncSubmitBtn();
+  }
 });
 
 // ---- Staging test hook ----

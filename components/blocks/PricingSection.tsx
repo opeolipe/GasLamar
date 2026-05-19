@@ -65,7 +65,7 @@ export default function PricingSection() {
               >
                 {isFeatured && (
                   <div style={{ position: 'absolute', top: -11, left: '50%', transform: 'translateX(-50%)', background: '#2563EB', color: 'white', fontSize: '0.62rem', padding: '0.18rem 0.75rem', borderRadius: 60, fontWeight: 700, whiteSpace: 'nowrap', letterSpacing: '0.03em' }}>
-                    ✦ PALING DIPILIH
+                    <span aria-hidden="true">✦</span> PALING DIPILIH
                   </div>
                 )}
 

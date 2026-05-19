@@ -759,6 +759,12 @@ export default function Result() {
                 score={data.skor}
               />
 
+              {!selectedTier && (
+                <p role="status" style={{ margin: '0.4rem 0 0.6rem', fontSize: '0.8rem', color: '#6B7280', textAlign: 'center' }}>
+                  <span aria-hidden="true">↑</span> Pilih paket di atas untuk melanjutkan pembayaran
+                </p>
+              )}
+
               {/* Payment block — email + CTA grouped */}
               <div style={{
                 background:   'rgba(37,99,235,0.03)',
