@@ -994,6 +994,21 @@ describe('GET /check-session', () => {
     expect(blockedRes.headers.get('Retry-After')).toBeTruthy();
   });
 
+  it('rate-limits fallback path per ip after 30 requests/min across sessions', async () => {
+    const ip = '10.88.0.46';
+
+    for (let i = 0; i < 30; i++) {
+      const sessionId = await seedSession('paid', 'single');
+      const okRes = await get('/check-session?session=' + sessionId, {}, ip);
+      expect(okRes.status).toBe(200);
+    }
+
+    const blockedSessionId = await seedSession('paid', 'single');
+    const blockedRes = await get('/check-session?session=' + blockedSessionId, {}, ip);
+    expect(blockedRes.status).toBe(429);
+    expect(blockedRes.headers.get('Retry-After')).toBeTruthy();
+  });
+
   it('strict cookie+secret path is not affected by fallback ip+session limiter', async () => {
     const sessionId = await seedSession('paid', 'single');
     const ip = '10.88.0.45';
@@ -1004,6 +1019,102 @@ describe('GET /check-session', () => {
     }
   });
 
+});
+
+describe('POST /exchange-token — abuse regression', () => {
+  it('rejects malformed, short, non-hex, and wrong-length tokens before KV lookup', async () => {
+    const cases = [
+      [undefined, '10.89.0.1'],
+      ['', '10.89.0.2'],
+      ['abc123', '10.89.0.3'],
+      ['zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz', '10.89.0.4'],
+      ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '10.89.0.5'],
+    ];
+
+    for (const [emailToken, ip] of cases) {
+      const body = emailToken === undefined ? {} : { email_token: emailToken };
+      const res = await post('/exchange-token', body, {}, ip);
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ message: 'Token tidak valid' });
+    }
+  });
+
+  it('exchanges a valid token once and rejects replay', async () => {
+    const sessionId = await seedSession('ready', 'single');
+    const token = '0123456789abcdef0123456789abcdef';
+    await env.GASLAMAR_SESSIONS.put(`email_token_${token}`, JSON.stringify({ session_id: sessionId }), { expirationTtl: 3600 });
+
+    const first = await post('/exchange-token', { email_token: token }, {}, '10.89.0.6');
+    expect(first.status).toBe(200);
+    const firstBody = await first.json();
+    expect(firstBody).toEqual({ ok: true, session_id: sessionId });
+    expect(first.headers.get('Set-Cookie')).toContain(`session_id=${sessionId}`);
+    expect(await env.GASLAMAR_SESSIONS.get(`email_token_${token}`)).toBeNull();
+
+    const replay = await post('/exchange-token', { email_token: token }, {}, '10.89.0.7');
+    expect(replay.status).toBe(404);
+    expect(await replay.json()).toEqual({ message: 'Token tidak valid atau sudah kedaluwarsa' });
+  });
+});
+
+describe('POST /resend-access — abuse regression', () => {
+  it('stays silent for unknown emails', async () => {
+    const res = await post('/resend-access', { email: 'unknown-access@example.com' }, {}, '10.90.0.1');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      success: true,
+      message: 'Jika email terdaftar, link baru telah dikirim.',
+    });
+  });
+
+  it('rate-limits by email hash without revealing whether the email exists', async () => {
+    const email = 'email-limited@example.com';
+    const emailHash = await sha256Full(email);
+
+    for (const ip of ['10.90.0.2', '10.90.0.3']) {
+      const res = await post('/resend-access', { email }, {}, ip);
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({
+        success: true,
+        message: 'Jika email terdaftar, link baru telah dikirim.',
+      });
+    }
+
+    const thirdIp = '10.90.0.4';
+    const limited = await post('/resend-access', { email }, {}, thirdIp);
+    expect(limited.status).toBe(200);
+    expect(await limited.json()).toEqual({
+      success: true,
+      message: 'Jika email terdaftar, link baru telah dikirim.',
+    });
+
+    const emailLimiter = await env.GASLAMAR_SESSIONS.get(`rate_limit_resend_access_${emailHash}`, { type: 'json' });
+    expect(emailLimiter.count).toBe(2);
+    expect(await env.GASLAMAR_SESSIONS.get(`rate_limit_resend_access_ip_${thirdIp}`)).toBeNull();
+  });
+
+  it('rate-limits by IP without changing the silent response shape', async () => {
+    const ip = '10.90.0.5';
+
+    for (let i = 0; i < 10; i++) {
+      const res = await post('/resend-access', { email: `ip-limited-${i}@example.com` }, {}, ip);
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({
+        success: true,
+        message: 'Jika email terdaftar, link baru telah dikirim.',
+      });
+    }
+
+    const limited = await post('/resend-access', { email: 'ip-limited-final@example.com' }, {}, ip);
+    expect(limited.status).toBe(200);
+    expect(await limited.json()).toEqual({
+      success: true,
+      message: 'Jika email terdaftar, link baru telah dikirim.',
+    });
+
+    const ipLimiter = await env.GASLAMAR_SESSIONS.get(`rate_limit_resend_access_ip_${ip}`, { type: 'json' });
+    expect(ipLimiter.count).toBe(10);
+  });
 });
 
 describe('GET /validate-session', () => {
