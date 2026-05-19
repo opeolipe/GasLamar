@@ -349,14 +349,9 @@ export default function Result() {
         throw new Error(errMsg);
       }
 
-      const { session_id, invoice_url } = await response.json();
+      const { invoice_url } = await response.json();
 
       ;(window as any).Analytics?.track?.('payment_session_created', { tier: selectedTier, tier_price_idr: TIER_CONFIG[selectedTier].price });
-
-      sessionStorage.setItem('gaslamar_session', session_id);
-      try {
-        localStorage.setItem('gaslamar_session', session_id);
-      } catch (_) {}
 
       let validUrl = false;
       try { const parsed = new URL(invoice_url); validUrl = parsed.protocol === 'https:'; } catch (_) {}

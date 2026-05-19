@@ -253,6 +253,7 @@ export function useGenerateCV(): UseGenerateCVReturn {
 
         // Clear session storage when all credits are exhausted
         if (!credits_remaining || credits_remaining <= 0) {
+          sessionStorage.removeItem('gaslamar_session');
           localStorage.removeItem('gaslamar_session');
           localStorage.removeItem('gaslamar_tier');
           sessionStorage.removeItem('gaslamar_tier');

@@ -119,20 +119,7 @@ export default function Upload() {
       });
     }
 
-    // Paid session takes priority — redirect the user straight to download.html
-    // instead of showing stale analysis notices that point to hasil.html.
-    const paidSessionId = sessionStorage.getItem('gaslamar_session') ?? localStorage.getItem('gaslamar_session') ?? '';
-    const hasPaidSession = paidSessionId.startsWith('sess_');
-
-    if (hasPaidSession && !isNewPackage) {
-      const reason = params.get('reason');
-      if (reason) history.replaceState(null, '', location.pathname);
-      newNotices.push({
-        type: 'info',
-        text: 'Kamu sudah upload CV dan menyelesaikan pembayaran.',
-        link: { href: 'download.html', label: 'Lanjutkan ke download →' },
-      });
-    } else if (!isNewPackage) {
+    if (!isNewPackage) {
       const reason = params.get('reason');
       if (reason === 'no_session') {
         history.replaceState(null, '', location.pathname);
@@ -200,18 +187,15 @@ export default function Upload() {
     }
   }, []);
 
-  // Validate any stored paid session — dismiss banner if session is expired/deleted
+  // Validate any paid session cookie — dismiss banner if session is expired/deleted.
   useEffect(() => {
-    const sId = sessionStorage.getItem('gaslamar_session') ?? localStorage.getItem('gaslamar_session') ?? '';
-    if (!sId.startsWith('sess_')) return;
-
     (async () => {
       try {
-        const res = await fetch(`${WORKER_URL}/check-session?session=${encodeURIComponent(sId)}`, { credentials: 'include' });
+        const res = await fetch(`${WORKER_URL}/check-session`, { credentials: 'include' });
         const data = res.ok ? await res.json() as { status?: string } : null;
         const isTerminal = !res.ok || data?.status === 'deleted' || data?.status === 'pending';
         if (isTerminal) {
-          clearClientSessionData(sId);
+          clearClientSessionData(null);
           setNotices(prev => prev.filter(n => !n.link?.href.includes('download.html')));
         }
       } catch (_) {

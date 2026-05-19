@@ -31,9 +31,8 @@
  *   gaslamar_tier            Server-confirmed tier (corrected on poll response)
  *   gaslamar_filename        CV filename for display purposes only
  *
- * localStorage (persistent across tabs):
- *   gaslamar_session         session_id ('sess_<uuid>') — set by payment.js.
- *                            This is a UI pointer only; auth is the HttpOnly cookie.
+ * The session_id is not persisted in client storage. Download pages bootstrap
+ * from the HttpOnly cookie via /check-session.
  */
 
 // ── State name constants ──────────────────────────────────────────────────────
@@ -109,16 +108,11 @@ function clearAnalysisSession() {
 // ── Download session helpers ──────────────────────────────────────────────────
 
 /**
- * Returns the session_id from localStorage if it looks valid, null otherwise.
- * The actual session is verified server-side; this is purely a format check.
+ * Legacy no-op retained for older inline scripts. The session_id is HttpOnly
+ * cookie-backed and is no longer readable from client storage.
  */
 function getDownloadSessionId() {
-  try {
-    var id = localStorage.getItem('gaslamar_session');
-    return (id && id.startsWith('sess_')) ? id : null;
-  } catch (_) {
-    return null;
-  }
+  return null;
 }
 
 /**
@@ -129,6 +123,7 @@ function clearDownloadSession(sessionId) {
   try {
     sessionStorage.removeItem('gaslamar_tier');
     sessionStorage.removeItem('gaslamar_score_summary');
+    sessionStorage.removeItem('gaslamar_session');
     localStorage.removeItem('gaslamar_session');
   } catch (_) {}
 }

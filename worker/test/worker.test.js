@@ -872,28 +872,28 @@ describe('Rate limiting — /resend-access', () => {
     expect(body.retryAfter).toBe(60);
   });
 
-  it('per-email KV rate limit returns 429 after 2nd request with same email', async () => {
+  it('per-email KV rate limit returns 429 after 3rd request with same email', async () => {
     const email     = `rl-kv-email-${Date.now()}@example.com`;
     const emailHash = await sha256Full(email);
 
-    // First 2 requests: allowed — counter climbs to 2
-    for (let i = 0; i < 2; i++) {
+    // First 3 requests: allowed — counter climbs to 3
+    for (let i = 0; i < 3; i++) {
       const res = await post('/resend-access', { email }, {}, RL_RESEND_IP_KV);
       expect(res.status).toBe(200);
     }
-    const afterTwo = JSON.parse(await env.GASLAMAR_SESSIONS.get(`rate_limit_resend_access_${emailHash}`));
-    expect(afterTwo.count).toBe(2);
+    const afterThree = JSON.parse(await env.GASLAMAR_SESSIONS.get(`rate_limit_resend_access_${emailHash}`));
+    expect(afterThree.count).toBe(3);
 
-    // 3rd request: rate limited → 429 with Retry-After
+    // 4th request: rate limited → 429 with Retry-After
     const res = await post('/resend-access', { email }, {}, RL_RESEND_IP_KV);
     expect(res.status).toBe(429);
     expect(Number(res.headers.get('Retry-After'))).toBeGreaterThan(0);
     const body = await res.json();
     expect(body.error).toBe('Too many requests');
 
-    // Counter must NOT be incremented beyond 2 (blocked requests don't count)
-    const afterThree = JSON.parse(await env.GASLAMAR_SESSIONS.get(`rate_limit_resend_access_${emailHash}`));
-    expect(afterThree.count).toBe(2);
+    // Counter must NOT be incremented beyond 3 (blocked requests don't count)
+    const afterFour = JSON.parse(await env.GASLAMAR_SESSIONS.get(`rate_limit_resend_access_${emailHash}`));
+    expect(afterFour.count).toBe(3);
   });
 
   it('finds session via legacy plaintext email key when hashed key is absent', async () => {
@@ -992,28 +992,28 @@ describe('GET /check-session', () => {
     expect(body.reason).toBe('no_session');
   });
 
-  it('returns 404 when ?session= fallback used but session not in KV', async () => {
-    // Valid format, no cookie — falls back to query param, then misses in KV
+  it('ignores valid ?session= when no cookie is present', async () => {
     const res = await get('/check-session?session=sess_some_valid_looking_id');
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.reason).toBe('no_session');
   });
 
-  it('returns 200 via ?session= fallback when session exists (Safari ITP compat)', async () => {
-    // Simulates Mobile Safari where the cross-origin cookie is blocked.
-    // The frontend already sends ?session= on every poll; the server now reads it.
+  it('does not authenticate an existing session from the query string alone', async () => {
     const sessionId = await seedSession('paid', 'single');
     const res = await get(`/check-session?session=${sessionId}`);
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body.status).toBe('paid');
+    expect(body.reason).toBe('no_session');
   });
 
-  it('minimizes ?session= only fallback response to status and tier', async () => {
+  it('does not leak reduced metadata for query-only sessions', async () => {
     const sessionId = await seedSession('ready', '3pack');
     const res = await get(`/check-session?session=${sessionId}`);
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body).toEqual({ status: 'ready', tier: '3pack' });
+    expect(body).not.toHaveProperty('status', 'ready');
+    expect(body).not.toHaveProperty('tier', '3pack');
   });
 
   it('returns 404 for unknown session_id in cookie', async () => {
@@ -1030,17 +1030,12 @@ describe('GET /check-session', () => {
     expect(body.status).toBe('pending');
   });
 
-  it('returns 200 via ?session= fallback when cookie is present but secret is absent (ITP / tab-close / email-link)', async () => {
-    // Regression test for the payment→download 403 loop.
-    // Scenario: user paid in the same tab, browser redirected through Mayar (cross-origin),
-    // Safari ITP lost the cookie after the cross-origin redirect.
-    // The HttpOnly session cookie IS present. The frontend always sends ?session= now;
-    // the server must accept this without the secret for this low-sensitivity endpoint.
+  it('uses cookie auth and ignores a redundant ?session= parameter', async () => {
     const sessionId = await seedSession('paid', 'single');
     const res = await get('/check-session?session=' + sessionId, sessionCookie(sessionId));
-    // No cookie — must succeed via fallback with reduced metadata, not 403.
     expect(res.status).toBe(200);
     const body = await res.json();
+    expect(body.session_id).toBe(sessionId);
     expect(body.status).toBe('paid');
     expect(body.credits_remaining).toBeDefined();
     expect(body.ttl_seconds).toBeDefined();
@@ -1066,33 +1061,9 @@ describe('GET /check-session', () => {
     expect(body.credits_remaining).toBeDefined();
   });
 
-  it('accepts X-Session-Id header as fallback (no query param, no cookie)', async () => {
-    const sessionId = await seedSession('paid', 'single');
-    const res = await get('/check-session', { 'X-Session-Id': sessionId });
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    // Header-based fallback returns reduced metadata, same as ?session= fallback
-    expect(body).toEqual({ status: 'paid', tier: 'single' });
-  });
-
-  it('rate-limits fallback path per ip+session after 20 requests/min', async () => {
-    const sessionId = await seedSession('paid', 'single');
-    const ip = '10.88.0.44';
-    // First 20 fallback requests should pass.
-    for (let i = 0; i < 20; i++) {
-      const okRes = await get('/check-session?session=' + sessionId, {}, ip);
-      expect(okRes.status).toBe(200);
-    }
-    // 21st request for same ip+session should be throttled.
-    const blockedRes = await get('/check-session?session=' + sessionId, {}, ip);
-    expect(blockedRes.status).toBe(429);
-    expect(blockedRes.headers.get('Retry-After')).toBeTruthy();
-  });
-
-  it('strict cookie+secret path is not affected by fallback ip+session limiter', async () => {
+  it('cookie path is not affected by stale X-Session-Secret headers', async () => {
     const sessionId = await seedSession('paid', 'single');
     const ip = '10.88.0.45';
-    // These requests use strict verification (no fallback), so fallback limiter must not apply.
     for (let i = 0; i < 25; i++) {
       const res = await get('/check-session', { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET }, ip);
       expect(res.status).toBe(200);
@@ -2133,6 +2104,22 @@ describe('POST /resend-email — recovery index migration', () => {
     expect(newAccess.status).toBe(200);
     const tokensAfterNewEmail = await env.GASLAMAR_SESSIONS.list({ prefix: 'email_token_' });
     expect(tokensAfterNewEmail.keys).toHaveLength(1);
+  });
+});
+
+describe('POST /resend-access', () => {
+  it('returns 429 after 3 requests per email per hour', async () => {
+    const email = `rate-${crypto.randomUUID()}@example.com`;
+    const ip = '10.56.0.1';
+
+    for (let i = 0; i < 3; i++) {
+      const res = await post('/resend-access', { email }, {}, ip);
+      expect(res.status).toBe(200);
+    }
+
+    const blocked = await post('/resend-access', { email }, {}, ip);
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get('Retry-After')).toBeTruthy();
   });
 });
 

@@ -45,9 +45,9 @@ export async function handleResendAccess(request, env) {
 
   // Hash email for rate-limit key and index lookup (avoids plaintext PII in KV key space).
   const emailHash = await sha256Hex(email);
-  // Per-email: 2 per hour. Counter increments before session lookup, so 429 is safe here —
+  // Per-email: 3 per hour. Counter increments before session lookup, so 429 is safe here —
   // both registered and unregistered emails hit the limit at exactly the same rate.
-  const rlEmail = await checkRateLimitKV(env, emailHash, 2, 3600, 'resend_access');
+  const rlEmail = await checkRateLimitKV(env, emailHash, 3, 3600, 'resend_access');
   if (!rlEmail.allowed) {
     log('resend_access_attempt', { email_hash: emailHash.slice(0, 16), rateLimited: true, ip });
     return rateLimitResponse(request, env, rlEmail.retryAfter ?? 3600);

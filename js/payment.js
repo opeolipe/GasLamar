@@ -406,15 +406,14 @@ async function proceedToPayment() {
       throw new Error(errMsg);
     }
 
-    const { session_id, invoice_url } = await response.json();
+    const { invoice_url } = await response.json();
     if (window.Analytics) Analytics.track('payment_session_created', {
       tier: selectedTier,
       tier_price_idr: TIER_CONFIG[selectedTier].price,
     });
 
-    // Save session ID to localStorage (survives tab close; not sensitive — no auth value alone).
-    localStorage.setItem('gaslamar_session', session_id);
-    // Note: gaslamar_tier is intentionally NOT persisted to localStorage.
+    // Note: session_id and tier are intentionally not persisted to client storage.
+    // The HttpOnly cookie is the only browser-held session credential.
     // The authoritative tier is always read from the server (/check-session → data.tier)
     // and written to sessionStorage there. Client-side storage of tier is display-only.
 

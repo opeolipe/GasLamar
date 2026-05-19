@@ -23,7 +23,9 @@ export function isMultiCredit(tier: string): boolean {
 export function clearClientSessionData(sessionId: string | null): void {
   sessionStorage.removeItem('gaslamar_tier');
   sessionStorage.removeItem('gaslamar_session');
+  sessionStorage.removeItem('gaslamar_user_id');
   localStorage.removeItem('gaslamar_session');
+  localStorage.removeItem('gaslamar_user_id');
   localStorage.removeItem('gaslamar_tier');
 }
 
