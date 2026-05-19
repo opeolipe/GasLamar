@@ -31,8 +31,23 @@ export function useResultData(): ResultDataState {
     // Reject foreign URL session parameters
     if (urlSession !== null && !urlSession.startsWith('cvtext_')) { fail('expired'); return; }
 
-    // Must have scoring data
-    if (!rawScoring) { fail('missing'); return; }
+    // Scoring data may be absent after a tab refresh (scoring.js clears it on load).
+    // Fall back to GET /get-scoring using the cv_key capability token.
+    if (!rawScoring) {
+      if (!cvKeyVal.startsWith('cvtext_')) { fail('missing'); return; }
+      fetch(`${WORKER_URL}/get-scoring?key=${encodeURIComponent(cvKeyVal)}`)
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then((body: { scoring: ScoringData }) => {
+          const s = body?.scoring;
+          const skor = parseInt(String(s?.skor));
+          if (isNaN(skor) || skor < 0 || skor > 100) { fail('missing'); return; }
+          if (time > 0 && (Date.now() - time) / 1000 > 7200) { fail('expired'); return; }
+          try { sessionStorage.setItem('gaslamar_scoring', JSON.stringify(s)); } catch (_) {}
+          setState({ data: s, cvKey: cvKeyVal, analyzeTime: time, loading: false, error: null, noSession: null });
+        })
+        .catch(() => fail('missing'));
+      return;
+    }
 
     let parsed: ScoringData;
     try { parsed = JSON.parse(rawScoring); } catch { fail('missing'); return; }

@@ -82,7 +82,7 @@ export default function MultiCreditSection({ creditsRemaining, totalCredits, onG
         className="rounded-[20px] p-4 text-center mb-6"
         style={{ background: 'rgba(254,243,199,0.8)', border: '1px solid #FDE68A' }}
       >
-        <div className="text-sm text-amber-700">✨ Kamu masih punya</div>
+        <div className="text-sm text-amber-700"><span aria-hidden="true">✨</span> Kamu masih punya</div>
         <div className="text-4xl font-extrabold text-amber-700 my-1">{creditsRemaining} kredit tersisa</div>
         <div className="text-sm text-amber-600">dari {totalCredits} total kredit paket kamu</div>
         <p className="text-sm text-slate-600 mt-2">CV dasarmu sudah tersimpan, tinggal paste JD berikutnya. Biasanya selesai dalam 1-2 menit.</p>
@@ -204,7 +204,7 @@ export default function MultiCreditSection({ creditsRemaining, totalCredits, onG
         className="rounded-[20px] text-center text-sm text-slate-500 py-3 px-4 mt-5"
         style={{ background: 'rgba(248,250,252,0.8)', border: '1px solid rgba(148,163,184,0.18)' }}
       >
-        🔒 Tanpa upload ulang CV · CV aslimu tersimpan aman · Generate kapan saja selama kredit tersedia
+        <span aria-hidden="true">🔒</span> Tanpa upload ulang CV · CV aslimu tersimpan aman · Generate kapan saja selama kredit tersedia
       </div>
     </div>
   );
