@@ -37,7 +37,13 @@ import ResendEmail           from '@/components/download/ResendEmail';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type PageView     = 'waiting' | 'generating' | 'ready' | 'credits-dashboard' | 'error';
+type PageView = 'waiting' | 'generating' | 'ready' | 'credits-dashboard' | 'error';
+
+interface DeliveryData {
+  sessionId: string;
+  email:     string;
+  sentAt:    number;
+}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -45,6 +51,13 @@ export default function Download() {
   const session  = useDownloadSession();
   const generate = useGenerateCV();
 
+  const [delivery] = useState<DeliveryData | null>(() => {
+    try {
+      const raw = localStorage.getItem('gaslamar_delivery');
+      if (raw) return JSON.parse(raw) as DeliveryData;
+    } catch (_) {}
+    return null;
+  });
   const [view,            setView]            = useState<PageView>('waiting');
   const [closureFirst,    setClosureFirst]    = useState(true);
   const [countdownText,   setCountdownText]   = useState<string | null>(null);
@@ -73,13 +86,16 @@ export default function Download() {
   }, []);
 
   useEffect(() => {
+    // Delivery mode: email was already sent; user returns only to resend it.
+    if (delivery) return;
+
     // Check both storages: after credits are exhausted useGenerateCV removes
     // localStorage.gaslamar_session, but the session stays in sessionStorage for
     // the current tab. Checking only localStorage causes a spurious redirect.
     const sessionInStorage = localStorage.getItem('gaslamar_session')
                           ?? sessionStorage.getItem('gaslamar_session');
     if (!sessionInStorage) {
-      window.location.replace('access.html?expired=1&source=download');
+      window.location.replace('/');
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -420,7 +436,27 @@ export default function Download() {
         className={MAIN_CONTAINER_CLASS}
         style={{ maxWidth: MAIN_CONTAINER_MAX, paddingTop: bannerHeight > 0 ? `calc(2rem + ${bannerHeight}px)` : '2rem' }}
       >
-        {view === 'error' && sessionError && (
+        {delivery && (
+          <div style={{ maxWidth: 480, margin: '0 auto', marginBottom: '1.5rem' }}>
+            <div style={{
+              background:    'rgba(255,255,255,0.92)',
+              borderRadius:  24,
+              boxShadow:     '0 18px 44px rgba(15,23,42,0.07), 0 1px 2px rgba(15,23,42,0.04)',
+              padding:       '2rem',
+              border:        '1px solid rgba(148,163,184,0.14)',
+              backdropFilter: 'blur(14px)',
+            }}>
+              <p style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: '#059669', fontWeight: 700, marginBottom: '0.5rem' }}>Sukses</p>
+              <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', margin: '0 0 0.35rem', lineHeight: 1.3, letterSpacing: '-0.01em' }}>CV kamu sudah siap digunakan</h1>
+              <p style={{ fontSize: '0.875rem', color: '#64748B', marginBottom: '1rem' }}>
+                CV kamu sudah kami kirim ke <strong>{delivery.email}</strong>. Cek inbox atau folder spam kamu.
+              </p>
+              <ResendEmail />
+            </div>
+          </div>
+        )}
+
+        {view === 'error' && sessionError && !delivery && (
           <div style={{ maxWidth: 480, margin: '0 auto' }}>
             <SessionError
               title={sessionError.title}
@@ -433,13 +469,13 @@ export default function Download() {
           </div>
         )}
 
-        {view === 'waiting' && session.phase === 'init' && (
+        {!delivery && view === 'waiting' && session.phase === 'init' && (
           <div style={{ maxWidth: 760, margin: '0 auto' }}>
             <DownloadSkeleton />
           </div>
         )}
 
-        {view === 'waiting' && session.phase !== 'init' && (
+        {!delivery && view === 'waiting' && session.phase !== 'init' && (
           <div style={{ maxWidth: 480, margin: '0 auto' }}>
             <WaitingPayment
               statusText={session.statusText}
