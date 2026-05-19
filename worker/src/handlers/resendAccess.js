@@ -1,7 +1,7 @@
 import { jsonResponse }                        from '../cors.js';
 import { getSession }                          from '../sessions.js';
 import { clientIp, log, logError, sha256Hex } from '../utils.js';
-import { checkRateLimit, checkRateLimitKV }    from '../rateLimit.js';
+import { checkRateLimit, checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
 import { sendResendAccessEmail }               from '../email.js';
 import { SESSION_STATES }                      from '../sessionStates.js';
 
@@ -33,23 +33,24 @@ export async function handleResendAccess(request, env) {
   // Checked before any KV work to short-circuit quickly on burst abuse.
   if (!await checkRateLimit(env, env.RATE_LIMITER_RESEND_ACCESS, ip)) {
     log('resend_access_attempt', { rateLimited: true, ip, reason: 'cf_burst' });
-    return jsonResponse(GENERIC_OK, 200, request, env);
+    return rateLimitResponse(request, env, 60);
   }
 
   // Per-IP KV check before hashing email — cheaper and guards credential stuffing first.
   const rlIp = await checkRateLimitKV(env, ip, 10, 3600, 'resend_access_ip');
   if (!rlIp.allowed) {
     log('resend_access_attempt', { rateLimited: true, ip });
-    return jsonResponse(GENERIC_OK, 200, request, env);
+    return rateLimitResponse(request, env, rlIp.retryAfter ?? 3600);
   }
 
   // Hash email for rate-limit key and index lookup (avoids plaintext PII in KV key space).
   const emailHash = await sha256Hex(email);
-  // Per-email: 2 per hour (silent — avoids revealing whether email has a session).
+  // Per-email: 2 per hour. Counter increments before session lookup, so 429 is safe here —
+  // both registered and unregistered emails hit the limit at exactly the same rate.
   const rlEmail = await checkRateLimitKV(env, emailHash, 2, 3600, 'resend_access');
   if (!rlEmail.allowed) {
     log('resend_access_attempt', { email_hash: emailHash.slice(0, 16), rateLimited: true, ip });
-    return jsonResponse(GENERIC_OK, 200, request, env);
+    return rateLimitResponse(request, env, rlEmail.retryAfter ?? 3600);
   }
 
   // Look up hashed key first; fall back to legacy plaintext key for pre-migration sessions.
