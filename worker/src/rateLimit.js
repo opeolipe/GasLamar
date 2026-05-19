@@ -96,10 +96,12 @@ export async function checkRateLimitKV(env, ip, limit = 3, windowSecs = 60, pref
 // Returns a properly-formed 429 with Retry-After header (RFC 7231 §7.1.3).
 // All rate-limited endpoints must use this instead of a plain jsonResponse 429.
 export function rateLimitResponse(request, env, retryAfter = 60) {
+  const mins    = Math.ceil(retryAfter / 60);
+  const waitStr = retryAfter <= 90 ? `${retryAfter} detik` : `${mins} menit`;
   return corsResponse(
     JSON.stringify({
       error: 'Too many requests',
-      message: 'Terlalu banyak permintaan. Coba lagi dalam 1 menit.',
+      message: `Terlalu banyak permintaan. Coba lagi dalam ${waitStr}.`,
       retryAfter,
     }),
     429,

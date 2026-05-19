@@ -857,33 +857,22 @@ describe('Rate limiting — /resend-access', () => {
   const RL_RESEND_IP_CF  = '10.99.5.1';
   const RL_RESEND_IP_KV  = '10.99.5.2';
 
-  it('CF native rate limiter fires before KV email counter is written (proves gate is real)', async () => {
-    // Exhaust the 5-req/min native limit with distinct emails (no KV email counter concerns)
+  it('CF native rate limiter returns 429 with Retry-After after burst (not 200)', async () => {
+    // Exhaust the 5-req/min native limit with distinct emails (avoid per-email KV limit)
     for (let i = 0; i < 5; i++) {
-      await post('/resend-access', { email: `rl-cf-burst-${i}@example.com` }, {}, RL_RESEND_IP_CF);
+      const res = await post('/resend-access', { email: `rl-cf-burst-${i}@example.com` }, {}, RL_RESEND_IP_CF);
+      expect(res.status).toBe(200); // first 5 are allowed
     }
-    // Seed a paid session indexed by a fresh email
-    const probeSessionId = await seedSession('paid', 'single');
-    const probeEmail     = `rl-cf-probe-${Date.now()}@example.com`;
-    const probeHash      = await sha256Full(probeEmail);
-    await env.GASLAMAR_SESSIONS.put(
-      `email_session_${probeHash}`,
-      JSON.stringify({ session_ids: [probeSessionId] }),
-      { expirationTtl: 3600 },
-    );
-
-    // 6th request: CF gate should fire before the handler reaches KV email rate-limit logic
-    const res = await post('/resend-access', { email: probeEmail }, {}, RL_RESEND_IP_CF);
-    expect(res.status).toBe(200); // security design: GENERIC_OK, not 429
+    // 6th request: CF rate limited → 429 with Retry-After
+    const res = await post('/resend-access', { email: `rl-cf-extra@example.com` }, {}, RL_RESEND_IP_CF);
+    expect(res.status).toBe(429);
+    expect(res.headers.get('Retry-After')).toBe('60');
     const body = await res.json();
-    expect(body.success).toBe(true);
-
-    // The KV email counter must NOT exist — proves the CF gate fired before it was incremented
-    const rlCounterRaw = await env.GASLAMAR_SESSIONS.get(`rate_limit_resend_access_${probeHash}`);
-    expect(rlCounterRaw).toBeNull();
+    expect(body.error).toBe('Too many requests');
+    expect(body.retryAfter).toBe(60);
   });
 
-  it('per-email KV rate limit counter increments to 2 then stops on 3rd request', async () => {
+  it('per-email KV rate limit returns 429 after 2nd request with same email', async () => {
     const email     = `rl-kv-email-${Date.now()}@example.com`;
     const emailHash = await sha256Full(email);
 
@@ -895,20 +884,27 @@ describe('Rate limiting — /resend-access', () => {
     const afterTwo = JSON.parse(await env.GASLAMAR_SESSIONS.get(`rate_limit_resend_access_${emailHash}`));
     expect(afterTwo.count).toBe(2);
 
-    // 3rd request: rate limited — counter must NOT be incremented beyond 2
+    // 3rd request: rate limited → 429 with Retry-After
     const res = await post('/resend-access', { email }, {}, RL_RESEND_IP_KV);
-    expect(res.status).toBe(200); // GENERIC_OK even when rate limited
+    expect(res.status).toBe(429);
+    expect(Number(res.headers.get('Retry-After'))).toBeGreaterThan(0);
     const body = await res.json();
-    expect(body.success).toBe(true);
+    expect(body.error).toBe('Too many requests');
 
+    // Counter must NOT be incremented beyond 2 (blocked requests don't count)
     const afterThree = JSON.parse(await env.GASLAMAR_SESSIONS.get(`rate_limit_resend_access_${emailHash}`));
-    expect(afterThree.count).toBe(2); // frozen at 2 — blocked request did not increment
+    expect(afterThree.count).toBe(2);
   });
 
   it('finds session via legacy plaintext email key when hashed key is absent', async () => {
     const legacyEmail = `legacy-resend-${Date.now()}@example.com`;
+    const legacyHash  = await sha256Full(legacyEmail);
     const sessionId   = await seedSession('paid', 'single');
-    // Store index under plaintext key (pre-migration format)
+
+    // Confirm hashed key is absent — proves only the legacy path is available
+    expect(await env.GASLAMAR_SESSIONS.get(`email_session_${legacyHash}`)).toBeNull();
+
+    // Store index under plaintext key only (pre-migration format)
     await env.GASLAMAR_SESSIONS.put(
       `email_session_${legacyEmail}`,
       JSON.stringify({ session_ids: [sessionId] }),
@@ -918,15 +914,36 @@ describe('Rate limiting — /resend-access', () => {
     const res  = await post('/resend-access', { email: legacyEmail }, {}, '10.99.5.3');
     expect(res.status).toBe(200);
     const body = await res.json();
-    // GENERIC_OK is returned; the session was found and email-send path was reached
     expect(body.success).toBe(true);
     expect(body.message).toMatch(/link baru/);
-    // Hashed key must NOT exist (sendResendAccessEmail silently no-ops without RESEND_API_KEY
-    // in the test env, so no email_token is created — but the handler reached the send path
-    // rather than short-circuiting at "no session" — proven by reaching this assertion).
-    const legacyHashKey = `email_session_${legacyEmail}`;
-    const record = await env.GASLAMAR_SESSIONS.get(legacyHashKey, { type: 'json' });
-    expect(record).not.toBeNull(); // plaintext key still present (resendAccess doesn't migrate it)
+    // Plaintext key still present — resendAccess does not migrate legacy keys
+    const record = await env.GASLAMAR_SESSIONS.get(`email_session_${legacyEmail}`, { type: 'json' });
+    expect(record).not.toBeNull();
+    // Hashed key must still be absent — handler does not migrate
+    expect(await env.GASLAMAR_SESSIONS.get(`email_session_${legacyHash}`)).toBeNull();
+  });
+
+  it('per-IP KV rate limit returns 429 when IP counter reaches 10', async () => {
+    const RL_RESEND_IP_IP = '10.99.5.4';
+    const now = Math.floor(Date.now() / 1000);
+    // Pre-seed the counter at 9 — avoids making 9 real requests that would
+    // exhaust the CF native rate limiter (5/60s) before the IP KV limit (10/hr) fires.
+    await env.GASLAMAR_SESSIONS.put(
+      `rate_limit_resend_access_ip_${RL_RESEND_IP_IP}`,
+      JSON.stringify({ start: now, count: 9 }),
+      { expirationTtl: 3600 },
+    );
+
+    // 10th request: allowed (KV counter 9 → 10)
+    const res10 = await post('/resend-access', { email: `rl-ip-10@example.com` }, {}, RL_RESEND_IP_IP);
+    expect(res10.status).toBe(200);
+
+    // 11th request: IP KV rate limited → 429
+    const res11 = await post('/resend-access', { email: `rl-ip-11@example.com` }, {}, RL_RESEND_IP_IP);
+    expect(res11.status).toBe(429);
+    expect(Number(res11.headers.get('Retry-After'))).toBeGreaterThan(0);
+    const body = await res11.json();
+    expect(body.error).toBe('Too many requests');
   });
 });
 

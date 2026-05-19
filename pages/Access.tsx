@@ -3,7 +3,7 @@ import { WORKER_URL }             from '@/lib/sessionUtils';
 import { validateEmail, EMAIL_REGEX } from '@/utils/emailValidation';
 import { suggestEmailFix }        from '@/utils/emailTypo';
 
-type Status = 'idle' | 'loading' | 'sent' | 'error';
+type Status = 'idle' | 'loading' | 'sent' | 'error' | 'ratelimited';
 
 const SHADOW  = '0 18px 44px rgba(15, 23, 42, 0.08)';
 const SERIF   = { fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' } as const;
@@ -46,6 +46,7 @@ export default function Access() {
   const [confirmError,     setConfirmError]     = useState('');
 
   const [status,           setStatus]           = useState<Status>('idle');
+  const [rateLimitWait,    setRateLimitWait]    = useState(3600);
 
   const blurTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const confirmEmailRef = useRef<HTMLInputElement>(null);
@@ -57,6 +58,7 @@ export default function Access() {
 
   const isSubmitDisabled =
     status === 'loading'
+    || status === 'ratelimited'
     || !email.trim()
     || !!emailError
     || !!emailSuggestion
@@ -165,12 +167,18 @@ export default function Access() {
     setStatus('loading');
 
     try {
-      await fetch(`${WORKER_URL}/resend-access`, {
+      const res = await fetch(`${WORKER_URL}/resend-access`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ email: email.trim().toLowerCase() }),
       });
-      setStatus('sent');
+      if (res.status === 429) {
+        const body = await res.json().catch(() => ({}));
+        setRateLimitWait(body.retryAfter ?? 3600);
+        setStatus('ratelimited');
+      } else {
+        setStatus('sent');
+      }
     } catch {
       setStatus('error');
     }
@@ -439,6 +447,15 @@ export default function Access() {
                   {status === 'error' && (
                     <p className="text-xs text-red-500 text-center mt-1" role="alert">
                       Terjadi kendala sementara. Progres kamu tetap aman, coba lagi dalam beberapa detik.
+                    </p>
+                  )}
+
+                  {status === 'ratelimited' && (
+                    <p className="text-xs text-amber-600 text-center mt-1" role="alert">
+                      Terlalu banyak permintaan. Coba lagi dalam{' '}
+                      {rateLimitWait <= 90
+                        ? `${rateLimitWait} detik`
+                        : `${Math.ceil(rateLimitWait / 60)} menit`}.
                     </p>
                   )}
                 </form>
