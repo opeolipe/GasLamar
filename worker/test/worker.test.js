@@ -971,6 +971,15 @@ describe('GET /check-session', () => {
     expect(body.credits_remaining).toBeDefined();
   });
 
+  it('accepts X-Session-Id header as fallback (no query param, no cookie)', async () => {
+    const sessionId = await seedSession('paid', 'single');
+    const res = await get('/check-session', { 'X-Session-Id': sessionId });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // Header-based fallback returns reduced metadata, same as ?session= fallback
+    expect(body).toEqual({ status: 'paid', tier: 'single' });
+  });
+
   it('rate-limits fallback path per ip+session after 20 requests/min', async () => {
     const sessionId = await seedSession('paid', 'single');
     const ip = '10.88.0.44';

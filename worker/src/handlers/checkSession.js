@@ -7,7 +7,9 @@ import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
 export async function handleCheckSession(request, env) {
   const url             = new URL(request.url);
   const cookieSessionId = getSessionIdFromCookie(request);
-  const paramSessionId  = url.searchParams.get('session');
+  // Prefer X-Session-Id header (doesn't leak into browser history / server logs).
+  // Fall back to ?session= query param for backward compat during rollout.
+  const paramSessionId  = request.headers.get('X-Session-Id') || url.searchParams.get('session');
   const ip              = clientIp(request);
 
   // Primary auth: HttpOnly session cookie. The ?session= path remains as a

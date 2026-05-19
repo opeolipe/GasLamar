@@ -68,11 +68,12 @@ async function poll(sessionId) {
   try {
     // Session ID travels via the HttpOnly cookie set by /create-payment.
     // credentials:'include' sends it cross-origin.
-    // ?session= is appended so the server can use the reduced-metadata fallback path
-    // if a browser loses the cookie during the payment redirect.
-    const checkUrl = WORKER_URL + '/check-session?session=' + encodeURIComponent(sessionId);
+    // X-Session-Id header provides the reduced-metadata fallback path if a browser
+    // loses the cookie during the payment redirect, without exposing the ID in the URL.
+    const checkUrl = WORKER_URL + '/check-session';
     const res = await fetch(checkUrl, {
       credentials: 'include',
+      headers: { 'X-Session-Id': sessionId },
     });
 
     if (res.status === 400) {
