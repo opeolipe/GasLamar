@@ -118,21 +118,7 @@ PostCSS is pinned to `>=8.5.14` via `overrides` in both `package.json` and `work
 and both lockfiles resolve to exactly `8.5.14`. The pin is intentionally a floor (`>=`) so future
 patch releases are not blocked.
 
-### jsPDF / DOMPurify advisory status
+### jsPDF / DOMPurify — resolved
 
-As of the `security/postcss-hardening` review, `npm ls dompurify` shows DOMPurify is transitive
-only through `jspdf@2.5.1`; app code does not import or call `DOMPurify.sanitize()` directly.
-`npm audit --omit=dev` reports DOMPurify advisories through `jspdf <=4.2.0`, and the available
-audit fix requires upgrading to `jspdf@4.2.1`, which is a breaking, user-facing export-rendering
-change.
-
-The jsPDF upgrade is intentionally deferred to a separate branch with PDF/DOCX export regression
-coverage. Current compensating controls:
-
-- No `addJS` usage.
-- No AcroForm API usage.
-- No user-controlled images are passed into jsPDF.
-- CV PDF content is generated from structured text, not raw uploaded HTML.
-
-Revisit the jsPDF upgrade by 2026-08-19, or sooner if app code starts using jsPDF active-content,
-form, HTML, or user-image APIs. Tracked in issue #385.
+Upgraded to `jspdf@4.2.1` (issue #385). `npm audit --omit=dev` reports 0 vulnerabilities.
+DOMPurify advisory through `jspdf <=4.2.0` is cleared.
