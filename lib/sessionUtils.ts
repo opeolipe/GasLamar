@@ -25,6 +25,50 @@ export function clearClientSessionData(sessionId: string | null): void {
   sessionStorage.removeItem('gaslamar_session');
   localStorage.removeItem('gaslamar_session');
   localStorage.removeItem('gaslamar_tier');
+  if (sessionId) {
+    sessionStorage.removeItem(`gaslamar_secret_${sessionId}`);
+    localStorage.removeItem(`gaslamar_secret_${sessionId}`);
+  }
+}
+
+const SECRET_PREFIX = 'gaslamar_secret_';
+const SECRET_SEEN_PREFIX = 'gaslamar_secret_seen_';
+const SECRET_GRACE_MS = 15 * 60 * 1000;
+
+function cleanupSecretStorage(storage: Storage, activeSessionId: string, now: number): void {
+  const keys: string[] = [];
+  for (let i = 0; i < storage.length; i++) {
+    const key = storage.key(i);
+    if (key?.startsWith(SECRET_PREFIX)) keys.push(key);
+  }
+
+  for (const key of keys) {
+    const secretSessionId = key.slice(SECRET_PREFIX.length);
+    const seenKey = `${SECRET_SEEN_PREFIX}${secretSessionId}`;
+
+    if (secretSessionId === activeSessionId) {
+      storage.removeItem(seenKey);
+      continue;
+    }
+
+    const firstSeen = Number(storage.getItem(seenKey) || 0);
+    if (!firstSeen || Number.isNaN(firstSeen)) {
+      storage.setItem(seenKey, String(now));
+      continue;
+    }
+
+    if (now - firstSeen > SECRET_GRACE_MS) {
+      storage.removeItem(key);
+      storage.removeItem(seenKey);
+    }
+  }
+}
+
+export function cleanupStaleSessionSecrets(activeSessionId: string): void {
+  if (!activeSessionId?.startsWith('sess_')) return;
+  const now = Date.now();
+  try { cleanupSecretStorage(sessionStorage, activeSessionId, now); } catch (_) {}
+  try { cleanupSecretStorage(localStorage, activeSessionId, now); } catch (_) {}
 }
 
 export async function copyToClipboard(text: string): Promise<void> {
