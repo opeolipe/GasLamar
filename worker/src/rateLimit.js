@@ -17,8 +17,13 @@ const _memRateLimit = new Map();
 
 export async function checkRateLimit(env, limiterBinding, ip) {
   if (!limiterBinding) return true; // binding absent in local dev — allow
-  const { success } = await limiterBinding.limit({ key: ip });
-  return success;
+  try {
+    const { success } = await limiterBinding.limit({ key: ip });
+    return success;
+  } catch (e) {
+    logError('rate_limit_cf_error', { ip, error: e.message });
+    return true; // fail open — KV layer still provides protection
+  }
 }
 
 /**
