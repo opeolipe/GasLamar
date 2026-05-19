@@ -14,6 +14,14 @@ const COOLDOWN_SECS = 30;
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function ResendEmail({ compact = false }: Props) {
+  const [deliveryEmail] = useState<string>(() => {
+    try {
+      const raw = localStorage.getItem('gaslamar_delivery');
+      if (raw) return (JSON.parse(raw) as { email?: string }).email ?? '';
+    } catch (_) {}
+    return '';
+  });
+
   const [showChange,        setShowChange]        = useState(false);
   const [newEmail,          setNewEmail]          = useState('');
   const [emailError,        setEmailError]        = useState('');
@@ -66,6 +74,7 @@ export default function ResendEmail({ compact = false }: Props) {
       });
 
       if (res.status === 401 || res.status === 404) {
+        localStorage.removeItem('gaslamar_delivery');
         window.location.href = '/';
         return;
       }
@@ -91,9 +100,11 @@ export default function ResendEmail({ compact = false }: Props) {
         setShowChange(false);
         setNewEmail('');
       }
-      setSuccessMsg(isChange && targetEmail
-        ? `CV berhasil dikirim ulang ke ${targetEmail}.`
-        : 'CV berhasil dikirim ulang ke email terdaftar.');
+      setSuccessMsg(
+        isChange && targetEmail
+          ? `CV berhasil dikirim ulang ke ${targetEmail}.`
+          : `CV berhasil dikirim ulang ke ${deliveryEmail || 'email terdaftar'}.`,
+      );
       ;(window as any).Analytics?.track?.('resend_success');
 
     } catch (_) {
@@ -213,7 +224,7 @@ export default function ResendEmail({ compact = false }: Props) {
                 wordBreak:    'break-all' as const,
               }}
             >
-              Kirim ulang ke email terdaftar
+              {deliveryEmail ? `Resend ke ${deliveryEmail}` : 'Kirim ulang ke email terdaftar'}
             </button>
 
             <button
