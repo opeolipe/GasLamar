@@ -201,3 +201,36 @@ if ((method === 'GET' || method === 'HEAD') && pathname === '/health') {
   return jsonResponse({ status: 'ok', timestamp: new Date().toISOString() }, 200, request, env);
 }
 ```
+
+---
+
+## evaluateJDQuality min-length must equal backend threshold (2026-05-20)
+
+Frontend `evaluateJDQuality` used `< 80` chars as the minimum, while the backend
+`/analyze` handler rejects at `< 100` chars. Users with 80–99 char JDs saw
+"✓ Job description siap" on the upload page but got a backend error on analyzing.html.
+
+Fix: changed the threshold in `evaluateJDQuality` to import and use `MIN_JD_LENGTH`
+from `uploadValidation.ts` (= 100), so both sides agree.
+
+## evaluateJDQuality keyword check must be advisory, not a hard blocker (2026-05-20)
+
+The `hasStructure` keyword check in `evaluateJDQuality` returned `isValid: false`
+for JDs that lacked specific terms ("kualifikasi", "skill", etc.). This blocked form
+submission for valid JDs that simply omitted those exact keywords. The backend has no
+keyword requirement — it accepts any JD with ≥ 100 chars.
+
+Fix: the keyword check now returns `{ isValid: true, message: '…advisory…' }` so
+the amber warning still appears in `JobDescriptionInput` but submission is not blocked.
+
+## download-guard.js broken by payment.js removing localStorage write (2026-05-20)
+
+After a payment refactor that moved the session credential to an HttpOnly cookie only, `payment.js` stopped writing `session_id` to `localStorage.gaslamar_session`. The comment read "intentionally not persisted to client storage." But `download-guard.js` (a blocking synchronous script that can't read HttpOnly cookies) still required `localStorage.gaslamar_session` to allow Path 2 (normal post-payment flow). Result: Mayar's redirect to `/download.html` always triggered `window.location.replace('/')`.
+
+**Pattern to remember:**
+- The download-guard is a JS-only gate — it cannot inspect HttpOnly cookies.
+- If the auth model changes (cookie vs. localStorage), the guard must be updated in the same commit.
+- `localStorage.gaslamar_session` is a *passkey for the guard*, not a *credential for the server*. The HttpOnly cookie is the credential; the localStorage key just tells the guard "the user arrived from a legit payment flow."
+- A misleading comment ("legacy key, no longer written") on the `clearClientSessionData` call masked that the localStorage write was still necessary.
+
+**Fix:** `payment.js` now extracts `session_id` from the `/create-payment` response and writes it to `localStorage.gaslamar_session` before redirecting to Mayar. The HttpOnly cookie remains the sole server-side credential.

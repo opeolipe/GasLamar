@@ -31,8 +31,8 @@ function clearClientSessionData(sessionId) {
   sessionStorage.removeItem('gaslamar_tier');
   sessionStorage.removeItem('gaslamar_credits');       // defensive — key unused but cleared for hygiene
   sessionStorage.removeItem('gaslamar_score_summary'); // set by scoring.js, consumed by download-generation.js
-  sessionStorage.removeItem('gaslamar_session');       // legacy key, no longer written
-  localStorage.removeItem('gaslamar_session');
+  sessionStorage.removeItem('gaslamar_session');       // defensive — cleared for hygiene (sessionStorage variant)
+  localStorage.removeItem('gaslamar_session');         // set by payment.js; cleared here on session end
   localStorage.removeItem('gaslamar_tier');            // legacy belt-and-suspenders
 }
 
