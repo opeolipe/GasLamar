@@ -185,6 +185,10 @@ export function sanitizeForLLM(text) {
  */
 export function sanitizeLogValue(value, maxLen = 500) {
   if (typeof value !== 'string') return value;
-  return value.replace(CONTROL_CHAR_RE, '').slice(0, maxLen);
+  return value
+    .replace(CONTROL_CHAR_RE, '')
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[EMAIL_REDACTED]')
+    .replace(/([?&](?:token|session|session_secret)=)[^&\s]+/gi, '$1[REDACTED]')
+    .replace(/\b(session_secret|token|secret|password)\s*[:=]\s*['"]?[^'",\s}]+/gi, '$1=[REDACTED]')
+    .slice(0, maxLen);
 }
-
