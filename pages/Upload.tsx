@@ -119,7 +119,28 @@ export default function Upload() {
       });
     }
 
+    // Paid session recovery: user has a session from a previous payment.
+    // Show a banner directing them back to download, and suppress reason-based notices.
+    let hasPaidSession = false;
     if (!isNewPackage) {
+      try {
+        const sessStorage = sessionStorage.getItem('gaslamar_session');
+        const sessLocal   = localStorage.getItem('gaslamar_session');
+        if (
+          (sessStorage && sessStorage.startsWith('sess_')) ||
+          (sessLocal   && sessLocal.startsWith('sess_'))
+        ) {
+          hasPaidSession = true;
+          newNotices.push({
+            type: 'info',
+            text: 'Kamu sudah upload CV sebelumnya.',
+            link: { href: 'download.html', label: 'Lanjutkan ke download' },
+          });
+        }
+      } catch (_) {}
+    }
+
+    if (!isNewPackage && !hasPaidSession) {
       const reason = params.get('reason');
       if (reason === 'no_session') {
         history.replaceState(null, '', location.pathname);
@@ -187,13 +208,16 @@ export default function Upload() {
     }
   }, []);
 
-  // Validate any paid session cookie — dismiss banner if session is expired/deleted.
+  // Validate any paid session cookie — dismiss banner if session is explicitly deleted/pending.
+  // Only act on a successful (200) response with a terminal status; HTTP errors (401 = no cookie,
+  // 5xx = server fault) leave the banner so download.html can handle the state gracefully.
   useEffect(() => {
     (async () => {
       try {
         const res = await fetch(`${WORKER_URL}/check-session`, { credentials: 'include' });
-        const data = res.ok ? await res.json() as { status?: string } : null;
-        const isTerminal = !res.ok || data?.status === 'deleted' || data?.status === 'pending';
+        if (!res.ok) return; // 401 = no cookie, 5xx = server error — leave banner as-is
+        const data = await res.json() as { status?: string };
+        const isTerminal = data?.status === 'deleted' || data?.status === 'pending';
         if (isTerminal) {
           clearClientSessionData(null);
           setNotices(prev => prev.filter(n => !n.link?.href.includes('download.html')));
