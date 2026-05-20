@@ -93,7 +93,7 @@ function processFile(file) {
   // Validate size
   if (file.size < 5) {
     showError('file-error', 'File terlalu kecil atau kosong. Pastikan file CV kamu tidak rusak.');
-    if (window.Analytics) Analytics.track('file_validation_failed', { reason: 'too_small', file_ext: ext, file_size_kb: 0 });
+    if (window.Analytics) Analytics.track('file_validation_failed', { reason: 'too_small', file_ext: ext, file_size_kb: Math.round(file.size / 1024) });
     return;
   }
   if (file.size > MAX_FILE_SIZE) {
