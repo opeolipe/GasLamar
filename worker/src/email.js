@@ -1,7 +1,8 @@
 import { getSession } from './sessions.js';
-import { hexToken } from './utils.js';
+import { hexToken, sha256Hex } from './utils.js';
 import { generateInterviewKitPdf } from './interviewKitPdf.js';
 import { generateCVPdf } from './cvPdf.js';
+import { generateCVDocx } from './cvDocx.js';
 import { KV_CV_RESULT_PREFIX } from './constants.js';
 
 function sanitizeFinalExportText(text) {
@@ -31,11 +32,11 @@ function sanitizeInterviewKitPayload(value) {
 }
 
 function toBase64(bytes) {
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
+  // Pre-collect into an array then join once — avoids O(n) string copies from repeated +=
+  // which causes quadratic memory behaviour on large PDFs (e.g. 2 MB → ~8 MB peak).
+  const chars = new Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) chars[i] = String.fromCharCode(bytes[i]);
+  return btoa(chars.join(''));
 }
 
 function escapeHtml(str) {
@@ -49,10 +50,53 @@ function escapeHtml(str) {
 
 function classifyAttachment(filename) {
   const lower = String(filename || '').toLowerCase();
-  if (lower.includes('interview-kit') && lower.endsWith('.pdf')) return 'kit';
-  if (lower.includes('cv-indonesia') && lower.endsWith('.pdf')) return 'cv_id_pdf';
-  if (lower.includes('cv-english') && lower.endsWith('.pdf')) return 'cv_en_pdf';
+  if (lower.includes('interview-kit')) return 'kit';
+  // Anchor on the language label immediately before the extension so user names or
+  // company names containing "indonesia"/"english" don't cause false positives.
+  if (/[_-]indonesia\.pdf$/.test(lower))  return 'cv_id_pdf';
+  if (/[_-]indonesia\.docx$/.test(lower)) return 'cv_id_docx';
+  if (/[_-]english\.pdf$/.test(lower))    return 'cv_en_pdf';
+  if (/[_-]english\.docx$/.test(lower))   return 'cv_en_docx';
   return 'other';
+}
+
+// ── Filename builder ─────────────────────────────────────────────────────────
+// Mirrors buildCVFilename() in lib/downloadUtils.ts — keep both in sync.
+
+function sanitizeFilenamePart(raw, maxLen) {
+  if (!raw) return null;
+  const ACCENT_MAP = {
+    é:'e', è:'e', ê:'e', ë:'e', à:'a', â:'a', ä:'a',
+    î:'i', ï:'i', ô:'o', ö:'o', ù:'u', û:'u', ü:'u',
+    ç:'c', ñ:'n', ã:'a', õ:'o',
+  };
+  let s = raw.replace(/[éèêëàâäîïôöùûüçñãõ]/gi, c => ACCENT_MAP[c.toLowerCase()] ?? '');
+  s = s.replace(/[^a-zA-Z0-9\s-]/g, '').trim()
+       .replace(/\s+/g, '-')
+       .replace(/-+/g, '-')
+       .slice(0, maxLen)
+       .replace(/-+$/, '');
+  return s || null;
+}
+
+function buildEmailFilename(cvText, jobTitle, company, lang, ext) {
+  const nameLine = String(cvText || '')
+    .split('\n').map(l => l.trim().replace(/^#+\s*/, ''))
+    .find(l => l.length > 1 && l.length < 60) ?? null;
+  const firstName = nameLine ? sanitizeFilenamePart(nameLine.split(/\s+/)[0], 20) : null;
+  const langLabel = lang === 'id' ? 'Indonesia' : 'English';
+  const parts = [firstName, sanitizeFilenamePart(jobTitle, 20), sanitizeFilenamePart(company, 20), langLabel].filter(Boolean);
+  if (parts.length === 1) return `CV-${langLabel}.${ext}`;
+  return parts.join('_') + '.' + ext;
+}
+
+async function emailHashForLog(email) {
+  if (!email || typeof email !== 'string') return null;
+  return (await sha256Hex(email.trim().toLowerCase())).slice(0, 8);
+}
+
+function redactEmailsForLog(value) {
+  return String(value ?? '').replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[email]');
 }
 
 async function readKitForEmail(env, sessionId) {
@@ -200,10 +244,10 @@ Butuh bantuan: support@gaslamar.com`;
   });
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    console.error(JSON.stringify({ event: 'resend_api_error', status: res.status, body: body.slice(0, 300), session_id: sessionId }));
+    console.error(JSON.stringify({ event: 'resend_api_error', status: res.status, body: redactEmailsForLog(body).slice(0, 300), session_id: sessionId }));
     throw new Error(`Email gagal terkirim (Resend ${res.status})`);
   }
-  console.log(JSON.stringify({ event: 'resend_email_sent', session_id: sessionId, to: session.email }));
+  console.log(JSON.stringify({ event: 'resend_email_sent', session_id: sessionId, to_hash: await emailHashForLog(session.email) }));
 }
 
 export async function sendResendAccessEmail(sessionId, env) {
@@ -272,10 +316,10 @@ Butuh bantuan: support@gaslamar.com`;
   });
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    console.error(JSON.stringify({ event: 'resend_access_email_error', status: res.status, body: body.slice(0, 300), session_id: sessionId }));
+    console.error(JSON.stringify({ event: 'resend_access_email_error', status: res.status, body: redactEmailsForLog(body).slice(0, 300), session_id: sessionId }));
     throw new Error(`Access email gagal terkirim (Resend ${res.status})`);
   }
-  console.log(JSON.stringify({ event: 'resend_access_email_sent', session_id: sessionId, to: session.email }));
+  console.log(JSON.stringify({ event: 'resend_access_email_sent', session_id: sessionId, to_hash: await emailHashForLog(session.email) }));
 }
 
 // Sends a "CV siap" email after generation completes, with score badge + gaps + upsell.
@@ -297,44 +341,49 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
   // ── Build email attachments (all non-critical — failures don't block the email) ──
   const attachments = [];
 
-  // CV PDFs — always attach Indonesian; attach English too for bilingual tiers.
+  // CV PDF + DOCX — always attach Indonesian; attach English for bilingual tiers.
+  // Uses cv_id/cv_en (plain text) for PDFs and cv_id_docx/cv_en_docx for DOCX,
+  // matching the website where PDF and DOCX use slightly different text variants.
   try {
     const cvResult = await env.GASLAMAR_SESSIONS.get(`${KV_CV_RESULT_PREFIX}${sessionId}`, { type: 'json' });
     if (cvResult) {
-      const cvTier = cvResult.tier ?? session.tier;
+      const cvTier         = cvResult.tier ?? session.tier;
       const isBilingualTier = cvTier !== 'coba';
-      const sanitizedIdCv = typeof cvResult.cv_id === 'string' ? sanitizeFinalExportText(cvResult.cv_id) : null;
-      const sanitizedEnCv = typeof cvResult.cv_en === 'string' ? sanitizeFinalExportText(cvResult.cv_en) : null;
-      // Keep DOCX variants sanitized too for parity and future attachment support.
-      if (typeof cvResult.cv_id_docx === 'string') cvResult.cv_id_docx = sanitizeFinalExportText(cvResult.cv_id_docx);
-      if (typeof cvResult.cv_en_docx === 'string') cvResult.cv_en_docx = sanitizeFinalExportText(cvResult.cv_en_docx);
+      const jobTitle       = cvResult.job_title ?? null;
+      const company        = cvResult.company   ?? null;
 
-      if (sanitizedIdCv) {
-        const pdfId = await generateCVPdf(sanitizedIdCv);
-        const nameParts = [
-          cvResult.job_title ? cvResult.job_title.replace(/[^a-zA-Z0-9\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 30) : null,
-          cvResult.company   ? cvResult.company.replace(/[^a-zA-Z0-9\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 20)   : null,
-        ].filter(Boolean);
-        const idFilename = nameParts.length ? `CV-Indonesia-${nameParts.join('-')}.pdf` : 'CV-Indonesia.pdf';
-        attachments.push({ filename: idFilename, content: toBase64(pdfId) });
+      const sanitizedIdPdf  = typeof cvResult.cv_id       === 'string' ? sanitizeFinalExportText(cvResult.cv_id)       : null;
+      const sanitizedEnPdf  = typeof cvResult.cv_en       === 'string' ? sanitizeFinalExportText(cvResult.cv_en)       : null;
+      const sanitizedIdDocx = typeof cvResult.cv_id_docx  === 'string' ? sanitizeFinalExportText(cvResult.cv_id_docx)  : sanitizedIdPdf;
+      const sanitizedEnDocx = typeof cvResult.cv_en_docx  === 'string' ? sanitizeFinalExportText(cvResult.cv_en_docx)  : sanitizedEnPdf;
+
+      if (sanitizedIdPdf) {
+        // generateCVDocx returns a base64 string (Packer.toBase64String) — use directly.
+        const idDocxText = sanitizedIdDocx || sanitizedIdPdf;
+        const [pdfBytes, idDocxB64] = await Promise.all([
+          generateCVPdf(sanitizedIdPdf),
+          generateCVDocx(idDocxText),
+        ]);
+        attachments.push({ filename: buildEmailFilename(sanitizedIdPdf, jobTitle, company, 'id', 'pdf'),  content: toBase64(pdfBytes) });
+        attachments.push({ filename: buildEmailFilename(idDocxText,     jobTitle, company, 'id', 'docx'), content: idDocxB64 });
       }
 
-      if (isBilingualTier && sanitizedEnCv) {
-        const pdfEn = await generateCVPdf(sanitizedEnCv);
-        const nameParts = [
-          cvResult.job_title ? cvResult.job_title.replace(/[^a-zA-Z0-9\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 30) : null,
-          cvResult.company   ? cvResult.company.replace(/[^a-zA-Z0-9\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 20)   : null,
-        ].filter(Boolean);
-        const enFilename = nameParts.length ? `CV-English-${nameParts.join('-')}.pdf` : 'CV-English.pdf';
-        attachments.push({ filename: enFilename, content: toBase64(pdfEn) });
+      if (isBilingualTier && sanitizedEnPdf) {
+        const enDocxText = sanitizedEnDocx || sanitizedEnPdf;
+        const [pdfBytes, enDocxB64] = await Promise.all([
+          generateCVPdf(sanitizedEnPdf),
+          generateCVDocx(enDocxText),
+        ]);
+        attachments.push({ filename: buildEmailFilename(sanitizedEnPdf, jobTitle, company, 'en', 'pdf'),  content: toBase64(pdfBytes) });
+        attachments.push({ filename: buildEmailFilename(enDocxText,     jobTitle, company, 'en', 'docx'), content: enDocxB64 });
       }
     }
-  } catch {
+  } catch (e) {
+    console.error(JSON.stringify({ event: 'cv_attachment_generation_failed', session_id: sessionId, error: e?.message }));
     // proceed without CV attachments
   }
 
-  // Interview kit PDF
-  // KV stores { kit: {...}, session_secret_hash } — extract the inner kit.
+  // Interview kit PDF. KV stores { kit: {...} } — extract the inner kit.
   try {
     const kitData = await readKitForEmail(env, sessionId);
     if (kitData) {
@@ -342,7 +391,8 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
       const pdfBytes = await generateInterviewKitPdf(sanitizedKitData);
       attachments.push({ filename: 'interview-kit.pdf', content: toBase64(pdfBytes) });
     }
-  } catch {
+  } catch (e) {
+    console.error(JSON.stringify({ event: 'kit_attachment_generation_failed', session_id: sessionId, error: e?.message }));
     // proceed without interview kit attachment
   }
 
@@ -378,16 +428,20 @@ export async function sendCVReadyEmail(sessionId, score, gaps, env) {
       </div>`
     : '';
 
-  const hasIdCv   = attachments.some(a => classifyAttachment(a.filename) === 'cv_id_pdf');
-  const hasEnCv   = attachments.some(a => classifyAttachment(a.filename) === 'cv_en_pdf');
+  const hasIdPdf  = attachments.some(a => classifyAttachment(a.filename) === 'cv_id_pdf');
+  const hasIdDocx = attachments.some(a => classifyAttachment(a.filename) === 'cv_id_docx');
+  const hasEnPdf  = attachments.some(a => classifyAttachment(a.filename) === 'cv_en_pdf');
+  const hasEnDocx = attachments.some(a => classifyAttachment(a.filename) === 'cv_en_docx');
   const hasKit    = !!kitAttachment;
   const attachNoteHtml = attachments.length > 0
     ? `<div style="background:#F0F9FF;border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:13px;color:#0369A1">
         <p style="margin:0 0 6px;font-weight:600;color:#0C4A6E">File terlampir di email ini:</p>
-        <ul style="margin:0;padding-left:18px;line-height:1.8">
-          ${hasIdCv ? '<li><strong>CV-Indonesia.pdf</strong> — CV siap kirim ke HRD</li>' : ''}
-          ${hasEnCv ? '<li><strong>CV-English.pdf</strong> — For international applications</li>' : ''}
-          ${hasKit ? '<li><strong>interview-kit.pdf</strong> — Pertanyaan interview, contoh jawaban STAR, template email & WhatsApp</li>' : ''}
+        <ul style="margin:0;padding-left:18px;line-height:1.9">
+          ${hasIdPdf  ? '<li><strong>CV Indonesia (.pdf)</strong> — siap kirim ke HRD</li>' : ''}
+          ${hasIdDocx ? '<li><strong>CV Indonesia (.docx)</strong> — bisa diedit sebelum dikirim</li>' : ''}
+          ${hasEnPdf  ? '<li><strong>CV English (.pdf)</strong> — for international applications</li>' : ''}
+          ${hasEnDocx ? '<li><strong>CV English (.docx)</strong> — editable version for international applications</li>' : ''}
+          ${hasKit ? '<li><strong>interview-kit.pdf</strong> — pertanyaan interview, contoh jawaban STAR, template email & WhatsApp</li>' : ''}
         </ul>
       </div>`
     : '';
@@ -459,8 +513,8 @@ Butuh bantuan: support@gaslamar.com`;
       from: 'GasLamar <noreply@gaslamar.com>',
       to: [session.email],
       subject: scoreNum !== null
-        ? `Skor CV kamu: ${scoreNum}/100${hasKit ? ' — CV & Interview Kit terlampir' : ' — CV terlampir'}`
-        : `CV kamu siap${hasKit ? ' — CV & Interview Kit terlampir' : ' — CV terlampir'}`,
+        ? `Skor CV kamu: ${scoreNum}/100${hasKit ? ' — CV, DOCX & Interview Kit terlampir' : ' — CV & DOCX terlampir'}`
+        : `CV kamu siap${hasKit ? ' — CV, DOCX & Interview Kit terlampir' : ' — CV & DOCX terlampir'}`,
       html,
       text,
       ...(attachments.length > 0 && { attachments }),
@@ -468,8 +522,8 @@ Butuh bantuan: support@gaslamar.com`;
   });
   if (!cvRes.ok) {
     const body = await cvRes.text().catch(() => '');
-    console.error(JSON.stringify({ event: 'resend_cv_ready_error', status: cvRes.status, body: body.slice(0, 300), session_id: sessionId }));
+    console.error(JSON.stringify({ event: 'resend_cv_ready_error', status: cvRes.status, body: redactEmailsForLog(body).slice(0, 300), session_id: sessionId }));
     throw new Error(`CV ready email gagal terkirim (Resend ${cvRes.status})`);
   }
-  console.log(JSON.stringify({ event: 'resend_cv_ready_sent', session_id: sessionId, to: session.email }));
+  console.log(JSON.stringify({ event: 'resend_cv_ready_sent', session_id: sessionId, to_hash: await emailHashForLog(session.email) }));
 }

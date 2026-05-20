@@ -23,7 +23,7 @@ async function fetchAndGenerateCV(sessionId) {
   try {
     const res = await fetch(WORKER_URL + '/get-session', {
       method:      'POST',
-      headers:     Object.assign({ 'Content-Type': 'application/json' }, getSecretHeaders()),
+      headers:     { 'Content-Type': 'application/json' },
       credentials: 'include',
       signal:      controller.signal,
     });
@@ -46,13 +46,7 @@ async function fetchAndGenerateCV(sessionId) {
 
     if (res.status === 404) {
       clearClientSessionData(sessionId);
-      const errData  = await res.json().catch(function() { return {}; });
-      const tier     = sessionStorage.getItem('gaslamar_tier') || '';
-      const validity = (tier === '3pack' || tier === 'jobhunt') ? '30 hari' : '7 hari';
-      const msg      = errData.reason === 'expired'
-        ? '\u23F0 Sesi kamu sudah berakhir setelah ' + validity + '. Silakan upload ulang CV untuk analisis baru.'
-        : 'Sesi tidak ditemukan atau sudah berakhir. Upload ulang CV untuk analisis baru.';
-      showSessionError('Sesi Berakhir', msg, false);
+      window.location.replace('access.html?expired=1&source=download');
       return;
     }
 
@@ -110,7 +104,7 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
 
     const res = await fetch(WORKER_URL + '/generate', {
       method:      'POST',
-      headers:     Object.assign({ 'Content-Type': 'application/json' }, getSecretHeaders()),
+      headers:     { 'Content-Type': 'application/json' },
       credentials: 'include',
       body:        JSON.stringify(reqBody),
       signal:      controller.signal,
@@ -127,13 +121,7 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
       } catch (_) {}
 
       if (res.status === 404) {
-        showSessionError(
-          'Sesi Tidak Ditemukan',
-          'Sesi tidak ditemukan atau sudah berakhir. Sesi berbayar berlaku 7 hari \u2014 ' +
-          'jika kamu masih dalam periode ini, coba refresh. ' +
-          'Jika sudah lebih dari 7 hari, upload ulang CV untuk analisis baru.',
-          false
-        );
+        window.location.replace('access.html?expired=1&source=download');
         return;
       }
       if (res.status === 403) {
@@ -158,12 +146,14 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
       return;
     }
 
-    const { cv_id, cv_en, credits_remaining, total_credits, job_title, company, persist_failed } = await res.json();
+    const { cv_id, cv_en, cv_id_docx, cv_en_docx, credits_remaining, total_credits, job_title, company, persist_failed } = await res.json();
 
     // Cache for retries and for buildCVFilename in download-docx-pdf.js
     cvDataCache = {
       cv_id:         cv_id,
       cv_en:         cv_en,
+      cv_id_docx:    cv_id_docx != null ? cv_id_docx : null,
+      cv_en_docx:    cv_en_docx != null ? cv_en_docx : null,
       tier:          tier,
       total_credits: total_credits,
       job_title:     job_title  != null ? job_title  : null,
@@ -179,6 +169,7 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
 
     // Clear session storage only when all credits are exhausted
     if (!credits_remaining || credits_remaining <= 0) {
+      sessionStorage.removeItem('gaslamar_session');
       localStorage.removeItem('gaslamar_session');
       localStorage.removeItem('gaslamar_tier');  // belt-and-suspenders for legacy data
       sessionStorage.removeItem('gaslamar_tier');
@@ -256,12 +247,22 @@ async function showExhaustedResult(data) {
 
 // ── retryGeneration ───────────────────────────────────────────────────────────
 // Called by the "Coba Lagi" error button. Reloads if session ID is gone.
+let retryGenerationInProgress = false;
 async function retryGeneration() {
+  if (retryGenerationInProgress) return;
   if (!sessionIdCache) { window.location.reload(); return; }
+  retryGenerationInProgress = true;
+  const retryBtn = document.getElementById('error-retry-btn');
+  if (retryBtn) retryBtn.disabled = true;
   if (window.Analytics) Analytics.track('cv_generation_retry', {
     tier: sessionStorage.getItem('gaslamar_tier') || undefined,
   });
-  await fetchAndGenerateCV(sessionIdCache);
+  try {
+    await fetchAndGenerateCV(sessionIdCache);
+  } finally {
+    retryGenerationInProgress = false;
+    if (retryBtn) retryBtn.disabled = false;
+  }
 }
 
 // ── generateForNewJob ─────────────────────────────────────────────────────────
@@ -287,7 +288,7 @@ async function generateForNewJob() {
     // Step 1: call /get-session to transition session to 'generating' status
     const gsRes = await fetch(WORKER_URL + '/get-session', {
       method:      'POST',
-      headers:     Object.assign({ 'Content-Type': 'application/json' }, getSecretHeaders()),
+      headers:     { 'Content-Type': 'application/json' },
       credentials: 'include',
     });
 

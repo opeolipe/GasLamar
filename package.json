@@ -12,13 +12,18 @@
     "typecheck": "tsc --noEmit",
     "check:cache": "node scripts/check-cache-versions.js",
     "dev": "node scripts/build.js --watch",
-    "start": "npx serve . -p 3000"
+    "start": "npx serve . -p 3000",
+    "e2e:prep": "npm run build:react",
+    "e2e": "npm run e2e:prep && npx playwright test",
+    "e2e:serial": "npm run e2e:prep && npx playwright test --workers=1",
+    "e2e:retry": "npm run e2e:prep && npx playwright test --retries=1",
+    "e2e:debug": "npm run e2e:prep && npx playwright test --workers=1 --retries=1"
   },
   "dependencies": {
     "buffer": "^6.0.3",
     "clsx": "^2.1.1",
     "docx": "8.5.0",
-    "jspdf": "2.5.1",
+    "jspdf": "4.2.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "tailwind-merge": "^3.5.0",
@@ -32,5 +37,8 @@
     "serve": "^14.2.4",
     "typescript": "^6.0.3",
     "wait-on": "^8.0.1"
+  },
+  "overrides": {
+    "postcss": ">=8.5.14"
   }
 }

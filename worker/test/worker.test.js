@@ -9,6 +9,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { getCorsHeaders, isOriginAllowed } from '../src/cors.js';
 import { verifyMayarWebhook } from '../src/mayar.js';
 import { GEN_KEY_PREFIX_ID, GEN_KEY_PREFIX_EN } from '../src/cacheVersions.js';
+import { handleResendAccess } from '../src/handlers/resendAccess.js';
 
 // ---- Test helpers ----
 
@@ -115,6 +116,18 @@ function get(path, extraHeaders = {}, ip = '1.2.3.4') {
   });
 }
 
+function jsonRequest(path, body, ip = '1.2.3.4') {
+  return new Request(`https://gaslamar.com${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Origin: GASLAMAR_ORIGIN,
+      'CF-Connecting-IP': ip,
+    },
+    body: JSON.stringify(body),
+  });
+}
+
 /** Seed a cvtext_ key in KV and return the key.
  *  ip should match the CF-Connecting-IP used in subsequent /create-payment calls.
  */
@@ -127,9 +140,8 @@ async function seedCVTextKey(
   return key;
 }
 
-// C3 FIX: A fixed session secret used by seedSession so all test sessions have a
-// session_secret_hash. Tests that call session-protected endpoints must send this
-// value in the X-Session-Secret header.
+// Historical fixed secret retained for legacy-hash fixtures. Session-protected
+// endpoints now authenticate with the HttpOnly session cookie alone.
 const FIXED_TEST_SECRET = 'fixed-test-session-secret-for-vitest';
 
 /** Seed a full session in KV with a given status and return sessionId. */
@@ -295,6 +307,34 @@ describe('CORS', () => {
     });
     expect(res.status).toBe(403);
     expect(res.headers.has('Access-Control-Allow-Origin')).toBe(false);
+  });
+
+  it('rejects unsafe POSTs from disallowed browser origins before handlers run', async () => {
+    const sessionId = await seedSession('paid', 'single');
+    const res = await SELF.fetch('https://gaslamar.com/get-session', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain',
+        Origin: 'https://evil.com',
+        Cookie: `session_id=${sessionId}`,
+      },
+      body: '{}',
+    });
+
+    expect(res.status).toBe(403);
+    expect(res.headers.has('Access-Control-Allow-Origin')).toBe(false);
+
+    const session = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
+    expect(session.status).toBe('paid');
+  });
+
+  it('allows Mayar webhooks without a browser Origin to reach HMAC validation', async () => {
+    const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    expect(res.status).not.toBe(403);
   });
 });
 
@@ -613,7 +653,10 @@ describe('POST /create-payment — validation', () => {
   });
 
   it('rejects cv_text_key without cvtext_ prefix → 400', async () => {
-    const res = await post('/create-payment', { tier: 'single', cv_text_key: 'sess_abc' });
+    const res = await post('/create-payment', {
+      tier: 'single',
+      cv_text_key: 'sess_abc',
+    });
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.message).toContain('cv_text_key');
@@ -627,7 +670,10 @@ describe('POST /create-payment — validation', () => {
   });
 
   it('rejects expired / missing cv_text_key → 400', async () => {
-    const res = await post('/create-payment', { tier: 'single', cv_text_key: 'cvtext_nonexistent' });
+    const res = await post('/create-payment', {
+      tier: 'single',
+      cv_text_key: 'cvtext_nonexistent',
+    });
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.message).toContain('kedaluwarsa');
@@ -637,7 +683,10 @@ describe('POST /create-payment — validation', () => {
     // Seed the key bound to IP 10.97.0.1
     const key = await seedCVTextKey(undefined, '10.97.0.1');
     // Attempt to use it from a different IP
-    const res = await post('/create-payment', { tier: 'single', cv_text_key: key }, {}, '10.97.0.2');
+    const res = await post('/create-payment', {
+      tier: 'single',
+      cv_text_key: key,
+    }, {}, '10.97.0.2');
     expect(res.status).toBe(403);
     const body = await res.json();
     expect(body.message).toMatch(/tidak valid/i);
@@ -657,6 +706,31 @@ describe('POST /create-payment — one-time key consumption', () => {
   beforeAll(() => fetchMock.activate());
   afterAll(() => fetchMock.deactivate());
 
+  it('creates a payment session without requiring a client-readable session secret', async () => {
+    const key = await seedCVTextKey(undefined, '10.0.0.12');
+
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
+      .reply(200, JSON.stringify({
+        data: { id: 'inv_test_no_secret', link: 'https://web.mayar.club/pay/inv_test_no_secret' }
+      }))
+      .times(1);
+
+    const res = await post('/create-payment', {
+      tier: 'single',
+      cv_text_key: key,
+    }, {}, '10.0.0.12');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.session_id).toMatch(/^sess_/);
+    expect(res.headers.get('set-cookie')).toContain('HttpOnly');
+
+    const session = await env.GASLAMAR_SESSIONS.get(body.session_id, { type: 'json' });
+    expect(session).not.toBeNull();
+    expect(session.session_secret_hash).toBeUndefined();
+  });
+
   it('consumes cv_text_key — second call returns 400', async () => {
     // Seed with same IP as the request so IP-binding check passes
     const key = await seedCVTextKey(undefined, '10.0.0.2');
@@ -671,17 +745,47 @@ describe('POST /create-payment — one-time key consumption', () => {
       .times(1);
 
     // Use unique IP
-    const res1 = await post('/create-payment', { tier: 'single', cv_text_key: key }, {}, '10.0.0.2');
+    const res1 = await post('/create-payment', {
+      tier: 'single',
+      cv_text_key: key,
+    }, {}, '10.0.0.2');
     expect(res1.status).toBe(200);
     const body1 = await res1.json();
     expect(body1.session_id).toMatch(/^sess_/);
     expect(body1.invoice_url).toBeTruthy();
 
     // Key is consumed — second call fails
-    const res2 = await post('/create-payment', { tier: 'single', cv_text_key: key }, {}, '10.0.0.2');
+    const res2 = await post('/create-payment', {
+      tier: 'single',
+      cv_text_key: key,
+    }, {}, '10.0.0.2');
     expect(res2.status).toBe(400);
     const body2 = await res2.json();
     expect(body2.message).toContain('kedaluwarsa');
+  });
+});
+
+describe('API aliases', () => {
+  it('accepts POST /api/create-payment as an alias for /create-payment', async () => {
+    const key = await seedCVTextKey(undefined, '10.0.0.13');
+
+    fetchMock.activate();
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
+      .reply(200, JSON.stringify({
+        data: { id: 'inv_test_api_alias', link: 'https://web.mayar.club/pay/inv_test_api_alias' }
+      }))
+      .times(1);
+
+    const res = await post('/api/create-payment', {
+      tier: 'single',
+      cv_text_key: key,
+    }, {}, '10.0.0.13');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.session_id).toMatch(/^sess_/);
+    fetchMock.deactivate();
   });
 });
 
@@ -748,6 +852,101 @@ describe('Rate limiting — /analyze (3 req/min per IP)', () => {
   });
 });
 
+describe('Rate limiting — /resend-access', () => {
+  // Unique IP range to avoid cross-suite contamination
+  const RL_RESEND_IP_CF  = '10.99.5.1';
+  const RL_RESEND_IP_KV  = '10.99.5.2';
+
+  it('CF native rate limiter returns 429 with Retry-After after burst (not 200)', async () => {
+    // Exhaust the 5-req/min native limit with distinct emails (avoid per-email KV limit)
+    for (let i = 0; i < 5; i++) {
+      const res = await post('/resend-access', { email: `rl-cf-burst-${i}@example.com` }, {}, RL_RESEND_IP_CF);
+      expect(res.status).toBe(200); // first 5 are allowed
+    }
+    // 6th request: CF rate limited → 429 with Retry-After
+    const res = await post('/resend-access', { email: `rl-cf-extra@example.com` }, {}, RL_RESEND_IP_CF);
+    expect(res.status).toBe(429);
+    expect(res.headers.get('Retry-After')).toBe('60');
+    const body = await res.json();
+    expect(body.error).toBe('Too many requests');
+    expect(body.retryAfter).toBe(60);
+  });
+
+  it('per-email KV rate limit returns 429 after 3rd request with same email', async () => {
+    const email     = `rl-kv-email-${Date.now()}@example.com`;
+    const emailHash = await sha256Full(email);
+
+    // First 3 requests: allowed — counter climbs to 3
+    for (let i = 0; i < 3; i++) {
+      const res = await post('/resend-access', { email }, {}, RL_RESEND_IP_KV);
+      expect(res.status).toBe(200);
+    }
+    const afterThree = JSON.parse(await env.GASLAMAR_SESSIONS.get(`rate_limit_resend_access_${emailHash}`));
+    expect(afterThree.count).toBe(3);
+
+    // 4th request: rate limited → 429 with Retry-After
+    const res = await post('/resend-access', { email }, {}, RL_RESEND_IP_KV);
+    expect(res.status).toBe(429);
+    expect(Number(res.headers.get('Retry-After'))).toBeGreaterThan(0);
+    const body = await res.json();
+    expect(body.error).toBe('Too many requests');
+
+    // Counter must NOT be incremented beyond 3 (blocked requests don't count)
+    const afterFour = JSON.parse(await env.GASLAMAR_SESSIONS.get(`rate_limit_resend_access_${emailHash}`));
+    expect(afterFour.count).toBe(3);
+  });
+
+  it('finds session via legacy plaintext email key when hashed key is absent', async () => {
+    const legacyEmail = `legacy-resend-${Date.now()}@example.com`;
+    const legacyHash  = await sha256Full(legacyEmail);
+    const sessionId   = await seedSession('paid', 'single');
+
+    // Confirm hashed key is absent — proves only the legacy path is available
+    expect(await env.GASLAMAR_SESSIONS.get(`email_session_${legacyHash}`)).toBeNull();
+
+    // Store index under plaintext key only (pre-migration format)
+    await env.GASLAMAR_SESSIONS.put(
+      `email_session_${legacyEmail}`,
+      JSON.stringify({ session_ids: [sessionId] }),
+      { expirationTtl: 3600 },
+    );
+
+    const res  = await post('/resend-access', { email: legacyEmail }, {}, '10.99.5.3');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.message).toMatch(/link baru/);
+    // Plaintext key still present — resendAccess does not migrate legacy keys
+    const record = await env.GASLAMAR_SESSIONS.get(`email_session_${legacyEmail}`, { type: 'json' });
+    expect(record).not.toBeNull();
+    // Hashed key must still be absent — handler does not migrate
+    expect(await env.GASLAMAR_SESSIONS.get(`email_session_${legacyHash}`)).toBeNull();
+  });
+
+  it('per-IP KV rate limit returns 429 when IP counter reaches 10', async () => {
+    const RL_RESEND_IP_IP = '10.99.5.4';
+    const now = Math.floor(Date.now() / 1000);
+    // Pre-seed the counter at 9 — avoids making 9 real requests that would
+    // exhaust the CF native rate limiter (5/60s) before the IP KV limit (10/hr) fires.
+    await env.GASLAMAR_SESSIONS.put(
+      `rate_limit_resend_access_ip_${RL_RESEND_IP_IP}`,
+      JSON.stringify({ start: now, count: 9 }),
+      { expirationTtl: 3600 },
+    );
+
+    // 10th request: allowed (KV counter 9 → 10)
+    const res10 = await post('/resend-access', { email: `rl-ip-10@example.com` }, {}, RL_RESEND_IP_IP);
+    expect(res10.status).toBe(200);
+
+    // 11th request: IP KV rate limited → 429
+    const res11 = await post('/resend-access', { email: `rl-ip-11@example.com` }, {}, RL_RESEND_IP_IP);
+    expect(res11.status).toBe(429);
+    expect(Number(res11.headers.get('Retry-After'))).toBeGreaterThan(0);
+    const body = await res11.json();
+    expect(body.error).toBe('Too many requests');
+  });
+});
+
 describe('POST /session/ping', () => {
   it('returns 401 when no session cookie is present', async () => {
     // Handlers now read session_id from Cookie header; missing cookie → 401
@@ -769,7 +968,7 @@ describe('POST /session/ping', () => {
 
   it('returns ok:true and refreshes session for known session', async () => {
     const sessionId = await seedSession('paid', 'single');
-    const res = await post('/session/ping', {}, { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET });
+    const res = await post('/session/ping', {}, sessionCookie(sessionId));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
@@ -793,20 +992,28 @@ describe('GET /check-session', () => {
     expect(body.reason).toBe('no_session');
   });
 
-  it('returns 404 when ?session= fallback used but session not in KV', async () => {
-    // Valid format, no cookie — falls back to query param, then misses in KV
+  it('ignores valid ?session= when no cookie is present', async () => {
     const res = await get('/check-session?session=sess_some_valid_looking_id');
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.reason).toBe('no_session');
   });
 
-  it('returns 200 via ?session= fallback when session exists (Safari ITP compat)', async () => {
-    // Simulates Mobile Safari where the cross-origin cookie is blocked.
-    // The frontend already sends ?session= on every poll; the server now reads it.
+  it('does not authenticate an existing session from the query string alone', async () => {
     const sessionId = await seedSession('paid', 'single');
     const res = await get(`/check-session?session=${sessionId}`);
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body.status).toBe('paid');
+    expect(body.reason).toBe('no_session');
+  });
+
+  it('does not leak reduced metadata for query-only sessions', async () => {
+    const sessionId = await seedSession('ready', '3pack');
+    const res = await get(`/check-session?session=${sessionId}`);
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body).not.toHaveProperty('status', 'ready');
+    expect(body).not.toHaveProperty('tier', '3pack');
   });
 
   it('returns 404 for unknown session_id in cookie', async () => {
@@ -816,65 +1023,47 @@ describe('GET /check-session', () => {
 
   it('returns current status for known session via cookie', async () => {
     const sessionId = await seedSession('pending', 'coba');
-    const res = await get('/check-session', { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET });
+    const res = await get('/check-session', sessionCookie(sessionId));
     expect(res.status).toBe(200);
     const body = await res.json();
+    expect(body.session_id).toBe(sessionId);
     expect(body.status).toBe('pending');
   });
 
-  it('returns 200 via ?session= fallback when cookie is present but secret is absent (ITP / tab-close / email-link)', async () => {
-    // Regression test for the payment→download 403 loop.
-    // Scenario: user paid in the same tab, browser redirected through Mayar (cross-origin),
-    // Safari ITP cleared sessionStorage, so the frontend has no X-Session-Secret.
-    // The HttpOnly session cookie IS present. The frontend always sends ?session= now;
-    // the server must accept this without the secret for this low-sensitivity endpoint.
+  it('uses cookie auth and ignores a redundant ?session= parameter', async () => {
     const sessionId = await seedSession('paid', 'single');
     const res = await get('/check-session?session=' + sessionId, sessionCookie(sessionId));
-    // Note: no X-Session-Secret header — must succeed via fallback, not 403
     expect(res.status).toBe(200);
     const body = await res.json();
+    expect(body.session_id).toBe(sessionId);
     expect(body.status).toBe('paid');
+    expect(body.credits_remaining).toBeDefined();
+    expect(body.ttl_seconds).toBeDefined();
   });
 
-  it('still uses strict secret check when X-Session-Secret IS provided with cookie (no ?session= needed)', async () => {
-    // Secret present → cookie path with full verification, ?session= is irrelevant
+  it('uses cookie auth even if a stale X-Session-Secret header is provided', async () => {
     const sessionId = await seedSession('paid', 'single');
     const res = await get('/check-session?session=' + sessionId, {
       ...sessionCookie(sessionId),
-      'X-Session-Secret': FIXED_TEST_SECRET,
+      'X-Session-Secret': 'stale-client-secret',
     });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.status).toBe('paid');
   });
 
-  it('returns 403 when cookie present, no ?session= param, and no secret', async () => {
-    // Without ?session= the fallback cannot activate — cookie-only with no secret is still rejected
+  it('returns current status when cookie is present and no client secret exists', async () => {
     const sessionId = await seedSession('paid', 'single');
     const res = await get('/check-session', sessionCookie(sessionId));
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.reason).toBe('unauthorized');
+    expect(body.status).toBe('paid');
+    expect(body.credits_remaining).toBeDefined();
   });
 
-  it('rate-limits fallback path per ip+session after 20 requests/min', async () => {
-    const sessionId = await seedSession('paid', 'single');
-    const ip = '10.88.0.44';
-    // First 20 fallback requests should pass.
-    for (let i = 0; i < 20; i++) {
-      const okRes = await get('/check-session?session=' + sessionId, {}, ip);
-      expect(okRes.status).toBe(200);
-    }
-    // 21st request for same ip+session should be throttled.
-    const blockedRes = await get('/check-session?session=' + sessionId, {}, ip);
-    expect(blockedRes.status).toBe(429);
-    expect(blockedRes.headers.get('Retry-After')).toBeTruthy();
-  });
-
-  it('strict cookie+secret path is not affected by fallback ip+session limiter', async () => {
+  it('cookie path is not affected by stale X-Session-Secret headers', async () => {
     const sessionId = await seedSession('paid', 'single');
     const ip = '10.88.0.45';
-    // These requests use strict verification (no fallback), so fallback limiter must not apply.
     for (let i = 0; i < 25; i++) {
       const res = await get('/check-session', { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET }, ip);
       expect(res.status).toBe(200);
@@ -900,9 +1089,9 @@ describe('GET /validate-session', () => {
     expect(body.reason).toBe('invalid_key');
   });
 
-  it('returns valid:false for unknown key → 200', async () => {
+  it('returns valid:false for unknown key → 404', async () => {
     const res = await get('/validate-session?cvKey=cvtext_nonexistent_key_abc');
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(404);
     const body = await res.json();
     expect(body.valid).toBe(false);
     expect(body.reason).toBe('not_found');
@@ -949,7 +1138,7 @@ describe('POST /get-session', () => {
 
   it('returns cv/job_desc/tier and sets status to generating for paid session', async () => {
     const sessionId = await seedSession('paid', 'single');
-    const res = await post('/get-session', {}, { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET });
+    const res = await post('/get-session', {}, sessionCookie(sessionId));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.cv).toBeTruthy();
@@ -1804,60 +1993,177 @@ async function seedSessionWithSecret(status = 'paid', tier = 'single') {
   return { sessionId, secret };
 }
 
-describe('Session secret — POST /get-session', () => {
-  it('returns 403 when secret is missing and session has a hash', async () => {
+describe('POST /resend-email — recovery index migration', () => {
+  beforeAll(() => fetchMock.activate());
+  afterAll(() => fetchMock.deactivate());
+
+  it('moves recovery index entries using hashed email keys', async () => {
+    const { sessionId, secret } = await seedSessionWithSecret('ready', 'single');
+    const oldEmail = 'old@example.com';
+    const newEmail = 'new@example.com';
+    const oldHash = await sha256Full(oldEmail);
+    const newHash = await sha256Full(newEmail);
+    await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
+      ...(await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' })),
+      email: oldEmail,
+    }), { expirationTtl: 1800 });
+    await env.GASLAMAR_SESSIONS.put(`email_session_${oldHash}`, JSON.stringify({ session_ids: [sessionId] }), { expirationTtl: 1800 });
+
+    const res = await post('/resend-email', { email: newEmail }, {
+      ...sessionCookie(sessionId),
+      'X-Session-Secret': secret,
+    }, '10.55.0.1');
+    expect(res.status).toBe(200);
+
+    expect(await env.GASLAMAR_SESSIONS.get(`email_session_${oldHash}`, { type: 'json' })).toBeNull();
+    expect(await env.GASLAMAR_SESSIONS.get(`email_session_${oldEmail}`, { type: 'json' })).toBeNull();
+    expect(await env.GASLAMAR_SESSIONS.get(`email_session_${newEmail}`, { type: 'json' })).toBeNull();
+    expect(await env.GASLAMAR_SESSIONS.get(`email_session_${newHash}`, { type: 'json' }))
+      .toEqual({ session_ids: [sessionId] });
+  });
+
+  it('falls back to legacy plaintext email index and migrates to hashed key', async () => {
+    const { sessionId, secret } = await seedSessionWithSecret('ready', 'single');
+    const oldEmail = 'legacy@example.com';
+    const newEmail = 'migrated@example.com';
+    const newHash = await sha256Full(newEmail);
+    await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
+      ...(await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' })),
+      email: oldEmail,
+    }), { expirationTtl: 1800 });
+    await env.GASLAMAR_SESSIONS.put(`email_session_${oldEmail}`, JSON.stringify({ session_ids: [sessionId] }), { expirationTtl: 1800 });
+
+    const res = await post('/resend-email', { email: newEmail }, {
+      ...sessionCookie(sessionId),
+      'X-Session-Secret': secret,
+    }, '10.55.0.2');
+    expect(res.status).toBe(200);
+
+    expect(await env.GASLAMAR_SESSIONS.get(`email_session_${oldEmail}`, { type: 'json' })).toBeNull();
+    expect(await env.GASLAMAR_SESSIONS.get(`email_session_${newEmail}`, { type: 'json' })).toBeNull();
+    expect(await env.GASLAMAR_SESSIONS.get(`email_session_${newHash}`, { type: 'json' }))
+      .toEqual({ session_ids: [sessionId] });
+  });
+
+  it('migrates remaining legacy plaintext index entries to hashed keys', async () => {
+    const { sessionId, secret } = await seedSessionWithSecret('ready', 'single');
+    const remainingId = 'sess_11111111-1111-4111-8111-111111111111';
+    const oldEmail = 'shared-legacy@example.com';
+    const newEmail = 'shared-new@example.com';
+    const oldHash = await sha256Full(oldEmail);
+    const newHash = await sha256Full(newEmail);
+    await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
+      ...(await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' })),
+      email: oldEmail,
+    }), { expirationTtl: 1800 });
+    await env.GASLAMAR_SESSIONS.put(`email_session_${oldEmail}`, JSON.stringify({ session_ids: [remainingId, sessionId] }), { expirationTtl: 1800 });
+
+    const res = await post('/resend-email', { email: newEmail }, {
+      ...sessionCookie(sessionId),
+      'X-Session-Secret': secret,
+    }, '10.55.0.3');
+    expect(res.status).toBe(200);
+
+    expect(await env.GASLAMAR_SESSIONS.get(`email_session_${oldEmail}`, { type: 'json' })).toBeNull();
+    expect(await env.GASLAMAR_SESSIONS.get(`email_session_${oldHash}`, { type: 'json' }))
+      .toEqual({ session_ids: [remainingId] });
+    expect(await env.GASLAMAR_SESSIONS.get(`email_session_${newHash}`, { type: 'json' }))
+      .toEqual({ session_ids: [sessionId] });
+  });
+
+  it('lets /resend-access find the session by the changed email only', async () => {
+    const { sessionId, secret } = await seedSessionWithSecret('ready', 'single');
+    const oldEmail = 'recover-old@example.com';
+    const newEmail = 'recover-new@example.com';
+    const oldHash = await sha256Full(oldEmail);
+    await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
+      ...(await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' })),
+      email: oldEmail,
+    }), { expirationTtl: 1800 });
+    await env.GASLAMAR_SESSIONS.put(`email_session_${oldHash}`, JSON.stringify({ session_ids: [sessionId] }), { expirationTtl: 1800 });
+
+    const changeRes = await post('/resend-email', { email: newEmail }, {
+      ...sessionCookie(sessionId),
+      'X-Session-Secret': secret,
+    }, '10.55.0.4');
+    expect(changeRes.status).toBe(200);
+
+    const envWithResend = { ...env, RESEND_API_KEY: 'test-resend-key' };
+    fetchMock
+      .get('https://api.resend.com')
+      .intercept({ path: '/emails', method: 'POST' })
+      .reply(200, JSON.stringify({ id: 'email_access_new' }))
+      .times(1);
+
+    const oldAccess = await handleResendAccess(jsonRequest('/resend-access', { email: oldEmail }, '10.55.0.5'), envWithResend);
+    expect(oldAccess.status).toBe(200);
+    const tokensAfterOldEmail = await env.GASLAMAR_SESSIONS.list({ prefix: 'email_token_' });
+    expect(tokensAfterOldEmail.keys).toEqual([]);
+
+    const newAccess = await handleResendAccess(jsonRequest('/resend-access', { email: newEmail }, '10.55.0.6'), envWithResend);
+    expect(newAccess.status).toBe(200);
+    const tokensAfterNewEmail = await env.GASLAMAR_SESSIONS.list({ prefix: 'email_token_' });
+    expect(tokensAfterNewEmail.keys).toHaveLength(1);
+  });
+});
+
+describe('POST /resend-access', () => {
+  it('returns 429 after 3 requests per email per hour', async () => {
+    const email = `rate-${crypto.randomUUID()}@example.com`;
+    const ip = '10.56.0.1';
+
+    for (let i = 0; i < 3; i++) {
+      const res = await post('/resend-access', { email }, {}, ip);
+      expect(res.status).toBe(200);
+    }
+
+    const blocked = await post('/resend-access', { email }, {}, ip);
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get('Retry-After')).toBeTruthy();
+  });
+});
+
+describe('Cookie-only session auth — POST /get-session', () => {
+  it('returns 200 when only the HttpOnly session cookie is present, even for historical hashed sessions', async () => {
     const { sessionId } = await seedSessionWithSecret('paid');
     const res = await post('/get-session', {}, sessionCookie(sessionId));
-    expect(res.status).toBe(403);
-    const body = await res.json();
-    expect(body.message).toMatch(/akses ditolak|token sesi/i);
-  });
-
-  it('returns 403 when wrong secret is provided', async () => {
-    const { sessionId } = await seedSessionWithSecret('paid');
-    const res = await post('/get-session', {}, { ...sessionCookie(sessionId), 'X-Session-Secret': 'wrong-secret' });
-    expect(res.status).toBe(403);
-    const body = await res.json();
-    expect(body.message).toMatch(/akses ditolak|token sesi/i);
-  });
-
-  it('returns 200 when correct secret is provided', async () => {
-    const { sessionId, secret } = await seedSessionWithSecret('paid');
-    const res = await post('/get-session', {}, { ...sessionCookie(sessionId), 'X-Session-Secret': secret });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.cv).toBeTruthy();
     expect(body.tier).toBe('single');
   });
 
-  it('rejects legacy sessions without a stored hash (C3 fix: fail-closed)', async () => {
-    // C3 FIX: Legacy sessions (no session_secret_hash) are now permanently rejected.
-    // seedLegacySession creates sessions without the hash to test the rejection path.
+  it('ignores stale or wrong X-Session-Secret headers instead of treating them as auth', async () => {
+    const { sessionId } = await seedSessionWithSecret('paid');
+    const res = await post('/get-session', {}, { ...sessionCookie(sessionId), 'X-Session-Secret': 'wrong-secret' });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.cv).toBeTruthy();
+    expect(body.tier).toBe('single');
+  });
+
+  it('accepts sessions without a stored hash because the cookie is the auth credential', async () => {
     const sessionId = await seedLegacySession('paid', 'single');
     const res = await post('/get-session', {}, sessionCookie(sessionId));
-    expect(res.status).toBe(403);
-    const body = await res.json();
-    expect(body.message).toMatch(/akses ditolak|token sesi/i);
+    expect(res.status).toBe(200);
   });
 });
 
-describe('Session secret — POST /generate', () => {
-  it('returns 403 when secret is missing and session has a hash', async () => {
+describe('Cookie-only session auth — POST /generate', () => {
+  it('does not require a client-readable secret for hashed sessions', async () => {
     const { sessionId } = await seedSessionWithSecret('generating');
     const res = await post('/generate', {}, { ...sessionCookie(sessionId) }, '10.4.0.1');
-    expect(res.status).toBe(403);
-    const body = await res.json();
-    expect(body.message).toMatch(/akses ditolak|token sesi/i);
+    expect(res.status).not.toBe(403);
   });
 
-  it('returns 403 when wrong secret is provided', async () => {
+  it('ignores wrong X-Session-Secret headers', async () => {
     const { sessionId } = await seedSessionWithSecret('generating');
     const res = await post('/generate', {}, { ...sessionCookie(sessionId), 'X-Session-Secret': 'wrong' }, '10.4.0.2');
-    expect(res.status).toBe(403);
+    expect(res.status).not.toBe(403);
   });
 
   it('still returns 403 (status not generating) for paid session with correct secret', async () => {
-    // /generate requires status=generating; a paid session with correct secret still 403s for wrong status
+    // /generate requires status=generating; a paid session still 403s for wrong status.
     const { sessionId, secret } = await seedSessionWithSecret('paid');
     const res = await post('/generate', {}, { ...sessionCookie(sessionId), 'X-Session-Secret': secret }, '10.4.0.3');
     expect(res.status).toBe(403);
@@ -1866,17 +2172,17 @@ describe('Session secret — POST /generate', () => {
   });
 });
 
-describe('Session secret — POST /session/ping', () => {
-  it('returns 403 when secret is missing and session has a hash', async () => {
+describe('Cookie-only session auth — POST /session/ping', () => {
+  it('returns 200 when only the HttpOnly session cookie is present', async () => {
     const { sessionId } = await seedSessionWithSecret('paid');
     const res = await post('/session/ping', {}, sessionCookie(sessionId));
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
   });
 
-  it('returns 403 when wrong secret is provided', async () => {
+  it('ignores wrong X-Session-Secret headers', async () => {
     const { sessionId } = await seedSessionWithSecret('paid');
     const res = await post('/session/ping', {}, { ...sessionCookie(sessionId), 'X-Session-Secret': 'bad' });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
   });
 
   it('returns 200 with correct secret', async () => {
@@ -1887,11 +2193,10 @@ describe('Session secret — POST /session/ping', () => {
     expect(body.ok).toBe(true);
   });
 
-  it('rejects legacy sessions without stored hash (C3 fix: fail-closed)', async () => {
-    // C3 FIX: Legacy sessions (no session_secret_hash) are now rejected with 403.
+  it('accepts sessions without stored hash', async () => {
     const sessionId = await seedLegacySession('paid', 'single');
     const res = await post('/session/ping', {}, sessionCookie(sessionId));
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
   });
 });
 
@@ -2085,6 +2390,354 @@ describe('POST /fetch-job-url — allowed domains (mocked fetch)', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// POST /fetch-job-url — LinkedIn guest API + JSON-LD + new gate markers
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('POST /fetch-job-url — LinkedIn guest API and JSON-LD extraction', () => {
+  beforeAll(() => fetchMock.activate());
+  afterAll(() => fetchMock.deactivate());
+
+  // Range 10.103.0.x is reserved for this suite.
+  let _ipSeq = 0;
+  const nextIp = () => `10.103.0.${++_ipSeq}`;
+
+  it('returns job_desc from LinkedIn guest API when successful', async () => {
+    // Guest API returns a clean HTML fragment — handler should use it and skip page scraping.
+    const guestHtml = '<div class="show-more-less-html"><p>Software Engineer. Requirements: 3+ years Python, strong SQL skills, team player.</p></div>';
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs-guest/jobs/api/jobPosting/9876543' })
+      .reply(200, guestHtml, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.linkedin.com/jobs/view/9876543' }, {}, nextIp());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.job_desc).toBeTruthy();
+    expect(body.job_desc).toContain('Python');
+  });
+
+  it('falls back to page scraping when guest API returns non-200', async () => {
+    const pageHtml = '<html><body>Requirements: Minimum 2 years experience in Java and Spring Boot required.</body></html>';
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs-guest/jobs/api/jobPosting/1111111' })
+      .reply(404, 'Not Found', { headers: { 'content-type': 'text/html' } })
+      .times(1);
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs/view/1111111' })
+      .reply(200, pageHtml, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.linkedin.com/jobs/view/1111111' }, {}, nextIp());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.job_desc).toContain('Java');
+  });
+
+  it('falls back to page scraping when guest API returns an auth gate', async () => {
+    const gateHtml = '<html><body>Join to apply for this role. Sign in to view all applicants.</body></html>';
+    const pageHtml = '<html><body>About the job: We need a senior engineer with Go and Kubernetes experience for our platform team.</body></html>';
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs-guest/jobs/api/jobPosting/2222222' })
+      .reply(200, gateHtml, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs/view/2222222' })
+      .reply(200, pageHtml, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.linkedin.com/jobs/view/2222222' }, {}, nextIp());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.job_desc).toContain('Kubernetes');
+  });
+
+  it('extracts job description from JSON-LD JobPosting schema on page', async () => {
+    const jsonLd = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'JobPosting',
+      title: 'Senior Backend Engineer',
+      hiringOrganization: { '@type': 'Organization', name: 'Acme Corp' },
+      jobLocation: { '@type': 'Place', address: { '@type': 'PostalAddress', addressLocality: 'Jakarta' } },
+      description: '<p>We are looking for a Senior Backend Engineer with 5+ years Node.js experience. Strong knowledge of PostgreSQL and Redis required. You will lead the API platform team.</p>',
+    });
+    const pageHtml = `<html><head><script type="application/ld+json">${jsonLd}</script></head><body><nav>LinkedIn Home Jobs</nav></body></html>`;
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs-guest/jobs/api/jobPosting/3333333' })
+      .reply(404, 'Not Found', { headers: { 'content-type': 'text/html' } })
+      .times(1);
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs/view/3333333' })
+      .reply(200, pageHtml, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.linkedin.com/jobs/view/3333333' }, {}, nextIp());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.job_desc).toContain('Senior Backend Engineer');
+    expect(body.job_desc).toContain('Acme Corp');
+    expect(body.job_desc).toContain('PostgreSQL');
+    // Should NOT include nav noise from the body
+    expect(body.job_desc).not.toContain('LinkedIn Home Jobs');
+  });
+
+  it('prefers JSON-LD over body text when both are present', async () => {
+    const jsonLd = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'JobPosting',
+      title: 'Data Scientist',
+      hiringOrganization: { '@type': 'Organization', name: 'DataCo' },
+      description: 'Looking for Python and ML expertise with TensorFlow background.',
+    });
+    const pageHtml = `<html><head><script type="application/ld+json">${jsonLd}</script></head><body><p>Some random nav text that should be ignored in favour of JSON-LD structured data.</p></body></html>`;
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs-guest/jobs/api/jobPosting/4444444' })
+      .reply(404, 'Not Found', { headers: { 'content-type': 'text/html' } })
+      .times(1);
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs/view/4444444' })
+      .reply(200, pageHtml, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.linkedin.com/jobs/view/4444444' }, {}, nextIp());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.job_desc).toContain('TensorFlow');
+    expect(body.job_desc).not.toContain('random nav text');
+  });
+
+  it('returns 422 with linkedin_auth_required on "Join to apply" gate marker', async () => {
+    const gateHtml = `<html><body>Join to apply for this position at Acme Corp. ${'x'.repeat(100)}</body></html>`;
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs-guest/jobs/api/jobPosting/5555555' })
+      .reply(404, 'Not Found', { headers: { 'content-type': 'text/html' } })
+      .times(1);
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs/view/5555555' })
+      .reply(200, gateHtml, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.linkedin.com/jobs/view/5555555' }, {}, nextIp());
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.linkedin_auth_required).toBe(true);
+  });
+
+  it('returns 422 with linkedin_auth_required on "Sign in to view" gate marker', async () => {
+    const gateHtml = `<html><body>Sign in to view all 50 applicants for this role. ${'y'.repeat(100)}</body></html>`;
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs-guest/jobs/api/jobPosting/6666666' })
+      .reply(404, 'Not Found', { headers: { 'content-type': 'text/html' } })
+      .times(1);
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs/view/6666666' })
+      .reply(200, gateHtml, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.linkedin.com/jobs/view/6666666' }, {}, nextIp());
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.linkedin_auth_required).toBe(true);
+  });
+
+  it("returns 422 with linkedin_auth_required on \"Verify you're human\" challenge", async () => {
+    const gateHtml = `<html><body>Verify you're human. ${'z'.repeat(100)}</body></html>`;
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs-guest/jobs/api/jobPosting/7777777' })
+      .reply(404, 'Not Found', { headers: { 'content-type': 'text/html' } })
+      .times(1);
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs/view/7777777' })
+      .reply(200, gateHtml, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.linkedin.com/jobs/view/7777777' }, {}, nextIp());
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.linkedin_auth_required).toBe(true);
+  });
+
+  it('does NOT block a valid security-engineer job posting that mentions "security check"', async () => {
+    // "security check" was previously in LINKEDIN_GATE_MARKERS — it falsely blocked
+    // security-engineer jobs. Verify it no longer triggers a gate response.
+    const pageHtml = '<html><body>About the job: Looking for a Security Engineer. Must pass a background security check and obtain a clearance. ' +
+      'Requirements: 5 years of penetration testing experience. Strong knowledge of OWASP top 10. ' +
+      'You will perform security checks on production systems and audit cloud infrastructure.</body></html>';
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs-guest/jobs/api/jobPosting/8888888' })
+      .reply(404, 'Not Found', { headers: { 'content-type': 'text/html' } })
+      .times(1);
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs/view/8888888' })
+      .reply(200, pageHtml, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.linkedin.com/jobs/view/8888888' }, {}, nextIp());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.job_desc).toContain('penetration testing');
+  });
+
+  it('extracts JSON-LD with @type array form ["JobPosting","Thing"]', async () => {
+    const jsonLd = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': ['JobPosting', 'Thing'],
+      title: 'DevOps Engineer',
+      hiringOrganization: { '@type': 'Organization', name: 'CloudCo' },
+      description: 'We need a DevOps Engineer with Kubernetes and Terraform skills for our platform.',
+    });
+    const pageHtml = `<html><head><script type="application/ld+json">${jsonLd}</script></head><body><nav>nav</nav></body></html>`;
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs-guest/jobs/api/jobPosting/9900001' })
+      .reply(404, 'Not Found', { headers: { 'content-type': 'text/html' } })
+      .times(1);
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs/view/9900001' })
+      .reply(200, pageHtml, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.linkedin.com/jobs/view/9900001' }, {}, nextIp());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.job_desc).toContain('DevOps Engineer');
+    expect(body.job_desc).toContain('Terraform');
+  });
+
+  it('extracts JSON-LD with hiringOrganization as array', async () => {
+    const jsonLd = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'JobPosting',
+      title: 'Product Manager',
+      hiringOrganization: [{ '@type': 'Organization', name: 'ArrayCorp' }],
+      description: 'We are hiring a Product Manager with 3 years experience in agile product development.',
+    });
+    const pageHtml = `<html><head><script type="application/ld+json">${jsonLd}</script></head><body></body></html>`;
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs-guest/jobs/api/jobPosting/9900002' })
+      .reply(404, 'Not Found', { headers: { 'content-type': 'text/html' } })
+      .times(1);
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs/view/9900002' })
+      .reply(200, pageHtml, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.linkedin.com/jobs/view/9900002' }, {}, nextIp());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.job_desc).toContain('ArrayCorp');
+    expect(body.job_desc).toContain('agile');
+  });
+
+  it('decodes HTML entities in JSON-LD description', async () => {
+    const jsonLd = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'JobPosting',
+      title: 'Frontend Engineer',
+      hiringOrganization: { '@type': 'Organization', name: 'EntitiesCo' },
+      description: 'We use React &amp; TypeScript. Salary: &gt;Rp 20 juta. &#8220;Great team&#8221; &amp; flexible work.',
+    });
+    const pageHtml = `<html><head><script type="application/ld+json">${jsonLd}</script></head><body></body></html>`;
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs-guest/jobs/api/jobPosting/9900003' })
+      .reply(404, 'Not Found', { headers: { 'content-type': 'text/html' } })
+      .times(1);
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs/view/9900003' })
+      .reply(200, pageHtml, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.linkedin.com/jobs/view/9900003' }, {}, nextIp());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // Entities should be decoded to real characters, not literal &amp; etc.
+    expect(body.job_desc).toContain('React & TypeScript');
+    expect(body.job_desc).not.toContain('&amp;');
+  });
+
+  it('does not crash on JSON-LD containing literal null (JSON.parse edge case)', async () => {
+    // JSON.parse('null') = null — accessing null['@graph'] used to throw TypeError.
+    // Handler should gracefully skip it and fall through to body text extraction.
+    const pageHtml = '<html><head>' +
+      '<script type="application/ld+json">null</script>' +
+      '</head><body>About the job: Senior DevOps with Terraform and AWS skills needed for cloud team.</body></html>';
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs-guest/jobs/api/jobPosting/9900005' })
+      .reply(404, 'Not Found', { headers: { 'content-type': 'text/html' } })
+      .times(1);
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs/view/9900005' })
+      .reply(200, pageHtml, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.linkedin.com/jobs/view/9900005' }, {}, nextIp());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.job_desc).toContain('Terraform');
+  });
+
+  it('returns null from guest API and falls through when guest API redirects (redirect:manual)', async () => {
+    // A 3xx from the guest API (e.g. LinkedIn redirecting to /authwall) should
+    // NOT be followed — return null and fall through to full-page scraping.
+    const pageHtml = '<html><body>About the job: React developer with 3 years TypeScript experience for our web team.</body></html>';
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs-guest/jobs/api/jobPosting/9900004' })
+      .reply(302, '', { headers: { 'content-type': 'text/html', location: 'https://www.linkedin.com/authwall' } })
+      .times(1);
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/jobs/view/9900004' })
+      .reply(200, pageHtml, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.linkedin.com/jobs/view/9900004' }, {}, nextIp());
+    // Falls through to page scraping which finds the job content
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.job_desc).toContain('TypeScript');
+  });
+
+  it('does not attempt guest API for non-/jobs/view/ LinkedIn URLs', async () => {
+    // URL has no numeric job ID — should skip guest API and go straight to page scraping.
+    const pageHtml = '<html><body>Requirements: 3 years of React and TypeScript for this frontend role.</body></html>';
+    fetchMock
+      .get('https://www.linkedin.com')
+      .intercept({ path: '/company/acmecorp/jobs/' })
+      .reply(200, pageHtml, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      .times(1);
+
+    const res = await post('/fetch-job-url', { url: 'https://www.linkedin.com/company/acmecorp/jobs/' }, {}, nextIp());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.job_desc).toContain('TypeScript');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // POST /interview-kit
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -2156,12 +2809,15 @@ describe('POST /interview-kit', () => {
     expect(body.message).toMatch(/sesi/i);
   });
 
-  it('returns 403 when secret is missing and session has a hash', async () => {
+  it('accepts cookie-only auth for historical hashed sessions', async () => {
     const { sessionId } = await seedSessionWithSecret('paid');
+    fetchMock
+      .get('https://api.anthropic.com')
+      .intercept({ path: '/v1/messages', method: 'POST' })
+      .reply(200, JSON.stringify(MOCK_CLAUDE_KIT_RESPONSE))
+      .times(1);
     const res = await post('/interview-kit', {}, sessionCookie(sessionId), nextKitIp());
-    expect(res.status).toBe(403);
-    const body = await res.json();
-    expect(body.message).toMatch(/akses ditolak|token sesi/i);
+    expect(res.status).toBe(200);
   });
 
   it('returns 200 with full kit structure (Claude mocked)', async () => {
@@ -2173,7 +2829,7 @@ describe('POST /interview-kit', () => {
       .reply(200, JSON.stringify(MOCK_CLAUDE_KIT_RESPONSE))
       .times(1);
 
-    const res = await post('/interview-kit', { language: 'id' }, { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET }, nextKitIp());
+    const res = await post('/interview-kit', { language: 'id' }, sessionCookie(sessionId), nextKitIp());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
@@ -2197,12 +2853,12 @@ describe('POST /interview-kit', () => {
       .times(1);
 
     const ip = nextKitIp();
-    const res1 = await post('/interview-kit', { language: 'id' }, { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET }, ip);
+    const res1 = await post('/interview-kit', { language: 'id' }, sessionCookie(sessionId), ip);
     expect(res1.status).toBe(200);
     const body1 = await res1.json();
 
     // Second call — Claude mock is exhausted (.times(1)); if intercepted it would 500/throw
-    const res2 = await post('/interview-kit', { language: 'id' }, { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET }, ip);
+    const res2 = await post('/interview-kit', { language: 'id' }, sessionCookie(sessionId), ip);
     expect(res2.status).toBe(200);
     const body2 = await res2.json();
 
@@ -2218,7 +2874,7 @@ describe('POST /interview-kit', () => {
       .reply(200, JSON.stringify({ content: [{ text: '{"partial":true}' }], stop_reason: 'max_tokens' }))
       .times(1);
 
-    const res = await post('/interview-kit', { language: 'id' }, { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET }, nextKitIp());
+    const res = await post('/interview-kit', { language: 'id' }, sessionCookie(sessionId), nextKitIp());
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.message).toMatch(/terpotong|coba lagi/i);
@@ -2234,8 +2890,8 @@ describe('POST /interview-kit', () => {
       .reply(200, JSON.stringify(MOCK_CLAUDE_KIT_RESPONSE))
       .times(2);
 
-    await post('/interview-kit', { language: 'id' }, { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET }, ip);
-    await post('/interview-kit', { language: 'en' }, { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET }, ip);
+    await post('/interview-kit', { language: 'id' }, sessionCookie(sessionId), ip);
+    await post('/interview-kit', { language: 'en' }, sessionCookie(sessionId), ip);
 
     const cachedId = await env.GASLAMAR_SESSIONS.get(`kit_${sessionId}_id`, { type: 'json' });
     const cachedEn = await env.GASLAMAR_SESSIONS.get(`kit_${sessionId}_en`, { type: 'json' });
@@ -2256,7 +2912,7 @@ describe('POST /bypass-payment — sandbox bypass', () => {
 
   it('happy path — creates paid session and returns session_id with cookie', async () => {
     const key = await seedCVKey();
-    const res = await post('/bypass-payment', { tier: 'single', cv_text_key: key, bypass_secret: 'test-bypass-secret', session_secret: 'test-session-secret-e2e-abc' }, {}, '5.5.5.5');
+    const res = await post('/bypass-payment', { tier: 'single', cv_text_key: key, bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
     expect(res.status).toBe(200);
 
     const body = await res.json();
@@ -2270,15 +2926,15 @@ describe('POST /bypass-payment — sandbox bypass', () => {
     expect(session.tier).toBe('single');
     expect(session.mayar_invoice_id).toBe('bypass_sandbox');
     expect(session.cv_text).toBe(CV_TEXT);
-    expect(session.session_secret_hash).toBeTruthy();
+    expect(session.session_secret_hash).toBeUndefined();
   });
 
   it('consumes cv_text_key — second call returns 400 (key not found)', async () => {
     const key = await seedCVKey();
-    const res1 = await post('/bypass-payment', { tier: 'single', cv_text_key: key, bypass_secret: 'test-bypass-secret', session_secret: 'test-session-secret-e2e-abc' }, {}, '5.5.5.5');
+    const res1 = await post('/bypass-payment', { tier: 'single', cv_text_key: key, bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
     expect(res1.status).toBe(200);
 
-    const res2 = await post('/bypass-payment', { tier: 'single', cv_text_key: key, bypass_secret: 'test-bypass-secret', session_secret: 'test-session-secret-e2e-abc' }, {}, '5.5.5.5');
+    const res2 = await post('/bypass-payment', { tier: 'single', cv_text_key: key, bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
     expect(res2.status).toBe(400);
     const body2 = await res2.json();
     expect(body2.message).toMatch(/kedaluwarsa|analisis/i);
@@ -2314,7 +2970,7 @@ describe('POST /bypass-payment — sandbox bypass', () => {
 
   it('sets correct credits for 3pack tier', async () => {
     const key = await seedCVKey();
-    const res = await post('/bypass-payment', { tier: '3pack', cv_text_key: key, bypass_secret: 'test-bypass-secret', session_secret: 'test-session-secret-e2e-abc' }, {}, '5.5.5.5');
+    const res = await post('/bypass-payment', { tier: '3pack', cv_text_key: key, bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
     expect(res.status).toBe(200);
     const { session_id } = await res.json();
     const session = await env.GASLAMAR_SESSIONS.get(session_id, { type: 'json' });
@@ -2322,20 +2978,10 @@ describe('POST /bypass-payment — sandbox bypass', () => {
     expect(session.total_credits).toBe(3);
   });
 
-  it('rejects missing session_secret → 400', async () => {
+  it('does not require a client-readable session_secret', async () => {
     const key = await seedCVKey();
     const res = await post('/bypass-payment', { tier: 'single', cv_text_key: key, bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
-    expect(res.status).toBe(400);
-    const body = await res.json();
-    expect(body.message).toMatch(/session_secret/i);
-  });
-
-  it('rejects session_secret shorter than 16 chars → 400', async () => {
-    const key = await seedCVKey();
-    const res = await post('/bypass-payment', { tier: 'single', cv_text_key: key, bypass_secret: 'test-bypass-secret', session_secret: 'short' }, {}, '5.5.5.5');
-    expect(res.status).toBe(400);
-    const body = await res.json();
-    expect(body.message).toMatch(/session_secret/i);
+    expect(res.status).toBe(200);
   });
 
   it('rejects malformed JSON body → 400', async () => {

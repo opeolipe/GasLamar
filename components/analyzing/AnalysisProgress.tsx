@@ -34,6 +34,11 @@ export default function AnalysisProgress({ progress, timerText, filename }: Prop
 
       <div className="w-full bg-slate-100 rounded-full h-3 mt-5 mb-2 overflow-hidden">
         <div
+          role="progressbar"
+          aria-valuenow={progress}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label="Progress analisis"
           className="h-full rounded-full"
           style={{
             width: `${progress}%`,

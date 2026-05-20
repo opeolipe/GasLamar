@@ -7,28 +7,23 @@
  *   (gaslamar.com) and staging (api-staging.gaslamar.com) environments where
  *   the cookie domain may still differ from the Pages subdomain.
  *
- * CSRF SECURITY ASSESSMENT — no CSRF tokens needed:
+ * CSRF SECURITY ASSESSMENT:
  *
- *   1. CORS allowlist: Access-Control-Allow-Origin is set from a strict allowlist
- *      (PRODUCTION_ORIGINS / STAGING_ORIGINS in constants.js — never '*'). Browsers block credentialed
- *      pre-flight responses from any other origin, so a cross-site attacker page
- *      cannot successfully send credentialed requests to this Worker.
+ *   1. Origin enforcement: router.js rejects unsafe methods from unlisted
+ *      browser Origins before handlers read request bodies or mutate data.
+ *      This is required because CORS alone does not stop cross-site form/no-cors
+ *      POSTs from being sent with cookies.
  *
  *   2. JSON-only API: All state-changing POST bodies use Content-Type:application/json.
- *      Browsers require a CORS pre-flight for non-simple content types, giving the
- *      allowlist check a chance to block attacker origins before any body is read.
+ *      Browsers require a CORS pre-flight for non-simple content types, and the
+ *      route-level Origin check also blocks simple cross-site fallbacks.
  *      No endpoint accepts application/x-www-form-urlencoded or multipart/form-data.
  *
- *   3. X-Session-Secret header: Sensitive operations (/generate, /session/ping) require
- *      this custom header. Cross-origin pages cannot set custom request headers without
- *      a pre-flight that CORS will block.
- *
- *   4. HttpOnly cookie: The session_id cookie is HttpOnly — a cross-site script cannot
+ *   3. HttpOnly cookie: The session_id cookie is HttpOnly — a cross-site script cannot
  *      read it, only the browser sends it automatically with credentialed requests.
  *
- *   Conclusion: the combination of strict CORS + JSON bodies + custom header provides
- *   CSRF protection equivalent to SameSite=Strict in a same-origin deployment.
- *   Traditional double-submit or synchronizer CSRF tokens are not required.
+ *   Conclusion: explicit Origin enforcement + JSON bodies + HttpOnly cookies are
+ *   the active CSRF controls for this cross-origin Worker/Pages deployment.
  */
 
 /** Parse a Cookie header string into a key→value plain object. */

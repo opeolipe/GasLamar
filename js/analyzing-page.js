@@ -35,6 +35,7 @@ let abortController = new AbortController();
 // Distinguish user-initiated cancel from our timeout abort
 let isTimedOut = false;
 let analysisTimeoutId = null;
+let retryInProgress = false;
 
 const trustMessages = [
   '🔒 CV tidak disimpan — aman',
@@ -55,7 +56,7 @@ function setStepDone(n) {
 function setStepActive(n) {
   const icon = document.getElementById('step' + n + 'Icon');
   if (!icon) return;
-  icon.textContent = '⟳';
+  icon.innerHTML = '<span aria-hidden="true">⟳</span>';
   icon.className = 'step-status spinning';
   icon.style.color = '#0F172A';
 }
@@ -215,10 +216,13 @@ async function runAnalysis() {
     document.getElementById('analyze-error-msg').textContent = msg;
     document.getElementById('analyze-error').style.display = 'block';
     document.getElementById('analyzeCard').style.display = 'none';
+    retryInProgress = false; // allow the retry button to work again
   }
 }
 
 function retryAnalysis() {
+  if (retryInProgress) return;
+  retryInProgress = true;
   document.getElementById('analyze-error').style.display = 'none';
   document.getElementById('analyzeCard').style.display = '';
   completedStep = 0;
@@ -265,7 +269,8 @@ function retryAnalysis() {
 }
 
 // Edit back link
-document.getElementById('editBackLink').addEventListener('click', (e) => {
+const _editBackLink = document.getElementById('editBackLink');
+if (_editBackLink) _editBackLink.addEventListener('click', (e) => {
   e.preventDefault();
   if (confirm('Batalkan analisis dan kembali ke halaman upload? Data tidak akan tersimpan.')) {
     clearTimeout(analysisTimeoutId);
@@ -281,7 +286,13 @@ document.getElementById('editBackLink').addEventListener('click', (e) => {
 });
 
 // Retry button
-document.getElementById('retry-analysis-btn').addEventListener('click', retryAnalysis);
+const _retryBtn = document.getElementById('retry-analysis-btn');
+if (_retryBtn) _retryBtn.addEventListener('click', retryAnalysis);
+
+// Reset in-progress guard if user navigates back via BFCache after a successful analysis
+window.addEventListener('pageshow', function(e) {
+  if (e.persisted) retryInProgress = false;
+});
 
 // Start analysis
 runAnalysis();

@@ -13,6 +13,15 @@ import { useSessionCountdown }                 from '@/hooks/useSessionCountdown
 import {
   WORKER_URL, TIER_CONFIG, buildResultData, DIM_LABELS,
 } from '@/lib/resultUtils';
+import { getExperimentVariant, trackExperimentExposure } from '@/lib/experiments';
+import {
+  PAGE_BG,
+  NAV_STYLE,
+  CARD_STYLE,
+  SECTION_HEADING,
+  MAIN_CONTAINER_CLASS,
+  MAIN_CONTAINER_MAX,
+} from '@/lib/pageChrome';
 import { validateEmail }   from '@/utils/emailValidation';
 import { suggestEmailFix } from '@/utils/emailTypo';
 
@@ -40,30 +49,11 @@ const ROLE_LABELS: Record<string, string> = {
   admin:            'Administrasi/GA',
 };
 
-const CARD_STYLE: React.CSSProperties = {
-  background:     'rgba(255,255,255,0.92)',
-  borderRadius:   24,
-  boxShadow:      '0 18px 44px rgba(15,23,42,0.07), 0 1px 2px rgba(15,23,42,0.04)',
-  padding:        '2rem',
-  border:         '1px solid rgba(148,163,184,0.14)',
-  backdropFilter: 'blur(14px)',
-  marginBottom:   '1.75rem',
-};
-
-const SECTION_HEADING: React.CSSProperties = {
-  fontSize:      '1.1rem',
-  fontWeight:    700,
-  color:         '#0F172A',
-  margin:        '0 0 1.25rem',
-  lineHeight:    1.3,
-  letterSpacing: '-0.01em',
-};
-
 function scoreHeadline(score: number): string {
   if (score >= 75) return 'CV kamu sudah cukup kompetitif';
   if (score >= 60) return 'CV kamu sudah di jalur yang benar';
-  if (score >= 50) return 'Masih beberapa hal yang bikin HR ragu';
-  return 'CV kamu belum cukup kuat untuk posisi ini';
+  if (score >= 50) return 'Masih ada beberapa hal yang bikin HR ragu';
+  return 'Peluangmu belum optimal, tapi masih bisa dikejar';
 }
 
 function verdictDesc(verdict: string | undefined, score: number): string {
@@ -76,7 +66,7 @@ function verdictDesc(verdict: string | undefined, score: number): string {
 function scoreInterpretation(score: number): string {
   if (score >= 75) return 'Beberapa perbaikan kecil sudah cukup untuk memperkuat peluang kamu di posisi ini.';
   if (score >= 60) return 'Beberapa gap kecil masih bisa diperbaiki untuk memperkuat peluang kamu.';
-  return 'Beberapa pengalaman dan keyword penting belum terlihat di CV kamu.';
+  return 'Beberapa pengalaman dan keyword penting belum terlihat, mulai dari 2 gap utama di bawah.';
 }
 
 function buildSnippetPreview(raw: string | null | undefined): string | null {
@@ -108,6 +98,8 @@ export default function Result() {
   );
 
   const [showAllDimensions,     setShowAllDimensions]     = useState(false);
+  const [resultFlowVariant,     setResultFlowVariant]     = useState<'on' | 'control'>('on');
+  const [stickyPayVariant,      setStickyPayVariant]      = useState<'on' | 'off'>('off');
   const [selectedTier,          setSelectedTier]          = useState<string | null>(null);
   const [email,                 setEmail]                 = useState('');
   const [emailError,            setEmailError]            = useState('');
@@ -118,7 +110,6 @@ export default function Result() {
   const [payBtnOverride,        setPayBtnOverride]        = useState<string | null>(null);
   const [paymentError,          setPaymentError]          = useState<string | null>(null);
   const [transitionInvoiceUrl,  setTransitionInvoiceUrl]  = useState<string | null>(null);
-  const [sessionExpiredByPay,   setSessionExpiredByPay]   = useState(false);
   const [showExpiryToast,       setShowExpiryToast]       = useState(false);
 
   const toastShownRef   = useRef(false);
@@ -127,6 +118,19 @@ export default function Result() {
   useEffect(() => {
     const saved = sessionStorage.getItem('gaslamar_tier') || localStorage.getItem('gaslamar_tier');
     if (saved && TIER_CONFIG[saved]) setSelectedTier(saved);
+  }, []);
+
+  useEffect(() => {
+    const flagKey = 'result_simplified_v1';
+    const variant = getExperimentVariant(flagKey, 'on');
+    const normalized = variant === 'control' ? 'control' : 'on';
+    setResultFlowVariant(normalized);
+    trackExperimentExposure(flagKey, normalized);
+    const stickyFlagKey = 'sticky_cta_after_tier_v1';
+    const stickyVariant = getExperimentVariant(stickyFlagKey, 'off');
+    const stickyNormalized = stickyVariant === 'on' ? 'on' : 'off';
+    setStickyPayVariant(stickyNormalized);
+    trackExperimentExposure(stickyFlagKey, stickyNormalized);
   }, []);
 
   useEffect(() => {
@@ -153,7 +157,7 @@ export default function Result() {
       : 'Pilih paket untuk melanjutkan'
   );
 
-  const payBtnDisabled = paymentInProgress || sessionExpiredByPay || !selectedTier;
+  const payBtnDisabled = paymentInProgress || !selectedTier;
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   function handleTierSelect(tier: string) {
@@ -246,7 +250,14 @@ export default function Result() {
         if (pending.invoice_url && notExpired) {
           if (tierMatches && noNewUpload) {
             let urlSafe = false;
-            try { urlSafe = new URL(pending.invoice_url).protocol === 'https:'; } catch (_) {}
+            try {
+              const p = new URL(pending.invoice_url);
+              const h = p.hostname;
+              urlSafe = p.protocol === 'https:' && (
+                h === 'mayar.id' || h.endsWith('.mayar.id') ||
+                h === 'mayar.club' || h.endsWith('.mayar.club')
+              );
+            } catch (_) {}
             if (!urlSafe) throw new Error('invalid_invoice_url');
             setPaymentInProgress(true);
             setPayBtnOverride('Mengalihkan ke halaman pembayaran...');
@@ -292,7 +303,6 @@ export default function Result() {
     setEmailSuggestion(null);
 
     const capturedEmail = email.trim();
-    try { sessionStorage.setItem('gaslamar_email', capturedEmail); } catch (_) {}
 
     ;(window as any).Analytics?.identify?.(capturedEmail, { tier: selectedTier, tier_price_idr: TIER_CONFIG[selectedTier].price });
     ;(window as any).Analytics?.track?.('payment_initiated', {
@@ -308,10 +318,6 @@ export default function Result() {
     setPaymentError(null);
     setPayBtnOverride('Membuat invoice...');
 
-    const sessionSecret = crypto.randomUUID
-      ? crypto.randomUUID()
-      : Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
-
     const controller = new AbortController();
     const timeout    = setTimeout(() => controller.abort(), 25000);
 
@@ -323,7 +329,6 @@ export default function Result() {
         body: JSON.stringify({
           tier:           selectedTier,
           cv_text_key:    cvTextKey,
-          session_secret: sessionSecret,
           email:          capturedEmail,
         }),
         signal: controller.signal,
@@ -334,28 +339,17 @@ export default function Result() {
       if (!response.ok) {
         const err    = await response.json().catch(() => ({}));
         const errMsg = (err as any).message || `Server error: ${response.status}`;
-        if ((response.status === 400 && errMsg.includes('kedaluwarsa')) || response.status === 403) {
-          setSessionExpiredByPay(true);
-          setPayBtnOverride(null);
+        if ((response.status === 400 && (err as any).code === 'cv_expired') || response.status === 403) {
           setPaymentInProgress(false);
+          window.location.replace('upload.html?reason=cv_expired');
           return;
         }
         throw new Error(errMsg);
       }
 
-      const { session_id, invoice_url } = await response.json();
+      const { invoice_url } = await response.json();
 
       ;(window as any).Analytics?.track?.('payment_session_created', { tier: selectedTier, tier_price_idr: TIER_CONFIG[selectedTier].price });
-
-      sessionStorage.setItem('gaslamar_session', session_id);
-      sessionStorage.setItem(`gaslamar_secret_${session_id}`, sessionSecret);
-      try {
-        localStorage.setItem('gaslamar_session', session_id);
-        localStorage.setItem(`gaslamar_secret_${session_id}`, sessionSecret);
-      } catch (_) {}
-      try {
-        localStorage.setItem('gaslamar_delivery', JSON.stringify({ sessionId: session_id, email: capturedEmail, sentAt: Date.now() }));
-      } catch (_) {}
 
       let validUrl = false;
       try { const parsed = new URL(invoice_url); validUrl = parsed.protocol === 'https:'; } catch (_) {}
@@ -460,7 +454,7 @@ export default function Result() {
   return (
     <div
       className="min-h-dvh text-gray-900 font-sans"
-      style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37,99,235,0.08), transparent)' }}
+      style={{ background: PAGE_BG }}
     >
       {/* 5-minute expiry toast — bottom-right, non-blocking */}
       {showExpiryToast && (
@@ -484,7 +478,7 @@ export default function Result() {
       {/* Navbar */}
       <nav
         className="border-b py-4 px-6 flex items-center sticky top-0 z-50 backdrop-blur-[14px]"
-        style={{ borderColor: 'rgba(148,163,184,0.18)', background: 'rgba(255,255,255,0.88)' }}
+        style={NAV_STYLE}
       >
         <a href="index.html" className="no-underline min-h-[44px] inline-flex items-center">
           <img src="assets/logo.svg" alt="GasLamar" height="28" style={{ display: 'block' }} />
@@ -492,7 +486,7 @@ export default function Result() {
       </nav>
 
       {/* ── Single-column page container ── */}
-      <main id="main-content" className="mx-auto px-5 sm:px-8 py-8 pb-20" style={{ maxWidth: 1040 }}>
+      <main id="main-content" className={MAIN_CONTAINER_CLASS} style={{ maxWidth: MAIN_CONTAINER_MAX }}>
 
         {/* ── Loading ── */}
         {loading && (
@@ -571,6 +565,14 @@ export default function Result() {
 
               <RedFlags redFlags={data.red_flags || []} />
 
+              {(data.gap || []).length === 0 && (data.red_flags || []).length === 0 && (
+                <div style={{ background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: 14, padding: '0.9rem 1.1rem', marginBottom: '1rem' }}>
+                  <p style={{ margin: 0, fontSize: '0.87rem', color: '#166534', lineHeight: 1.55 }}>
+                    Bagian utama CV kamu sudah cukup rapi. Fokus berikutnya: pertajam hasil kerja terukur agar lebih meyakinkan recruiter.
+                  </p>
+                </div>
+              )}
+
               {result6d && (
                 <>
                   <button
@@ -595,7 +597,11 @@ export default function Result() {
                       transition:     'background 0.15s',
                     }}
                   >
-                    {showAllDimensions ? 'Sembunyikan ↑' : 'Lihat analisis lengkap →'}
+                    {showAllDimensions
+                      ? 'Sembunyikan detail ↑'
+                      : resultFlowVariant === 'control'
+                      ? 'Lihat analisis lengkap →'
+                      : 'Ringkasan: 2 area perlu diperbaiki. Lihat detail →'}
                   </button>
                   {showAllDimensions && (
                     <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid rgba(148,163,184,0.14)' }}>
@@ -654,30 +660,43 @@ export default function Result() {
             </div>
 
             {/* ── SECTION 3: Yang perlu diperbaiki ── */}
-            <div style={CARD_STYLE}>
-              <h2 style={SECTION_HEADING}>Yang perlu diperbaiki</h2>
-
-              {(data.rekomendasi || []).length > 0 && (
-                <div data-testid="fix-before-after" style={{ marginBottom: '1.25rem' }}>
-                  <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    {(data.rekomendasi || []).map((r, i) => (
-                      <li key={i} style={{ fontSize: '0.9rem', color: '#111827', display: 'flex', gap: '0.65rem', alignItems: 'flex-start' }}>
-                        <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 3 }}>→</span>
-                        <span style={{
-                          minWidth:     0,
-                          lineHeight:   1.6,
-                          overflowWrap: 'break-word',
-                          wordBreak:    'break-word',
-                        }}>
-                          {r}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+            {resultFlowVariant === 'control' ? (
+              <div style={CARD_STYLE}>
+                <h2 style={SECTION_HEADING}>Yang perlu diperbaiki</h2>
+                {(data.rekomendasi || []).length > 0 && (
+                  <div data-testid="fix-before-after" style={{ marginBottom: '1.25rem' }}>
+                    <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      {(data.rekomendasi || []).map((r, i) => (
+                        <li key={i} style={{ fontSize: '0.9rem', color: '#111827', display: 'flex', gap: '0.65rem', alignItems: 'flex-start' }}>
+                          <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 3 }}>→</span>
+                          <span style={{ minWidth: 0, lineHeight: 1.6, overflowWrap: 'break-word', wordBreak: 'break-word' }}>{r}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <details style={CARD_STYLE}>
+                <summary style={{ ...SECTION_HEADING, marginBottom: 0, cursor: 'pointer', minHeight: 44, display: 'flex', alignItems: 'center' }}>
+                  Rencana perbaikan CV (opsional dilihat)
+                </summary>
+                <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(148,163,184,0.14)', paddingTop: '1rem' }}>
+                  {(data.rekomendasi || []).length > 0 && (
+                    <div data-testid="fix-before-after" style={{ marginBottom: '1.25rem' }}>
+                      <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {(data.rekomendasi || []).map((r, i) => (
+                          <li key={i} style={{ fontSize: '0.9rem', color: '#111827', display: 'flex', gap: '0.65rem', alignItems: 'flex-start' }}>
+                            <span style={{ color: '#2563EB', fontWeight: 700, flexShrink: 0, marginTop: 3 }}>→</span>
+                            <span style={{ minWidth: 0, lineHeight: 1.6, overflowWrap: 'break-word', wordBreak: 'break-word' }}>{r}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
-              )}
-
-            </div>
+              </details>
+            )}
 
             {/* ── SECTION 3.5: CV Snippet Preview ── */}
             {snippetPreviewText && (
@@ -740,6 +759,12 @@ export default function Result() {
                 score={data.skor}
               />
 
+              {!selectedTier && (
+                <p role="status" style={{ margin: '0.4rem 0 0.6rem', fontSize: '0.8rem', color: '#6B7280', textAlign: 'center' }}>
+                  <span aria-hidden="true">↑</span> Pilih paket di atas untuk melanjutkan pembayaran
+                </p>
+              )}
+
               {/* Payment block — email + CTA grouped */}
               <div style={{
                 background:   'rgba(37,99,235,0.03)',
@@ -760,20 +785,6 @@ export default function Result() {
                   isDisposable={emailIsDisposable}
                   isConfirmed={emailIsConfirmed}
                 />
-
-                {sessionExpiredByPay && (
-                  <div style={{ marginBottom: '1rem', padding: '1rem', background: '#FFFBEB', border: '1px solid rgba(252,211,77,0.5)', borderRadius: 16, textAlign: 'center' }}>
-                    <p style={{ color: '#92400E', fontWeight: 600, fontSize: '0.88rem', margin: '0 0 0.5rem' }}>
-                      Sesi analisis sudah kedaluwarsa (30 menit)
-                    </p>
-                    <p style={{ color: '#78350F', fontSize: '0.875rem', margin: '0 0 0.75rem' }}>
-                      Upload ulang CV kamu untuk melanjutkan.
-                    </p>
-                    <a href="upload.html" style={{ display: 'inline-block', background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', fontWeight: 700, padding: '0.65rem 1.5rem', borderRadius: 60, textDecoration: 'none', fontSize: '0.88rem', boxShadow: '0 8px 24px rgba(37,99,235,0.25)' }}>
-                      Upload CV Lagi →
-                    </a>
-                  </div>
-                )}
 
                 {/* Pay button */}
                 <button
@@ -800,8 +811,8 @@ export default function Result() {
                   {payBtnLabel}
                 </button>
 
-                {emailIsConfirmed && !sessionExpiredByPay && (
-                  <p style={{ fontSize: '0.8rem', color: '#374151', textAlign: 'center', marginTop: '0.5rem' }}>
+                {emailIsConfirmed && (
+                  <p role="status" style={{ fontSize: '0.8rem', color: '#374151', textAlign: 'center', marginTop: '0.5rem' }}>
                     <span aria-hidden="true">📬</span> CV akan dikirim ke: <strong>{email.trim()}</strong>
                   </p>
                 )}
@@ -853,6 +864,42 @@ export default function Result() {
       `}</style>
 
       <PaymentTransition invoiceUrl={transitionInvoiceUrl} />
+
+      {stickyPayVariant === 'on' && selectedTier && !transitionInvoiceUrl && (
+        <div
+          className="md:hidden"
+          style={{
+            position: 'fixed',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 100,
+            background: 'rgba(255,255,255,0.96)',
+            borderTop: '1px solid rgba(148,163,184,0.18)',
+            backdropFilter: 'blur(14px)',
+            padding: '0.75rem 1rem',
+            paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))',
+          }}
+        >
+          <button
+            type="button"
+            onClick={scrollToPricing}
+            style={{
+              width: '100%',
+              minHeight: 48,
+              borderRadius: 16,
+              border: 'none',
+              background: '#1B4FE8',
+              color: 'white',
+              fontWeight: 700,
+              fontSize: '0.95rem',
+              boxShadow: '0 8px 24px rgba(37,99,235,0.30)',
+            }}
+          >
+            Lanjut ke pembayaran aman →
+          </button>
+        </div>
+      )}
     </div>
   );
 }

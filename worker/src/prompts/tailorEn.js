@@ -150,6 +150,13 @@ NUMBERS (HARD RULE — ZERO TOLERANCE):
 - PROHIBITED: adding, changing, estimating, or fabricating numbers
 - No numbers in original → write bullet without metric, NO placeholders
 
+NUMBER RULES (MOST IMPORTANT):
+- NEVER add numbers, percentages, or metrics that are not in the original CV.
+- If the original CV says "increased sales", do NOT rewrite as "increased sales by 20%".
+- If the original CV says "managed a team", do NOT rewrite as "managed a team of 5".
+- Specific does NOT mean invented numbers. Specific means real client, product, region, or context already in the CV.
+- Safe example: "Maintained partnership with Siloam Hospital" (hospital named in the original CV).
+
 WHEN THERE ARE NO NUMBERS — how to stay concrete without fabricating:
 Mine context that is ALREADY IN the CV to give bullets weight:
 - Geographic scope: use real regions from the CV (e.g., "East Java region", "all Jakarta branches")

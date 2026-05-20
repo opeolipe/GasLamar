@@ -1,0 +1,2057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>GasLamar — System Architecture</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --bg: #0a0c0f;
+    --bg2: #0f1218;
+    --bg3: #151b24;
+    --bg4: #1c2533;
+    --border: #1e2d3d;
+    --border2: #253545;
+    --text: #c9d6e3;
+    --text-dim: #5c7a94;
+    --text-dimmer: #2e4258;
+    --accent: #00d4ff;
+    --accent2: #ff6b35;
+    --accent3: #7fff47;
+    --accent4: #c77dff;
+    --accent5: #ffd166;
+    --accent6: #06d6a0;
+    --glow: rgba(0, 212, 255, 0.12);
+    --glow2: rgba(255, 107, 53, 0.1);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13px;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Scanline */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.05) 2px,
+      rgba(0,0,0,0.05) 4px
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+
+  /* ── Header ── */
+  .header {
+    padding: 48px 0 40px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 48px;
+  }
+
+  .header-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .logo-badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: rgba(0,212,255,0.08);
+    border: 1px solid rgba(0,212,255,0.2);
+    padding: 4px 10px;
+    border-radius: 2px;
+  }
+
+  .version-badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 2px;
+  }
+
+  h1 {
+    font-size: 40px;
+    font-weight: 300;
+    letter-spacing: -0.02em;
+    color: #fff;
+    margin-bottom: 8px;
+  }
+
+  h1 span {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .header-sub {
+    font-size: 14px;
+    color: var(--text-dim);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .header-sub .sep { color: var(--text-dimmer); margin: 0 8px; }
+
+  /* ── Section ── */
+  .section {
+    margin-bottom: 48px;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .section:nth-child(2) { animation-delay: 0.05s; }
+  .section:nth-child(3) { animation-delay: 0.10s; }
+  .section:nth-child(4) { animation-delay: 0.15s; }
+  .section:nth-child(5) { animation-delay: 0.20s; }
+  .section:nth-child(6) { animation-delay: 0.25s; }
+  .section:nth-child(7) { animation-delay: 0.30s; }
+
+  .section-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-dimmer);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .section-title {
+    font-size: 20px;
+    font-weight: 500;
+    color: #fff;
+    margin-bottom: 20px;
+    letter-spacing: -0.01em;
+  }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px 24px;
+    transition: border-color 0.2s;
+  }
+
+  .card:hover { border-color: var(--border2); }
+
+  .card-accent {
+    border-left: 2px solid var(--accent);
+  }
+
+  /* ── System Overview ── */
+  .overview-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .system-layer {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .system-layer::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .layer-frontend::before { background: var(--accent); }
+  .layer-backend::before { background: var(--accent2); }
+  .layer-infra::before { background: var(--accent4); }
+
+  .layer-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .layer-frontend .layer-title { color: var(--accent); }
+  .layer-backend .layer-title { color: var(--accent2); }
+  .layer-infra .layer-title { color: var(--accent4); }
+
+  .layer-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    margin-bottom: 4px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.02);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text);
+  }
+
+  .layer-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .dot-cyan { background: var(--accent); }
+  .dot-orange { background: var(--accent2); }
+  .dot-purple { background: var(--accent4); }
+  .dot-green { background: var(--accent3); }
+  .dot-yellow { background: var(--accent5); }
+  .dot-teal { background: var(--accent6); }
+
+  /* ── User Journey ── */
+  .journey-flow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    scrollbar-width: none;
+  }
+
+  .journey-flow::-webkit-scrollbar { display: none; }
+
+  .journey-page {
+    flex-shrink: 0;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px 16px;
+    text-align: center;
+    min-width: 110px;
+    position: relative;
+    transition: border-color 0.2s, background 0.2s;
+    cursor: default;
+  }
+
+  .journey-page:hover {
+    border-color: var(--accent);
+    background: rgba(0,212,255,0.04);
+  }
+
+  .journey-page-name {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+
+  .journey-page-file {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .journey-arrow {
+    flex-shrink: 0;
+    color: var(--text-dimmer);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 16px;
+    padding: 0 4px;
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .journey-arrow-label {
+    font-size: 8px;
+    color: var(--text-dimmer);
+    white-space: nowrap;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── Pipeline ── */
+  .pipeline-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .pipeline-stage {
+    padding: 20px 16px;
+    border-right: 1px solid var(--border);
+    position: relative;
+    transition: background 0.2s;
+    cursor: default;
+  }
+
+  .pipeline-stage:last-child { border-right: none; }
+
+  .pipeline-stage:hover {
+    background: rgba(255,255,255,0.02);
+  }
+
+  .pipeline-stage::after {
+    content: '▶';
+    position: absolute;
+    right: -7px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 8px;
+    color: var(--text-dimmer);
+    z-index: 2;
+  }
+
+  .pipeline-stage:last-child::after { display: none; }
+
+  .stage-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: var(--text-dimmer);
+    margin-bottom: 8px;
+  }
+
+  .stage-name {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .stage-type {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 2px;
+    display: inline-block;
+    margin-bottom: 10px;
+  }
+
+  .type-llm {
+    background: rgba(199,125,255,0.12);
+    color: var(--accent4);
+    border: 1px solid rgba(199,125,255,0.2);
+  }
+
+  .type-js {
+    background: rgba(127,255,71,0.08);
+    color: var(--accent3);
+    border: 1px solid rgba(127,255,71,0.15);
+  }
+
+  .stage-detail {
+    font-size: 10px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  .stage-cache {
+    margin-top: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    color: var(--text-dimmer);
+    background: rgba(0,0,0,0.3);
+    padding: 4px 6px;
+    border-radius: 2px;
+    border: 1px solid var(--border);
+  }
+
+  .stage-1 .stage-name { color: var(--accent4); }
+  .stage-2 .stage-name { color: var(--accent3); }
+  .stage-25 .stage-name { color: var(--accent3); }
+  .stage-3 .stage-name { color: var(--accent3); }
+  .stage-4 .stage-name { color: var(--accent4); }
+  .stage-5 .stage-name { color: var(--accent4); }
+
+  /* ── Session State Machine ── */
+  .states-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .state-box {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 14px 16px;
+    position: relative;
+  }
+
+  .state-name {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .state-pending { border-top: 2px solid var(--accent5); }
+  .state-pending .state-name { color: var(--accent5); }
+
+  .state-paid { border-top: 2px solid var(--accent); }
+  .state-paid .state-name { color: var(--accent); }
+
+  .state-generating { border-top: 2px solid var(--accent2); }
+  .state-generating .state-name { color: var(--accent2); }
+
+  .state-ready { border-top: 2px solid var(--accent3); }
+  .state-ready .state-name { color: var(--accent3); }
+
+  .state-exhausted { border-top: 2px solid var(--text-dimmer); }
+  .state-exhausted .state-name { color: var(--text-dim); }
+
+  .state-desc {
+    font-size: 10px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  .transitions-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+
+  .transitions-table th {
+    background: var(--bg3);
+    color: var(--text-dim);
+    font-weight: 600;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .transitions-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  .transitions-table tr:last-child td { border-bottom: none; }
+  .transitions-table tr:hover td { background: rgba(255,255,255,0.015); }
+
+  .t-from { font-family: 'IBM Plex Mono', monospace; }
+  .t-to { font-family: 'IBM Plex Mono', monospace; }
+
+  .t-arrow { color: var(--text-dimmer); font-family: 'IBM Plex Mono', monospace; }
+  .t-trigger { color: var(--text-dim); font-size: 10px; }
+
+  /* ── Cache Table ── */
+  .cache-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+
+  .cache-table th {
+    background: var(--bg3);
+    color: var(--text-dim);
+    font-weight: 600;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .cache-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+  }
+
+  .cache-table tr:last-child td { border-bottom: none; }
+  .cache-table tr:hover td { background: rgba(255,255,255,0.015); }
+
+  .ttl-badge {
+    font-size: 9px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 2px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .ttl-24 { background: rgba(0,212,255,0.1); color: var(--accent); border: 1px solid rgba(0,212,255,0.2); }
+  .ttl-48 { background: rgba(199,125,255,0.1); color: var(--accent4); border: 1px solid rgba(199,125,255,0.2); }
+  .ttl-7d { background: rgba(255,209,102,0.1); color: var(--accent5); border: 1px solid rgba(255,209,102,0.2); }
+  .ttl-30d { background: rgba(6,214,160,0.1); color: var(--accent6); border: 1px solid rgba(6,214,160,0.2); }
+  .ttl-other { background: rgba(255,255,255,0.04); color: var(--text-dim); border: 1px solid var(--border); }
+
+  /* ── Pricing ── */
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  .tier-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px;
+    position: relative;
+    transition: border-color 0.2s, transform 0.2s;
+    cursor: default;
+  }
+
+  .tier-card:hover {
+    border-color: var(--border2);
+    transform: translateY(-2px);
+  }
+
+  .tier-card.featured {
+    border-color: rgba(0,212,255,0.3);
+    background: linear-gradient(135deg, rgba(0,212,255,0.04) 0%, transparent 60%);
+  }
+
+  .tier-name {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+
+  .tier-price {
+    font-size: 22px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 2px;
+    letter-spacing: -0.02em;
+  }
+
+  .tier-price span {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+
+  .tier-credits {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .tier-features {
+    list-style: none;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .tier-features li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 0;
+  }
+
+  .tier-features li::before {
+    content: '·';
+    color: var(--accent);
+    font-size: 14px;
+    line-height: 1;
+  }
+
+  /* ── External Services ── */
+  .services-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  .service-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 16px;
+  }
+
+  .service-name {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .service-detail {
+    font-size: 10px;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+
+  .service-tag {
+    display: inline-block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    margin-top: 8px;
+    margin-right: 4px;
+  }
+
+  /* ── Data Flow ── */
+  .flow-container {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 24px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    overflow-x: auto;
+  }
+
+  .flow-row {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin-bottom: 12px;
+    position: relative;
+  }
+
+  .flow-row:last-child { margin-bottom: 0; }
+
+  .flow-node {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 3px;
+    padding: 8px 14px;
+    white-space: nowrap;
+    font-size: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 160px;
+  }
+
+  .flow-node-title {
+    font-weight: 600;
+    color: #fff;
+    font-size: 10px;
+  }
+
+  .flow-node-sub {
+    color: var(--text-dim);
+    font-size: 9px;
+  }
+
+  .flow-connector {
+    display: flex;
+    align-items: center;
+    color: var(--text-dimmer);
+    padding: 0 8px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  .flow-connector-v {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dimmer);
+    font-size: 14px;
+    margin: 2px 0 2px 20px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .flow-note {
+    font-size: 9px;
+    color: var(--text-dimmer);
+    margin-left: 4px;
+    align-self: center;
+    white-space: nowrap;
+  }
+
+  /* ── Invariants ── */
+  .invariants-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .invariant-item {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 10px 14px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .invariant-icon {
+    width: 16px;
+    height: 16px;
+    background: rgba(0,214,160,0.1);
+    border: 1px solid rgba(0,214,160,0.2);
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    flex-shrink: 0;
+    margin-top: 1px;
+    color: var(--accent6);
+  }
+
+  /* ── Environments ── */
+  .env-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+  }
+
+  .env-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 16px;
+  }
+
+  .env-name {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .env-prod .env-name { color: var(--accent2); }
+  .env-staging .env-name { color: var(--accent5); }
+  .env-local .env-name { color: var(--accent3); }
+
+  .env-item {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    padding: 3px 0;
+    display: flex;
+    gap: 6px;
+  }
+
+  .env-item-label {
+    color: var(--text-dimmer);
+    min-width: 60px;
+    flex-shrink: 0;
+  }
+
+  /* ── Mono code ── */
+  .mono {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    background: rgba(0,0,0,0.3);
+    padding: 1px 5px;
+    border-radius: 2px;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 1100px) {
+    .pipeline-grid { grid-template-columns: repeat(3, 1fr); }
+    .overview-grid { grid-template-columns: 1fr 1fr; }
+    .states-grid { grid-template-columns: repeat(3, 1fr); }
+    .pricing-grid { grid-template-columns: repeat(2, 1fr); }
+    .services-grid { grid-template-columns: repeat(2, 1fr); }
+    .env-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  @media (max-width: 768px) {
+    h1 { font-size: 28px; }
+    .pipeline-grid { grid-template-columns: repeat(2, 1fr); }
+    .overview-grid { grid-template-columns: 1fr; }
+    .states-grid { grid-template-columns: repeat(2, 1fr); }
+    .pricing-grid { grid-template-columns: 1fr 1fr; }
+    .services-grid { grid-template-columns: 1fr 1fr; }
+    .invariants-grid { grid-template-columns: 1fr; }
+    .env-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- ── HEADER ── -->
+  <header class="header">
+    <div class="header-top">
+      <span class="logo-badge">GasLamar</span>
+      <span class="version-badge">Architecture v1</span>
+    </div>
+    <h1>System <span>Architecture</span></h1>
+    <p class="header-sub">
+      Cloudflare Workers + Pages
+      <span class="sep">/</span>
+      Claude API (Sonnet · Haiku)
+      <span class="sep">/</span>
+      Mayar Payments
+      <span class="sep">/</span>
+      Cloudflare KV
+    </p>
+  </header>
+
+  <!-- ── 1. SYSTEM OVERVIEW ── -->
+  <section class="section">
+    <div class="section-label">01 — System Overview</div>
+    <div class="overview-grid">
+      <div class="system-layer layer-frontend">
+        <div class="layer-title">Frontend — Cloudflare Pages</div>
+        <div class="layer-item"><span class="layer-dot dot-cyan"></span>index.html — Landing</div>
+        <div class="layer-item"><span class="layer-dot dot-cyan"></span>upload.html — CV + JD upload</div>
+        <div class="layer-item"><span class="layer-dot dot-cyan"></span>analyzing.html — Processing</div>
+        <div class="layer-item"><span class="layer-dot dot-cyan"></span>hasil.html — Results + payment</div>
+        <div class="layer-item"><span class="layer-dot dot-cyan"></span>download.html — CV export</div>
+        <div class="layer-item"><span class="layer-dot dot-cyan"></span>access.html — Session recovery</div>
+        <div class="layer-item" style="margin-top:8px;opacity:0.6"><span class="layer-dot dot-cyan"></span>docx.js + jsPDF (client-side export)</div>
+      </div>
+      <div class="system-layer layer-backend">
+        <div class="layer-title">Backend — Cloudflare Workers</div>
+        <div class="layer-item"><span class="layer-dot dot-orange"></span>router.js — Request dispatch</div>
+        <div class="layer-item"><span class="layer-dot dot-orange"></span>POST /analyze — Main pipeline</div>
+        <div class="layer-item"><span class="layer-dot dot-orange"></span>POST /generate — CV tailoring</div>
+        <div class="layer-item"><span class="layer-dot dot-orange"></span>POST /create-payment — Invoice</div>
+        <div class="layer-item"><span class="layer-dot dot-orange"></span>POST /webhook/mayar — Payment hook</div>
+        <div class="layer-item"><span class="layer-dot dot-orange"></span>POST /get-session — Auth + lock</div>
+        <div class="layer-item"><span class="layer-dot dot-orange"></span>GET /get-scoring — Score fetch</div>
+        <div class="layer-item"><span class="layer-dot dot-orange"></span>POST /interview-kit, /feedback…</div>
+      </div>
+      <div class="system-layer layer-infra">
+        <div class="layer-title">Infrastructure + Storage</div>
+        <div class="layer-item"><span class="layer-dot dot-purple"></span>Cloudflare KV — Sessions + cache</div>
+        <div class="layer-item"><span class="layer-dot dot-purple"></span>CF Rate Limiter (native + KV)</div>
+        <div class="layer-item"><span class="layer-dot dot-purple"></span>Anthropic Claude — Extract / Tailor</div>
+        <div class="layer-item"><span class="layer-dot dot-purple"></span>Mayar — Payment gateway</div>
+        <div class="layer-item"><span class="layer-dot dot-purple"></span>Resend — Transactional email</div>
+        <div class="layer-item" style="margin-top:8px;opacity:0.6"><span class="layer-dot dot-purple"></span>prod: gaslamar.com</div>
+        <div class="layer-item" style="opacity:0.6"><span class="layer-dot dot-purple"></span>staging: api-staging.gaslamar.com</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 2. USER JOURNEY ── -->
+  <section class="section">
+    <div class="section-label">02 — User Journey</div>
+    <div class="card" style="padding: 20px 20px 16px; overflow-x: auto;">
+      <div class="journey-flow">
+        <div class="journey-page">
+          <div class="journey-page-name">Landing</div>
+          <div class="journey-page-file">index.html</div>
+        </div>
+        <div class="journey-arrow">→</div>
+        <div class="journey-page">
+          <div class="journey-page-name">Upload</div>
+          <div class="journey-page-file">upload.html</div>
+        </div>
+        <div class="journey-arrow">
+          <div>→</div>
+          <div class="journey-arrow-label">POST /analyze</div>
+        </div>
+        <div class="journey-page">
+          <div class="journey-page-name">Analyzing</div>
+          <div class="journey-page-file">analyzing.html</div>
+        </div>
+        <div class="journey-arrow">→</div>
+        <div class="journey-page" style="border-color: rgba(0,212,255,0.3);">
+          <div class="journey-page-name">Results</div>
+          <div class="journey-page-file">hasil.html</div>
+        </div>
+        <div class="journey-arrow">
+          <div>→</div>
+          <div class="journey-arrow-label">POST /create-payment</div>
+        </div>
+        <div class="journey-page">
+          <div class="journey-page-name">Mayar</div>
+          <div class="journey-page-file">checkout</div>
+        </div>
+        <div class="journey-arrow">
+          <div>→</div>
+          <div class="journey-arrow-label">webhook</div>
+        </div>
+        <div class="journey-page">
+          <div class="journey-page-name">Download</div>
+          <div class="journey-page-file">download.html</div>
+        </div>
+        <div class="journey-arrow">
+          <div>→</div>
+          <div class="journey-arrow-label">POST /generate</div>
+        </div>
+        <div class="journey-page" style="border-color: rgba(127,255,71,0.3);">
+          <div class="journey-page-name" style="color: var(--accent3);">Export</div>
+          <div class="journey-page-file">DOCX / PDF</div>
+        </div>
+      </div>
+      <div style="margin-top: 14px; display: flex; gap: 16px; font-size: 10px; color: var(--text-dimmer); font-family: 'IBM Plex Mono', monospace; flex-wrap: wrap;">
+        <span>↙ session expired → <span style="color: var(--text-dim)">access.html</span></span>
+        <span>↙ email link → <span style="color: var(--text-dim)">exchange-token.html → download.html</span></span>
+        <span>↙ multi-credit → <span style="color: var(--text-dim)">loop back to download</span></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 3. PIPELINE ── -->
+  <section class="section">
+    <div class="section-label">03 — Analysis Pipeline (POST /analyze → POST /generate)</div>
+    <div class="pipeline-grid">
+      <div class="pipeline-stage stage-1">
+        <div class="stage-num">STAGE 1</div>
+        <div class="stage-name">EXTRACT</div>
+        <span class="stage-type type-llm">LLM</span>
+        <div class="stage-detail">
+          Claude parses raw CV (PDF/DOCX/TXT) + JD into structured JSON schema.<br><br>
+          Outputs: nama, skills, pengalaman, angka_di_cv, entitas_klaim, jd requirements.
+        </div>
+        <div class="stage-cache">extract_v5_&lt;hash&gt; · 24h</div>
+      </div>
+      <div class="pipeline-stage stage-2">
+        <div class="stage-num">STAGE 2</div>
+        <div class="stage-name">ANALYZE</div>
+        <span class="stage-type type-js">Pure JS</span>
+        <div class="stage-detail">
+          Deterministic skill match scoring, format issue detection, archetype classification, red-flag detection.
+        </div>
+        <div class="stage-cache">part of analysis_v16_* · 48h</div>
+      </div>
+      <div class="pipeline-stage stage-25">
+        <div class="stage-num">STAGE 2.5</div>
+        <div class="stage-name">ROLE INFER</div>
+        <span class="stage-type type-js">Pure JS</span>
+        <div class="stage-detail">
+          Keyword-based role / seniority / industry classifier. Feeds weight bias into scoring, diagnose context, and tailor mode.
+        </div>
+        <div class="stage-cache">part of analysis_v16_* · 48h</div>
+      </div>
+      <div class="pipeline-stage stage-3">
+        <div class="stage-num">STAGE 3</div>
+        <div class="stage-name">SCORE</div>
+        <span class="stage-type type-js">Pure JS</span>
+        <div class="stage-detail">
+          5D weighted formula → skor [0–100], verdict (DO / TIMED / DO NOT), skor_sesudah, timebox_weeks. Role-weight bias applied.
+        </div>
+        <div class="stage-cache">part of analysis_v16_* · 48h</div>
+      </div>
+      <div class="pipeline-stage stage-4">
+        <div class="stage-num">STAGE 4</div>
+        <div class="stage-name">DIAGNOSE</div>
+        <span class="stage-type type-llm">LLM</span>
+        <div class="stage-detail">
+          Claude generates human-readable gap explanations, recommendations, strengths. Cannot alter scores — read-only.
+        </div>
+        <div class="stage-cache">part of analysis_v16_* · 48h</div>
+      </div>
+      <div class="pipeline-stage stage-5">
+        <div class="stage-num">STAGE 5</div>
+        <div class="stage-name">REWRITE</div>
+        <span class="stage-type type-llm">LLM</span>
+        <div class="stage-detail">
+          Claude tailors CV bullets to match JD keywords. Ground-truth block (angka_di_cv, entitas_klaim) prevents hallucination. rewriteGuard validates every bullet.
+        </div>
+        <div class="stage-cache">gen_id_v13_* / gen_en_v13_* · 48h</div>
+      </div>
+    </div>
+    <div style="margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+      <div class="card" style="padding: 12px 16px; font-size: 10px; color: var(--text-dim); font-family: 'IBM Plex Mono', monospace;">
+        <span style="color: var(--accent3); font-weight: 600;">STAGE 6 · VALIDATE</span> — After every LLM call (1, 4, 5). JSON schema check + 1 automatic retry on failure.
+      </div>
+      <div class="card" style="padding: 12px 16px; font-size: 10px; color: var(--text-dim); font-family: 'IBM Plex Mono', monospace;">
+        <span style="color: var(--accent4); font-weight: 600;">MODELS</span> — Prod extract/diagnose: <span style="color: var(--text)">claude-sonnet-4-6</span>. Staging + all tailoring: <span style="color: var(--text)">claude-haiku-4-5-20251001</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 4. SCORING DIMENSIONS ── -->
+  <section class="section">
+    <div class="section-label">04 — Scoring Model</div>
+    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 16px;">
+      <div class="card" style="padding: 14px 16px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent); margin-bottom: 4px;">north_star</div>
+        <div style="font-size: 10px; color: var(--text-dim);">CV content ↔ JD title token match. Primary relevance signal.</div>
+      </div>
+      <div class="card" style="padding: 14px 16px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent2); margin-bottom: 4px;">recruiter_signal</div>
+        <div style="font-size: 10px; color: var(--text-dim);">Formatting, typos, professional tone. ATS scannability.</div>
+      </div>
+      <div class="card" style="padding: 14px 16px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent4); margin-bottom: 4px;">effort</div>
+        <div style="font-size: 10px; color: var(--text-dim);">Gap size → improvement potential via tailoring.</div>
+      </div>
+      <div class="card" style="padding: 14px 16px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent5); margin-bottom: 4px;">risk</div>
+        <div style="font-size: 10px; color: var(--text-dim);">Red flags, experience gaps, archetype fit.</div>
+      </div>
+      <div class="card" style="padding: 14px 16px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent3); margin-bottom: 4px;">portfolio</div>
+        <div style="font-size: 10px; color: var(--text-dim);">Numbers/metrics in CV. Track record evidence.</div>
+      </div>
+    </div>
+    <div class="card" style="padding: 14px 20px; font-size: 11px; color: var(--text-dim); font-family: 'IBM Plex Mono', monospace; display: flex; gap: 32px; flex-wrap: wrap;">
+      <span><span style="color: var(--text-dimmer)">verdict</span>  DO ≥70 + effort≥6  <span style="color: var(--accent3); font-weight:600">▶</span>  TIMED 50–69  <span style="color: var(--accent5); font-weight:600">▶</span>  DO NOT &lt;50</span>
+      <span><span style="color: var(--text-dimmer)">red-flag penalty</span>  -15 (1) · -20 (2) · -25 (3+) · extra -10 on ATS/format flags</span>
+      <span><span style="color: var(--text-dimmer)">skor_sesudah</span>  = skor + 10 + improvement, rounded ×5, clamped [skor+10, 95]</span>
+    </div>
+  </section>
+
+  <!-- ── 5. SESSION STATE MACHINE ── -->
+  <section class="section">
+    <div class="section-label">05 — Session State Machine</div>
+    <div class="states-grid">
+      <div class="state-box state-pending">
+        <div class="state-name">pending_payment</div>
+        <div class="state-desc">Invoice created. Awaiting Mayar webhook payment confirmation.</div>
+      </div>
+      <div class="state-box state-paid">
+        <div class="state-name">paid</div>
+        <div class="state-desc">Payment confirmed. No generation started yet. Credits full.</div>
+      </div>
+      <div class="state-box state-generating">
+        <div class="state-name">generating</div>
+        <div class="state-desc">CV tailoring in progress. Lock held 120s. Blocks duplicate requests.</div>
+      </div>
+      <div class="state-box state-ready">
+        <div class="state-name">ready</div>
+        <div class="state-desc">Generation succeeded. Credits remaining. Can regenerate.</div>
+      </div>
+      <div class="state-box state-exhausted">
+        <div class="state-name">exhausted</div>
+        <div class="state-desc">All credits consumed. Session preserved (not deleted). Terminal.</div>
+      </div>
+    </div>
+    <div class="card" style="padding: 0; overflow: hidden;">
+      <table class="transitions-table">
+        <thead>
+          <tr>
+            <th>FROM</th>
+            <th></th>
+            <th>TO</th>
+            <th>TRIGGER</th>
+            <th>ACTION</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="t-from" style="color: var(--accent5)">pending_payment</td>
+            <td class="t-arrow">→</td>
+            <td class="t-to" style="color: var(--accent)">paid</td>
+            <td class="t-trigger">POST /webhook/mayar (payment confirmed)</td>
+            <td class="t-trigger">Update session, send confirmation email</td>
+          </tr>
+          <tr>
+            <td class="t-from" style="color: var(--accent)">paid</td>
+            <td class="t-arrow">→</td>
+            <td class="t-to" style="color: var(--accent2)">generating</td>
+            <td class="t-trigger">POST /get-session (first generation)</td>
+            <td class="t-trigger">Acquire lock_&lt;id&gt;, transition</td>
+          </tr>
+          <tr>
+            <td class="t-from" style="color: var(--accent3)">ready</td>
+            <td class="t-arrow">→</td>
+            <td class="t-to" style="color: var(--accent2)">generating</td>
+            <td class="t-trigger">POST /get-session (multi-credit reuse)</td>
+            <td class="t-trigger">Acquire lock, transition</td>
+          </tr>
+          <tr>
+            <td class="t-from" style="color: var(--accent2)">generating</td>
+            <td class="t-arrow">→</td>
+            <td class="t-to" style="color: var(--accent)">paid</td>
+            <td class="t-trigger">POST /generate FAILED</td>
+            <td class="t-trigger">Rollback — no cv_result_ written</td>
+          </tr>
+          <tr>
+            <td class="t-from" style="color: var(--accent2)">generating</td>
+            <td class="t-arrow">→</td>
+            <td class="t-to" style="color: var(--accent3)">ready</td>
+            <td class="t-trigger">POST /generate SUCCEEDED, credits &gt; 0</td>
+            <td class="t-trigger">Store cv_result_, release lock</td>
+          </tr>
+          <tr>
+            <td class="t-from" style="color: var(--accent2)">generating</td>
+            <td class="t-arrow">→</td>
+            <td class="t-to" style="color: var(--text-dim)">exhausted</td>
+            <td class="t-trigger">POST /generate SUCCEEDED, last credit</td>
+            <td class="t-trigger">Store cv_result_, release lock, send email</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top: 10px; font-size: 10px; color: var(--text-dimmer); font-family: 'IBM Plex Mono', monospace;">
+      Legacy: old sessions may carry <span class="mono">pending</span> (PENDING_LEGACY) instead of <span class="mono">pending_payment</span> — mayarWebhook.js accepts both.
+      &nbsp;·&nbsp; Lock TTL: 120s (KV) &nbsp;·&nbsp; Invoice lock: 60s &nbsp;·&nbsp; Idempotency sentinel: 48h
+    </div>
+  </section>
+
+  <!-- ── 6. CACHE STRATEGY ── -->
+  <section class="section">
+    <div class="section-label">06 — Cache Strategy (Cloudflare KV)</div>
+    <div class="card" style="padding: 0; overflow: hidden; margin-bottom: 12px;">
+      <table class="cache-table">
+        <thead>
+          <tr>
+            <th>KEY PATTERN</th>
+            <th>PURPOSE</th>
+            <th>TTL</th>
+            <th>VERSION VAR</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>extract_v5_&lt;hash&gt;</td>
+            <td style="color: var(--text-dim)">Stage 1 — CV+JD extraction output</td>
+            <td><span class="ttl-badge ttl-24">24h</span></td>
+            <td style="color: var(--text-dimmer)">EXTRACT_CACHE_VERSION</td>
+          </tr>
+          <tr>
+            <td>analysis_v16_&lt;hash&gt;</td>
+            <td style="color: var(--text-dim)">Stages 1–4 — full scoring + diagnose bundle</td>
+            <td><span class="ttl-badge ttl-48">48h</span></td>
+            <td style="color: var(--text-dimmer)">ANALYSIS_CACHE_VERSION</td>
+          </tr>
+          <tr>
+            <td>cvtext_&lt;token&gt;</td>
+            <td style="color: var(--text-dim)">Original CV text + scoring snapshot (IP-bound)</td>
+            <td><span class="ttl-badge ttl-24">24h</span></td>
+            <td style="color: var(--text-dimmer)">—</td>
+          </tr>
+          <tr>
+            <td>gen_id_v13_&lt;hash&gt;</td>
+            <td style="color: var(--text-dim)">Tailored CV — Bahasa Indonesia</td>
+            <td><span class="ttl-badge ttl-48">48h</span></td>
+            <td style="color: var(--text-dimmer)">GEN_KEY_PREFIX_ID</td>
+          </tr>
+          <tr>
+            <td>gen_en_v13_&lt;hash&gt;</td>
+            <td style="color: var(--text-dim)">Tailored CV — English</td>
+            <td><span class="ttl-badge ttl-48">48h</span></td>
+            <td style="color: var(--text-dimmer)">GEN_KEY_PREFIX_EN</td>
+          </tr>
+          <tr>
+            <td>kit_&lt;session_id&gt;_&lt;lang&gt;</td>
+            <td style="color: var(--text-dim)">Interview kit — cached after first successful gen</td>
+            <td><span class="ttl-badge ttl-24">24h</span></td>
+            <td style="color: var(--text-dimmer)">—</td>
+          </tr>
+          <tr>
+            <td>sess_&lt;uuid&gt;</td>
+            <td style="color: var(--text-dim)">Live session data (state, credits, tier, email…)</td>
+            <td><span class="ttl-badge ttl-7d">7d / 30d</span></td>
+            <td style="color: var(--text-dimmer)">by tier</td>
+          </tr>
+          <tr>
+            <td>lock_&lt;session_id&gt;</td>
+            <td style="color: var(--text-dim)">Generation in-progress lock (prevents double-gen)</td>
+            <td><span class="ttl-badge ttl-other">120s</span></td>
+            <td style="color: var(--text-dimmer)">—</td>
+          </tr>
+          <tr>
+            <td>email_token_&lt;token&gt;</td>
+            <td style="color: var(--text-dim)">Single-use email download link token</td>
+            <td><span class="ttl-badge ttl-other">1h</span></td>
+            <td style="color: var(--text-dimmer)">—</td>
+          </tr>
+          <tr>
+            <td>payment_processed_&lt;id&gt;</td>
+            <td style="color: var(--text-dim)">Webhook idempotency sentinel (written BEFORE session update)</td>
+            <td><span class="ttl-badge ttl-48">48h</span></td>
+            <td style="color: var(--text-dimmer)">—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card" style="padding: 12px 16px; font-size: 10px; color: var(--text-dim); font-family: 'IBM Plex Mono', monospace;">
+      <span style="color: var(--accent5); font-weight: 600;">CACHE BUMP RULE</span> — Bump version in <span class="mono">cacheVersions.js</span> when changing prompts or scoring. Old keys expire naturally — no migration needed. Stale cache is the #1 bug source.
+    </div>
+  </section>
+
+  <!-- ── 7. PRICING TIERS ── -->
+  <section class="section">
+    <div class="section-label">07 — Pricing Tiers</div>
+    <div class="pricing-grid">
+      <div class="tier-card">
+        <div class="tier-name">coba</div>
+        <div class="tier-price">Rp 29k<span> IDR</span></div>
+        <div class="tier-credits">1 credit · ID only · 7d TTL</div>
+        <ul class="tier-features">
+          <li>1 CV tailoring (Bahasa)</li>
+          <li>Single use</li>
+        </ul>
+      </div>
+      <div class="tier-card">
+        <div class="tier-name">single</div>
+        <div class="tier-price">Rp 59k<span> IDR</span></div>
+        <div class="tier-credits">1 credit · ID + EN · 7d TTL</div>
+        <ul class="tier-features">
+          <li>1 CV tailoring</li>
+          <li>Bahasa + English output</li>
+        </ul>
+      </div>
+      <div class="tier-card featured">
+        <div class="tier-name">3pack</div>
+        <div class="tier-price">Rp 149k<span> IDR</span></div>
+        <div class="tier-credits">3 credits · ID + EN · 30d TTL</div>
+        <ul class="tier-features">
+          <li>3 CV tailorings</li>
+          <li>Bahasa + English output</li>
+          <li>Multi-JD regeneration</li>
+        </ul>
+      </div>
+      <div class="tier-card">
+        <div class="tier-name">jobhunt</div>
+        <div class="tier-price">Rp 299k<span> IDR</span></div>
+        <div class="tier-credits">10 credits · ID + EN · 30d TTL</div>
+        <ul class="tier-features">
+          <li>10 CV tailorings</li>
+          <li>Bahasa + English output</li>
+          <li>Multi-JD regeneration</li>
+          <li>Interview kit included</li>
+        </ul>
+      </div>
+    </div>
+    <div style="margin-top: 10px; font-size: 10px; color: var(--text-dimmer); font-family: 'IBM Plex Mono', monospace;">
+      One-time purchases only — not subscriptions. Coupons managed entirely in Mayar dashboard. GasLamar shows projected price; Mayar is authoritative on actual discount.
+    </div>
+  </section>
+
+  <!-- ── 8. EXTERNAL SERVICES ── -->
+  <section class="section">
+    <div class="section-label">08 — External Services</div>
+    <div class="services-grid">
+      <div class="service-card">
+        <div class="service-name" style="color: var(--accent4)">Anthropic Claude API</div>
+        <div class="service-detail">
+          <b style="color: var(--text)">Prod:</b> claude-sonnet-4-6 (extract + diagnose)<br>
+          <b style="color: var(--text)">Staging + Tailoring:</b> claude-haiku-4-5-20251001<br>
+          Timeout: 40s per call · Max tokens: 1500–3000<br>
+          PDF beta header (Sonnet only): pdfs-2024-09-25
+        </div>
+        <span class="service-tag" style="background: rgba(199,125,255,0.1); color: var(--accent4); border: 1px solid rgba(199,125,255,0.2)">LLM</span>
+        <span class="service-tag" style="background: rgba(0,0,0,0.2); color: var(--text-dim); border: 1px solid var(--border)">Stages 1,4,5</span>
+      </div>
+      <div class="service-card">
+        <div class="service-name" style="color: var(--accent5)">Mayar</div>
+        <div class="service-detail">
+          Payment gateway (ID-focused)<br>
+          Prod: api.mayar.id/hl/v1<br>
+          Sandbox: api.mayar.club/hl/v1<br>
+          HMAC-SHA256 webhook verification<br>
+          Coupon validation via query params (GET)
+        </div>
+        <span class="service-tag" style="background: rgba(255,209,102,0.1); color: var(--accent5); border: 1px solid rgba(255,209,102,0.2)">Payments</span>
+      </div>
+      <div class="service-card">
+        <div class="service-name" style="color: var(--accent6)">Resend</div>
+        <div class="service-detail">
+          Transactional email delivery<br>
+          Optional — silent no-op if RESEND_API_KEY absent<br>
+          Sends: payment confirmation, CV-ready, interview kit<br>
+          Email tokens: 128-bit hex · 1h TTL · single-use
+        </div>
+        <span class="service-tag" style="background: rgba(6,214,160,0.1); color: var(--accent6); border: 1px solid rgba(6,214,160,0.2)">Email</span>
+      </div>
+      <div class="service-card">
+        <div class="service-name" style="color: var(--accent)">Cloudflare</div>
+        <div class="service-detail">
+          Workers: API runtime (Node-compat)<br>
+          Pages: Static frontend hosting<br>
+          KV: Session + cache storage<br>
+          Rate Limiter: Native (atomic) + KV fallback (both must allow)
+        </div>
+        <span class="service-tag" style="background: rgba(0,212,255,0.08); color: var(--accent); border: 1px solid rgba(0,212,255,0.2)">Runtime</span>
+        <span class="service-tag" style="background: rgba(0,0,0,0.2); color: var(--text-dim); border: 1px solid var(--border)">Storage</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 9. ENVIRONMENTS ── -->
+  <section class="section">
+    <div class="section-label">09 — Environments</div>
+    <div class="env-grid">
+      <div class="env-card env-prod">
+        <div class="env-name">Production</div>
+        <div class="env-item"><span class="env-item-label">URL</span>gaslamar.com</div>
+        <div class="env-item"><span class="env-item-label">Worker</span>gaslamar-worker.carolineratuolivia.workers.dev</div>
+        <div class="env-item"><span class="env-item-label">Model</span>claude-sonnet-4-6</div>
+        <div class="env-item"><span class="env-item-label">Mayar</span>api.mayar.id (live)</div>
+        <div class="env-item"><span class="env-item-label">Deploy</span>npm run deploy:prod</div>
+      </div>
+      <div class="env-card env-staging">
+        <div class="env-name">Staging</div>
+        <div class="env-item"><span class="env-item-label">URL</span>api-staging.gaslamar.com</div>
+        <div class="env-item"><span class="env-item-label">Pages</span>staging.gaslamar.pages.dev</div>
+        <div class="env-item"><span class="env-item-label">Model</span>claude-haiku-4-5-20251001</div>
+        <div class="env-item"><span class="env-item-label">Mayar</span>api.mayar.club (sandbox)</div>
+        <div class="env-item"><span class="env-item-label">PDF</span>pre-converted to text (no beta header)</div>
+      </div>
+      <div class="env-card env-local">
+        <div class="env-name">Local Dev</div>
+        <div class="env-item"><span class="env-item-label">Worker</span>cd worker && npm run dev</div>
+        <div class="env-item"><span class="env-item-label">Frontend</span>npm start (port 3000)</div>
+        <div class="env-item"><span class="env-item-label">Tests</span>cd worker && npm test</div>
+        <div class="env-item"><span class="env-item-label">Email</span>silent (no RESEND_API_KEY)</div>
+        <div class="env-item"><span class="env-item-label">Payment</span>POST /bypass-payment (non-prod only)</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 10. INVARIANTS ── -->
+  <section class="section">
+    <div class="section-label">10 — Invariants (Never Break)</div>
+    <div class="invariants-grid">
+      <div class="invariant-item">
+        <div class="invariant-icon">✓</div>
+        <div>Scoring/verdict logic stays in pure JS (analyze.js + score.js) — never in LLM prompts.</div>
+      </div>
+      <div class="invariant-item">
+        <div class="invariant-icon">✓</div>
+        <div>Webhook HMAC-SHA256 (Mayar) must always be verified before processing payment.</div>
+      </div>
+      <div class="invariant-item">
+        <div class="invariant-icon">✓</div>
+        <div>CORS: gaslamar.com, www.gaslamar.com, gaslamar.pages.dev only — see constants.js.</div>
+      </div>
+      <div class="invariant-item">
+        <div class="invariant-icon">✓</div>
+        <div>File validation: magic bytes (PDF %PDF, DOCX PK) + 5MB limit — server-side always.</div>
+      </div>
+      <div class="invariant-item">
+        <div class="invariant-icon">✓</div>
+        <div>Rate limiting: Cloudflare native + KV fallback — both must allow a request.</div>
+      </div>
+      <div class="invariant-item">
+        <div class="invariant-icon">✓</div>
+        <div>bypassPayment.js must always return 404 in production — guard must never be removed.</div>
+      </div>
+      <div class="invariant-item">
+        <div class="invariant-icon">✓</div>
+        <div>hasil-guard.js must stay as synchronous inline &lt;script&gt; — deferred/bundled = auth flash.</div>
+      </div>
+      <div class="invariant-item">
+        <div class="invariant-icon">✓</div>
+        <div>Webhook idempotency sentinel written BEFORE session update — protects against Mayar retries.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 11. KEY FILES ── -->
+  <section class="section">
+    <div class="section-label">11 — Key Non-Obvious Files</div>
+    <div class="card" style="padding: 0; overflow: hidden;">
+      <table class="transitions-table">
+        <thead>
+          <tr>
+            <th>FILE</th>
+            <th>ROLE</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-family:'IBM Plex Mono',monospace; font-size:10px; white-space:nowrap; color: var(--accent)">worker/src/cacheVersions.js</td>
+            <td class="t-trigger">Central cache-key version constants. Bump here when changing prompts or scoring formula.</td>
+          </tr>
+          <tr>
+            <td style="font-family:'IBM Plex Mono',monospace; font-size:10px; white-space:nowrap; color: var(--accent)">worker/src/sessionStates.js</td>
+            <td class="t-trigger">Canonical state machine. Do not hardcode state strings in handlers — import from here.</td>
+          </tr>
+          <tr>
+            <td style="font-family:'IBM Plex Mono',monospace; font-size:10px; white-space:nowrap; color: var(--accent)">worker/src/roleProfiles.js</td>
+            <td class="t-trigger">Role-weighted scoring inputs. Not in score.js — weight bias lives here.</td>
+          </tr>
+          <tr>
+            <td style="font-family:'IBM Plex Mono',monospace; font-size:10px; white-space:nowrap; color: var(--accent)">worker/src/rewriteGuard.js</td>
+            <td class="t-trigger">Hallucination guard. Severity-grades every rewritten bullet. Adding patterns affects both ID+EN.</td>
+          </tr>
+          <tr>
+            <td style="font-family:'IBM Plex Mono',monospace; font-size:10px; white-space:nowrap; color: var(--accent)">js/hasil-guard.js</td>
+            <td class="t-trigger">Must stay as synchronous inline &lt;script&gt; — not bundled, not deferred, or auth flash occurs.</td>
+          </tr>
+          <tr>
+            <td style="font-family:'IBM Plex Mono',monospace; font-size:10px; white-space:nowrap; color: var(--accent)">worker/src/analysis.js</td>
+            <td class="t-trigger">Orchestrator for stages 1–4. Imports version constants from cacheVersions.js.</td>
+          </tr>
+          <tr>
+            <td style="font-family:'IBM Plex Mono',monospace; font-size:10px; white-space:nowrap; color: var(--accent)">worker/src/handlers/mayarWebhook.js</td>
+            <td class="t-trigger">HMAC-SHA256 + idempotency sentinel written BEFORE session update. Email via ctx.waitUntil.</td>
+          </tr>
+          <tr>
+            <td style="font-family:'IBM Plex Mono',monospace; font-size:10px; white-space:nowrap; color: var(--accent)">worker/src/handlers/bypassPayment.js</td>
+            <td class="t-trigger">Sandbox/E2E only — returns 404 if ENVIRONMENT === 'production'. Never remove guard.</td>
+          </tr>
+          <tr>
+            <td style="font-family:'IBM Plex Mono',monospace; font-size:10px; white-space:nowrap; color: var(--accent)">js/config.js</td>
+            <td class="t-trigger">Staging vs prod worker URL selected by hostname at runtime.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── 12. COUPON / DISCOUNT FLOW ── -->
+  <section class="section">
+    <div class="section-label">12 — Coupon / Discount Flow</div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <div>
+        <div style="margin-bottom: 12px; font-size: 12px; font-weight: 500; color: #fff;">Request Flow</div>
+        <div class="flow-container" style="font-size: 10px;">
+          <div class="flow-row">
+            <div class="flow-node"><div class="flow-node-title">User enters coupon code</div><div class="flow-node-sub">hasil.html</div></div>
+            <div class="flow-connector">→</div>
+            <div class="flow-node"><div class="flow-node-title">POST /validate-coupon</div><div class="flow-node-sub">rate-limited 10 req/min per IP</div></div>
+          </div>
+          <div class="flow-connector-v">↓</div>
+          <div class="flow-row">
+            <div class="flow-node"><div class="flow-node-title">GET /coupon/validate</div><div class="flow-node-sub">Mayar API — query params (never body)</div></div>
+            <div class="flow-connector">→</div>
+            <div class="flow-node"><div class="flow-node-title">Frontend shows discount</div><div class="flow-node-sub">projected price only — UX</div></div>
+          </div>
+          <div class="flow-connector-v">↓</div>
+          <div class="flow-row">
+            <div class="flow-node"><div class="flow-node-title">POST /create-payment</div><div class="flow-node-sub">coupon_code forwarded to Mayar invoice</div></div>
+            <div class="flow-connector">→</div>
+            <div class="flow-node"><div class="flow-node-title">Mayar checkout page</div><div class="flow-node-sub">user re-enters code — Mayar authoritative</div></div>
+          </div>
+        </div>
+        <div style="margin-top: 10px; font-size: 10px; color: var(--text-dimmer); font-family: 'IBM Plex Mono', monospace; line-height: 1.6;">
+          Coupon may expire between validation and payment — Mayar will reject at checkout. GasLamar never stores coupon definitions.
+        </div>
+      </div>
+      <div>
+        <div style="margin-bottom: 12px; font-size: 12px; font-weight: 500; color: #fff;">Operational Controls</div>
+        <div class="card" style="padding: 0; overflow: hidden;">
+          <table class="transitions-table">
+            <thead>
+              <tr><th>GOAL</th><th>HOW</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="color: var(--text); font-size: 11px;">Stop promo immediately</td>
+                <td class="t-trigger">Expire/deactivate in Mayar dashboard — zero code changes</td>
+              </tr>
+              <tr>
+                <td style="color: var(--text); font-size: 11px;">Limit to date range</td>
+                <td class="t-trigger">Set <span class="mono">expiredAt</span> when creating coupon in Mayar</td>
+              </tr>
+              <tr>
+                <td style="color: var(--text); font-size: 11px;">Limit total uses</td>
+                <td class="t-trigger">Set <span class="mono">totalCoupons</span> quota in Mayar</td>
+              </tr>
+              <tr>
+                <td style="color: var(--text); font-size: 11px;">New customers only</td>
+                <td class="t-trigger">Set <span class="mono">eligibleCustomerType: "new"</span> in Mayar</td>
+              </tr>
+              <tr>
+                <td style="color: var(--text); font-size: 11px;">Limit to specific tier</td>
+                <td class="t-trigger">Add tier check before Mayar call in <span class="mono">handleValidateCoupon</span></td>
+              </tr>
+              <tr>
+                <td style="color: var(--text); font-size: 11px; color: var(--accent2);">Emergency kill switch</td>
+                <td class="t-trigger">Set <span class="mono">COUPONS_DISABLED=true</span> Wrangler secret → check at top of handler</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 13. RATE LIMITS ── -->
+  <section class="section">
+    <div class="section-label">13 — Rate Limiting (Cloudflare Native + KV Fallback)</div>
+    <div class="card" style="padding: 0; overflow: hidden;">
+      <table class="cache-table">
+        <thead>
+          <tr>
+            <th>ENDPOINT</th>
+            <th>LIMIT</th>
+            <th>WINDOW</th>
+            <th>SCOPE</th>
+            <th>NOTES</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>POST /analyze</td>
+            <td><span class="ttl-badge ttl-other">3 req</span></td>
+            <td style="color:var(--text-dim)">per min</td>
+            <td style="color:var(--text-dim)">per IP</td>
+            <td style="color:var(--text-dim)">Main pipeline — LLM calls</td>
+          </tr>
+          <tr>
+            <td>POST /generate</td>
+            <td><span class="ttl-badge ttl-other">5 req</span></td>
+            <td style="color:var(--text-dim)">per min</td>
+            <td style="color:var(--text-dim)">per IP</td>
+            <td style="color:var(--text-dim)">CV tailoring — LLM calls</td>
+          </tr>
+          <tr>
+            <td>POST /create-payment</td>
+            <td><span class="ttl-badge ttl-other">5 req</span></td>
+            <td style="color:var(--text-dim)">per min</td>
+            <td style="color:var(--text-dim)">per IP</td>
+            <td style="color:var(--text-dim)">Invoice creation</td>
+          </tr>
+          <tr>
+            <td>POST /interview-kit</td>
+            <td><span class="ttl-badge ttl-other">10 req</span></td>
+            <td style="color:var(--text-dim)">per min</td>
+            <td style="color:var(--text-dim)">per IP</td>
+            <td style="color:var(--text-dim)">LLM interview prep generation</td>
+          </tr>
+          <tr>
+            <td>POST /validate-coupon</td>
+            <td><span class="ttl-badge ttl-other">10 req</span></td>
+            <td style="color:var(--text-dim)">per min</td>
+            <td style="color:var(--text-dim)">per IP</td>
+            <td style="color:var(--text-dim)">Blocks enumeration attacks</td>
+          </tr>
+          <tr>
+            <td>POST /resend-access</td>
+            <td><span class="ttl-badge ttl-other">2 req</span></td>
+            <td style="color:var(--text-dim)">per hour</td>
+            <td style="color:var(--text-dim)">per email</td>
+            <td style="color:var(--text-dim)">Prevents spam; always returns generic success</td>
+          </tr>
+          <tr>
+            <td>POST /resend-access</td>
+            <td><span class="ttl-badge ttl-other">10 req</span></td>
+            <td style="color:var(--text-dim)">per hour</td>
+            <td style="color:var(--text-dim)">per IP</td>
+            <td style="color:var(--text-dim)">Dual-layer: email + IP both enforced</td>
+          </tr>
+          <tr>
+            <td>POST /api/log</td>
+            <td><span class="ttl-badge ttl-other">30 req</span></td>
+            <td style="color:var(--text-dim)">per min</td>
+            <td style="color:var(--text-dim)">per IP</td>
+            <td style="color:var(--text-dim)">Client error logging</td>
+          </tr>
+          <tr>
+            <td>POST /feedback</td>
+            <td><span class="ttl-badge ttl-other">10 req</span></td>
+            <td style="color:var(--text-dim)">per min</td>
+            <td style="color:var(--text-dim)">per IP</td>
+            <td style="color:var(--text-dim)">User survey — inline in router.js</td>
+          </tr>
+          <tr>
+            <td>GET /get-scoring</td>
+            <td><span class="ttl-badge ttl-other">10 req</span></td>
+            <td style="color:var(--text-dim)">per min</td>
+            <td style="color:var(--text-dim)">per IP</td>
+            <td style="color:var(--text-dim)">Returns scoring snapshot only — never cv_text</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top: 10px; font-size: 10px; color: var(--text-dimmer); font-family: 'IBM Plex Mono', monospace;">
+      Both Cloudflare native binding (atomic) and KV fallback must allow a request. If either blocks, request is rejected. KV key pattern: <span class="mono">rl:&lt;ip&gt;:&lt;endpoint&gt;</span>
+    </div>
+  </section>
+
+  <!-- ── 14. SECURITY MODEL ── -->
+  <section class="section">
+    <div class="section-label">14 — Security Model</div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+      <div class="card" style="padding: 18px 20px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent); margin-bottom: 12px; letter-spacing: 0.1em;">SESSION + AUTH</div>
+        <div class="invariant-item" style="margin-bottom: 8px; border: none; padding: 6px 0; background: none;">
+          <div class="invariant-icon">🔒</div>
+          <div><b style="color: var(--text)">HttpOnly session cookie</b> — <span class="mono">session_id</span> is the server-validated auth credential and is never readable by frontend JavaScript.</div>
+        </div>
+        <div class="invariant-item" style="margin-bottom: 8px; border: none; padding: 6px 0; background: none;">
+          <div class="invariant-icon">🔒</div>
+          <div><b style="color: var(--text)">IP-bound CV upload</b> — <span class="mono">cvtext_&lt;token&gt;</span> is bound to the uploading IP. Cross-IP access rejected with mismatch error.</div>
+        </div>
+        <div class="invariant-item" style="margin-bottom: 8px; border: none; padding: 6px 0; background: none;">
+          <div class="invariant-icon">🔒</div>
+          <div><b style="color: var(--text)">Email tokens</b> — 128-bit hex, 1h TTL, single-use. Deleted on first exchange. Prevents session hijacking via forwarded emails.</div>
+        </div>
+        <div class="invariant-item" style="border: none; padding: 6px 0; background: none;">
+          <div class="invariant-icon">🔒</div>
+          <div><b style="color: var(--text)">CORS by origin header</b> — Session-mutating endpoints verify origin against allowlist before issuing CORS headers. Allowed: gaslamar.com, www.gaslamar.com, gaslamar.pages.dev</div>
+        </div>
+      </div>
+      <div class="card" style="padding: 18px 20px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent2); margin-bottom: 12px; letter-spacing: 0.1em;">INPUT + PAYMENT</div>
+        <div class="invariant-item" style="margin-bottom: 8px; border: none; padding: 6px 0; background: none;">
+          <div class="invariant-icon" style="background: rgba(255,107,53,0.1); border-color: rgba(255,107,53,0.2); color: var(--accent2);">🔒</div>
+          <div><b style="color: var(--text)">File validation</b> — Magic bytes checked server-side: PDF (<span class="mono">%PDF</span>), DOCX (<span class="mono">PK</span>). 5MB max. Never trust client MIME type.</div>
+        </div>
+        <div class="invariant-item" style="margin-bottom: 8px; border: none; padding: 6px 0; background: none;">
+          <div class="invariant-icon" style="background: rgba(255,107,53,0.1); border-color: rgba(255,107,53,0.2); color: var(--accent2);">🔒</div>
+          <div><b style="color: var(--text)">Input sanitization</b> — XSS prevention, control-char removal, Latin-1 encoding via <span class="mono">sanitize.js</span>.</div>
+        </div>
+        <div class="invariant-item" style="margin-bottom: 8px; border: none; padding: 6px 0; background: none;">
+          <div class="invariant-icon" style="background: rgba(255,107,53,0.1); border-color: rgba(255,107,53,0.2); color: var(--accent2);">🔒</div>
+          <div><b style="color: var(--text)">Mayar webhook HMAC-SHA256</b> — Signature verified before any session mutation. Idempotency sentinel written BEFORE session update.</div>
+        </div>
+        <div class="invariant-item" style="border: none; padding: 6px 0; background: none;">
+          <div class="invariant-icon" style="background: rgba(255,107,53,0.1); border-color: rgba(255,107,53,0.2); color: var(--accent2);">🔒</div>
+          <div><b style="color: var(--text)">JD URL allowlist</b> — <span class="mono">fetchJobUrl.js</span> suffix-checks domain against allowlist (LinkedIn, Indeed, Glassdoor…). URL shorteners intentionally blocked.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 15. INTERVIEW KIT ── -->
+  <section class="section">
+    <div class="section-label">15 — Interview Kit Feature</div>
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
+      <div class="card" style="padding: 20px;">
+        <div style="font-size: 12px; font-weight: 500; color: #fff; margin-bottom: 14px;">What it generates</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px;">
+          <div style="padding: 10px 14px; background: var(--bg3); border: 1px solid var(--border); border-radius: 3px; font-size: 10px; color: var(--text-dim);">
+            <div style="color: var(--accent4); font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; margin-bottom: 4px;">INTERVIEW QUESTIONS</div>
+            Role-specific predicted interview questions based on the JD and candidate profile
+          </div>
+          <div style="padding: 10px 14px; background: var(--bg3); border: 1px solid var(--border); border-radius: 3px; font-size: 10px; color: var(--text-dim);">
+            <div style="color: var(--accent4); font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; margin-bottom: 4px;">EMAIL TEMPLATE</div>
+            Follow-up / application email template personalized to the role and company
+          </div>
+          <div style="padding: 10px 14px; background: var(--bg3); border: 1px solid var(--border); border-radius: 3px; font-size: 10px; color: var(--text-dim);">
+            <div style="color: var(--accent4); font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; margin-bottom: 4px;">WHATSAPP OPENER</div>
+            Casual but professional WA message template for recruiter outreach
+          </div>
+          <div style="padding: 10px 14px; background: var(--bg3); border: 1px solid var(--border); border-radius: 3px; font-size: 10px; color: var(--text-dim);">
+            <div style="color: var(--accent4); font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; margin-bottom: 4px;">ELEVATOR PITCH</div>
+            60-second personal pitch tailored to the target role and company
+          </div>
+        </div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text-dimmer); line-height: 1.7;">
+          <span style="color: var(--text-dim)">Handler:</span> worker/src/handlers/interviewKit.js<br>
+          <span style="color: var(--text-dim)">Cache key:</span> <span class="mono">kit_&lt;session_id&gt;_&lt;language&gt;</span> · 24h TTL<br>
+          <span style="color: var(--text-dim)">Cache behaviour:</span> NOT cached on first call — only stored after successful generation<br>
+          <span style="color: var(--text-dim)">Languages:</span> ID + EN (separate cache entries)<br>
+          <span style="color: var(--text-dim)">Rate limit:</span> 10 req/min per IP
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div class="card" style="padding: 16px;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent5); margin-bottom: 8px;">AVAILABILITY</div>
+          <div style="font-size: 11px; color: var(--text-dim); line-height: 1.6;">Generated async after last credit is used on jobhunt tier. Also callable on-demand from download page.</div>
+        </div>
+        <div class="card" style="padding: 16px;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent6); margin-bottom: 8px;">DELIVERY</div>
+          <div style="font-size: 11px; color: var(--text-dim); line-height: 1.6;">Sent via Resend email (PDF attachment) when session reaches <span style="color: var(--text-dimmer)">exhausted</span> state. Also available on download page.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 16. CI/CD PIPELINE ── -->
+  <section class="section">
+    <div class="section-label">16 — CI / CD Pipeline</div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <div>
+        <div style="margin-bottom: 12px; font-size: 12px; font-weight: 500; color: #fff;">Deploy Flow</div>
+        <div class="flow-container">
+          <div class="flow-row">
+            <div class="flow-node"><div class="flow-node-title">git push → main</div><div class="flow-node-sub">triggers CI</div></div>
+          </div>
+          <div class="flow-connector-v">↓</div>
+          <div class="flow-row">
+            <div class="flow-node"><div class="flow-node-title">Run tests</div><div class="flow-node-sub">cd worker && npm test (vitest)</div></div>
+          </div>
+          <div class="flow-connector-v">↓</div>
+          <div class="flow-row">
+            <div class="flow-node"><div class="flow-node-title">Deploy Worker</div><div class="flow-node-sub">npm run deploy:prod (NOT bare deploy)</div></div>
+          </div>
+          <div class="flow-connector-v">↓</div>
+          <div class="flow-row">
+            <div class="flow-node"><div class="flow-node-title">Build Frontend</div><div class="flow-node-sub">npm run build (vendor + JS + React + Tailwind)</div></div>
+          </div>
+          <div class="flow-connector-v">↓</div>
+          <div class="flow-row">
+            <div class="flow-node"><div class="flow-node-title">Deploy Pages</div><div class="flow-node-sub">Cloudflare Pages auto-deploy from build output</div></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div style="margin-bottom: 12px; font-size: 12px; font-weight: 500; color: #fff;">Build Commands</div>
+        <div class="card" style="padding: 0; overflow: hidden; margin-bottom: 12px;">
+          <table class="transitions-table">
+            <thead>
+              <tr><th>COMMAND</th><th>WHAT</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="font-family:'IBM Plex Mono',monospace; font-size:10px; color: var(--accent3)">npm run build</td>
+                <td class="t-trigger">vendor + JS bundles + React + Tailwind (full)</td>
+              </tr>
+              <tr>
+                <td style="font-family:'IBM Plex Mono',monospace; font-size:10px; color: var(--accent3)">npm run build:js</td>
+                <td class="t-trigger">esbuild bundles only</td>
+              </tr>
+              <tr>
+                <td style="font-family:'IBM Plex Mono',monospace; font-size:10px; color: var(--accent3)">npm run build:react</td>
+                <td class="t-trigger">React build only</td>
+              </tr>
+              <tr>
+                <td style="font-family:'IBM Plex Mono',monospace; font-size:10px; color: var(--accent3)">npm run build:vendor</td>
+                <td class="t-trigger">vendor libs + Tailwind only</td>
+              </tr>
+              <tr>
+                <td style="font-family:'IBM Plex Mono',monospace; font-size:10px; color: var(--accent3)">npm run dev</td>
+                <td class="t-trigger">watch mode (frontend)</td>
+              </tr>
+              <tr>
+                <td style="font-family:'IBM Plex Mono',monospace; font-size:10px; color: var(--accent3)">npm start</td>
+                <td class="t-trigger">serve frontend locally on :3000</td>
+              </tr>
+              <tr>
+                <td style="font-family:'IBM Plex Mono',monospace; font-size:10px; color: var(--accent3)">cd worker && npm test</td>
+                <td class="t-trigger">vitest (all tests must pass)</td>
+              </tr>
+              <tr>
+                <td style="font-family:'IBM Plex Mono',monospace; font-size:10px; color: var(--accent3)">cd worker && npm run deploy:prod</td>
+                <td class="t-trigger">deploy to production (NOT bare deploy)</td>
+              </tr>
+              <tr>
+                <td style="font-family:'IBM Plex Mono',monospace; font-size:10px; color: var(--accent3)">cd worker && npm run tail</td>
+                <td class="t-trigger">prod log stream</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="padding: 10px 14px; background: rgba(255,107,53,0.05); border: 1px solid rgba(255,107,53,0.15); border-radius: 3px; font-size: 10px; color: var(--text-dim); font-family: 'IBM Plex Mono', monospace; line-height: 1.6;">
+          <span style="color: var(--accent2); font-weight: 600;">⚠ GOTCHA</span> — <span style="color: var(--text)">wrangler deploy</span> without <span style="color: var(--text)">--env production</span> goes to <b>sandbox</b>, not prod. Always use <span style="color: var(--text)">npm run deploy:prod</span>.<br><br>
+          <span style="color: var(--text-dimmer)">js/dist/ and js/vendor/ are gitignored.</span> Run npm run build before testing — CI builds them fresh.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 17. EMAIL DELIVERY FLOW ── -->
+  <section class="section">
+    <div class="section-label">17 — Email Delivery Flow</div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px;">
+      <div>
+        <div style="margin-bottom: 12px; font-size: 12px; font-weight: 500; color: #fff;">3 Email Types</div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div style="padding: 12px 16px; background: var(--bg3); border: 1px solid var(--border); border-left: 2px solid var(--accent); border-radius: 3px;">
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent); margin-bottom: 4px;">1 · Payment Confirmation</div>
+            <div style="font-size: 11px; color: var(--text-dim);">Sent when Mayar webhook confirms payment (<span class="mono">pending_payment → paid</span>). Contains a single-use download link with a 128-bit email token. Sent via <span class="mono">ctx.waitUntil</span> — non-blocking.</div>
+          </div>
+          <div style="padding: 12px 16px; background: var(--bg3); border: 1px solid var(--border); border-left: 2px solid var(--accent4); border-radius: 3px;">
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent4); margin-bottom: 4px;">2 · CV Ready</div>
+            <div style="font-size: 11px; color: var(--text-dim);">Sent after generation when session reaches <span class="mono">exhausted</span> (last credit used). Contains score badge, top gaps, and an upsell. Triggered from <span class="mono">POST /generate</span>.</div>
+          </div>
+          <div style="padding: 12px 16px; background: var(--bg3); border: 1px solid var(--border); border-left: 2px solid var(--accent6); border-radius: 3px;">
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent6); margin-bottom: 4px;">3 · Session Recovery (resend-access)</div>
+            <div style="font-size: 11px; color: var(--text-dim);">Sent on <span class="mono">POST /resend-access</span>. User enters email → worker looks up session → sends new download link. Always returns generic success regardless of whether email exists (prevents enumeration).</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div style="margin-bottom: 12px; font-size: 12px; font-weight: 500; color: #fff;">Token Exchange Flow (email link → session)</div>
+        <div class="flow-container">
+          <div class="flow-row">
+            <div class="flow-node"><div class="flow-node-title">Email arrives</div><div class="flow-node-sub">link: /download.html?token=&lt;hex&gt;</div></div>
+          </div>
+          <div class="flow-connector-v">↓</div>
+          <div class="flow-row">
+            <div class="flow-node"><div class="flow-node-title">download-guard.js</div><div class="flow-node-sub">detects ?token= param, redirects to exchange-token.html</div></div>
+          </div>
+          <div class="flow-connector-v">↓</div>
+          <div class="flow-row">
+            <div class="flow-node"><div class="flow-node-title">POST /exchange-token</div><div class="flow-node-sub">looks up email_token_&lt;token&gt; in KV → deletes it (single-use)</div></div>
+          </div>
+          <div class="flow-connector-v">↓</div>
+          <div class="flow-row">
+            <div class="flow-node"><div class="flow-node-title">Set HttpOnly cookie</div><div class="flow-node-sub">session_id issued; no browser-readable session secret</div></div>
+          </div>
+          <div class="flow-connector-v">↓</div>
+          <div class="flow-row">
+            <div class="flow-node" style="border-color: rgba(0,212,255,0.3);"><div class="flow-node-title" style="color: var(--accent)">Redirect → download.html</div><div class="flow-node-sub">authenticated — works cross-device</div></div>
+          </div>
+        </div>
+        <div style="margin-top: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: var(--text-dimmer); line-height: 1.7;">
+          Token: 128-bit hex · 1h TTL · stored as <span class="mono">email_token_&lt;token&gt;</span> in KV · deleted on first use<br>
+          Silent no-op if <span class="mono">RESEND_API_KEY</span> absent — no error thrown<br>
+          Base URL is environment-aware (staging tokens point to staging Pages)
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 18. HALLUCINATION GUARD ── -->
+  <section class="section">
+    <div class="section-label">18 — Hallucination Guard (rewriteGuard.js)</div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <div>
+        <div style="margin-bottom: 12px; font-size: 12px; font-weight: 500; color: #fff;">How it works</div>
+        <div style="font-size: 11px; color: var(--text-dim); line-height: 1.7; margin-bottom: 14px;">
+          Called by <span class="mono">postProcessCV()</span> in <span class="mono">tailoring.js</span> after every LLM rewrite. Validates each bullet line individually, assigning a severity grade. All failures fall back to the original text from the CV — no AI-invented content ever reaches the output.
+        </div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text-dimmer); margin-bottom: 8px; font-weight: 600;">CHECKS (in order)</div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div style="padding: 8px 12px; background: rgba(255,107,53,0.06); border: 1px solid rgba(255,107,53,0.15); border-radius: 3px; font-size: 10px; color: var(--text-dim);">
+            <span style="color: var(--accent2); font-family: 'IBM Plex Mono', monospace; font-weight: 600;">HIGH</span> — Adds new numbers (metrics not in original CV)
+          </div>
+          <div style="padding: 8px 12px; background: rgba(255,107,53,0.06); border: 1px solid rgba(255,107,53,0.15); border-radius: 3px; font-size: 10px; color: var(--text-dim);">
+            <span style="color: var(--accent2); font-family: 'IBM Plex Mono', monospace; font-weight: 600;">HIGH</span> — Inflated claims (e.g. "led a team", "increased revenue") without implied context in original
+          </div>
+          <div style="padding: 8px 12px; background: rgba(255,209,102,0.06); border: 1px solid rgba(255,209,102,0.15); border-radius: 3px; font-size: 10px; color: var(--text-dim);">
+            <span style="color: var(--accent5); font-family: 'IBM Plex Mono', monospace; font-weight: 600;">MEDIUM</span> — New tool/technology terms not in <span class="mono">entitasKlaim</span> ground-truth block
+          </div>
+          <div style="padding: 8px 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 3px; font-size: 10px; color: var(--text-dim);">
+            <span style="color: var(--text-dim); font-family: 'IBM Plex Mono', monospace; font-weight: 600;">LOW</span> — Unchanged rewrite (before === after), truncated output (&lt;4 words), weak/illogical improvement
+          </div>
+        </div>
+      </div>
+      <div>
+        <div style="margin-bottom: 12px; font-size: 12px; font-weight: 500; color: #fff;">Severity → Action</div>
+        <div class="card" style="padding: 0; overflow: hidden; margin-bottom: 12px;">
+          <table class="transitions-table">
+            <thead>
+              <tr><th>SEVERITY</th><th>ACTION</th><th>COUNTED IN FALLBACK RATE</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="color: var(--accent2); font-family: 'IBM Plex Mono', monospace; font-size: 10px;">HIGH</td>
+                <td class="t-trigger">Revert to original bullet text</td>
+                <td class="t-trigger" style="color: var(--accent2);">Yes — increments fallbackCount</td>
+              </tr>
+              <tr>
+                <td style="color: var(--accent5); font-family: 'IBM Plex Mono', monospace; font-size: 10px;">MEDIUM</td>
+                <td class="t-trigger">Revert to original bullet text</td>
+                <td class="t-trigger" style="color: var(--text-dimmer);">No (acceptable downgrade)</td>
+              </tr>
+              <tr>
+                <td style="color: var(--text-dim); font-family: 'IBM Plex Mono', monospace; font-size: 10px;">LOW</td>
+                <td class="t-trigger">Revert to original bullet text</td>
+                <td class="t-trigger" style="color: var(--text-dimmer);">No</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="padding: 12px 16px; background: var(--bg3); border: 1px solid var(--border); border-radius: 3px; font-size: 11px; color: var(--text-dim); line-height: 1.7;">
+          <span style="color: var(--text); font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600;">Trust threshold:</span> <span class="mono">isTrusted = fallbackRate &lt; 0.20</span><br>
+          If &gt;20% of bullets are HIGH-severity fallbacks, the output is flagged as untrustworthy.<br><br>
+          <span style="color: var(--text); font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600;">Ground-truth anchor:</span> <span class="mono">entitasKlaim</span> (named entities from CV) + <span class="mono">angka_di_cv</span> (numbers from CV) injected into tailor prompt — rewriteGuard cross-checks against these.<br><br>
+          Adding/removing patterns in this file affects both ID and EN rewrites.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 19. ARCHETYPE SYSTEM ── -->
+  <section class="section">
+    <div class="section-label">19 — Archetype System (pipeline/archetypes.js)</div>
+    <div style="margin-bottom: 14px; font-size: 11px; color: var(--text-dim); line-height: 1.6;">
+      Detected from the JD's <span class="mono">judul_role</span> field in Stage 2 via <span class="mono">detectArchetype()</span>. Feeds scoring weight bias and tailoring tone. Falls back to <span class="mono">Lainnya</span> for unrecognised titles. Order matters — first match wins.
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 12px;">
+      <div style="padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-top: 2px solid var(--accent4); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; color: var(--accent4); margin-bottom: 5px;">IT / Software</div>
+        <div style="font-size: 10px; color: var(--text-dim);">software, developer, data analyst/engineer/scientist, devops, frontend, backend, fullstack, mobile dev, cloud, product manager, QA</div>
+      </div>
+      <div style="padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-top: 2px solid var(--accent2); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; color: var(--accent2); margin-bottom: 5px;">Marketing / Sales</div>
+        <div style="font-size: 10px; color: var(--text-dim);">marketing, digital marketing, sales, business dev, account exec/manager, brand, copywriter, growth, partnership</div>
+      </div>
+      <div style="padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-top: 2px solid var(--accent5); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; color: var(--accent5); margin-bottom: 5px;">Finance / Akuntansi</div>
+        <div style="font-size: 10px; color: var(--text-dim);">finance, keuangan, accounting, audit, tax, treasury, risk analyst, budgeting, cost accountant</div>
+      </div>
+      <div style="padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-top: 2px solid var(--accent6); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; color: var(--accent6); margin-bottom: 5px;">Teknik / Manufaktur</div>
+        <div style="font-size: 10px; color: var(--text-dim);">civil/mechanical/electrical/chemical eng, manufacturing, produksi, QA/QC, plant, maintenance, structural</div>
+      </div>
+      <div style="padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-top: 2px solid var(--accent); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; color: var(--accent); margin-bottom: 5px;">Manajemen / Leader</div>
+        <div style="font-size: 10px; color: var(--text-dim);">manager, direktur, kepala, head of, lead, supervisor, VP, chief — checked LAST to avoid false hits</div>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 14px;">
+      <div style="padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; color: var(--text-dim); margin-bottom: 4px;">Administrasi / GA</div>
+        <div style="font-size: 10px; color: var(--text-dimmer);">admin, GA, office staff, secretary</div>
+      </div>
+      <div style="padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; color: var(--text-dim); margin-bottom: 4px;">HRD</div>
+        <div style="font-size: 10px; color: var(--text-dimmer);">HR, human resource, rekrut, talent, people ops, C&B, L&D</div>
+      </div>
+      <div style="padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; color: var(--text-dim); margin-bottom: 4px;">Operasional / Logistik</div>
+        <div style="font-size: 10px; color: var(--text-dimmer);">logistik, supply chain, warehouse, procurement, distribusi, inventory</div>
+      </div>
+      <div style="padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; color: var(--text-dim); margin-bottom: 4px;">Kreatif / Desain</div>
+        <div style="font-size: 10px; color: var(--text-dimmer);">designer, graphic, UI/UX, fotografer, content creator, animator, art director</div>
+      </div>
+      <div style="padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; color: var(--text-dim); margin-bottom: 4px;">+ 4 more</div>
+        <div style="font-size: 10px; color: var(--text-dimmer);">Kesehatan · Pendidikan · Hospitality/F&B · Customer Service · Fresh Graduate · Lainnya (fallback)</div>
+      </div>
+    </div>
+    <div class="card" style="padding: 12px 16px; font-size: 10px; color: var(--text-dim); font-family: 'IBM Plex Mono', monospace; line-height: 1.7;">
+      <span style="color: var(--text); font-weight: 600;">Ordering rules:</span>
+      Fresh Graduate checked first (trainee/intern appears in any title) ·
+      Teknik/Manufaktur before IT/Software (prevents "Mechanical Engineer" hitting IT) ·
+      Kreatif/Desain before Marketing/Sales (Content Creator is design, not marketing) ·
+      Manajemen/Leader last (manager/lead/supervisor appears in every senior title)
+    </div>
+  </section>
+
+  <!-- ── 20. GOTCHAS ── -->
+  <section class="section">
+    <div class="section-label">20 — Developer Gotchas</div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+      <div style="padding: 12px 16px; background: var(--bg2); border: 1px solid rgba(255,209,102,0.15); border-left: 2px solid var(--accent5); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent5); margin-bottom: 5px;">Stale cache</div>
+        <div style="font-size: 11px; color: var(--text-dim);">Changed a prompt or scoring formula? Bump the version in <span class="mono">cacheVersions.js</span>. Old key = old result. Most common silent bug.</div>
+      </div>
+      <div style="padding: 12px 16px; background: var(--bg2); border: 1px solid rgba(255,107,53,0.15); border-left: 2px solid var(--accent2); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent2); margin-bottom: 5px;">IP mismatch</div>
+        <div style="font-size: 11px; color: var(--text-dim);"><span class="mono">cv_text_key</span> is bound to the uploading IP. Testing across IPs or proxies will reject with mismatch error.</div>
+      </div>
+      <div style="padding: 12px 16px; background: var(--bg2); border: 1px solid rgba(255,107,53,0.15); border-left: 2px solid var(--accent2); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent2); margin-bottom: 5px;">Frontend not updating</div>
+        <div style="font-size: 11px; color: var(--text-dim);"><span class="mono">js/dist/</span> and <span class="mono">js/vendor/</span> are gitignored. Run <span class="mono">npm run build</span> before testing — CI builds them fresh.</div>
+      </div>
+      <div style="padding: 12px 16px; background: var(--bg2); border: 1px solid rgba(255,107,53,0.15); border-left: 2px solid var(--accent2); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent2); margin-bottom: 5px;">Double-gen race</div>
+        <div style="font-size: 11px; color: var(--text-dim);">Session lock <span class="mono">lock_&lt;id&gt;</span> TTL 120s. Retrying within that window silently blocks — looks like a hang.</div>
+      </div>
+      <div style="padding: 12px 16px; background: var(--bg2); border: 1px solid rgba(255,107,53,0.15); border-left: 2px solid var(--accent2); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent2); margin-bottom: 5px;">Wrong env deployed</div>
+        <div style="font-size: 11px; color: var(--text-dim);"><span class="mono">wrangler deploy</span> without <span class="mono">--env production</span> goes to sandbox. Always use <span class="mono">npm run deploy:prod</span>.</div>
+      </div>
+      <div style="padding: 12px 16px; background: var(--bg2); border: 1px solid rgba(255,107,53,0.15); border-left: 2px solid var(--accent2); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent2); margin-bottom: 5px;">Auth flash</div>
+        <div style="font-size: 11px; color: var(--text-dim);"><span class="mono">hasil-guard.js</span> must stay as synchronous inline <span class="mono">&lt;script&gt;</span>. If deferred or bundled, unauthenticated content flashes before redirect.</div>
+      </div>
+      <div style="padding: 12px 16px; background: var(--bg2); border: 1px solid rgba(255,209,102,0.15); border-left: 2px solid var(--accent5); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent5); margin-bottom: 5px;">Silent email skip</div>
+        <div style="font-size: 11px; color: var(--text-dim);"><span class="mono">RESEND_API_KEY</span> is optional. If absent, all email sending silently no-ops — no error thrown. Easy to miss in staging.</div>
+      </div>
+      <div style="padding: 12px 16px; background: var(--bg2); border: 1px solid rgba(255,209,102,0.15); border-left: 2px solid var(--accent5); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent5); margin-bottom: 5px;">Scoring snapshot is server-side</div>
+        <div style="font-size: 11px; color: var(--text-dim);"><span class="mono">analyzing-page.js</span> no longer writes to sessionStorage. <span class="mono">scoring.js</span> fetches from <span class="mono">GET /get-scoring</span>. Missing data? Check the <span class="mono">cvtext_</span> KV entry.</div>
+      </div>
+      <div style="padding: 12px 16px; background: var(--bg2); border: 1px solid rgba(255,209,102,0.15); border-left: 2px solid var(--accent5); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent5); margin-bottom: 5px;">CV silently truncated</div>
+        <div style="font-size: 11px; color: var(--text-dim);"><span class="mono">tailoring.js</span> truncates CVs at 4000 chars. Oldest experience entries are dropped without error or warning.</div>
+      </div>
+      <div style="padding: 12px 16px; background: var(--bg2); border: 1px solid rgba(255,209,102,0.15); border-left: 2px solid var(--accent5); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent5); margin-bottom: 5px;">Coupon GET with body</div>
+        <div style="font-size: 11px; color: var(--text-dim);">Fetch API spec forbids GET bodies (throws TypeError). Mayar coupon validate must use query string params — not body. <span class="mono">method:'GET' + body:</span> silently returns <span class="mono">valid:false</span>.</div>
+      </div>
+      <div style="padding: 12px 16px; background: var(--bg2); border: 1px solid rgba(255,209,102,0.15); border-left: 2px solid var(--accent5); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent5); margin-bottom: 5px;">CV export is client-side</div>
+        <div style="font-size: 11px; color: var(--text-dim);">DOCX/PDF files are generated entirely in the browser (docx.js + jsPDF from <span class="mono">cvDataCache</span>). The worker never serves file bytes.</div>
+      </div>
+      <div style="padding: 12px 16px; background: var(--bg2); border: 1px solid rgba(255,209,102,0.15); border-left: 2px solid var(--accent5); border-radius: 3px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent5); margin-bottom: 5px;">konfidensitas discarded</div>
+        <div style="font-size: 11px; color: var(--text-dim);"><span class="mono">diagnose.js</span> returns a <span class="mono">konfidensitas</span> field but the orchestrator (<span class="mono">analysis.js</span>) ignores it. Stage 2 pure JS is always authoritative for confidence level.</div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+  // Subtle pulse on pipeline stages on load
+  document.querySelectorAll('.pipeline-stage').forEach((el, i) => {
+    el.style.animationDelay = `${i * 0.07}s`;
+    el.style.animation = 'fadeUp 0.4s ease both';
+  });
+
+  // Highlight on hover for state boxes
+  document.querySelectorAll('.state-box').forEach(el => {
+    el.addEventListener('mouseenter', () => {
+      el.style.background = 'rgba(255,255,255,0.025)';
+    });
+    el.addEventListener('mouseleave', () => {
+      el.style.background = '';
+    });
+  });
+
+  // Animated glow on accent elements
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(0,212,255,0.08); }
+      50% { box-shadow: 0 0 20px 4px rgba(0,212,255,0.08); }
+    }
+    .tier-card.featured {
+      animation: pulse-glow 4s ease-in-out infinite;
+    }
+  `;
+  document.head.appendChild(style);
+</script>
+</body>
+</html>

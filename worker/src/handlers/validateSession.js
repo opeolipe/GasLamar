@@ -14,7 +14,7 @@ export async function handleValidateSession(request, env) {
 
   const stored = await env.GASLAMAR_SESSIONS.get(cvKey, { type: 'json' });
   if (!stored) {
-    return jsonResponse({ valid: false, reason: 'not_found' }, 200, request, env);
+    return jsonResponse({ valid: false, reason: 'not_found' }, 404, request, env);
   }
 
   const ip = clientIp(request);

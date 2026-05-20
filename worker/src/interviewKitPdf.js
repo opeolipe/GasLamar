@@ -8,12 +8,12 @@ const IK_STYLE = {
   titleSize: 18,
   subtitleSize: 9,
   headingSize: 10.5,
-  bodySize: 9.5,
-  metaSize: 8.5,
-  lineGap: 3.8,
-  sectionGap: 8,
-  paragraphGap: 4,
-  itemGap: 6,
+  bodySize: 10,
+  metaSize: 9,
+  lineGap: 4.5,    // more breathing room per line
+  sectionGap: 14,  // clear visual separation between sections
+  paragraphGap: 6,
+  itemGap: 12,     // generous gap between Q&A items — recruiter-skimmable
   listIndent: 12,
 };
 
@@ -30,7 +30,7 @@ function sanitize(str) {
 
 function wrapLines(text, font, size, maxWidth) {
   const out = [];
-  for (const para of sanitize(text).split('\n')) {
+  for (const para of sanitize(text).replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')) {
     const words = para.split(/\s+/).filter(Boolean);
     if (!words.length) { out.push(''); continue; }
     let line = '';
@@ -121,45 +121,53 @@ export async function generateInterviewKitPdf(kit) {
 
   // Title block
   drawTextBlock('INTERVIEW KIT', bold, IK_STYLE.titleSize, navy);
-  y -= 2.5;
+  y -= 4;
   drawTextBlock('Prepared for your application workflow', italic, IK_STYLE.subtitleSize, softInk);
-  y -= 9;
+  y -= 12;
   page.drawLine({
     start: { x: MARGIN, y },
     end:   { x: PAGE_W - MARGIN, y },
     thickness: 0.8,
     color: rule,
   });
-  y -= 12;
+  y -= 18;
 
   if (kit.tell_me_about_yourself) {
     drawSectionHeader('PERKENALAN DIRI / TELL ME ABOUT YOURSELF');
+    y -= 4;
     drawTextBlock(cleanValue(kit.tell_me_about_yourself), regular, IK_STYLE.bodySize, ink);
+    y -= 6;
   }
 
   if (kit.email_template) {
     drawSectionHeader('TEMPLATE EMAIL LAMARAN');
+    y -= 4;
     drawTextBlock(`Subject: ${cleanValue(kit.email_template.subject)}`, bold, IK_STYLE.bodySize, ink);
     y -= IK_STYLE.paragraphGap;
     drawTextBlock(cleanValue(kit.email_template.body), regular, IK_STYLE.bodySize, ink);
+    y -= 6;
   }
 
   if (kit.whatsapp_message) {
     drawSectionHeader('PESAN WHATSAPP');
+    y -= 4;
     drawTextBlock(cleanValue(kit.whatsapp_message), regular, IK_STYLE.bodySize, ink);
+    y -= 6;
   }
 
   if (Array.isArray(kit.interview_questions) && kit.interview_questions.length > 0) {
     drawSectionHeader('PERTANYAAN INTERVIEW');
+    y -= 6;
     kit.interview_questions.forEach((q, i) => {
-      ensureSpace(52);
+      ensureSpace(64);
       const qText = cleanValue(q.question_id || q.question_en || '');
       drawTextBlock(`${i + 1}. ${qText}`, bold, IK_STYLE.bodySize, ink);
       if (q.question_id && q.question_en) {
         drawTextBlock(cleanValue(q.question_en), italic, IK_STYLE.metaSize, softInk, IK_STYLE.listIndent);
       }
-      y -= 1.5;
+      y -= 3;
       drawTextBlock('Contoh jawaban:', bold, IK_STYLE.metaSize, softInk, IK_STYLE.listIndent);
+      y -= 1;
       drawTextBlock(cleanValue(q.sample_answer), regular, IK_STYLE.bodySize, ink, IK_STYLE.listIndent);
       y -= IK_STYLE.itemGap;
     });
@@ -167,12 +175,13 @@ export async function generateInterviewKitPdf(kit) {
 
   if (Array.isArray(kit.job_insights) && kit.job_insights.length > 0) {
     drawSectionHeader('KATA KUNCI JOB DESCRIPTION');
+    y -= 4;
     kit.job_insights.forEach(ji => {
       const phrase = cleanValue(ji?.phrase);
       const meaning = cleanValue(ji?.meaning);
       if (!phrase && !meaning) return;
       drawBulletLine(`${phrase}${phrase && meaning ? ': ' : ''}${meaning}`);
-      y -= 0.8;
+      y -= 2;
     });
   }
 

@@ -30,7 +30,39 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="dns-prefetch" href="//eu-assets.i.posthog.com">
   <link rel="dns-prefetch" href="//static.cloudflareinsights.com">
-  <script type="application/ld+json" src="/assets/structured-data.json"></script>
+  <script type="application/ld+json">
+[
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "GasLamar",
+    "url": "https://gaslamar.com",
+    "description": "Upload CV + job description. Lihat peluang interview kamu sebelum apply.",
+    "inLanguage": "id-ID",
+    "potentialAction": {
+      "@type": "Action",
+      "name": "Cek Peluang Saya",
+      "target": "https://gaslamar.com/"
+    }
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "GasLamar",
+    "url": "https://gaslamar.com",
+    "description": "AI CV analysis untuk pencari kerja Indonesia. Upload CV dan lihat peluang interview sebelum apply.",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Web Browser",
+    "inLanguage": "id-ID",
+    "offers": {
+      "@type": "AggregateOffer",
+      "lowPrice": "29000",
+      "highPrice": "299000",
+      "priceCurrency": "IDR"
+    }
+  }
+]
+  </script>
   <!-- Cloudflare Web Analytics -->
   <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "f9c97d82f2a04b9f95e051946eb0525e"}'></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -43,9 +75,9 @@
 <body>
   <div id="root"></div>
   <!-- Analytics + PostHog init (posthog-init.js + analytics.js, no page-specific JS) -->
-  <script defer src="js/dist/analytics-init.bundle.js?v=daa1935c"></script>
+  <script defer src="js/dist/analytics-init.bundle.js?v=5d7193b2"></script>
   <!-- React homepage bundle -->
-  <script defer src="js/dist/home-react.bundle.js?v=8778ed80"></script>
+  <script defer src="js/dist/home-react.bundle.js?v=520c2f68"></script>
   <!-- PostHog array.js — loaded after init so posthog.init() flags are queued first -->
   <script defer src="https://eu-assets.i.posthog.com/static/array.js" crossorigin="anonymous"></script>
 </body>

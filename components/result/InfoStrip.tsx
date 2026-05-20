@@ -25,18 +25,18 @@ export default function InfoStrip({ children, type = 'info' }: Props) {
   const s = STYLES[type];
   return (
     <div
-      role="status"
+      role={type === 'expired' ? 'alert' : 'status'}
       style={{
         background:   s.background,
         color:        s.color,
         border:       `1px solid ${s.borderColor as string}`,
         borderRadius: 10,
-        padding:      '0.5rem 1rem',
-        fontSize:     '0.8rem',
+        padding:      '0.6rem 1rem',
+        fontSize:     '0.86rem',
         fontWeight:   400,
         textAlign:    'center',
         marginBottom: '1rem',
-        lineHeight:   1.55,
+        lineHeight:   1.6,
       }}
     >
       {children}

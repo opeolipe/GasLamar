@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
-import { copyToClipboard, buildSecretHeaders, WORKER_URL } from '@/lib/sessionUtils';
+import { copyToClipboard, WORKER_URL } from '@/lib/sessionUtils';
 import { logError } from '@/lib/logger';
-import LoadingPlaceholder from '@/components/ui/LoadingPlaceholder';
+import InterviewKitSkeleton from '@/components/ui/InterviewKitSkeleton';
 
 interface InterviewKitData {
   job_insights:           { phrase: string; meaning: string }[];
@@ -13,7 +13,6 @@ interface InterviewKitData {
 }
 
 interface InterviewKitProps {
-  sessionSecret: string | null;
   language?: 'id' | 'en';
   initialKit?: unknown | null;
 }
@@ -30,13 +29,16 @@ function isValidKit(v: unknown): v is InterviewKitData {
   );
 }
 
-function CopyButton({ text, copyKey, copiedKey, onCopy }: {
+function CopyButton({ text, copyKey, copiedKey, onCopy, lang = 'id' }: {
   text: string;
   copyKey: string;
   copiedKey: string | null;
   onCopy: (text: string, key: string) => void;
+  lang?: 'id' | 'en';
 }) {
   const copied = copiedKey === copyKey;
+  const label       = lang === 'en' ? 'Copy' : 'Salin';
+  const labelCopied = lang === 'en' ? '✓ Copied!' : '✓ Disalin!';
   return (
     <button
       onClick={() => onCopy(text, copyKey)}
@@ -47,7 +49,7 @@ function CopyButton({ text, copyKey, copiedKey, onCopy }: {
         color: copied ? '#15803D' : '#1D4ED8',
       }}
     >
-      {copied ? '✓ Disalin!' : 'Salin'}
+      {copied ? labelCopied : label}
     </button>
   );
 }
@@ -60,7 +62,7 @@ function GroupLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function InterviewKit({ sessionSecret, language = 'id', initialKit = null }: InterviewKitProps) {
+export default function InterviewKit({ language = 'id', initialKit = null }: InterviewKitProps) {
   const [cache, setCache]           = useState<Partial<Record<'id' | 'en', InterviewKitData>>>(() =>
     isValidKit(initialKit) ? { [language]: initialKit as InterviewKitData } : {}
   );
@@ -69,8 +71,6 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
   const [error, setError]           = useState<string | null>(null);
   const [copiedKey, setCopiedKey]   = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
-  const sessionSecretRef            = useRef(sessionSecret);
-  sessionSecretRef.current          = sessionSecret;
 
   const kit = cache[activeLang] ?? null;
 
@@ -93,7 +93,7 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
       try {
         const res = await fetch(`${WORKER_URL}/interview-kit`, {
           method:  'POST',
-          headers: { 'Content-Type': 'application/json', ...buildSecretHeaders(sessionSecretRef.current) },
+          headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body:    JSON.stringify({ language: activeLang }),
           signal:  ctrl.signal,
@@ -101,12 +101,17 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
         clearTimeout(timeout);
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error((data as any).message || 'Gagal menghasilkan Interview Kit.');
+          throw new Error((data as any).message || (
+            activeLang === 'en' ? 'Failed to generate Interview Kit.' : 'Gagal menghasilkan Interview Kit.'
+          ));
         }
         const data = await res.json();
         if (cancelled) return;
         if (!isValidKit(data.kit)) {
-          throw new Error('Interview Kit tidak lengkap. Coba lagi.');
+          throw new Error(activeLang === 'en'
+            ? 'Interview Kit is incomplete. Please try again.'
+            : 'Interview Kit tidak lengkap. Coba lagi.'
+          );
         }
         setCache(prev => ({ ...prev, [activeLang]: data.kit }));
         setLoading(false);
@@ -114,8 +119,8 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
         clearTimeout(timeout);
         if (cancelled) return;
         const msg = e?.name === 'AbortError'
-          ? 'Interview Kit timeout. Coba lagi.'
-          : (e?.message || 'Interview Kit belum tersedia. Coba lagi.');
+          ? (activeLang === 'en' ? 'Interview Kit timed out. Please try again.' : 'Interview Kit timeout. Coba lagi.')
+          : (e?.message || (activeLang === 'en' ? 'Interview Kit unavailable. Please try again.' : 'Interview Kit belum tersedia. Coba lagi.'));
         logError('interview_kit_failed', { message: e?.message });
         setError(msg);
         setLoading(false);
@@ -153,7 +158,9 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
       <div className="mb-5">
         <h2 className="text-xl font-bold text-slate-800">Interview Kit</h2>
         <p className="text-sm text-slate-500 mt-1">
-          Gunakan ini untuk langsung melamar dan menjawab pertanyaan pertama dengan percaya diri
+          {activeLang === 'en'
+            ? 'Use this to apply confidently and nail your first interview question'
+            : 'Gunakan ini untuk langsung melamar dan menjawab pertanyaan pertama dengan percaya diri'}
         </p>
       </div>
 
@@ -163,7 +170,7 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
           <button
             key={lang}
             onClick={() => handleLangSwitch(lang)}
-            className={`min-h-[44px] px-5 rounded-full font-semibold text-sm transition-all duration-200 ${
+            className={`flex-1 min-w-0 min-h-[44px] px-3 rounded-full font-semibold text-sm transition-all duration-200 ${
               activeLang === lang
                 ? 'bg-blue-600 text-white shadow-sm'
                 : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300 hover:-translate-y-[1px]'
@@ -175,7 +182,7 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
       </div>
 
       {/* Loading */}
-      {loading && <LoadingPlaceholder text="Menyiapkan Interview Kit kamu…" />}
+      {loading && <InterviewKitSkeleton language={activeLang} />}
 
       {/* Error */}
       {!loading && error && (
@@ -185,7 +192,7 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
             onClick={() => setRetryCount(c => c + 1)}
             className="min-h-[44px] min-w-[44px] px-4 rounded-full text-sm font-semibold bg-red-50 border border-red-200 text-red-700 hover:bg-red-100 transition-colors"
           >
-            Coba Lagi
+            {activeLang === 'en' ? 'Try Again' : 'Coba Lagi'}
           </button>
         </div>
       )}
@@ -194,27 +201,30 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
       {!loading && !error && kit && (
         <Accordion type="single" collapsible>
 
-          {/* ── Gunakan Sekarang ── */}
-          <GroupLabel>Gunakan Sekarang</GroupLabel>
+          {/* ── Use Now ── */}
+          <GroupLabel>{activeLang === 'en' ? 'Use Now' : 'Gunakan Sekarang'}</GroupLabel>
 
           {/* Email Template */}
           <AccordionItem value="item-email" className="border border-slate-200 rounded-[14px] mb-2 overflow-hidden bg-white transition-all duration-200 hover:shadow-sm">
             <AccordionTrigger className="min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
               <span className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 pr-1">
-                Email Lamaran
-                <span style={{ fontSize: '0.7rem', fontWeight: 700, background: '#ECFDF5', color: '#059669', border: '1px solid #6EE7B7', borderRadius: 20, padding: '1px 8px', letterSpacing: '0.02em', flexShrink: 0 }}>Paling sering dipakai</span>
+                {activeLang === 'en' ? 'Application Email' : 'Email Lamaran'}
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, background: '#ECFDF5', color: '#059669', border: '1px solid #6EE7B7', borderRadius: 20, padding: '1px 8px', letterSpacing: '0.02em', flexShrink: 0 }}>
+                  {activeLang === 'en' ? 'Most used' : 'Paling sering dipakai'}
+                </span>
               </span>
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">
               <p className="text-sm font-medium text-slate-500 mb-1">Subject:</p>
               <p className="text-sm text-slate-800 bg-slate-50 rounded-[10px] px-3 py-2 mb-3">{kit.email_template.subject}</p>
-              <p className="text-sm font-medium text-slate-500 mb-1">Isi email:</p>
+              <p className="text-sm font-medium text-slate-500 mb-1">{activeLang === 'en' ? 'Email body:' : 'Isi email:'}</p>
               <p className="text-sm text-slate-700 whitespace-pre-wrap bg-slate-50 rounded-[10px] px-3 py-2 mb-3">{kit.email_template.body}</p>
               <CopyButton
                 text={`Subject: ${kit.email_template.subject}\n\n${kit.email_template.body}`}
                 copyKey="email"
                 copiedKey={copiedKey}
                 onCopy={handleCopy}
+                lang={activeLang}
               />
             </AccordionContent>
           </AccordionItem>
@@ -222,7 +232,7 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
           {/* WhatsApp */}
           <AccordionItem value="item-whatsapp" className="border border-slate-200 rounded-[14px] mb-2 overflow-hidden bg-white transition-all duration-200 hover:shadow-sm">
             <AccordionTrigger className="min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
-              Pesan WhatsApp
+              {activeLang === 'en' ? 'WhatsApp Message' : 'Pesan WhatsApp'}
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">
               <p className="text-sm text-slate-700 whitespace-pre-wrap bg-slate-50 rounded-[10px] px-3 py-2 mb-3">{kit.whatsapp_message}</p>
@@ -231,6 +241,7 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
                 copyKey="whatsapp"
                 copiedKey={copiedKey}
                 onCopy={handleCopy}
+                lang={activeLang}
               />
             </AccordionContent>
           </AccordionItem>
@@ -240,28 +251,33 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
             <AccordionTrigger className="min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
               <span className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 pr-1">
                 "Tell Me About Yourself"
-                <span style={{ fontSize: '0.7rem', fontWeight: 700, background: '#ECFDF5', color: '#059669', border: '1px solid #6EE7B7', borderRadius: 20, padding: '1px 8px', letterSpacing: '0.02em', flexShrink: 0 }}>Paling sering dipakai</span>
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, background: '#ECFDF5', color: '#059669', border: '1px solid #6EE7B7', borderRadius: 20, padding: '1px 8px', letterSpacing: '0.02em', flexShrink: 0 }}>
+                  {activeLang === 'en' ? 'Most used' : 'Paling sering dipakai'}
+                </span>
               </span>
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">
-              <p className="text-sm text-slate-400 mb-2">Jawaban pembuka ~45-60 detik</p>
+              <p className="text-sm text-slate-400 mb-2">
+                {activeLang === 'en' ? 'Opening answer ~45-60 seconds' : 'Jawaban pembuka ~45-60 detik'}
+              </p>
               <p className="text-sm text-slate-700 whitespace-pre-wrap bg-slate-50 rounded-[10px] px-3 py-2 mb-3">{kit.tell_me_about_yourself}</p>
               <CopyButton
                 text={kit.tell_me_about_yourself}
                 copyKey="tmay"
                 copiedKey={copiedKey}
                 onCopy={handleCopy}
+                lang={activeLang}
               />
             </AccordionContent>
           </AccordionItem>
 
-          {/* ── Persiapkan ── */}
-          <GroupLabel>Persiapkan</GroupLabel>
+          {/* ── Prepare ── */}
+          <GroupLabel>{activeLang === 'en' ? 'Prepare' : 'Persiapkan'}</GroupLabel>
 
           {/* Interview Questions */}
           <AccordionItem value="item-questions" className="border border-slate-200 rounded-[14px] mb-2 overflow-hidden bg-white transition-all duration-200 hover:shadow-sm">
             <AccordionTrigger className="min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
-              Pertanyaan Interview ({kit.interview_questions.length})
+              {activeLang === 'en' ? `Interview Questions (${kit.interview_questions.length})` : `Pertanyaan Interview (${kit.interview_questions.length})`}
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">
               <div className="flex flex-col gap-4">
@@ -270,17 +286,22 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
                     key={index}
                     className="rounded-[12px] border border-slate-100 p-3"
                   >
-                    <p className="text-sm font-bold text-blue-600 mb-1">Pertanyaan {index + 1}</p>
+                    <p className="text-sm font-bold text-blue-600 mb-1">
+                      {activeLang === 'en' ? `Question ${index + 1}` : `Pertanyaan ${index + 1}`}
+                    </p>
                     <p className="text-sm font-semibold text-slate-800 mb-2">
                       {activeLang === 'en' ? q.question_en : q.question_id}
                     </p>
-                    <p className="text-sm font-medium text-slate-500 mb-1">Contoh jawaban (STAR):</p>
+                    <p className="text-sm font-medium text-slate-500 mb-1">
+                      {activeLang === 'en' ? 'Sample answer (STAR):' : 'Contoh jawaban (STAR):'}
+                    </p>
                     <p className="text-sm text-slate-700 whitespace-pre-wrap bg-slate-50 rounded-[10px] px-3 py-2 mb-2">{q.sample_answer}</p>
                     <CopyButton
                       text={q.sample_answer}
                       copyKey={`q-${index}-answer`}
                       copiedKey={copiedKey}
                       onCopy={handleCopy}
+                      lang={activeLang}
                     />
                   </div>
                 ))}
@@ -294,7 +315,7 @@ export default function InterviewKit({ sessionSecret, language = 'id', initialKi
           {/* Job Description Analysis */}
           <AccordionItem value="item-insights" className="border border-slate-200 rounded-[14px] mb-2 overflow-hidden bg-white transition-all duration-200 hover:shadow-sm">
             <AccordionTrigger className="min-h-[44px] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
-              Analisis Job Description
+              {activeLang === 'en' ? 'Job Description Analysis' : 'Analisis Job Description'}
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">
               <div className="flex flex-col gap-3">

@@ -22,7 +22,6 @@ let heartbeatTimer    = null;
 let countdownInterval = null;
 let cvDataCache       = null;
 let sessionIdCache    = null;
-let sessionSecretCache = null;
 
 // ── clearClientSessionData ────────────────────────────────────────────────────
 // Call whenever the server reports the session is gone (expired / invalid).
@@ -32,16 +31,9 @@ function clearClientSessionData(sessionId) {
   sessionStorage.removeItem('gaslamar_tier');
   sessionStorage.removeItem('gaslamar_credits');       // defensive — key unused but cleared for hygiene
   sessionStorage.removeItem('gaslamar_score_summary'); // set by scoring.js, consumed by download-generation.js
+  sessionStorage.removeItem('gaslamar_session');       // legacy key, no longer written
   localStorage.removeItem('gaslamar_session');
   localStorage.removeItem('gaslamar_tier');            // legacy belt-and-suspenders
-  if (sessionId) sessionStorage.removeItem('gaslamar_secret_' + sessionId);
-}
-
-// ── getSecretHeaders ──────────────────────────────────────────────────────────
-// Returns the X-Session-Secret header object (or {}) for credentialed requests.
-// Centralises the four identical inline constructions from the original file.
-function getSecretHeaders() {
-  return sessionSecretCache ? { 'X-Session-Secret': sessionSecretCache } : {};
 }
 
 // ── syncTierFromServer ────────────────────────────────────────────────────────

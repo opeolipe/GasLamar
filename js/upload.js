@@ -12,11 +12,13 @@ const MIN_JD_LENGTH = 100;
 let selectedFile = null;
 let cvText = '';
 let jdTouched = false; // true once user has interacted with the JD field
+let uploadSubmitInProgress = false;
 
 // ---- Drag & Drop ----
 
 function handleDragOver(e) {
   e.preventDefault();
+  if (uploadSubmitInProgress) return;
   document.getElementById('drop-zone').classList.add('drop-zone-active');
 }
 
@@ -57,7 +59,7 @@ function processFile(file) {
   // Clear any stale data from a previous flow before starting fresh
   ['gaslamar_scoring', 'gaslamar_cv_key', 'gaslamar_cv_pending',
    'gaslamar_jd_pending', 'gaslamar_filename', 'gaslamar_tier',
-   'gaslamar_email', 'gaslamar_analyze_time',
+   'gaslamar_analyze_time',
    'gaslamar_cv_draft', 'gaslamar_filename_draft',
   ].forEach(k => sessionStorage.removeItem(k));
 
@@ -320,6 +322,9 @@ function updateCharCount() {
 document.getElementById('upload-form').addEventListener('submit', async (e) => {
   e.preventDefault();
 
+  // Rapid-click guard — first click wins; subsequent clicks before navigation are ignored
+  if (uploadSubmitInProgress) return;
+
   // Submission guard — reject if the raw value is still over the limit
   // (devtools bypass or race condition on programmatic assignment).
   const rawJd = document.getElementById('job-desc').value;
@@ -351,7 +356,10 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
 
   // Store CV data and redirect to analyzing page (which makes the API call)
   const submitBtn = document.getElementById('submit-btn');
+  const originalSubmitText = submitBtn ? submitBtn.textContent : '';
+  uploadSubmitInProgress = true;
   submitBtn.disabled = true;
+  submitBtn.textContent = 'Menganalisis...';
 
   try {
     // C5 FIX: Removed the unreliable /<[^>]*>/g tag-stripping step.
@@ -366,7 +374,9 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
   } catch (_) {
     // Safari private mode blocks sessionStorage writes — inform user
     showError('file-error', 'Browser kamu memblokir penyimpanan sementara (mode pribadi?). Coba gunakan mode normal.');
+    uploadSubmitInProgress = false;
     submitBtn.disabled = false;
+    submitBtn.textContent = originalSubmitText;
     return;
   }
   // Note: gaslamar_jd_draft is cleared by analyzing-page.js on successful analysis,
@@ -455,10 +465,10 @@ function hideError(id) {
 
   // Show informational banner if redirected back from hasil.html due to missing/expired session
   const reasonParam = params.get('reason');
-  if (reasonParam === 'session_expired' || reasonParam === 'no_session') {
-    const msg = reasonParam === 'session_expired'
-      ? '⏰ Sesi analisis sudah berakhir (berlaku 2 jam). Silakan upload CV kembali untuk analisis baru.'
-      : 'Sesi tidak ditemukan. Silakan mulai upload CV dari sini.';
+  if (reasonParam === 'session_expired' || reasonParam === 'no_session' || reasonParam === 'cv_expired') {
+    const msg = reasonParam === 'no_session'
+      ? 'Sesi tidak ditemukan. Silakan mulai upload CV dari sini.'
+      : '⏰ Sesi analisis sudah berakhir (berlaku 2 jam). Silakan upload CV kembali untuk analisis baru.';
     const banner = document.createElement('p');
     banner.className = 'session-notice-banner';
     banner.setAttribute('role', 'status');
@@ -565,7 +575,10 @@ document.getElementById('job-desc').addEventListener('blur', () => {
 // Re-sync submit button when page is restored from BFcache (back-navigation or tab switch).
 // Without this, the button stays disabled if the user navigated away mid-submit.
 window.addEventListener('pageshow', (e) => {
-  if (e.persisted) syncSubmitBtn();
+  if (e.persisted) {
+    uploadSubmitInProgress = false;
+    syncSubmitBtn();
+  }
 });
 
 // ---- Staging test hook ----

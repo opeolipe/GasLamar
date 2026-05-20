@@ -17,7 +17,7 @@ function startPolling(sessionId) {
 // ── restartPolling ────────────────────────────────────────────────────────────
 // Called by the "Check Again" button after auto-polling has exhausted MAX_POLLS.
 function restartPolling() {
-  const sessionId = sessionIdCache || localStorage.getItem('gaslamar_session');
+  const sessionId = sessionIdCache;
   if (!sessionId) {
     showSessionError('Sesi tidak ditemukan', 'Link download tidak valid.');
     return;
@@ -34,7 +34,7 @@ async function handlePaidSession(data, sessionId) {
   clearTimeout(pollTimer);
 
   const creditsForHeartbeat = data.total_credits != null ? data.total_credits : 1;
-  startSessionHeartbeat(sessionId, creditsForHeartbeat);
+  startSessionHeartbeat(sessionId);
   if (data.expires_at) startCountdown(data.expires_at, creditsForHeartbeat);
 
   const creditsRemaining = data.credits_remaining != null ? data.credits_remaining : 1;
@@ -66,15 +66,11 @@ async function poll(sessionId) {
   updatePollUI();
 
   try {
-    // Session ID travels via the HttpOnly cookie set by /create-payment.
-    // credentials:'include' sends it cross-origin.
-    // ?session= is always appended so the server can use the lenient fallback path
-    // when X-Session-Secret is absent (Safari ITP clears sessionStorage mid-redirect,
-    // tab close, or email-link re-access on a different device).
-    const checkUrl = WORKER_URL + '/check-session?session=' + encodeURIComponent(sessionId);
+    // Session auth travels only via the HttpOnly cookie set by /create-payment.
+    const checkUrl = WORKER_URL + '/check-session';
     const res = await fetch(checkUrl, {
       credentials: 'include',
-      headers: getSecretHeaders(),
+      headers: { 'X-Session-Id': sessionId },
     });
 
     if (res.status === 400) {
@@ -100,7 +96,7 @@ async function poll(sessionId) {
       try {
         const resultRes = await fetch(WORKER_URL + '/get-result', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...getSecretHeaders() },
+          headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
         });
         if (resultRes.ok) {
@@ -111,14 +107,9 @@ async function poll(sessionId) {
         }
       } catch (_) {}
 
-      // No stored result \u2014 show the original error
+      // No stored result \u2014 redirect to recovery page
       clearClientSessionData(sessionId);
-      showSessionError(
-        'Sesi Tidak Ditemukan',
-        'Sesi tidak ditemukan atau sudah kedaluwarsa. Cek email kamu untuk link download CV, ' +
-        'atau hubungi support@gaslamar.com dengan bukti pembayaran.',
-        false
-      );
+      window.location.replace('access.html?expired=1&source=download');
       return;
     }
     notFoundCount = 0; // reset on any non-404 response
@@ -143,7 +134,7 @@ async function poll(sessionId) {
       try {
         const resultRes = await fetch(WORKER_URL + '/get-result', {
           method: 'POST',
-          headers: Object.assign({ 'Content-Type': 'application/json' }, getSecretHeaders()),
+          headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
         });
         if (resultRes.ok) {
@@ -193,27 +184,19 @@ function scheduleNextPoll(sessionId) {
 // ── startSessionHeartbeat ─────────────────────────────────────────────────────
 // Pings /session/ping every HEARTBEAT_INTERVAL ms to refresh the KV TTL
 // while the user remains on the page. No-ops if already running.
-function startSessionHeartbeat(sessionId, totalCredits) {
+function startSessionHeartbeat(sessionId) {
   if (heartbeatTimer) return;
-  const isMulti       = (totalCredits || 1) > 1;
-  const validityLabel = isMulti ? '30 hari' : '7 hari';
   heartbeatTimer = setInterval(async function() {
     try {
       const res = await fetch(WORKER_URL + '/session/ping', {
         method:      'POST',
-        headers:     Object.assign({ 'Content-Type': 'application/json' }, getSecretHeaders()),
+        headers:     { 'Content-Type': 'application/json' },
         credentials: 'include',
       });
       if (res.status === 404) {
         stopSessionHeartbeat();
         clearClientSessionData(sessionId);
-        showSessionError(
-          'Sesi Kedaluwarsa',
-          '\uD83D\uDCC5 Sesi download kamu sudah berakhir (berlaku ' + validityLabel + '). ' +
-          'Upload ulang CV untuk memulai analisis baru, atau hubungi support@gaslamar.com ' +
-          'jika kamu masih punya kredit tersisa.',
-          false
-        );
+        window.location.replace('access.html?expired=1&source=download');
       }
     } catch (_) { /* ignore transient network errors */ }
   }, HEARTBEAT_INTERVAL);

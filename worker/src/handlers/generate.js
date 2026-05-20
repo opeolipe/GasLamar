@@ -1,7 +1,7 @@
 import { jsonResponse } from '../cors.js';
 import { clientIp, log, logError, extractJobMetadata } from '../utils.js';
 import { checkRateLimit, rateLimitResponse } from '../rateLimit.js';
-import { getSession, updateSession, verifySessionSecret } from '../sessions.js';
+import { getSession, updateSession } from '../sessions.js';
 import { SESSION_STATES } from '../sessionStates.js';
 import { tailorCVID, tailorCVEN } from '../tailoring.js';
 import { KV_CV_RESULT_PREFIX } from '../constants.js';
@@ -133,12 +133,6 @@ export async function handleGenerate(request, env, ctx) {
     return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa' }, 404, request, env);
   }
 
-  // Verify session secret (new sessions require it; legacy sessions without hash skip this check)
-  const providedSecret = request.headers.get('X-Session-Secret');
-  if (!await verifySessionSecret(session, providedSecret)) {
-    return jsonResponse({ message: 'Akses ditolak: token sesi tidak valid' }, 403, request, env);
-  }
-
   if (session.status !== SESSION_STATES.GENERATING) {
     return jsonResponse({ message: 'Sesi tidak valid atau pembayaran belum dikonfirmasi' }, 403, request, env);
   }
@@ -190,7 +184,7 @@ export async function handleGenerate(request, env, ctx) {
     // immediately (even after the session is deleted for single-credit users).
     const kitPromise = generateInterviewKit(cv_text, effectiveJobDesc, 'id', env)
       .then(kit => {
-        const entry = { kit, session_secret_hash: session.session_secret_hash ?? null };
+        const entry = { kit };
         return env.GASLAMAR_SESSIONS.put(`kit_${session_id}_id`, JSON.stringify(entry), { expirationTtl: 86400 }).then(() => kit);
       })
       .catch(() => null);
@@ -222,7 +216,6 @@ export async function handleGenerate(request, env, ctx) {
       cv_id_docx: idResult.docxText,
       cv_en:      enResult?.text      ?? null,
       cv_en_docx: enResult?.docxText  ?? null,
-      session_secret_hash: session.session_secret_hash ?? null,
       job_title:  resultJobTitle ?? null,
       company:    resultCompany  ?? null,
       tier,

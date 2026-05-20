@@ -3,6 +3,7 @@ import { SKILL_TAILOR_EN } from './prompts/tailorEn.js';
 import { callClaude }      from './claude.js';
 import { sha256Hex }       from './utils.js';
 import { postProcessCV }   from './rewriteGuard.js';
+import { applyStyleGuard } from './styleGuard.js';
 import { GEN_KEY_PREFIX_ID, GEN_KEY_PREFIX_EN } from './cacheVersions.js';
 
 function sanitizeFinalExportText(text) {
@@ -281,9 +282,26 @@ UJI BULLET GENERIK: Untuk setiap bullet, tanya — apakah bullet ini bisa dituli
     jobDesc: inputJobDesc || jobDesc,
   };
 
-  // Generate both variants from the same validated base text
-  const { text: pdfText, isTrusted } = postProcessCV(baseText, effectiveCVText, issue, 'pdf',  postOpts);
-  const { text: docxText }           = postProcessCV(baseText, effectiveCVText, issue, 'docx', postOpts);
+  // Phase flow: factual safety -> style guard -> factual safety recheck (modified lines only)
+  const safePdf = postProcessCV(baseText, effectiveCVText, issue, 'pdf', postOpts);
+  const styledPdf = applyStyleGuard(safePdf.text, effectiveCVText, { language: 'id' });
+  const { text: pdfText, isTrusted } = postProcessCV(
+    styledPdf.text,
+    effectiveCVText,
+    issue,
+    'pdf',
+    { ...postOpts, onlyLineIndexes: styledPdf.modifiedLineIndexes },
+  );
+
+  const safeDocx = postProcessCV(baseText, effectiveCVText, issue, 'docx', postOpts);
+  const styledDocx = applyStyleGuard(safeDocx.text, effectiveCVText, { language: 'id' });
+  const { text: docxText } = postProcessCV(
+    styledDocx.text,
+    effectiveCVText,
+    issue,
+    'docx',
+    { ...postOpts, onlyLineIndexes: styledDocx.modifiedLineIndexes },
+  );
 
   return {
     text: sanitizeFinalExportText(pdfText),
@@ -439,8 +457,25 @@ GENERIC BULLET TEST: For each bullet, ask — could this apply to any person in 
     jobDesc: inputJobDesc || jobDesc,
   };
 
-  const { text: pdfText, isTrusted } = postProcessCV(baseText, effectiveCVText, issue, 'pdf',  postOpts);
-  const { text: docxText }           = postProcessCV(baseText, effectiveCVText, issue, 'docx', postOpts);
+  const safePdf = postProcessCV(baseText, effectiveCVText, issue, 'pdf', postOpts);
+  const styledPdf = applyStyleGuard(safePdf.text, effectiveCVText, { language: 'en' });
+  const { text: pdfText, isTrusted } = postProcessCV(
+    styledPdf.text,
+    effectiveCVText,
+    issue,
+    'pdf',
+    { ...postOpts, onlyLineIndexes: styledPdf.modifiedLineIndexes },
+  );
+
+  const safeDocx = postProcessCV(baseText, effectiveCVText, issue, 'docx', postOpts);
+  const styledDocx = applyStyleGuard(safeDocx.text, effectiveCVText, { language: 'en' });
+  const { text: docxText } = postProcessCV(
+    styledDocx.text,
+    effectiveCVText,
+    issue,
+    'docx',
+    { ...postOpts, onlyLineIndexes: styledDocx.modifiedLineIndexes },
+  );
 
   return {
     text: sanitizeFinalExportText(pdfText),

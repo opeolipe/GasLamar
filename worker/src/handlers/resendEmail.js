@@ -1,8 +1,7 @@
 import { jsonResponse }                      from '../cors.js';
-import { getSession, updateSession,
-         verifySessionSecret }               from '../sessions.js';
+import { getSession, updateSession }         from '../sessions.js';
 import { getSessionIdFromCookie }            from '../cookies.js';
-import { clientIp, log, logError }           from '../utils.js';
+import { clientIp, log, logError, sha256Hex } from '../utils.js';
 import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
 import { sendCVReadyEmail }                  from '../email.js';
 import { SESSION_STATES }                    from '../sessionStates.js';
@@ -16,6 +15,27 @@ const PAID_STATUSES = new Set([
   SESSION_STATES.READY,
   SESSION_STATES.EXHAUSTED,
 ]);
+
+const EMAIL_INDEX_TTL = 2592000;
+
+async function getEmailIndex(env, email) {
+  const hash = await sha256Hex(email);
+  const hashedKey = `email_session_${hash}`;
+  const legacyKey = `email_session_${email}`;
+  const hashed = await env.GASLAMAR_SESSIONS.get(hashedKey, { type: 'json' });
+  if (hashed) return { key: hashedKey, legacyKey, data: hashed, usedLegacy: false };
+
+  const legacy = await env.GASLAMAR_SESSIONS.get(legacyKey, { type: 'json' });
+  if (legacy) {
+    console.warn(JSON.stringify({
+      event: 'email_session_legacy_key_used',
+      email_hash: hash.slice(0, 8),
+    }));
+    return { key: legacyKey, hashedKey, data: legacy, usedLegacy: true };
+  }
+
+  return { key: hashedKey, legacyKey, data: null, usedLegacy: false };
+}
 
 export async function handleResendEmail(request, env) {
   const sessionId = getSessionIdFromCookie(request);
@@ -34,11 +54,6 @@ export async function handleResendEmail(request, env) {
       { message: 'Sesi tidak ditemukan atau sudah kedaluwarsa.', reason: 'expired' },
       404, request, env,
     );
-  }
-
-  const providedSecret = request.headers.get('X-Session-Secret');
-  if (!await verifySessionSecret(session, providedSecret)) {
-    return jsonResponse({ message: 'Akses ditolak.' }, 403, request, env);
   }
 
   if (!PAID_STATUSES.has(session.status)) {
@@ -80,21 +95,29 @@ export async function handleResendEmail(request, env) {
     // Remove this session from the old email's index (leave other sessions under that email intact),
     // then append it to the new email's index.
     if (session.email) {
-      const oldKey = `email_session_${session.email}`;
-      const oldIndex = await env.GASLAMAR_SESSIONS.get(oldKey, { type: 'json' });
-      const oldIds = (oldIndex?.session_ids ?? (oldIndex?.session_id ? [oldIndex.session_id] : []))
+      const oldIndex = await getEmailIndex(env, session.email);
+      const oldIds = (oldIndex.data?.session_ids ?? (oldIndex.data?.session_id ? [oldIndex.data.session_id] : []))
         .filter(id => id !== sessionId);
       if (oldIds.length) {
-        await env.GASLAMAR_SESSIONS.put(oldKey, JSON.stringify({ session_ids: oldIds })).catch(() => {});
+        const retainedKey = oldIndex.usedLegacy ? oldIndex.hashedKey : oldIndex.key;
+        await env.GASLAMAR_SESSIONS.put(retainedKey, JSON.stringify({ session_ids: oldIds }), { expirationTtl: EMAIL_INDEX_TTL }).catch(() => {});
       } else {
-        await env.GASLAMAR_SESSIONS.delete(oldKey).catch(() => {});
+        await env.GASLAMAR_SESSIONS.delete(oldIndex.key).catch(() => {});
+      }
+      if (oldIndex.usedLegacy) {
+        await env.GASLAMAR_SESSIONS.delete(oldIndex.key).catch(() => {});
+      } else {
+        await env.GASLAMAR_SESSIONS.delete(oldIndex.legacyKey).catch(() => {});
       }
     }
-    const newKey = `email_session_${newEmail}`;
-    const newIndex = await env.GASLAMAR_SESSIONS.get(newKey, { type: 'json' });
-    const newIds = newIndex?.session_ids ?? (newIndex?.session_id ? [newIndex.session_id] : []);
+    const newIndex = await getEmailIndex(env, newEmail);
+    const newIds = newIndex.data?.session_ids ?? (newIndex.data?.session_id ? [newIndex.data.session_id] : []);
     if (!newIds.includes(sessionId)) newIds.push(sessionId);
-    await env.GASLAMAR_SESSIONS.put(newKey, JSON.stringify({ session_ids: newIds }));
+    const newHash = await sha256Hex(newEmail);
+    await env.GASLAMAR_SESSIONS.put(`email_session_${newHash}`, JSON.stringify({ session_ids: newIds }), { expirationTtl: EMAIL_INDEX_TTL });
+    if (newIndex.usedLegacy) {
+      await env.GASLAMAR_SESSIONS.delete(newIndex.key).catch(() => {});
+    }
     log('resend_email_changed', { session_id: sessionId, ip });
   }
 

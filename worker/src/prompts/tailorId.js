@@ -146,6 +146,13 @@ ANGKA (ATURAN KERAS — ZERO TOLERANCE):
 - DILARANG KERAS: menambahkan, mengubah, memperkirakan, atau mereka-reka angka
 - Tidak ada angka di CV asli → tulis bullet tanpa metrik, JANGAN tambahkan placeholder
 
+ATURAN NOMOR (PALING PENTING):
+- JANGAN PERNAH menambahkan angka, persentase, atau metrik yang TIDAK ADA di CV asli.
+- Jika CV asli menyebut "meningkatkan penjualan", JANGAN ubah jadi "meningkatkan penjualan 20%".
+- Jika CV asli menyebut "mengelola tim", JANGAN ubah jadi "mengelola tim 5 orang".
+- Spesifik ≠ angka buatan. Spesifik = menyebut nama klien, produk, wilayah, atau konteks yang SUDAH ADA di CV.
+- Contoh konkret yang AMAN: "Mempertahankan partnership dengan Siloam Hospital" (rumah sakit disebut di CV asli).
+
 SAAT TIDAK ADA ANGKA — cara tetap konkret tanpa fabrikasi:
 Gali konteks yang SUDAH ADA di CV untuk memberi bobot pada bullet:
 - Skala geografis: gunakan wilayah nyata dari CV (mis: "wilayah Jawa Timur", "seluruh cabang Jabodetabek")

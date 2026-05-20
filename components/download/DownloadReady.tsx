@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 import MobileFallback from '@/components/download/MobileFallback';
 import UpgradeNudge from '@/components/download/UpgradeNudge';
@@ -39,11 +40,10 @@ interface Props {
   onGenerateNext: (jobDesc: string) => Promise<void> | void;
   onUrlFetch: (url: string) => Promise<string>;
   showMobileFallback: boolean;
+  closureFirst?: boolean;
   dimensions?: Record<string, number>;
   primaryIssue?: string | null;
   isTrusted?: boolean;
-  deliveryEmail?: string | null;
-  sessionSecret: string | null;
   interviewKitNode?: ReactNode;
 }
 
@@ -86,21 +86,29 @@ export default function DownloadReady({
   onGenerateNext,
   onUrlFetch,
   showMobileFallback,
+  closureFirst = true,
   dimensions,
   primaryIssue,
   isTrusted = false,
-  deliveryEmail,
-  sessionSecret,
   interviewKitNode,
 }: Props) {
   const bilingual      = isBilingual(tier);
   const multiCredit    = isMultiCredit(tier);
   const tierLabel      = TIER_LABELS[tier] ?? tier;
   const showMultiCredit  = creditsRemaining > 0;
-  // jobhunt users exhausted all 10 credits already bought the biggest package — no upsell
-  const showUpgradeNudge = creditsRemaining <= 0 && tier !== 'jobhunt';
-  const showUpsell       = showUpgradeNudge && (tier === 'coba' || tier === 'single');
+  const hasNextTierUpsell = tier === 'coba' || tier === 'single' || tier === '3pack';
+  const showUpgradeNudge = creditsRemaining <= 0;
+  const showUpsell = showUpgradeNudge && hasNextTierUpsell;
   const hasDimensions    = dimensions && Object.keys(dimensions).length > 0;
+
+  useEffect(() => {
+    if (!showUpgradeNudge) return;
+    (window as any).Analytics?.track?.('upsell_shown_zero_credit', {
+      tier,
+      credits_remaining: creditsRemaining,
+      has_next_tier_upsell: showUpsell,
+    });
+  }, [showUpgradeNudge, showUpsell, tier, creditsRemaining]);
 
   const priorityWeaknesses = dimensions
     ? Object.entries(DIM_LABELS)
@@ -139,23 +147,6 @@ export default function DownloadReady({
     return null;
   })();
 
-  // ── Next-step card logic ───────────────────────────────────────────────────
-
-  // "Upload CV baru" only makes sense when user has credits remaining.
-  // When 0 credits, replace with "Mulai paket baru" to avoid false affordance.
-  const tierParam = tier ? `&tier=${encodeURIComponent(tier)}` : '';
-  const secondCard = creditsRemaining > 0
-    ? {
-        label: 'Upload CV baru',
-        subtitle: multiCredit ? 'Gunakan kredit berikutnya' : 'Mulai analisis dari CV yang berbeda',
-        href: 'upload.html?new_package=1',
-      }
-    : {
-        label: 'Mulai paket baru',
-        subtitle: 'Beli paket untuk CV posisi berikutnya',
-        href: `upload.html?new_package=1${tierParam}`,
-      };
-
   // ── Scroll helpers ─────────────────────────────────────────────────────────
 
   function jumpTo(sectionId: string) {
@@ -175,6 +166,10 @@ export default function DownloadReady({
         ? `upload.html?new_package=1&tier=${encodeURIComponent(tier)}`
         : 'upload.html?new_package=1';
     }
+  }
+
+  function handleInterviewKitCta() {
+    jumpTo('interview-kit-section');
   }
 
   return (
@@ -287,11 +282,18 @@ export default function DownloadReady({
             )}
           </div>
 
-          {deliveryEmail && (
-            <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid rgba(148,163,184,0.14)' }}>
-              <p className="text-sm text-slate-500 mb-0.5">Link download dikirim ke:</p>
-              <p className="text-sm font-semibold text-slate-700 mb-0 break-all">{deliveryEmail}</p>
-              <ResendEmail sessionSecret={sessionSecret} compact />
+          <ResendEmail compact />
+
+          {interviewKitNode && (
+            <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(148,163,184,0.14)' }}>
+              <button
+                type="button"
+                onClick={handleInterviewKitCta}
+                className="min-h-[44px] px-4 rounded-full text-sm font-semibold transition-all hover:-translate-y-[1px]"
+                style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', color: '#1D4ED8' }}
+              >
+                Siap interview? Lihat Interview Kit →
+              </button>
             </div>
           )}
 
@@ -307,73 +309,81 @@ export default function DownloadReady({
 
       {showMobileFallback && <MobileFallback cvTextId={cvTextId} cvTextEn={cvTextEn} bilingual={bilingual} />}
 
-      {hasDimensions && (
-        <section className="gl-fade-up gl-fade-up-d2" style={CARD_STYLE}>
-          <h2 style={SECTION_HEADING}>Insight Recruiter (Ringkas)</h2>
-          <p className="text-sm text-slate-600 mb-4">Yang paling perlu diperbaiki untuk lamaran berikutnya:</p>
-
-          <div className="space-y-2 mb-4">
-            {priorityWeaknesses.map(dim => (
-              <div key={dim.key} className="rounded-[12px] px-3 py-2" style={{ background: '#FFF7ED', border: '1px solid #FED7AA', boxShadow: '0 1px 0 rgba(245,158,11,0.07)' }}>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-semibold text-slate-800">{dim.label}</span>
-                  <span className="text-xs font-bold text-amber-700">{dim.score}/10</span>
-                </div>
-                <p className="text-xs text-slate-600 mt-1 mb-0">{dim.hint}</p>
-              </div>
-            ))}
-          </div>
-
-          <details className="gl-analysis-details">
-            <summary className="cursor-pointer text-sm font-semibold text-blue-700 transition-colors hover:text-blue-800">Lihat analisis lengkap</summary>
-            <div className="mt-4 gl-analysis-content" id="analysis-full">
-              <ScoreBars dimensions={dimensions!} mode="full" primaryKey={primaryIssue ?? undefined} />
-            </div>
-          </details>
-        </section>
-      )}
-
-      {showDownloadGrid && interviewKitNode && (
+      {showDownloadGrid && interviewKitNode && closureFirst && (
         <section id="interview-kit-section" className="gl-fade-up gl-fade-up-d3" style={{ marginBottom: '1.5rem' }}>
           {interviewKitNode}
         </section>
       )}
 
-      <section className="gl-fade-up gl-fade-up-d3" style={CARD_STYLE}>
-        <h2 style={SECTION_HEADING}>Langkah berikutnya</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <button
-            type="button"
-            onClick={handleTailorCta}
-            className="gl-next-card text-left rounded-[14px] p-4"
-            style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}
-          >
-            <div className="font-semibold text-slate-900 text-sm">Tailor CV untuk posisi lain</div>
-            <p className="text-xs text-slate-600 mt-1 mb-0">
-              {showMultiCredit ? 'Gunakan sisa kredit untuk posisi berbeda' : 'Beli paket baru untuk posisi berikutnya'}
-            </p>
-          </button>
+      {hasDimensions && (
+        <details className="gl-fade-up gl-fade-up-d2" style={CARD_STYLE} open={!closureFirst}>
+          <summary style={{ ...SECTION_HEADING, marginBottom: 0, cursor: 'pointer', minHeight: 44, display: 'flex', alignItems: 'center' }}>Insight Recruiter (Opsional)</summary>
+          <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(148,163,184,0.14)', paddingTop: '1rem' }}>
+            <p className="text-sm text-slate-600 mb-4">Yang paling perlu diperbaiki untuk lamaran berikutnya:</p>
 
-          <a
-            href={secondCard.href}
-            className="gl-next-card no-underline rounded-[14px] p-4 block"
-            style={{ background: '#F8FAFC', border: '1px solid #E2E8F0' }}
-          >
-            <div className="font-semibold text-slate-900 text-sm">{secondCard.label}</div>
-            <p className="text-xs text-slate-600 mt-1 mb-0">{secondCard.subtitle}</p>
-          </a>
-        </div>
-      </section>
+            <div className="space-y-2 mb-4">
+              {priorityWeaknesses.map(dim => (
+                <div key={dim.key} className="rounded-[12px] px-3 py-2" style={{ background: '#FFF7ED', border: '1px solid #FED7AA', boxShadow: '0 1px 0 rgba(245,158,11,0.07)' }}>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-semibold text-slate-800">{dim.label}</span>
+                    <span className="text-xs font-bold text-amber-700">{dim.score}/10</span>
+                  </div>
+                  <p className="text-xs text-slate-600 mt-1 mb-0">{dim.hint}</p>
+                </div>
+              ))}
+            </div>
+
+            <details className="gl-analysis-details">
+              <summary className="cursor-pointer text-sm font-semibold text-blue-700 transition-colors hover:text-blue-800 inline-flex items-center min-h-[44px]">Lihat analisis lengkap</summary>
+              <div className="mt-4 gl-analysis-content" id="analysis-full">
+                <ScoreBars dimensions={dimensions!} mode="full" primaryKey={primaryIssue ?? undefined} />
+              </div>
+            </details>
+          </div>
+        </details>
+      )}
+
+      {showDownloadGrid && interviewKitNode && !closureFirst && (
+        <section id="interview-kit-section" className="gl-fade-up gl-fade-up-d3" style={{ marginBottom: '1.5rem' }}>
+          {interviewKitNode}
+        </section>
+      )}
+
+      {showMultiCredit && (
+        <section className="gl-fade-up gl-fade-up-d3" style={CARD_STYLE}>
+          <h2 style={SECTION_HEADING}>Langkah berikutnya</h2>
+          <div className="grid gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                (window as any).Analytics?.track?.('tailor_next_click', {
+                  tier,
+                  credits_remaining: creditsRemaining,
+                  total_credits: totalCredits,
+                });
+                handleTailorCta();
+              }}
+              className="gl-next-card text-left rounded-[14px] p-4"
+              style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}
+            >
+              <div className="font-semibold text-slate-900 text-sm">Tailor CV untuk posisi lain</div>
+              <p className="text-xs text-slate-600 mt-1 mb-0">
+                Gunakan sisa {creditsRemaining} kredit untuk posisi berbeda.
+              </p>
+            </button>
+          </div>
+        </section>
+      )}
 
       {showMultiCredit && (
         <div id="next-applications" style={{ marginBottom: '1.5rem' }}>
-          <MultiCreditSection creditsRemaining={creditsRemaining} totalCredits={totalCredits} tier={tier} onGenerate={onGenerateNext} onUrlFetch={onUrlFetch} />
+          <MultiCreditSection creditsRemaining={creditsRemaining} totalCredits={totalCredits} onGenerate={onGenerateNext} onUrlFetch={onUrlFetch} />
         </div>
       )}
 
       {showUpgradeNudge && (
         <div id="upgrade-nudge" className="mb-5">
-          <UpgradeNudge showUpsell={showUpsell} tier={tier} />
+          <UpgradeNudge showUpsell={showUpsell} tier={tier} expiresAt={expiresAt} />
         </div>
       )}
     </>

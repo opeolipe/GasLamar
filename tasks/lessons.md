@@ -92,3 +92,33 @@ Store scoring in cvtext_ KV entry at /analyze time; serve via GET /get-scoring.
 - scoring.js fetches from /get-scoring; falls back to legacy sessionStorage blob for old sessions
 - hasil-guard.js simplified — no scoring blob validation; just checks cv_text_key format + analyze_time
 - Security: /get-scoring returns only the scoring portion, never cv_text or job_desc
+
+## Session ID must not appear in URL query parameters (2026-05-19)
+
+Passing `?session=sess_...` to GET endpoints leaks session IDs into browser history, server logs,
+and Referer headers on any subsequent navigation. Even a "reduced metadata" fallback path carries risk.
+
+**Pattern to use instead:**
+- Send session ID in a custom request header: `'X-Session-Id': sessionId`
+- Register the header in CORS config: `'Access-Control-Allow-Headers': 'Content-Type, X-Session-Id'`
+- Server reads `request.headers.get('X-Session-Id') || url.searchParams.get('session')` — the query param fallback can stay temporarily for rollout compat, then be removed
+- `gaslamar_session` in localStorage is a UI pointer only (auth is the HttpOnly cookie) — it is acceptable there, but must never be URL-encoded into a GET query string
+
+## Session expiration: redirect vs inline error state (2026-05-20)
+
+When a session/key expires mid-flow (e.g. cv_text_key expires while user is on hasil.html),
+prefer a `window.location.replace('upload.html?reason=cv_expired')` redirect over showing
+an inline error state. Inline errors:
+- Leave the page in an ambiguous half-dead state (pay button disabled, rest of page still rendered)
+- Can be indexed by crawlers as valid content even with noindex meta tags (meta tags require JS to be honoured)
+- Confuse users about whether the error is transient or permanent
+
+**Pattern:**
+- Error handler calls `window.location.replace('upload.html?reason=<specific_reason>')`
+- upload-page.js and upload.js check `params.get('reason')` and show a contextual banner
+- Use distinct reason values (`cv_expired` vs `session_expired` vs `no_session`) for accurate messaging
+
+**HTTP status for display-only endpoints:**
+- Endpoints that check freshness (e.g. `/validate-session`) must return 404 (not 200) when the
+  key is not found — returning 200 with `{valid: false}` is semantically wrong and hides errors
+  from monitoring tools that alert on 4xx rates

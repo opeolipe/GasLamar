@@ -171,8 +171,10 @@ function submitInterviewFeedback(answer) {
 }
 
 // ── Event bindings for inline handlers removed from HTML ──
-document.getElementById('check-btn').addEventListener('click', restartPolling);
-document.getElementById('error-retry-btn').addEventListener('click', retryGeneration);
+const _checkBtn = document.getElementById('check-btn');
+if (_checkBtn) _checkBtn.addEventListener('click', restartPolling);
+const _errorRetryBtn = document.getElementById('error-retry-btn');
+if (_errorRetryBtn) _errorRetryBtn.addEventListener('click', retryGeneration);
 
 // "Batalkan" link — confirm before navigating back
 const _cancelGenLink = document.getElementById('cancel-gen-link');

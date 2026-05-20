@@ -30,6 +30,10 @@ export default function WaitingPayment({ statusText, showCheckButton, onStartFre
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [showCheckButton]);
 
+  const safeStatusText = statusText?.trim()
+    ? statusText
+    : 'Pembayaran sedang diverifikasi. Kamu tidak kehilangan progres.';
+
   return (
     <div
       className="rounded-[24px] p-8 text-center"
@@ -54,7 +58,7 @@ export default function WaitingPayment({ statusText, showCheckButton, onStartFre
       <h2 className="text-lg font-semibold text-slate-900 mb-1" style={{ fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>Menunggu Konfirmasi Pembayaran</h2>
       <p className="text-sm text-slate-500 mb-1">Biasanya &lt; 1 menit setelah pembayaran berhasil</p>
       <p className="text-sm text-slate-400 mb-1" role="status" aria-live="polite">
-        {statusText}
+        {safeStatusText}
       </p>
       {showSlowHint && !showCheckButton && (
         <p className="text-xs text-slate-400 mb-4">Masih diproses — tunggu sebentar atau klik cek ulang jika lebih dari 1 menit</p>

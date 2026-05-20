@@ -97,7 +97,7 @@ export default function UrlFetcher({ onFetchSuccess, onClose }: Props) {
         </span>
       </p>
       {error && (
-        <p className="text-sm mt-1 text-red-600">{error}</p>
+        <p role="alert" className="text-sm mt-1 text-red-600">{error}</p>
       )}
     </div>
   );

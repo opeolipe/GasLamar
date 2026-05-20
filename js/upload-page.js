@@ -19,7 +19,8 @@ if (_analyzeErr) {
 // accidentally abandon their existing results by starting a new upload.
 (function() {
   const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
-  if (!analyzeTime || !sessionStorage.getItem('gaslamar_scoring')) return;
+  const cvKey = sessionStorage.getItem('gaslamar_cv_key') || '';
+  if (!analyzeTime || !cvKey.startsWith('cvtext_')) return;
   const remaining = 7200 - Math.floor((Date.now() - analyzeTime) / 1000);
   if (remaining <= 0) return; // already expired — no stale results to surface
   const h = Math.floor(remaining / 3600);
@@ -41,12 +42,14 @@ if (_analyzeErr) {
 // Show informational notice when redirected from hasil.html or download.html
 const _redirectParams = new URLSearchParams(window.location.search);
 const _redirectReason = _redirectParams.get('reason');
-if (_redirectReason === 'session_expired' || _redirectReason === 'no_session') {
+if (_redirectReason === 'session_expired' || _redirectReason === 'no_session' || _redirectReason === 'cv_expired') {
   history.replaceState(null, '', window.location.pathname);
   const _noticeEl = document.createElement('div');
   _noticeEl.className = 'session-notice-banner';
   _noticeEl.textContent = _redirectReason === 'no_session'
     ? 'Sesi download tidak ditemukan. Silakan upload CV dan selesaikan pembayaran.'
+    : _redirectReason === 'cv_expired'
+    ? '⏰ Sesi analisis sudah kedaluwarsa (berlaku 2 jam). Upload ulang CV kamu untuk lanjut bayar.'
     : 'Sesi analisis tidak ditemukan atau sudah kadaluarsa. Silakan upload ulang CV kamu.';
   document.querySelector('.card').insertBefore(_noticeEl, document.querySelector('.card').firstChild);
 }

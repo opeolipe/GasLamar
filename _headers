@@ -1,3 +1,18 @@
+/architecture.html
+  X-Robots-Tag: noindex, nofollow
+
+/hasil.html
+  X-Robots-Tag: noindex, nofollow
+
+/download.html
+  X-Robots-Tag: noindex, nofollow
+
+/analyzing.html
+  X-Robots-Tag: noindex, nofollow
+
+/access.html
+  X-Robots-Tag: noindex, nofollow
+
 /*
   Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
   X-Frame-Options: DENY

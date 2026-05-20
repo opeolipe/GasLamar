@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import TierIndicator       from '@/components/upload/TierIndicator';
 import UploadSteps         from '@/components/upload/UploadSteps';
 import CvDropzone          from '@/components/upload/CvDropzone';
@@ -7,6 +8,7 @@ import SubmitSection       from '@/components/upload/SubmitSection';
 import {
   VALID_TIERS,
   MIN_CV_TEXT_LENGTH,
+  MIN_CV_PASTE_LENGTH,
   validateFile,
   formatFileSize,
   readFileAsEncodedBlob,
@@ -15,8 +17,9 @@ import {
 } from '@/lib/uploadValidation';
 import { evaluateJDQuality }          from '@/utils/evaluateJDQuality';
 import { WORKER_URL, clearClientSessionData } from '@/lib/sessionUtils';
+import { PAGE_BG, NAV_STYLE, MAIN_CONTAINER_CLASS, MAIN_CONTAINER_MAX } from '@/lib/pageChrome';
 
-const SHADOW = '0 18px 44px rgba(15, 23, 42, 0.08)';
+const SHADOW = '0 18px 44px rgba(15,23,42,0.07), 0 1px 2px rgba(15,23,42,0.04)';
 
 type NoticeType = 'info' | 'warning' | 'error';
 interface Notice {
@@ -25,9 +28,18 @@ interface Notice {
   link?: { href: string; label: string };
 }
 
+function prioritizeNotices(items: Notice[]): Notice[] {
+  if (!items.length) return items;
+  const rank: Record<NoticeType, number> = { error: 3, warning: 2, info: 1 };
+  const sorted = [...items].sort((a, b) => rank[b.type] - rank[a.type]);
+  const primary = sorted[0];
+  const secondary = sorted.find(n => n !== primary && n.type === 'info');
+  return secondary ? [primary, secondary] : [primary];
+}
+
 const STALE_KEYS = [
   'gaslamar_scoring', 'gaslamar_cv_key', 'gaslamar_cv_pending', 'gaslamar_jd_pending',
-  'gaslamar_filename', 'gaslamar_tier', 'gaslamar_email', 'gaslamar_analyze_time',
+  'gaslamar_filename', 'gaslamar_tier', 'gaslamar_analyze_time',
   'gaslamar_cv_draft', 'gaslamar_filename_draft', 'gaslamar_cv_paste_raw',
   'gaslamar_6d_scores', 'gaslamar_skor', 'gaslamar_skor_sesudah', 'gaslamar_gap',
   'gaslamar_sample_line', 'gaslamar_sample_context',
@@ -108,20 +120,28 @@ export default function Upload() {
       });
     }
 
-    // Paid session takes priority — redirect the user straight to download.html
-    // instead of showing stale analysis notices that point to hasil.html.
-    const paidSessionId = sessionStorage.getItem('gaslamar_session') ?? localStorage.getItem('gaslamar_session') ?? '';
-    const hasPaidSession = paidSessionId.startsWith('sess_');
+    // Paid session recovery: user has a session from a previous payment.
+    // Show a banner directing them back to download, and suppress reason-based notices.
+    let hasPaidSession = false;
+    if (!isNewPackage) {
+      try {
+        const sessStorage = sessionStorage.getItem('gaslamar_session');
+        const sessLocal   = localStorage.getItem('gaslamar_session');
+        if (
+          (sessStorage && sessStorage.startsWith('sess_')) ||
+          (sessLocal   && sessLocal.startsWith('sess_'))
+        ) {
+          hasPaidSession = true;
+          newNotices.push({
+            type: 'info',
+            text: 'Kamu sudah upload CV sebelumnya.',
+            link: { href: 'download.html', label: 'Lanjutkan ke download' },
+          });
+        }
+      } catch (_) {}
+    }
 
-    if (hasPaidSession && !isNewPackage) {
-      const reason = params.get('reason');
-      if (reason) history.replaceState(null, '', location.pathname);
-      newNotices.push({
-        type: 'info',
-        text: 'Kamu sudah upload CV dan menyelesaikan pembayaran.',
-        link: { href: 'download.html', label: 'Lanjutkan ke download →' },
-      });
-    } else if (!isNewPackage) {
+    if (!isNewPackage && !hasPaidSession) {
       const reason = params.get('reason');
       if (reason === 'no_session') {
         history.replaceState(null, '', location.pathname);
@@ -135,6 +155,9 @@ export default function Upload() {
       } else if (reason === 'session_expired') {
         history.replaceState(null, '', location.pathname);
         newNotices.push({ type: 'info', text: 'Sesi analisis sudah berakhir. Silakan upload CV kembali untuk analisis baru.' });
+      } else if (reason === 'cv_expired') {
+        history.replaceState(null, '', location.pathname);
+        newNotices.push({ type: 'info', text: '⏰ Sesi analisis sudah kedaluwarsa (berlaku 2 jam). Upload ulang CV kamu untuk lanjut bayar.' });
       }
 
       const uploadErr = sessionStorage.getItem('gaslamar_upload_error');
@@ -144,7 +167,8 @@ export default function Upload() {
       }
 
       const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
-      if (analyzeTime && sessionStorage.getItem('gaslamar_scoring')) {
+      const cvKey = sessionStorage.getItem('gaslamar_cv_key') || '';
+      if (analyzeTime && cvKey.startsWith('cvtext_')) {
         const remaining = 7200 - Math.floor((Date.now() - analyzeTime) / 1000);
         if (remaining > 0) {
           const h = Math.floor(remaining / 3600);
@@ -158,7 +182,7 @@ export default function Upload() {
       }
     }
 
-    if (newNotices.length) setNotices(newNotices);
+    if (newNotices.length) setNotices(prioritizeNotices(newNotices));
 
     // Restore JD draft
     const savedJd = sessionStorage.getItem('gaslamar_jd_draft');
@@ -181,25 +205,25 @@ export default function Upload() {
         if (parsed?.type === 'txt' && typeof parsed.data === 'string') setManualCvText(parsed.data);
       } catch (_) {}
     } else {
-      // No full CV draft — restore partial paste text if present (< MIN_CV_TEXT_LENGTH).
+      // No full CV draft — restore partial paste text if present (< MIN_CV_PASTE_LENGTH).
       // The initial tab is already set to 'paste' by the cvTab lazy initializer above.
       const rawPaste = sessionStorage.getItem('gaslamar_cv_paste_raw');
       if (rawPaste) setManualCvText(rawPaste);
     }
   }, []);
 
-  // Validate any stored paid session — dismiss banner if session is expired/deleted
+  // Validate any paid session cookie — dismiss banner if session is explicitly deleted/pending.
+  // Only act on a successful (200) response with a terminal status; HTTP errors (401 = no cookie,
+  // 5xx = server fault) leave the banner so download.html can handle the state gracefully.
   useEffect(() => {
-    const sId = sessionStorage.getItem('gaslamar_session') ?? localStorage.getItem('gaslamar_session') ?? '';
-    if (!sId.startsWith('sess_')) return;
-
     (async () => {
       try {
-        const res = await fetch(`${WORKER_URL}/check-session?session=${encodeURIComponent(sId)}`, { credentials: 'include' });
-        const data = res.ok ? await res.json() as { status?: string } : null;
-        const isTerminal = !res.ok || data?.status === 'deleted' || data?.status === 'pending';
+        const res = await fetch(`${WORKER_URL}/check-session`, { credentials: 'include' });
+        if (!res.ok) return; // 401 = no cookie, 5xx = server error — leave banner as-is
+        const data = await res.json() as { status?: string };
+        const isTerminal = data?.status === 'deleted' || data?.status === 'pending';
         if (isTerminal) {
-          clearClientSessionData(sId);
+          clearClientSessionData(null);
           setNotices(prev => prev.filter(n => !n.link?.href.includes('download.html')));
         }
       } catch (_) {
@@ -296,7 +320,7 @@ export default function Upload() {
     setFileError('');
 
     // Always persist raw paste text so it survives a page refresh, even when
-    // too short to count as a valid CV blob (< MIN_CV_TEXT_LENGTH).
+    // too short to qualify as a valid CV (< MIN_CV_PASTE_LENGTH).
     try {
       if (next.trim().length > 0) {
         sessionStorage.setItem('gaslamar_cv_paste_raw', next);
@@ -305,7 +329,7 @@ export default function Upload() {
       }
     } catch (_) {}
 
-    if (next.trim().length >= MIN_CV_TEXT_LENGTH) {
+    if (next.trim().length >= MIN_CV_PASTE_LENGTH) {
       const encoded = JSON.stringify({ type: 'txt', data: next });
       setCvText(encoded);
       setFileName('CV dari paste');
@@ -340,6 +364,7 @@ export default function Upload() {
   }
 
   function handleSubmit() {
+    if (loading) return;
     const cvMissing = !hasFile;
     const jdMissing = !evaluateJDQuality(jd).isValid;
 
@@ -347,7 +372,7 @@ export default function Upload() {
       const pasteIsTooShort = cvTab === 'paste' && manualCvText.trim().length > 0;
       setFileError(
         pasteIsTooShort
-          ? 'Terlalu singkat — tambahkan detail pengalaman & skill'
+          ? `Terlalu singkat — tambahkan detail hingga minimal ${MIN_CV_PASTE_LENGTH.toLocaleString('id-ID')} karakter`
           : 'Masukkan CV dulu ya'
       );
     }
@@ -365,9 +390,12 @@ export default function Upload() {
       }
       return;
     }
-    const jobDesc = jd.trim();
 
-    setLoading(true);
+    // flushSync forces a synchronous re-render so the button is visibly disabled
+    // before sessionStorage writes and navigation — this also prevents rapid
+    // double-clicks from invoking handleSubmit again before React re-renders.
+    flushSync(() => setLoading(true));
+
     try {
       const safeJd = jd.trim().replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
       sessionStorage.setItem('gaslamar_cv_pending', cvText);
@@ -393,7 +421,7 @@ export default function Upload() {
   return (
     <div
       className="min-h-dvh w-full overflow-x-hidden text-gray-900 font-sans"
-      style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37,99,235,0.07), transparent)' }}
+      style={{ background: PAGE_BG }}
     >
       {/* Skip link */}
       <a
@@ -406,14 +434,14 @@ export default function Upload() {
       {/* Navbar */}
       <nav
         className="border-b py-4 px-6 flex items-center sticky top-0 z-50 backdrop-blur-[14px]"
-        style={{ borderColor: 'rgba(148,163,184,0.18)', background: 'rgba(255,255,255,0.88)' }}
+        style={NAV_STYLE}
       >
         <a href="index.html" className="no-underline min-h-[44px] inline-flex items-center">
           <img src="assets/logo.svg" alt="GasLamar" height="28" style={{ display: 'block' }} />
         </a>
       </nav>
 
-      <main className="w-full max-w-screen-xl mx-auto px-6 pt-12 pb-8" id="upload-form">
+      <main className={MAIN_CONTAINER_CLASS} style={{ maxWidth: MAIN_CONTAINER_MAX }} id="upload-form">
 
         {/* Notices */}
         {notices.map((n, i) => (
@@ -426,7 +454,7 @@ export default function Upload() {
         ))}
 
         {/* ZONE 1: Hero */}
-        <div className="text-center mb-10">
+        <div className="text-center mb-8">
           <h1
             className="font-bold leading-[1.1] text-slate-900 mb-0 mx-auto"
             style={{
@@ -468,8 +496,8 @@ export default function Upload() {
         <div
           className="w-full rounded-[24px] px-4 py-5 sm:px-8 sm:py-8 max-w-4xl mx-auto"
           style={{
-            background:     'rgba(255,255,255,0.90)',
-            border:         '1px solid rgba(148,163,184,0.13)',
+            background:     'rgba(255,255,255,0.92)',
+            border:         '1px solid rgba(148,163,184,0.14)',
             boxShadow:      SHADOW,
             backdropFilter: 'blur(14px)',
           }}

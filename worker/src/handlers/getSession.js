@@ -1,9 +1,14 @@
 import { jsonResponse } from '../cors.js';
-import { getSession, updateSession, verifySessionSecret } from '../sessions.js';
+import { getSession, updateSession } from '../sessions.js';
 import { getSessionIdFromCookie } from '../cookies.js';
 import { SESSION_STATES, canStartGeneration } from '../sessionStates.js';
+import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
+import { clientIp } from '../utils.js';
 
 export async function handleGetSession(request, env) {
+  const ip = clientIp(request);
+  const rl = await checkRateLimitKV(env, ip, 10, 60, 'get_session');
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
   const session_id = getSessionIdFromCookie(request);
 
   if (!session_id) {
@@ -14,12 +19,6 @@ export async function handleGetSession(request, env) {
 
   if (!session) {
     return jsonResponse({ message: 'Sesi download tidak ditemukan atau sudah kedaluwarsa.', reason: 'expired' }, 404, request, env);
-  }
-
-  // Verify session secret (new sessions require it; legacy sessions without hash skip this check)
-  const providedSecret = request.headers.get('X-Session-Secret');
-  if (!await verifySessionSecret(session, providedSecret)) {
-    return jsonResponse({ message: 'Akses ditolak: token sesi tidak valid' }, 403, request, env);
   }
 
   // Allow 'paid' (first generation), 'ready' (subsequent generation for multi-credit),

@@ -25,6 +25,14 @@ export default function PaymentTransition({ invoiceUrl }: Props) {
     }
   }, [invoiceUrl]);
 
+  function continueNow() {
+    if (!invoiceUrl || redirectedRef.current) return;
+    if (!isSafeHttpsUrl(invoiceUrl)) return;
+    redirectedRef.current = true;
+    (window as any).Analytics?.track?.('payment_redirect_executed_manual');
+    window.location.href = invoiceUrl;
+  }
+
   useEffect(() => {
     if (!invoiceUrl) return;
     redirectedRef.current = false;
@@ -150,6 +158,24 @@ export default function PaymentTransition({ invoiceUrl }: Props) {
           Kamu akan diarahkan ke halaman pembayaran Mayar dalam sebentar.
         </p>
 
+        <div
+          style={{
+            textAlign: 'left',
+            fontSize: '0.8rem',
+            color: '#475569',
+            background: '#F8FAFC',
+            border: '1px solid #E2E8F0',
+            borderRadius: 12,
+            padding: '0.7rem 0.8rem',
+            marginBottom: '1rem',
+            lineHeight: 1.5,
+          }}
+        >
+          <div>1. Pembayaran diproses di Mayar (aman).</div>
+          <div>2. Setelah bayar, kamu kembali ke proses download CV.</div>
+          <div>3. Link akses tetap dikirim ke email kamu.</div>
+        </div>
+
         {/* Spinner — static ring when reduced-motion is preferred */}
         <div
           aria-hidden="true"
@@ -214,6 +240,21 @@ export default function PaymentTransition({ invoiceUrl }: Props) {
           </svg>
           Pembayaran diproses oleh Mayar.id
         </div>
+
+        <button
+          type="button"
+          onClick={continueNow}
+          className="min-h-[44px] px-5 rounded-full text-sm font-semibold text-white transition-all hover:-translate-y-[1px]"
+          style={{
+            background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)',
+            boxShadow: '0 8px 24px rgba(37,99,235,0.30)',
+            border: 'none',
+            cursor: 'pointer',
+            marginBottom: '1rem',
+          }}
+        >
+          Lanjut sekarang
+        </button>
       </div>
 
       <style>{`

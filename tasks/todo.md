@@ -1,3 +1,16 @@
+# Email Attachment Fix — 2026-05-18 — DONE ✓
+
+## What was fixed
+- Created `worker/src/cvDocx.js`: server-side Harvard DOCX generator using docx@8.5.0;
+  exact port of `generateHarvardDOCX` from `lib/downloadUtils.ts`; guidance lines stripped
+- `worker/src/email.js`: DOCX attachments added; `buildEmailFilename` unified with website;
+  `classifyAttachment` updated for .docx; email note + subject updated
+- `worker/src/cvPdf.js`: linePt 14→15.6, paraGapPt 7→11, contact/heading gaps aligned with jsPDF
+- `worker/src/interviewKitPdf.js`: lineGap 3.8→4.5, sectionGap 8→14, itemGap 6→12
+- `worker/package.json`: docx@8.5.0 added
+
+---
+
 # GasLamar — Full QA Audit Bug List
 > Senior QA review · 2026-05-08 · Production-grade audit across security, logic, UX, and edge cases
 

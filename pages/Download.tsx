@@ -16,9 +16,15 @@ import {
   isMultiCredit,
   clearClientSessionData,
   WORKER_URL,
-  buildSecretHeaders,
 } from '@/lib/sessionUtils';
 import { buildResultData } from '@/lib/resultUtils';
+import { getExperimentVariant, trackExperimentExposure } from '@/lib/experiments';
+import {
+  PAGE_BG,
+  NAV_STYLE,
+  MAIN_CONTAINER_CLASS,
+  MAIN_CONTAINER_MAX,
+} from '@/lib/pageChrome';
 import type { ResultData } from '@/types/result';
 import SessionError          from '@/components/download/SessionError';
 import WaitingPayment        from '@/components/download/WaitingPayment';
@@ -31,9 +37,9 @@ import ResendEmail           from '@/components/download/ResendEmail';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type PageView     = 'waiting' | 'generating' | 'ready' | 'credits-dashboard' | 'error';
+type PageView = 'waiting' | 'generating' | 'ready' | 'credits-dashboard' | 'error';
 
-interface LocalDelivery {
+interface DeliveryData {
   sessionId: string;
   email:     string;
   sentAt:    number;
@@ -45,20 +51,20 @@ export default function Download() {
   const session  = useDownloadSession();
   const generate = useGenerateCV();
 
+  const [delivery] = useState<DeliveryData | null>(() => {
+    try {
+      const raw = localStorage.getItem('gaslamar_delivery');
+      if (raw) return JSON.parse(raw) as DeliveryData;
+    } catch (_) {}
+    return null;
+  });
   const [view,            setView]            = useState<PageView>('waiting');
+  const [closureFirst,    setClosureFirst]    = useState(true);
   const [countdownText,   setCountdownText]   = useState<string | null>(null);
   const [countdownWarn,   setCountdownWarn]   = useState(false);
   const [expiryText,      setExpiryText]      = useState('');
   const [showMobileFb,    setShowMobileFb]    = useState(false);
   const [restoredContent, setRestoredContent] = useState<CVContent | null>(null);
-
-  // Read delivery state from localStorage once on mount
-  const [delivery] = useState<{ sessionId: string; email: string; sentAt: number } | null>(() => {
-    try {
-      const raw = localStorage.getItem('gaslamar_delivery');
-      return raw ? JSON.parse(raw) : null;
-    } catch { return null; }
-  });
 
   const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const viewRef           = useRef<PageView>('waiting');
@@ -69,24 +75,24 @@ export default function Download() {
   // ── Redirect guard ────────────────────────────────────────────────────────
 
   useEffect(() => {
-    // Check both storages: after credits are exhausted useGenerateCV removes
-    // localStorage.gaslamar_session, but the session stays in sessionStorage for
-    // the current tab. Checking only localStorage causes a spurious redirect.
-    const sessionInStorage = localStorage.getItem('gaslamar_session')
-                          ?? sessionStorage.getItem('gaslamar_session');
-    if (!delivery && !sessionInStorage) {
-      window.location.replace('access.html?expired=1&source=download');
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    const closureFlag = 'download_closure_first_v1';
+    const closureVariant = getExperimentVariant(closureFlag, 'on');
+    const closureEnabled = closureVariant !== 'control' && closureVariant !== 'off';
+    setClosureFirst(closureEnabled);
+    trackExperimentExposure(closureFlag, closureEnabled ? 'on' : 'control');
+    const stickyFlag = 'sticky_cta_after_tier_v1';
+    const stickyVariant = getExperimentVariant(stickyFlag, 'off');
+    trackExperimentExposure(stickyFlag, stickyVariant);
+  }, []);
 
   // ── Session → view transitions ────────────────────────────────────────────
 
   useEffect(() => {
     if (session.phase === 'confirmed' && viewRef.current === 'waiting') {
-      const { sessionId, sessionSecret } = session;
+      const { sessionId } = session;
       if (!sessionId) return;
       setView('generating');
-      generate.startGeneration({ sessionId, sessionSecret });
+      generate.startGeneration({ sessionId });
     }
   }, [session.phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -151,8 +157,6 @@ export default function Download() {
   // Fetch the stored CV result from KV so the user can download from the page.
   // Runs in two cases:
   //   1. Exhausted session: credits=0, no in-memory content — normal returning flow.
-  //   2. Error + delivery: session polling failed but delivery is confirmed — try KV
-  //      restore before giving up (covers gaslamar_session-cleared-but-cookie-valid).
   useEffect(() => {
     const isExhaustedRestore =
       view === 'credits-dashboard' &&
@@ -160,20 +164,11 @@ export default function Download() {
       session.sessionData?.creditsRemaining === 0 &&
       !!session.sessionId;
 
-    const isErrorWithDelivery =
-      view === 'error' &&
-      generate.content === null &&
-      restoredContent === null &&
-      delivery !== null &&
-      !!session.sessionId;
-
-    if (!isExhaustedRestore && !isErrorWithDelivery) return;
+    if (!isExhaustedRestore) return;
 
     fetch(`${WORKER_URL}/get-result`, {
       method:      'POST',
-      // Secret may be null if gaslamar_secret_<id> was cleared; buildSecretHeaders
-      // returns {} in that case. Server returns 403 which we handle gracefully below.
-      headers:     buildSecretHeaders(session.sessionSecret),
+      headers:     { 'Content-Type': 'application/json' },
       credentials: 'include',
     })
       .then(r => {
@@ -207,7 +202,7 @@ export default function Download() {
         setView('ready');
       })
       .catch(err => logError('cv_result_restore_failed', { message: (err as Error)?.message }));
-  }, [view, generate.content, restoredContent, delivery, session.sessionData?.creditsRemaining, session.sessionId, session.sessionSecret]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [view, generate.content, restoredContent, session.sessionData?.creditsRemaining, session.sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Countdown helpers ─────────────────────────────────────────────────────
 
@@ -285,17 +280,16 @@ export default function Download() {
 
 
   const handleGenerateForNewJob = useCallback(async (jobDesc: string) => {
-    const { sessionId, sessionSecret } = session;
+    const { sessionId } = session;
     if (!sessionId) return;
     setView('generating');
-    generate.startGeneration({ sessionId, sessionSecret, jobDesc });
-  }, [session.sessionId, session.sessionSecret]); // eslint-disable-line react-hooks/exhaustive-deps
+    generate.startGeneration({ sessionId, jobDesc });
+  }, [session.sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleUrlFetch = useCallback(async (url: string): Promise<string> => {
-    const { sessionId, sessionSecret } = session;
     const res = await fetch(`${WORKER_URL}/fetch-job-url`, {
       method:      'POST',
-      headers:     { 'Content-Type': 'application/json', ...buildSecretHeaders(sessionSecret) },
+      headers:     { 'Content-Type': 'application/json' },
       credentials: 'include',
       body:        JSON.stringify({ url }),
     });
@@ -309,7 +303,7 @@ export default function Download() {
     }
     const data = await res.json() as { job_desc?: string; job_description?: string; text?: string };
     return data.job_desc || data.job_description || data.text || '';
-  }, [session.sessionId, session.sessionSecret]);
+  }, []);
 
   const handleCancelGeneration = useCallback(() => {
     const prev = session.sessionData;
@@ -380,7 +374,7 @@ export default function Download() {
   return (
     <div
       className="min-h-dvh text-gray-900 font-sans"
-      style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37,99,235,0.08), transparent)' }}
+      style={{ background: PAGE_BG }}
     >
       {/* Skip link */}
       <a
@@ -413,9 +407,7 @@ export default function Download() {
         className="sticky z-50 flex items-center px-6 py-4"
         style={{
           top:          bannerHeight > 0 ? `${bannerHeight}px` : '0',
-          background:   'rgba(255,255,255,0.88)',
-          borderBottom: '1px solid rgba(148,163,184,0.18)',
-          backdropFilter: 'blur(14px)',
+          ...NAV_STYLE,
         }}
         aria-label="Site navigation"
       >
@@ -427,9 +419,29 @@ export default function Download() {
       {/* Main content */}
       <main
         id="download-main"
-        className="mx-auto px-5 sm:px-8 py-8 pb-20"
-        style={{ maxWidth: 1040, paddingTop: bannerHeight > 0 ? `calc(2rem + ${bannerHeight}px)` : '2rem' }}
+        className={MAIN_CONTAINER_CLASS}
+        style={{ maxWidth: MAIN_CONTAINER_MAX, paddingTop: bannerHeight > 0 ? `calc(2rem + ${bannerHeight}px)` : '2rem' }}
       >
+        {delivery && (
+          <div style={{ maxWidth: 480, margin: '0 auto', marginBottom: '1.5rem' }}>
+            <div style={{
+              background:    'rgba(255,255,255,0.92)',
+              borderRadius:  24,
+              boxShadow:     '0 18px 44px rgba(15,23,42,0.07), 0 1px 2px rgba(15,23,42,0.04)',
+              padding:       '2rem',
+              border:        '1px solid rgba(148,163,184,0.14)',
+              backdropFilter: 'blur(14px)',
+            }}>
+              <p style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: '#059669', fontWeight: 700, marginBottom: '0.5rem' }}>Sukses</p>
+              <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', margin: '0 0 0.35rem', lineHeight: 1.3, letterSpacing: '-0.01em' }}>CV kamu sudah siap digunakan</h1>
+              <p style={{ fontSize: '0.875rem', color: '#64748B', marginBottom: '1rem' }}>
+                CV kamu sudah kami kirim ke <strong>{delivery.email}</strong>. Cek inbox atau folder spam kamu.
+              </p>
+              <ResendEmail />
+            </div>
+          </div>
+        )}
+
         {view === 'error' && sessionError && !delivery && (
           <div style={{ maxWidth: 480, margin: '0 auto' }}>
             <SessionError
@@ -443,25 +455,13 @@ export default function Download() {
           </div>
         )}
 
-        {view === 'waiting' && session.phase === 'init' && (
+        {!delivery && view === 'waiting' && session.phase === 'init' && (
           <div style={{ maxWidth: 760, margin: '0 auto' }}>
             <DownloadSkeleton />
           </div>
         )}
 
-        {delivery && (view === 'error' || (view === 'waiting' && session.phase !== 'init')) && (
-          <div style={{ maxWidth: 520, margin: '0 auto' }}>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', marginBottom: '0.5rem', lineHeight: 1.3 }}>
-              CV kamu sudah siap digunakan
-            </h1>
-            <p style={{ fontSize: '0.95rem', color: '#475569', marginBottom: '1.5rem' }}>
-              File CV kamu sudah dikirimkan ke email. Cek inbox atau folder spam.
-            </p>
-            <ResendEmail sessionSecret={session.sessionSecret} />
-          </div>
-        )}
-
-        {view === 'waiting' && !delivery && session.phase !== 'init' && (
+        {!delivery && view === 'waiting' && session.phase !== 'init' && (
           <div style={{ maxWidth: 480, margin: '0 auto' }}>
             <WaitingPayment
               statusText={session.statusText}
@@ -479,8 +479,6 @@ export default function Download() {
               status="running"
               filename={filename}
               tier={tier}
-              deliveryEmail={delivery?.email ?? null}
-              sessionSecret={session?.sessionSecret ?? null}
               onCancel={handleCancelGeneration}
             />
           </div>
@@ -501,14 +499,12 @@ export default function Download() {
               onGenerateNext={handleGenerateForNewJob}
               onUrlFetch={handleUrlFetch}
               showMobileFallback={showMobileFb}
+              closureFirst={closureFirst}
               dimensions={dimensions}
               primaryIssue={resultData?.primaryIssue ?? null}
               isTrusted={effectiveContent?.isTrusted ?? false}
-              deliveryEmail={delivery?.email ?? null}
-              sessionSecret={session.sessionSecret}
               interviewKitNode={view === 'ready' ? (
                 <InterviewKit
-                  sessionSecret={session.sessionSecret}
                   language="id"
                   initialKit={effectiveContent?.interviewKit ?? null}
                 />

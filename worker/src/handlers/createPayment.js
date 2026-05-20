@@ -1,6 +1,6 @@
 import { jsonResponseWithCookie } from '../cors.js';
 import { jsonResponse } from '../cors.js';
-import { clientIp, sha256Full, sha256Hex, log } from '../utils.js';
+import { clientIp, sha256Hex, log } from '../utils.js';
 import { checkRateLimit, rateLimitResponse } from '../rateLimit.js';
 import { TIER_CREDITS, SESSION_TTL_MULTI, VALID_TIERS } from '../constants.js';
 import { createMayarInvoice, logMayarEnvironment } from '../mayar.js';
@@ -23,7 +23,7 @@ export async function handleCreatePayment(request, env) {
     return jsonResponse({ message: 'Request body tidak valid' }, 400, request, env);
   }
 
-  const { tier, cv_text_key, email: rawEmail, session_secret: rawSecret, coupon_code: rawCoupon } = body;
+  const { tier, cv_text_key, email: rawEmail, coupon_code: rawCoupon } = body;
 
   // Sanitize coupon code — uppercase, strip non-alphanumeric, max 64 chars
   const couponCode = (rawCoupon && typeof rawCoupon === 'string')
@@ -80,11 +80,6 @@ export async function handleCreatePayment(request, env) {
 
   const credits = TIER_CREDITS[tier] ?? 1;
 
-  // Compute secret hash — only store it if the client provided a secret
-  const secretHash = (rawSecret && typeof rawSecret === 'string' && rawSecret.length >= 16 && rawSecret.length <= 256)
-    ? await sha256Full(rawSecret)
-    : null;
-
   // Validate Mayar API key before creating a session (gives a clear 503 instead of a
   // cryptic Mayar error when the secret is absent in staging/sandbox).
   const mayarKey = env.ENVIRONMENT === 'production' ? env.MAYAR_API_KEY : env.MAYAR_API_KEY_SANDBOX;
@@ -121,7 +116,6 @@ export async function handleCreatePayment(request, env) {
         total_credits: credits,
         ip,
         ...(sessionEmail ? { email: sessionEmail } : {}),
-        ...(secretHash ? { session_secret_hash: secretHash } : {}),
       };
       await createSession(env, sessionId, sessionData);
 

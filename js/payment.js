@@ -352,11 +352,6 @@ async function proceedToPayment() {
   if (errEl) errEl.classList.add('hidden');
   if (emailInput) emailInput.classList.remove('input-error');
 
-  // Store email in sessionStorage for use on download page
-  if (capturedEmail && emailValid) {
-    sessionStorage.setItem('gaslamar_email', capturedEmail);
-  }
-
   if (window.Analytics) {
     // PII: email used intentionally for user identification (user provided it for payment).
     // No CV text, JD text, or sensitive data in event properties.
@@ -378,15 +373,6 @@ async function proceedToPayment() {
   btn.disabled = true;
   btn.textContent = 'Membuat invoice...';
 
-  // Generate a cryptographically random secret — stored client-side and used
-  // to bind subsequent requests (get-session, generate) to this browser session.
-  // The worker stores only SHA-256(secret), so possession of the session ID
-  // alone is insufficient to access CV data.
-  // crypto.randomUUID() is Safari 15.4+; fall back to getRandomValues for older Safari
-  const sessionSecret = crypto.randomUUID
-    ? crypto.randomUUID()
-    : Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
-
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 25000);
 
@@ -401,7 +387,6 @@ async function proceedToPayment() {
       body: JSON.stringify({
         tier: selectedTier,
         cv_text_key: cvTextKey,
-        session_secret: sessionSecret,
         ...(capturedEmail ? { email: capturedEmail } : {}),
       }),
       signal: controller.signal
@@ -421,19 +406,14 @@ async function proceedToPayment() {
       throw new Error(errMsg);
     }
 
-    const { session_id, invoice_url } = await response.json();
+    const { invoice_url } = await response.json();
     if (window.Analytics) Analytics.track('payment_session_created', {
       tier: selectedTier,
       tier_price_idr: TIER_CONFIG[selectedTier].price,
     });
 
-    // Save session ID to localStorage (survives tab close; not sensitive — no auth value alone).
-    localStorage.setItem('gaslamar_session', session_id);
-    // Secret stored in sessionStorage only (tab-scoped). Survives the Mayar redirect
-    // because sessionStorage persists within the same tab. After tab close, users must
-    // use their email link (?token=) to re-access — this is intentional security hardening.
-    sessionStorage.setItem('gaslamar_secret_' + session_id, sessionSecret);
-    // Note: gaslamar_tier is intentionally NOT persisted to localStorage.
+    // Note: session_id and tier are intentionally not persisted to client storage.
+    // The HttpOnly cookie is the only browser-held session credential.
     // The authoritative tier is always read from the server (/check-session → data.tier)
     // and written to sessionStorage there. Client-side storage of tier is display-only.
 
@@ -504,23 +484,9 @@ function showPaymentError(message) {
 
 function showExpiryError() {
   paymentInProgress = false;
-  const btn = document.getElementById('pay-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Sesi kedaluwarsa'; }
-
-  const ctaArea = document.getElementById('cta-area');
-  const existing = document.getElementById('payment-error');
-  if (existing) existing.remove();
-
-  const errDiv = document.createElement('div');
-  errDiv.id = 'payment-error';
-  errDiv.className = 'mt-4 p-4 bg-yellow-50 border border-yellow-300 rounded-xl text-center';
-  errDiv.innerHTML = `
-    <p class="text-yellow-800 font-semibold text-sm mb-2">Sesi analisis sudah kedaluwarsa (30 menit)</p>
-    <p class="text-yellow-700 text-sm mb-3">Upload ulang CV kamu untuk melanjutkan.</p>
-    <a href="upload.html" class="inline-block bg-primary text-white font-bold px-5 py-2.5 rounded-xl text-sm hover:bg-blue-700 transition-colors">
-      Upload CV Lagi →
-    </a>`;
-  ctaArea.after(errDiv);
+  // Redirect to upload with reason so the user gets a clear banner explaining what happened.
+  // Inline error state was confusing and left the page in an ambiguous half-dead state.
+  window.location.replace('upload.html?reason=cv_expired');
 }
 
 // DevTools deterrent — educational notice, not a security control.

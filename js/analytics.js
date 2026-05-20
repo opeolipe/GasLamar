@@ -22,12 +22,12 @@
 
   function getOrCreateStableUserId() {
     try {
-      var existing = localStorage.getItem(USER_ID_KEY);
+      var existing = sessionStorage.getItem(USER_ID_KEY);
       if (existing && /^gl_[a-f0-9]{32}$/.test(existing)) return existing;
       var raw = new Uint8Array(16);
       crypto.getRandomValues(raw);
       var created = 'gl_' + toHex(raw);
-      localStorage.setItem(USER_ID_KEY, created);
+      sessionStorage.setItem(USER_ID_KEY, created);
       return created;
     } catch (_) {
       // localStorage may be blocked (private mode). Keep a deterministic fallback in-memory per page.

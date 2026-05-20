@@ -50,15 +50,13 @@
           // Key expired or not found on server.
           sessionStorage.removeItem('gaslamar_cv_key');
           sessionStorage.removeItem('gaslamar_analyze_time');
-          showError('⏰ Sesi analisis sudah berakhir (berlaku 2 jam). Mohon upload ulang CV kamu.');
-          setTimeout(() => window.location.href = 'upload.html', 3000);
+          window.location.replace('access.html?expired=1&source=hasil');
           return;
         }
       } else if (res.status === 404) {
         sessionStorage.removeItem('gaslamar_cv_key');
         sessionStorage.removeItem('gaslamar_analyze_time');
-        showError('⏰ Sesi analisis sudah berakhir (berlaku 2 jam). Mohon upload ulang CV kamu.');
-        setTimeout(() => window.location.href = 'upload.html', 3000);
+        window.location.replace('access.html?expired=1&source=hasil');
         return;
       }
       // Other server errors → try sessionStorage fallback below
@@ -178,13 +176,13 @@ function renderScore(scoring) {
   // Badge
   const badge = document.getElementById('score-badge');
   if (score > 70) {
-    badge.textContent = '🟢 Peluang Interview Tinggi';
+    badge.innerHTML = '<span aria-hidden="true">🟢</span> Peluang Interview Tinggi';
     badge.className = 'inline-block px-4 py-1.5 rounded-full text-sm font-bold mb-3 bg-green-100 text-green-700';
   } else if (score >= 50) {
-    badge.textContent = '🟡 Peluang Interview Sedang';
+    badge.innerHTML = '<span aria-hidden="true">🟡</span> Peluang Interview Sedang';
     badge.className = 'inline-block px-4 py-1.5 rounded-full text-sm font-bold mb-3 bg-yellow-100 text-yellow-700';
   } else {
-    badge.textContent = '🔴 Peluang Interview Rendah';
+    badge.innerHTML = '<span aria-hidden="true">🔴</span> Peluang Interview Rendah';
     badge.className = 'inline-block px-4 py-1.5 rounded-full text-sm font-bold mb-3 bg-red-100 text-red-700';
   }
 
@@ -208,7 +206,7 @@ function renderScore(scoring) {
     sessionStorage.removeItem('gaslamar_scan_advisory');
     const advisoryEl = document.createElement('div');
     advisoryEl.style.cssText = 'background:#FEF9C3;border:1px solid #FDE047;border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:0.875rem;color:#713F12;';
-    advisoryEl.textContent = '⚠️ CV terdeteksi sebagai PDF scan — akurasi analisis mungkin lebih rendah. Untuk hasil terbaik, gunakan PDF yang dibuat langsung dari aplikasi (bukan hasil scan).';
+    advisoryEl.innerHTML = '<span aria-hidden="true">⚠️</span><span class="sr-only">Peringatan: </span> CV terdeteksi sebagai PDF scan — akurasi analisis mungkin lebih rendah. Untuk hasil terbaik, gunakan PDF yang dibuat langsung dari aplikasi (bukan hasil scan).';
     const resultsContent = document.getElementById('results-content');
     if (resultsContent) resultsContent.insertBefore(advisoryEl, resultsContent.firstChild);
   }
@@ -255,7 +253,7 @@ function renderRedFlags(redFlags) {
   const section = document.getElementById('red-flags');
   const list = document.getElementById('red-flags-list');
   if (!section || !list) return;
-  list.innerHTML = redFlags.map(f => `<li>🚩 ${escapeHtml(f)}</li>`).join('');
+  list.innerHTML = redFlags.map(f => `<li><span aria-hidden="true">🚩</span><span class="sr-only">Perhatian: </span> ${escapeHtml(f)}</li>`).join('');
   section.classList.remove('hidden');
 }
 
@@ -293,7 +291,7 @@ function renderRewritePreview(rekomendasi, gap, previewBefore, previewAfter) {
   if (previewBefore && previewAfter) {
     document.getElementById('preview-item-1').innerHTML = `
       <div class="preview-item">
-        <div class="preview-item-label">✅ Contoh perbaikan nyata dari CV kamu</div>
+        <div class="preview-item-label"><span aria-hidden="true">✅</span> Contoh perbaikan nyata dari CV kamu</div>
         <div style="margin-top:6px;font-size:0.8rem;color:#6B7280;margin-bottom:2px;">Sebelum:</div>
         <div class="preview-item-text" style="text-decoration:line-through;opacity:0.6;">${escapeHtml(previewBefore)}</div>
         <div style="margin-top:6px;font-size:0.8rem;color:#059669;margin-bottom:2px;">Sesudah:</div>
@@ -304,7 +302,7 @@ function renderRewritePreview(rekomendasi, gap, previewBefore, previewAfter) {
     const first = allItems[0];
     document.getElementById('preview-item-1').innerHTML = `
       <div class="preview-item">
-        <div class="preview-item-label">✅ Perbaikan #1 — contoh gratis</div>
+        <div class="preview-item-label"><span aria-hidden="true">✅</span> Perbaikan #1 — contoh gratis</div>
         <div class="preview-item-text">${escapeHtml(first)}</div>
       </div>`;
   }
@@ -314,7 +312,7 @@ function renderRewritePreview(rekomendasi, gap, previewBefore, previewAfter) {
   document.getElementById('preview-items-rest').innerHTML =
     rest.map((item, i) => `
       <div class="preview-item" style="margin-bottom:0.5rem;">
-        <div class="preview-item-label">${i + 2 <= rekomendasi.length ? `✅ Perbaikan #${i + 2}` : '❌ Gap yang diperbaiki'}</div>
+        <div class="preview-item-label">${i + 2 <= rekomendasi.length ? `<span aria-hidden="true">✅</span> Perbaikan #${i + 2}` : '<span aria-hidden="true">❌</span><span class="sr-only">Gap: </span> Gap yang diperbaiki'}</div>
         <div class="preview-item-text">${escapeHtml(item)}</div>
       </div>`).join('') + `
     <div style="font-size: 0.875rem;color:#6B7280;text-align:center;padding:0.5rem 0 0.25rem;">
@@ -322,7 +320,7 @@ function renderRewritePreview(rekomendasi, gap, previewBefore, previewAfter) {
     </div>`;
 
   document.getElementById('preview-lock-text').innerHTML =
-    `🔒 Lihat semua ${totalCount} perbaikan + CV rewrite lengkap (ID &amp; EN) setelah pilih paket`;
+    `<span aria-hidden="true">🔒</span><span class="sr-only">Terkunci: </span> Lihat semua ${totalCount} perbaikan + CV rewrite lengkap (ID &amp; EN) setelah pilih paket`;
 
   section.classList.remove('hidden');
 }

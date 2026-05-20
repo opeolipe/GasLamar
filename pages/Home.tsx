@@ -4,6 +4,7 @@ import ResultPreview from "@/components/blocks/ResultPreview";
 import PricingSection from "@/components/blocks/PricingSection";
 import FaqSection    from "@/components/blocks/FaqSection";
 import FooterSection from "@/components/blocks/FooterSection";
+import { PAGE_BG, NAV_STYLE, MAIN_CONTAINER_CLASS, MAIN_CONTAINER_MAX } from "@/lib/pageChrome";
 
 const SHADOW = "0 18px 44px rgba(15, 23, 42, 0.08)";
 const SERIF = { fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: "-0.03em" } as const;
@@ -70,7 +71,7 @@ export default function Home() {
   return (
     <div
       className="min-h-dvh text-gray-900 font-sans"
-      style={{ background: "radial-gradient(ellipse 80% 50% at 50% -20%,rgba(37,99,235,0.08),transparent)" }}
+      style={{ background: PAGE_BG }}
     >
       {/* Skip link — visible on keyboard focus only */}
       <a
@@ -83,7 +84,7 @@ export default function Home() {
       {/* Navbar */}
       <nav
         className="border-b py-4 px-6 flex items-center justify-between sticky top-0 z-50 backdrop-blur-[14px]"
-        style={{ borderColor: "rgba(148,163,184,0.18)", background: "rgba(255,255,255,0.88)" }}
+        style={NAV_STYLE}
       >
         <a href="index.html" className="no-underline min-h-[44px] inline-flex items-center">
           <img src="assets/logo.svg" alt="GasLamar" height="28" style={{ display: 'block' }} />
@@ -106,7 +107,7 @@ export default function Home() {
         </div>
       </nav>
 
-      <main id="main-content" className="max-w-screen-xl mx-auto px-6">
+      <main id="main-content" className={MAIN_CONTAINER_CLASS} style={{ maxWidth: MAIN_CONTAINER_MAX }}>
         {/* Hero */}
         <section className="py-12 lg:py-16">
           <HeroUpload />

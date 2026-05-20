@@ -293,6 +293,45 @@ test.describe('GasLamar CV Flow', () => {
     await expect(page.locator('[data-testid="trust-badge"]')).toBeHidden();
   });
 
+  test('isTrusted:false CV with repetitive AI ending pattern hides trust badge', async ({ page }) => {
+    const repetitiveCV = [
+      'RINGKASAN PROFESIONAL',
+      'Berpengalaman di sales B2B dan operasional distribusi.',
+      '',
+      'PENGALAMAN KERJA',
+      '- Menangani komunikasi klien untuk memastikan kelancaran operasional',
+      '- Menangani follow-up partner untuk memastikan kelancaran operasional',
+      '- Menangani distribusi area untuk memastikan kelancaran operasional',
+    ].join('\n');
+
+    await gotoDownload(page, {
+      cv_id: repetitiveCV,
+      isTrusted: false,
+    });
+    await expect(page.locator('[data-testid="cv-content"]')).toBeVisible({
+      timeout: 30000,
+    });
+    await expect(page.locator('[data-testid="trust-badge"]')).toBeHidden();
+  });
+
+  test('anchored summary style renders cleanly in download preview', async ({ page }) => {
+    const anchoredCV = [
+      'RINGKASAN PROFESIONAL',
+      'Berpengalaman di sales B2B dengan klien seperti Siloam Hospital dan area Jawa Timur.',
+      '',
+      'PENGALAMAN KERJA',
+      '- Menangani komunikasi klien B2B dan follow-up order area Surabaya',
+    ].join('\n');
+
+    await gotoDownload(page, { cv_id: anchoredCV, isTrusted: true });
+    await expect(page.locator('[data-testid="cv-content"]')).toBeVisible({
+      timeout: 30000,
+    });
+    const shown = await page.locator('[data-testid="cv-content"]').textContent();
+    expect(shown).toContain('Siloam Hospital');
+    expect(shown).not.toMatch(/\[.*\]/);
+  });
+
   // ── SHORT LINE — NO PLACEHOLDER BRACKETS ─────────────────────────────────
 
   test('short CV does not produce placeholder brackets in rewrite preview', async ({ page }) => {
