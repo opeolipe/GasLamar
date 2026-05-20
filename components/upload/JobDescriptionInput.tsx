@@ -1,6 +1,6 @@
 import { useState, forwardRef, useRef, useEffect } from 'react';
 import UrlFetcher from './UrlFetcher';
-import { MAX_JD_CHARS } from '@/lib/uploadValidation';
+import { MAX_JD_CHARS, MIN_JD_LENGTH } from '@/lib/uploadValidation';
 import { evaluateJDQuality } from '@/utils/evaluateJDQuality';
 
 interface Props {
@@ -15,7 +15,7 @@ Kualifikasi:
 - Social media marketing 2+ tahun
 - Google Analytics & Facebook Ads`;
 
-const MIN_JD_CHARS = 80;
+const MIN_JD_CHARS = MIN_JD_LENGTH;
 
 const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobDescriptionInput({ value, onChange, submitError, onSubmit }, ref) {
   const [showFetcher, setShowFetcher] = useState(false);
