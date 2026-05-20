@@ -1089,9 +1089,9 @@ describe('GET /validate-session', () => {
     expect(body.reason).toBe('invalid_key');
   });
 
-  it('returns valid:false for unknown key → 200', async () => {
+  it('returns valid:false for unknown key → 404', async () => {
     const res = await get('/validate-session?cvKey=cvtext_nonexistent_key_abc');
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(404);
     const body = await res.json();
     expect(body.valid).toBe(false);
     expect(body.reason).toBe('not_found');

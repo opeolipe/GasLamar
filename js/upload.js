@@ -465,10 +465,10 @@ function hideError(id) {
 
   // Show informational banner if redirected back from hasil.html due to missing/expired session
   const reasonParam = params.get('reason');
-  if (reasonParam === 'session_expired' || reasonParam === 'no_session') {
-    const msg = reasonParam === 'session_expired'
-      ? '⏰ Sesi analisis sudah berakhir (berlaku 2 jam). Silakan upload CV kembali untuk analisis baru.'
-      : 'Sesi tidak ditemukan. Silakan mulai upload CV dari sini.';
+  if (reasonParam === 'session_expired' || reasonParam === 'no_session' || reasonParam === 'cv_expired') {
+    const msg = reasonParam === 'no_session'
+      ? 'Sesi tidak ditemukan. Silakan mulai upload CV dari sini.'
+      : '⏰ Sesi analisis sudah berakhir (berlaku 2 jam). Silakan upload CV kembali untuk analisis baru.';
     const banner = document.createElement('p');
     banner.className = 'session-notice-banner';
     banner.setAttribute('role', 'status');
