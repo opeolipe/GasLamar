@@ -163,3 +163,22 @@ which breaks the vitest startup (vite config load fails). Fix must be:
 2. Update `vitest.config.js` for API changes in the new version
 3. Verify all 504 tests still pass
 4. Commit in an isolated PR so any regression is isolated from feature work
+
+## evaluateJDQuality min-length must equal backend threshold (2026-05-20)
+
+Frontend `evaluateJDQuality` used `< 80` chars as the minimum, while the backend
+`/analyze` handler rejects at `< 100` chars. Users with 80–99 char JDs saw
+"✓ Job description siap" on the upload page but got a backend error on analyzing.html.
+
+Fix: changed the threshold in `evaluateJDQuality` to import and use `MIN_JD_LENGTH`
+from `uploadValidation.ts` (= 100), so both sides agree.
+
+## evaluateJDQuality keyword check must be advisory, not a hard blocker (2026-05-20)
+
+The `hasStructure` keyword check in `evaluateJDQuality` returned `isValid: false`
+for JDs that lacked specific terms ("kualifikasi", "skill", etc.). This blocked form
+submission for valid JDs that simply omitted those exact keywords. The backend has no
+keyword requirement — it accepts any JD with ≥ 100 chars.
+
+Fix: the keyword check now returns `{ isValid: true, message: '…advisory…' }` so
+the amber warning still appears in `JobDescriptionInput` but submission is not blocked.
