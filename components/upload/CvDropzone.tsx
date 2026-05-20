@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
-import { MIN_CV_TEXT_LENGTH, MAX_CV_PASTE_CHARS } from '@/lib/uploadValidation';
+import { MIN_CV_PASTE_LENGTH, MAX_CV_PASTE_CHARS } from '@/lib/uploadValidation';
 
 interface Props {
   fileName:         string | null;
@@ -146,7 +146,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
     }
   }
 
-  const pasteReady = manualCvText.trim().length >= MIN_CV_TEXT_LENGTH;
+  const pasteReady = manualCvText.trim().length >= MIN_CV_PASTE_LENGTH;
   const pasteShort = manualCvText.trim().length > 0 && !pasteReady;
 
   const recovery = getErrorRecovery(error);
@@ -264,7 +264,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
           <div className="flex items-center justify-between flex-wrap gap-x-2 gap-y-1 mt-1 text-xs min-w-0">
             {pasteShort ? (
               <span className="text-amber-600 font-medium min-w-0 break-words" style={{ overflowWrap: 'anywhere' }}>
-                <span aria-hidden="true">⚠️</span><span className="sr-only">Peringatan: </span> Terlalu singkat — minimal {MIN_CV_TEXT_LENGTH.toLocaleString('id-ID')} karakter diperlukan
+                <span aria-hidden="true">⚠️</span><span className="sr-only">Peringatan: </span> Terlalu singkat — minimal {MIN_CV_PASTE_LENGTH.toLocaleString('id-ID')} karakter diperlukan
               </span>
             ) : pasteReady ? (
               <span className="text-emerald-600 font-medium"><span aria-hidden="true">✓</span> CV siap</span>
@@ -274,7 +274,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
             <span className="text-slate-400 flex-shrink-0">
               {manualCvText.length.toLocaleString('id-ID')}
               {pasteShort
-                ? ` / min. ${MIN_CV_TEXT_LENGTH.toLocaleString('id-ID')}`
+                ? ` / min. ${MIN_CV_PASTE_LENGTH.toLocaleString('id-ID')}`
                 : ` / ${MAX_CV_PASTE_CHARS.toLocaleString('id-ID')}`} karakter
             </span>
           </div>
