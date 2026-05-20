@@ -134,8 +134,10 @@ export async function route(request, env, ctx) {
       console.warn(JSON.stringify({ event: 'client_log_oversized', bodyLength: bodyText.length, ip }));
       return jsonResponse({ ok: false, message: 'Payload terlalu besar' }, 413, request, env);
     }
-    const rawBody = contentType.includes('application/json')
-      ? (() => { try { const p = JSON.parse(bodyText); return (p !== null && typeof p === 'object' && !Array.isArray(p)) ? p : {}; } catch { return {}; } })()
+    // Accept both application/json and text/plain (sendBeacon sends text/plain to avoid
+    // CORS preflight; the body is still JSON-formatted). Fall back to { raw } on parse error.
+    const rawBody = (contentType.includes('application/json') || contentType.includes('text/plain'))
+      ? (() => { try { const p = JSON.parse(bodyText); return (p !== null && typeof p === 'object' && !Array.isArray(p)) ? p : {}; } catch { return { raw: bodyText }; } })()
       : { raw: bodyText };
     // Sanitize all string values before writing to logs to prevent log injection.
     // Mask PII field names to avoid leaking sensitive data into Cloudflare log storage.
