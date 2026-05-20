@@ -24,6 +24,38 @@
 // \t (0x09), \n (0x0A), \r (0x0D) are intentionally kept.
 const CONTROL_CHAR_RE = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g;
 
+// M3: Unicode format / invisible characters used to bypass word-boundary regexes.
+// Attackers insert these between letters (e.g. "ig​nore") to defeat pattern
+// matching while the word visually appears intact.
+// Covered ranges (explicit \u escapes — no invisible chars in source):
+//   U+00AD  soft hyphen
+//   U+200B  zero-width space
+//   U+200C  zero-width non-joiner
+//   U+200D  zero-width joiner
+//   U+200E  left-to-right mark
+//   U+200F  right-to-left mark
+//   U+202A  left-to-right embedding
+//   U+202B  right-to-left embedding
+//   U+202C  pop directional formatting
+//   U+202D  left-to-right override
+//   U+202E  right-to-left override
+//   U+2060  word joiner
+//   U+2061  function application (invisible)
+//   U+2062  invisible times
+//   U+2063  invisible separator
+//   U+2064  invisible plus
+//   U+206A  inhibit symmetric swapping
+//   U+206B  activate symmetric swapping
+//   U+206C  inhibit Arabic form shaping
+//   U+206D  activate Arabic form shaping
+//   U+206E  national digit shapes
+//   U+206F  nominal digit shapes
+//   U+FEFF  byte-order mark / zero-width no-break space
+// Regex literal using explicit \u escapes so the source contains only printable ASCII.
+// U+00AD soft-hyphen, U+200B-200F zero-width/marks, U+202A-202E bidi controls,
+// U+2060-2064 word-joiner/invisible-ops, U+206A-206F deprecated format, U+FEFF BOM.
+const UNICODE_FORMAT_RE = /[­​‌‍‎‏‪‫‬‭‮⁠⁡⁢⁣⁤⁪⁫⁬⁭⁮⁯﻿]/g;
+
 // M1: Hard cap before running any regex to prevent ReDoS on adversarial inputs.
 // Legitimate CVs and JDs are never longer than this; anything over is already rejected
 // upstream by the endpoint body-size limits, but we guard here for defence-in-depth.
@@ -130,7 +162,12 @@ export function hasPromptInjection(text) {
   if (text.length === 0) return false;
   // M1: Cap input length before running alternation-heavy regexes (ReDoS guard).
   const sample = text.length > MAX_SANITIZE_INPUT ? text.slice(0, MAX_SANITIZE_INPUT) : text;
-  return REJECTION_PATTERNS.some(p => p.test(sample));
+  // M3: Strip Unicode format/invisible characters, then apply NFKC normalization.
+  // Attackers insert zero-width chars (U+200B, U+00AD, bidi overrides, etc.) between
+  // letters to defeat word-boundary regexes while the word visually appears intact.
+  // Stripping these first, then normalizing, produces the canonical plaintext form.
+  const normalized = sample.replace(UNICODE_FORMAT_RE, '').normalize('NFKC');
+  return REJECTION_PATTERNS.some(p => p.test(normalized));
 }
 
 /**
@@ -187,4 +224,3 @@ export function sanitizeLogValue(value, maxLen = 500) {
   if (typeof value !== 'string') return value;
   return value.replace(CONTROL_CHAR_RE, '').slice(0, maxLen);
 }
-
