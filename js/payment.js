@@ -406,16 +406,19 @@ async function proceedToPayment() {
       throw new Error(errMsg);
     }
 
-    const { invoice_url } = await response.json();
+    const { invoice_url, session_id } = await response.json();
     if (window.Analytics) Analytics.track('payment_session_created', {
       tier: selectedTier,
       tier_price_idr: TIER_CONFIG[selectedTier].price,
     });
 
-    // Note: session_id and tier are intentionally not persisted to client storage.
-    // The HttpOnly cookie is the only browser-held session credential.
-    // The authoritative tier is always read from the server (/check-session → data.tier)
-    // and written to sessionStorage there. Client-side storage of tier is display-only.
+    // Store session_id in localStorage so download-guard.js (Path 2) can let the user
+    // through after Mayar's post-payment redirect. The HttpOnly cookie set by the Worker
+    // remains the authoritative credential for all server-side calls.
+    // Tier is not stored here — the authoritative value is fetched from /check-session.
+    if (session_id) {
+      try { localStorage.setItem('gaslamar_session', session_id); } catch (_) {}
+    }
 
     // cv_text_key has been consumed server-side — remove from session
     sessionStorage.removeItem('gaslamar_cv_key');
