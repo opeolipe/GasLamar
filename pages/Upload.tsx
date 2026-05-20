@@ -344,7 +344,7 @@ export default function Upload() {
       const pasteIsTooShort = cvTab === 'paste' && manualCvText.trim().length > 0;
       setFileError(
         pasteIsTooShort
-          ? 'Terlalu singkat — tambahkan detail pengalaman & skill'
+          ? `Terlalu singkat — tambahkan detail hingga minimal ${MIN_CV_TEXT_LENGTH.toLocaleString('id-ID')} karakter`
           : 'Masukkan CV dulu ya'
       );
     }
