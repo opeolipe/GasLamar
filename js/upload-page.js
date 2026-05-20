@@ -11,7 +11,10 @@ if (_analyzeErr) {
   sessionStorage.removeItem('gaslamar_upload_error');
   const _errEl = document.createElement('div');
   _errEl.className = 'upload-error-banner';
-  _errEl.innerHTML = '<span aria-hidden="true">⚠️</span> Analisis gagal: ' + _analyzeErr.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const _iconEl = document.createElement('span');
+  _iconEl.setAttribute('aria-hidden', 'true');
+  _iconEl.textContent = '⚠️';
+  _errEl.append(_iconEl, ' Analisis gagal: ', String(_analyzeErr));
   document.querySelector('.card').insertBefore(_errEl, document.querySelector('.card').firstChild);
 }
 
@@ -101,20 +104,28 @@ async function fetchJobFromUrl() {
 
     if (!res.ok) {
       statusEl.style.color = '#DC2626';
-      statusEl.innerHTML = '<span aria-hidden="true">⚠️</span> ' + (data.message || 'Gagal mengambil. Coba copy-paste manual.');
+      setUrlFetchStatus(statusEl, '⚠️', data.message || 'Gagal mengambil. Coba copy-paste manual.');
     } else {
       document.getElementById('job-desc').value = data.job_desc;
       updateCharCount();
       statusEl.style.color = '#059669';
-      statusEl.innerHTML = '<span aria-hidden="true">✅</span> Job description berhasil diambil. Periksa dan edit seperlunya.';
+      setUrlFetchStatus(statusEl, '✅', 'Job description berhasil diambil. Periksa dan edit seperlunya.');
     }
   } catch {
     statusEl.style.color = '#DC2626';
-    statusEl.innerHTML = '<span aria-hidden="true">⚠️</span> Tidak bisa terhubung ke server. Coba lagi.';
+    setUrlFetchStatus(statusEl, '⚠️', 'Tidak bisa terhubung ke server. Coba lagi.');
   } finally {
     submitBtn.disabled = false;
     submitBtn.textContent = 'Ambil';
   }
+}
+
+function setUrlFetchStatus(statusEl, icon, message) {
+  statusEl.textContent = '';
+  const iconEl = document.createElement('span');
+  iconEl.setAttribute('aria-hidden', 'true');
+  iconEl.textContent = icon;
+  statusEl.append(iconEl, ' ', String(message));
 }
 
 // Allow Enter key in URL input to trigger fetch
