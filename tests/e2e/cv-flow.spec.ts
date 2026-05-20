@@ -76,6 +76,7 @@ async function mockCheckSession(page: Page, overrides: Record<string, unknown> =
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
+        session_id: TEST_SESSION_ID,
         status: 'paid',
         tier: 'single',
         credits_remaining: 1,
