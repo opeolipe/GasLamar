@@ -50,15 +50,13 @@
           // Key expired or not found on server.
           sessionStorage.removeItem('gaslamar_cv_key');
           sessionStorage.removeItem('gaslamar_analyze_time');
-          showError('⏰ Sesi analisis sudah berakhir (berlaku 2 jam). Mohon upload ulang CV kamu.');
-          setTimeout(() => window.location.href = 'upload.html', 3000);
+          window.location.replace('access.html?expired=1&source=hasil');
           return;
         }
       } else if (res.status === 404) {
         sessionStorage.removeItem('gaslamar_cv_key');
         sessionStorage.removeItem('gaslamar_analyze_time');
-        showError('⏰ Sesi analisis sudah berakhir (berlaku 2 jam). Mohon upload ulang CV kamu.');
-        setTimeout(() => window.location.href = 'upload.html', 3000);
+        window.location.replace('access.html?expired=1&source=hasil');
         return;
       }
       // Other server errors → try sessionStorage fallback below

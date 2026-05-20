@@ -107,14 +107,9 @@ async function poll(sessionId) {
         }
       } catch (_) {}
 
-      // No stored result \u2014 show the original error
+      // No stored result \u2014 redirect to recovery page
       clearClientSessionData(sessionId);
-      showSessionError(
-        'Sesi Tidak Ditemukan',
-        'Sesi tidak ditemukan atau sudah kedaluwarsa. Cek email kamu untuk link download CV, ' +
-        'atau hubungi support@gaslamar.com dengan bukti pembayaran.',
-        false
-      );
+      window.location.replace('access.html?expired=1&source=download');
       return;
     }
     notFoundCount = 0; // reset on any non-404 response
@@ -203,13 +198,7 @@ function startSessionHeartbeat(sessionId, totalCredits) {
       if (res.status === 404) {
         stopSessionHeartbeat();
         clearClientSessionData(sessionId);
-        showSessionError(
-          'Sesi Kedaluwarsa',
-          '\uD83D\uDCC5 Sesi download kamu sudah berakhir (berlaku ' + validityLabel + '). ' +
-          'Upload ulang CV untuk memulai analisis baru, atau hubungi support@gaslamar.com ' +
-          'jika kamu masih punya kredit tersisa.',
-          false
-        );
+        window.location.replace('access.html?expired=1&source=download');
       }
     } catch (_) { /* ignore transient network errors */ }
   }, HEARTBEAT_INTERVAL);

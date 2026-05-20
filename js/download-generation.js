@@ -46,13 +46,7 @@ async function fetchAndGenerateCV(sessionId) {
 
     if (res.status === 404) {
       clearClientSessionData(sessionId);
-      const errData  = await res.json().catch(function() { return {}; });
-      const tier     = sessionStorage.getItem('gaslamar_tier') || '';
-      const validity = (tier === '3pack' || tier === 'jobhunt') ? '30 hari' : '7 hari';
-      const msg      = errData.reason === 'expired'
-        ? '\u23F0 Sesi kamu sudah berakhir setelah ' + validity + '. Silakan upload ulang CV untuk analisis baru.'
-        : 'Sesi tidak ditemukan atau sudah berakhir. Upload ulang CV untuk analisis baru.';
-      showSessionError('Sesi Berakhir', msg, false);
+      window.location.replace('access.html?expired=1&source=download');
       return;
     }
 
@@ -127,13 +121,7 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
       } catch (_) {}
 
       if (res.status === 404) {
-        showSessionError(
-          'Sesi Tidak Ditemukan',
-          'Sesi tidak ditemukan atau sudah berakhir. Sesi berbayar berlaku 7 hari \u2014 ' +
-          'jika kamu masih dalam periode ini, coba refresh. ' +
-          'Jika sudah lebih dari 7 hari, upload ulang CV untuk analisis baru.',
-          false
-        );
+        window.location.replace('access.html?expired=1&source=download');
         return;
       }
       if (res.status === 403) {
