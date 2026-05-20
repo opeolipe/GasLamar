@@ -31,8 +31,9 @@
  *   gaslamar_tier            Server-confirmed tier (corrected on poll response)
  *   gaslamar_filename        CV filename for display purposes only
  *
- * The session_id is not persisted in client storage. Download pages bootstrap
- * from the HttpOnly cookie via /check-session.
+ * The session_id is stored in localStorage (gaslamar_session) by payment.js so
+ * download-guard.js can pass the user through on Mayar's post-payment redirect.
+ * Download pages then verify the session via /check-session using the HttpOnly cookie.
  */
 
 // ── State name constants ──────────────────────────────────────────────────────
