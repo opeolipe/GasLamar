@@ -1,4 +1,5 @@
-export { WORKER_URL, SANDBOX_WORKER_URL } from '@/lib/uploadValidation';
+export { WORKER_URL } from '@/lib/sessionUtils';
+export { SANDBOX_WORKER_URL } from '@/lib/uploadValidation';
 import { extractSampleLine }                        from '@/lib/cvUtils';
 import { generateRewrite, generateRewritePreview }  from '@/lib/rewriteUtils';
 import type { ResultData, BuildResultInput }         from '@/types/result';

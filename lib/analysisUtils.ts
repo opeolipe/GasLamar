@@ -1,4 +1,4 @@
-export { WORKER_URL } from '@/lib/uploadValidation';
+export { WORKER_URL } from '@/lib/sessionUtils';
 
 export const ESTIMATED_MS     = 45000;
 export const FETCH_TIMEOUT_MS = 55000;

@@ -3285,3 +3285,66 @@ describe('POST /validate-coupon', () => {
     expect(body.coupon_code).toBe('HEMAT20');
   });
 });
+
+describe('POST /api/log', () => {
+  it('accepts application/json body and returns ok:true', async () => {
+    const res = await post('/api/log', { event: 'test_error', data: { message: 'test' } });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+  });
+
+  it('accepts text/plain body containing JSON and returns ok:true', async () => {
+    const payload = JSON.stringify({ event: 'test_error', data: { message: 'test' } });
+    const res = await SELF.fetch('https://gaslamar.com/api/log', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=UTF-8',
+        Origin: GASLAMAR_ORIGIN,
+        'CF-Connecting-IP': '1.2.3.4',
+      },
+      body: payload,
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+  });
+
+  it('accepts text/plain body containing non-JSON and logs raw', async () => {
+    const res = await SELF.fetch('https://gaslamar.com/api/log', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=UTF-8',
+        Origin: GASLAMAR_ORIGIN,
+        'CF-Connecting-IP': '1.2.3.4',
+      },
+      body: 'plain text payload',
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+  });
+
+  it('rejects oversized payload → 413', async () => {
+    const bigPayload = 'x'.repeat(8193);
+    const res = await SELF.fetch('https://gaslamar.com/api/log', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Origin: GASLAMAR_ORIGIN,
+        'CF-Connecting-IP': '1.2.3.4',
+      },
+      body: bigPayload,
+    });
+    expect(res.status).toBe(413);
+  });
+
+  it('handles top-level PII key names without error (redacted server-side)', async () => {
+    // PII_FIELDS keys at top level are redacted to [REDACTED] before logging.
+    // Test verifies the endpoint accepts them without error.
+    const res = await post('/api/log', { email: 'user@example.com', session_id: 'sess_abc', event: 'test' });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+  });
+});
