@@ -157,17 +157,24 @@ export async function handleGenerate(request, env, ctx) {
   const jdMode      = isJDQualityHigh(effectiveJobDesc) ? 'targeted' : 'inferred';
   const roleProfile = jdMode === 'inferred' ? getRoleProfile(inferredRole) : null;
 
-  // Session lock — prevent double-generation race condition
+  // Session lock — prevent double-generation race condition.
+  // KV is eventually consistent (no atomic CAS), so a bare read-then-write has a
+  // TOCTOU race where two concurrent requests both see no lock and both proceed.
+  // Mitigation: write a per-request nonce, then immediately re-read — if another
+  // request's nonce is visible instead of ours, we lose the race and bail out.
+  // This doesn't eliminate the window but shrinks it to ~2 RTTs instead of unbounded.
   const lockKey = `lock_${session_id}`;
   const existingLock = await env.GASLAMAR_SESSIONS.get(lockKey);
   if (existingLock) {
     return jsonResponse({ message: 'Sedang diproses, coba lagi sebentar.' }, 409, request, env);
   }
-  // H5 FIX: Reduced from 120s to 60s (KV minimum). The Cloudflare Worker wall-clock
-  // limit is 30s, so a 120s lock would block retries for 90 extra seconds after a
-  // Worker timeout. 60s reduces that window to 30 extra seconds and satisfies the
-  // KV minimum TTL requirement.
-  await env.GASLAMAR_SESSIONS.put(lockKey, 'locked', { expirationTtl: 60 });
+  const lockNonce = crypto.randomUUID();
+  await env.GASLAMAR_SESSIONS.put(lockKey, lockNonce, { expirationTtl: 60 });
+  // Re-read: if a concurrent write overwrote our nonce before we get here, reject.
+  const confirmedLock = await env.GASLAMAR_SESSIONS.get(lockKey);
+  if (confirmedLock !== lockNonce) {
+    return jsonResponse({ message: 'Sedang diproses, coba lagi sebentar.' }, 409, request, env);
+  }
 
   try {
     // Generate from KV data only — never from request body (except allowed job_desc override).
