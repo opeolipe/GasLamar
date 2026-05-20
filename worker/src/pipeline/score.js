@@ -192,12 +192,12 @@ export function calculateScores(extractedData, analysisResult) {
   // either language both receive the stability bonus (Set for O(1) lookup).
   const fundamentalSkills = new Set([
     'excel', 'spreadsheet',
-    'komunikasi', 'communication',
+    'komunikasi', 'communication', 'komunikasi verbal', 'verbal communication', 'interpersonal communication',
     'kepemimpinan', 'leadership',
     'manajemen proyek', 'project management',
     'kerja tim', 'kerjasama', 'teamwork', 'collaboration',
     'pemecahan masalah', 'problem solving',
-    'presentasi', 'presentation',
+    'presentasi', 'presentation', 'public speaking',
     'negosiasi', 'negotiation',
     'manajemen', 'management',
     'analisis', 'analysis', 'analitik', 'analytics',
