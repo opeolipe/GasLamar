@@ -8,6 +8,7 @@ import SubmitSection       from '@/components/upload/SubmitSection';
 import {
   VALID_TIERS,
   MIN_CV_TEXT_LENGTH,
+  MIN_CV_PASTE_LENGTH,
   validateFile,
   formatFileSize,
   readFileAsEncodedBlob,
@@ -204,7 +205,7 @@ export default function Upload() {
         if (parsed?.type === 'txt' && typeof parsed.data === 'string') setManualCvText(parsed.data);
       } catch (_) {}
     } else {
-      // No full CV draft — restore partial paste text if present (< MIN_CV_TEXT_LENGTH).
+      // No full CV draft — restore partial paste text if present (< MIN_CV_PASTE_LENGTH).
       // The initial tab is already set to 'paste' by the cvTab lazy initializer above.
       const rawPaste = sessionStorage.getItem('gaslamar_cv_paste_raw');
       if (rawPaste) setManualCvText(rawPaste);
@@ -319,7 +320,7 @@ export default function Upload() {
     setFileError('');
 
     // Always persist raw paste text so it survives a page refresh, even when
-    // too short to count as a valid CV blob (< MIN_CV_TEXT_LENGTH).
+    // too short to qualify as a valid CV (< MIN_CV_PASTE_LENGTH).
     try {
       if (next.trim().length > 0) {
         sessionStorage.setItem('gaslamar_cv_paste_raw', next);
@@ -328,7 +329,7 @@ export default function Upload() {
       }
     } catch (_) {}
 
-    if (next.trim().length >= MIN_CV_TEXT_LENGTH) {
+    if (next.trim().length >= MIN_CV_PASTE_LENGTH) {
       const encoded = JSON.stringify({ type: 'txt', data: next });
       setCvText(encoded);
       setFileName('CV dari paste');
@@ -371,7 +372,7 @@ export default function Upload() {
       const pasteIsTooShort = cvTab === 'paste' && manualCvText.trim().length > 0;
       setFileError(
         pasteIsTooShort
-          ? 'Terlalu singkat — tambahkan detail pengalaman & skill'
+          ? `Terlalu singkat — tambahkan detail hingga minimal ${MIN_CV_PASTE_LENGTH.toLocaleString('id-ID')} karakter`
           : 'Masukkan CV dulu ya'
       );
     }
