@@ -122,3 +122,27 @@ an inline error state. Inline errors:
 - Endpoints that check freshness (e.g. `/validate-session`) must return 404 (not 200) when the
   key is not found — returning 200 with `{valid: false}` is semantically wrong and hides errors
   from monitoring tools that alert on 4xx rates
+
+---
+
+## sendBeacon CORS preflight causes silent log drops and misattributed 405 errors (2026-05-20)
+
+`navigator.sendBeacon(url, Blob({ type: 'application/json' }))` triggers a CORS preflight OPTIONS
+before every POST. If that preflight races, times out, or hits a transient network error the
+actual POST is never sent. Some monitoring tools attribute the `sendBeacon` failure to the current
+page URL rather than the target API URL — producing a spurious 405 on the Pages domain.
+
+**Fix:** Pass a plain string to `sendBeacon`. The browser then sends `Content-Type: text/plain;charset=UTF-8`
+which is a CORS "simple" request: no preflight needed, the worker always receives the request even
+before CORS response headers are evaluated.
+
+**Corollary:** The worker's body parser for fire-and-forget logging endpoints should accept both
+`application/json` and `text/plain` and try to JSON-parse either one, falling back to `{ raw: bodyText }`.
+
+## logger.ts must import WORKER_URL from sessionUtils, not uploadValidation (2026-05-20)
+
+`uploadValidation.ts` exports a `WORKER_URL` evaluated purely at runtime (hostname check).
+`sessionUtils.ts` re-exports it but also layers in the `IS_SANDBOX` **build-time** define.
+All React API calls use `sessionUtils.WORKER_URL`. Using `uploadValidation.WORKER_URL` in
+`logger.ts` bypasses `IS_SANDBOX` — correct in most deployments but wrong if the staging
+build runs on a non-staging hostname. Keep all WORKER_URL imports from `sessionUtils`.
