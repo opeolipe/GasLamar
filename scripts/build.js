@@ -43,6 +43,11 @@ const BUNDLES = {
     'analytics.js',
     'index-page.js',
   ],
+  // NOTE: upload, hasil, and download bundles are compiled but NOT loaded by any HTML
+  // page. upload.html/hasil.html/download.html all serve the React bundles built by
+  // scripts/build-react.js instead. These vanilla JS bundles are kept for reference and
+  // to catch syntax errors, but re-adding them to HTML requires a security review of
+  // any innerHTML usages before deployment.
   upload: [
     'posthog-init.js',
     'config.js',

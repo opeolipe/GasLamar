@@ -375,6 +375,12 @@ Microsoft Office, JIRA, Confluence, Trello, Figma (basic), Google Analytics (bas
 
   // ---- Panel metadata ----
 
+  function escHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
   const CV_META = [
     { id: 1, emoji: '🖨️', label: 'Scanned / Unreadable',   desc: 'OCR garbage, <100 chars → server rejects',         jd: JD_PM  },
     { id: 2, emoji: '🔑', label: 'Keyword Stuffing',        desc: '60+ buzzwords, zero substance',                    jd: JD_SWE },
@@ -514,10 +520,10 @@ Microsoft Office, JIRA, Confluence, Trello, Figma (basic), Google Analytics (bas
           ${CV_META.map(m => `
             <div id="stg-card-${m.id}" class="stg-card">
               <div class="stg-card-top">
-                <span class="stg-emoji">${m.emoji}</span>
+                <span class="stg-emoji">${escHtml(m.emoji)}</span>
                 <div class="stg-content">
-                  <div class="stg-label">CV${m.id} — ${m.label}</div>
-                  <div class="stg-desc" title="${m.desc}">${m.desc}</div>
+                  <div class="stg-label">CV${m.id} — ${escHtml(m.label)}</div>
+                  <div class="stg-desc" title="${escHtml(m.desc)}">${escHtml(m.desc)}</div>
                 </div>
               </div>
               <div class="stg-btn-row">
