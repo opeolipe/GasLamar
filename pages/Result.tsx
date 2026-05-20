@@ -110,7 +110,6 @@ export default function Result() {
   const [payBtnOverride,        setPayBtnOverride]        = useState<string | null>(null);
   const [paymentError,          setPaymentError]          = useState<string | null>(null);
   const [transitionInvoiceUrl,  setTransitionInvoiceUrl]  = useState<string | null>(null);
-  const [sessionExpiredByPay,   setSessionExpiredByPay]   = useState(false);
   const [showExpiryToast,       setShowExpiryToast]       = useState(false);
 
   const toastShownRef   = useRef(false);
@@ -158,7 +157,7 @@ export default function Result() {
       : 'Pilih paket untuk melanjutkan'
   );
 
-  const payBtnDisabled = paymentInProgress || sessionExpiredByPay || !selectedTier;
+  const payBtnDisabled = paymentInProgress || !selectedTier;
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   function handleTierSelect(tier: string) {
@@ -341,9 +340,8 @@ export default function Result() {
         const err    = await response.json().catch(() => ({}));
         const errMsg = (err as any).message || `Server error: ${response.status}`;
         if ((response.status === 400 && (err as any).code === 'cv_expired') || response.status === 403) {
-          setSessionExpiredByPay(true);
-          setPayBtnOverride(null);
           setPaymentInProgress(false);
+          window.location.replace('upload.html?reason=cv_expired');
           return;
         }
         throw new Error(errMsg);
@@ -788,20 +786,6 @@ export default function Result() {
                   isConfirmed={emailIsConfirmed}
                 />
 
-                {sessionExpiredByPay && (
-                  <div style={{ marginBottom: '1rem', padding: '1rem', background: '#FFFBEB', border: '1px solid rgba(252,211,77,0.5)', borderRadius: 16, textAlign: 'center' }}>
-                    <p style={{ color: '#92400E', fontWeight: 600, fontSize: '0.88rem', margin: '0 0 0.5rem' }}>
-                      Sesi analisis sudah kedaluwarsa (30 menit)
-                    </p>
-                    <p style={{ color: '#78350F', fontSize: '0.875rem', margin: '0 0 0.75rem' }}>
-                      Upload ulang CV kamu untuk melanjutkan.
-                    </p>
-                    <a href="upload.html" style={{ display: 'inline-block', background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', fontWeight: 700, padding: '0.65rem 1.5rem', borderRadius: 60, textDecoration: 'none', fontSize: '0.88rem', boxShadow: '0 8px 24px rgba(37,99,235,0.25)' }}>
-                      Upload CV Lagi →
-                    </a>
-                  </div>
-                )}
-
                 {/* Pay button */}
                 <button
                   data-testid="generate-cv-button"
@@ -827,7 +811,7 @@ export default function Result() {
                   {payBtnLabel}
                 </button>
 
-                {emailIsConfirmed && !sessionExpiredByPay && (
+                {emailIsConfirmed && (
                   <p role="status" style={{ fontSize: '0.8rem', color: '#374151', textAlign: 'center', marginTop: '0.5rem' }}>
                     <span aria-hidden="true">📬</span> CV akan dikirim ke: <strong>{email.trim()}</strong>
                   </p>
