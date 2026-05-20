@@ -122,3 +122,63 @@ an inline error state. Inline errors:
 - Endpoints that check freshness (e.g. `/validate-session`) must return 404 (not 200) when the
   key is not found — returning 200 with `{valid: false}` is semantically wrong and hides errors
   from monitoring tools that alert on 4xx rates
+
+---
+
+## sendBeacon CORS preflight causes silent log drops and misattributed 405 errors (2026-05-20)
+
+`navigator.sendBeacon(url, Blob({ type: 'application/json' }))` triggers a CORS preflight OPTIONS
+before every POST. If that preflight races, times out, or hits a transient network error the
+actual POST is never sent. Some monitoring tools attribute the `sendBeacon` failure to the current
+page URL rather than the target API URL — producing a spurious 405 on the Pages domain.
+
+**Fix:** Pass a plain string to `sendBeacon`. The browser then sends `Content-Type: text/plain;charset=UTF-8`
+which is a CORS "simple" request: no preflight needed, the worker always receives the request even
+before CORS response headers are evaluated.
+
+**Corollary:** The worker's body parser for fire-and-forget logging endpoints should accept both
+`application/json` and `text/plain` and try to JSON-parse either one, falling back to `{ raw: bodyText }`.
+
+## logger.ts must import WORKER_URL from sessionUtils, not uploadValidation (2026-05-20)
+
+`uploadValidation.ts` exports a `WORKER_URL` evaluated purely at runtime (hostname check).
+`sessionUtils.ts` re-exports it but also layers in the `IS_SANDBOX` **build-time** define.
+All React API calls use `sessionUtils.WORKER_URL`. Using `uploadValidation.WORKER_URL` in
+`logger.ts` bypasses `IS_SANDBOX` — correct in most deployments but wrong if the staging
+build runs on a non-staging hostname. Keep all WORKER_URL imports from `sessionUtils`.
+
+## worker npm audit: dev-only vulns — upgrade requires a separate test-validated PR (2026-05-20)
+
+`worker/` has 11 vulnerabilities (4 high, 7 moderate) all in dev test tooling:
+`defu`, `devalue`, `esbuild`, `vite`, `vitest`, `wrangler`, `miniflare`, `ws`, `undici`.
+None of these packages execute in the production Cloudflare Worker; they are test-only.
+
+- `esbuild` CORS bypass → affects `--serve` mode only, not production builds
+- `defu`/`devalue` prototype pollution → affects vitest test execution environment only
+- `ws` uninitialized memory → affects local wrangler dev server only
+
+`npm audit fix --force` installs `@cloudflare/vitest-pool-workers@0.16.7` (breaking change)
+which breaks the vitest startup (vite config load fails). Fix must be:
+1. Upgrade `@cloudflare/vitest-pool-workers` to latest that works
+2. Update `vitest.config.js` for API changes in the new version
+3. Verify all 504 tests still pass
+4. Commit in an isolated PR so any regression is isolated from feature work
+
+## evaluateJDQuality min-length must equal backend threshold (2026-05-20)
+
+Frontend `evaluateJDQuality` used `< 80` chars as the minimum, while the backend
+`/analyze` handler rejects at `< 100` chars. Users with 80–99 char JDs saw
+"✓ Job description siap" on the upload page but got a backend error on analyzing.html.
+
+Fix: changed the threshold in `evaluateJDQuality` to import and use `MIN_JD_LENGTH`
+from `uploadValidation.ts` (= 100), so both sides agree.
+
+## evaluateJDQuality keyword check must be advisory, not a hard blocker (2026-05-20)
+
+The `hasStructure` keyword check in `evaluateJDQuality` returned `isValid: false`
+for JDs that lacked specific terms ("kualifikasi", "skill", etc.). This blocked form
+submission for valid JDs that simply omitted those exact keywords. The backend has no
+keyword requirement — it accepts any JD with ≥ 100 chars.
+
+Fix: the keyword check now returns `{ isValid: true, message: '…advisory…' }` so
+the amber warning still appears in `JobDescriptionInput` but submission is not blocked.

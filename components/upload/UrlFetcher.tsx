@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { WORKER_URL } from '@/lib/uploadValidation';
+import { WORKER_URL } from '@/lib/sessionUtils';
 
 interface Props {
   onFetchSuccess: (text: string) => void;

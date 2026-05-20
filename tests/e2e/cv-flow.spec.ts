@@ -44,7 +44,8 @@ async function uploadCV(page: Page, filePath: string) {
 }
 
 async function fillValidJD(page: Page) {
-  // evaluateJDQuality requires: >80 chars, structure keyword, AND company keyword (pt/cv/inc/ltd/company/etc)
+  // evaluateJDQuality requires: >= 100 chars (matches backend minimum).
+  // Structure keyword check is advisory only — doesn't block submission.
   await page.fill(
     '[data-testid="jd-textarea"]',
     'Digital Marketing Specialist — PT Digital Solution\n\nRequirements:\n- Social media management\n- Google Analytics\n\nResponsibilities:\n- Manage Instagram and TikTok content\n- Create monthly performance reports',
@@ -76,6 +77,7 @@ async function mockCheckSession(page: Page, overrides: Record<string, unknown> =
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
+        session_id: TEST_SESSION_ID,
         status: 'paid',
         tier: 'single',
         credits_remaining: 1,

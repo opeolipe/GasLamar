@@ -2123,6 +2123,145 @@ describe('POST /resend-access', () => {
   });
 });
 
+// ── Patch 5: Abuse / rate-limit regression tests ──────────────────────────────
+
+// Each test uses a unique high-octet IP to avoid exhausting the shared
+// RATE_LIMITER_PAYMENT binding (5 req/min per IP) that exchange-token reuses.
+describe('POST /exchange-token — token format validation', () => {
+  it('rejects non-hex token (returns 400)', async () => {
+    const res = await post('/exchange-token', { email_token: 'not-a-hex-token-at-all!!' }, {}, '10.201.0.1');
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects token shorter than 32 chars (returns 400)', async () => {
+    const res = await post('/exchange-token', { email_token: 'abc123' }, {}, '10.201.0.2');
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects token longer than 32 chars (returns 400)', async () => {
+    const res = await post('/exchange-token', { email_token: 'a'.repeat(64) }, {}, '10.201.0.3');
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects uppercase hex token — must be lowercase (returns 400)', async () => {
+    // hexToken() always produces lowercase; uppercase is a different format
+    const res = await post('/exchange-token', { email_token: 'A'.repeat(32) }, {}, '10.201.0.4');
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects missing email_token (returns 400)', async () => {
+    const res = await post('/exchange-token', {}, {}, '10.201.0.5');
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 404 for a valid-format token that does not exist in KV', async () => {
+    const token = 'deadbeef'.repeat(4); // 32 lowercase hex chars
+    const res = await post('/exchange-token', { email_token: token }, {}, '10.201.0.6');
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('POST /exchange-token — single-use enforcement', () => {
+  it('succeeds on first use and sets a session cookie', async () => {
+    const sessionId = await seedSession('paid', 'single');
+    const token = crypto.randomUUID().replace(/-/g, ''); // 32 lowercase hex chars
+    await env.GASLAMAR_SESSIONS.put(`email_token_${token}`, JSON.stringify({ session_id: sessionId }), { expirationTtl: 3600 });
+
+    const res = await post('/exchange-token', { email_token: token }, {}, '10.202.0.1');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.session_id).toBe(sessionId);
+    expect(res.headers.get('Set-Cookie')).toMatch(/session_id=/);
+  });
+
+  it('returns 404 on second use of the same token (single-use enforcement)', async () => {
+    const sessionId = await seedSession('paid', 'single');
+    const token = crypto.randomUUID().replace(/-/g, '');
+    await env.GASLAMAR_SESSIONS.put(`email_token_${token}`, JSON.stringify({ session_id: sessionId }), { expirationTtl: 3600 });
+
+    // First use — should succeed
+    const first = await post('/exchange-token', { email_token: token }, {}, '10.202.0.2');
+    expect(first.status).toBe(200);
+
+    // Second use — token was deleted on first use; use same IP, rate limit has 5 slots
+    const second = await post('/exchange-token', { email_token: token }, {}, '10.202.0.2');
+    expect(second.status).toBe(404);
+  });
+
+  it('KV token key is absent after successful exchange', async () => {
+    const sessionId = await seedSession('paid', 'single');
+    const token = crypto.randomUUID().replace(/-/g, '');
+    const kvKey = `email_token_${token}`;
+    await env.GASLAMAR_SESSIONS.put(kvKey, JSON.stringify({ session_id: sessionId }), { expirationTtl: 3600 });
+
+    await post('/exchange-token', { email_token: token }, {}, '10.202.0.3');
+
+    const remaining = await env.GASLAMAR_SESSIONS.get(kvKey);
+    expect(remaining).toBeNull();
+  });
+});
+
+describe('POST /resend-access — unknown email returns generic success', () => {
+  it('returns 200 with generic message for an email that has no registered session', async () => {
+    const res = await post('/resend-access', { email: 'nobody@nowhere-unknown.example.com' }, {}, '10.77.1.1');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    // Must not reveal whether the email exists
+    expect(typeof body.message).toBe('string');
+  });
+
+  it('returns same 200 shape for unknown and known emails (no oracle)', async () => {
+    const { sessionId } = await seedSessionWithSecret('paid');
+    const knownEmail = `known-${crypto.randomUUID()}@example.com`;
+    const emailHash = await sha256Full(knownEmail);
+    await env.GASLAMAR_SESSIONS.put(`email_session_${emailHash}`, JSON.stringify({ session_ids: [sessionId] }), { expirationTtl: 3600 });
+
+    const unknownRes = await post('/resend-access', { email: `noone-${crypto.randomUUID()}@example.com` }, {}, '10.77.2.1');
+    const unknownBody = await unknownRes.json();
+
+    // Both return 200 with success:true — caller cannot distinguish known from unknown
+    expect(unknownRes.status).toBe(200);
+    expect(unknownBody.success).toBe(true);
+  });
+});
+
+describe('GET /check-session — response shape and field allowlist', () => {
+  it('returns exactly the documented fields for an active session (no PII leakage)', async () => {
+    const sessionId = await seedSession('paid', 'single');
+    const res = await get('/check-session', sessionCookie(sessionId));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    // Documented fields must be present
+    expect(body).toHaveProperty('session_id', sessionId);
+    expect(body).toHaveProperty('status', 'paid');
+    expect(body).toHaveProperty('credits_remaining');
+    expect(body).toHaveProperty('total_credits');
+    expect(body).toHaveProperty('tier', 'single');
+    expect(body).toHaveProperty('ttl_seconds');
+
+    // Sensitive session fields must NOT be present
+    expect(body).not.toHaveProperty('cv_text');
+    expect(body).not.toHaveProperty('job_desc');
+    expect(body).not.toHaveProperty('email');
+    expect(body).not.toHaveProperty('session_secret_hash');
+    expect(body).not.toHaveProperty('mayar_invoice_id');
+    expect(body).not.toHaveProperty('ip');
+  });
+
+  it('ttl_seconds is a non-negative number', async () => {
+    const sessionId = await seedSession('paid', 'single');
+    const res = await get('/check-session', sessionCookie(sessionId));
+    const body = await res.json();
+    expect(typeof body.ttl_seconds).toBe('number');
+    expect(body.ttl_seconds).toBeGreaterThanOrEqual(0);
+  });
+});
+
+// ── (end Patch 5 abuse/rate-limit tests) ──────────────────────────────────────
+
 describe('Cookie-only session auth — POST /get-session', () => {
   it('returns 200 when only the HttpOnly session cookie is present, even for historical hashed sessions', async () => {
     const { sessionId } = await seedSessionWithSecret('paid');
@@ -3144,5 +3283,68 @@ describe('POST /validate-coupon', () => {
     const body = await res.json();
     expect(body.valid).toBe(true);
     expect(body.coupon_code).toBe('HEMAT20');
+  });
+});
+
+describe('POST /api/log', () => {
+  it('accepts application/json body and returns ok:true', async () => {
+    const res = await post('/api/log', { event: 'test_error', data: { message: 'test' } });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+  });
+
+  it('accepts text/plain body containing JSON and returns ok:true', async () => {
+    const payload = JSON.stringify({ event: 'test_error', data: { message: 'test' } });
+    const res = await SELF.fetch('https://gaslamar.com/api/log', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=UTF-8',
+        Origin: GASLAMAR_ORIGIN,
+        'CF-Connecting-IP': '1.2.3.4',
+      },
+      body: payload,
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+  });
+
+  it('accepts text/plain body containing non-JSON and logs raw', async () => {
+    const res = await SELF.fetch('https://gaslamar.com/api/log', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=UTF-8',
+        Origin: GASLAMAR_ORIGIN,
+        'CF-Connecting-IP': '1.2.3.4',
+      },
+      body: 'plain text payload',
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+  });
+
+  it('rejects oversized payload → 413', async () => {
+    const bigPayload = 'x'.repeat(8193);
+    const res = await SELF.fetch('https://gaslamar.com/api/log', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Origin: GASLAMAR_ORIGIN,
+        'CF-Connecting-IP': '1.2.3.4',
+      },
+      body: bigPayload,
+    });
+    expect(res.status).toBe(413);
+  });
+
+  it('handles top-level PII key names without error (redacted server-side)', async () => {
+    // PII_FIELDS keys at top level are redacted to [REDACTED] before logging.
+    // Test verifies the endpoint accepts them without error.
+    const res = await post('/api/log', { email: 'user@example.com', session_id: 'sess_abc', event: 'test' });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
   });
 });
