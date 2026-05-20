@@ -146,3 +146,20 @@ before CORS response headers are evaluated.
 All React API calls use `sessionUtils.WORKER_URL`. Using `uploadValidation.WORKER_URL` in
 `logger.ts` bypasses `IS_SANDBOX` — correct in most deployments but wrong if the staging
 build runs on a non-staging hostname. Keep all WORKER_URL imports from `sessionUtils`.
+
+## worker npm audit: dev-only vulns — upgrade requires a separate test-validated PR (2026-05-20)
+
+`worker/` has 11 vulnerabilities (4 high, 7 moderate) all in dev test tooling:
+`defu`, `devalue`, `esbuild`, `vite`, `vitest`, `wrangler`, `miniflare`, `ws`, `undici`.
+None of these packages execute in the production Cloudflare Worker; they are test-only.
+
+- `esbuild` CORS bypass → affects `--serve` mode only, not production builds
+- `defu`/`devalue` prototype pollution → affects vitest test execution environment only
+- `ws` uninitialized memory → affects local wrangler dev server only
+
+`npm audit fix --force` installs `@cloudflare/vitest-pool-workers@0.16.7` (breaking change)
+which breaks the vitest startup (vite config load fails). Fix must be:
+1. Upgrade `@cloudflare/vitest-pool-workers` to latest that works
+2. Update `vitest.config.js` for API changes in the new version
+3. Verify all 504 tests still pass
+4. Commit in an isolated PR so any regression is isolated from feature work
