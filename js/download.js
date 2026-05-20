@@ -44,8 +44,8 @@ function downloadFile(lang, format) {
 
   // ── Path 1: email link with ?token= ────────────────────────────────────────
   // The link contains a single-use, 1-hour token instead of the raw session_id.
-  // Exchange it for the session cookie, store session_id in localStorage, then
-  // strip the token from the URL so it isn't cached in browser history.
+  // Exchange it for the session cookie (HttpOnly — never stored in client storage),
+  // then strip the token from the URL so it isn't cached in browser history.
   if (emailToken) {
     showState('waiting-payment');
     try {

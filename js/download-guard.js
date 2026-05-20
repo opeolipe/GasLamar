@@ -13,7 +13,7 @@
  *
  * Valid entry paths — guard allows these through:
  *   1. ?token=<hex>           — email link; download.js will call /exchange-token
- *   2. gaslamar_has_session   — non-sensitive flag set by payment.js after /create-payment
+ *   2. gaslamar_has_session=1 — non-sensitive routing flag set by payment.js (session_id itself is never stored client-side)
  *   3. gaslamar_delivery      — email delivery confirmed; React handles session state
  *
  * All other cases → immediate replace-redirect to /
@@ -32,11 +32,8 @@
   // Path 2: normal flow — presence flag written by payment.js after /create-payment.
   // The actual session_id is never stored client-side; the HttpOnly cookie is the
   // authoritative credential. This flag is only a routing hint for this guard.
-  // The legacy gaslamar_session check handles sessions created before this change.
   try {
     if (localStorage.getItem('gaslamar_has_session') === '1') return;
-    var legacyId = localStorage.getItem('gaslamar_session');
-    if (legacyId && legacyId.startsWith('sess_')) return;
   } catch (_) {
     // localStorage blocked (e.g. Safari strict private mode) — redirect safely
   }
