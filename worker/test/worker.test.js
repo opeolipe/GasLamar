@@ -3297,6 +3297,124 @@ describe('POST /validate-coupon', () => {
   });
 });
 
+describe('POST /create-payment — scoring snapshot preservation', () => {
+  beforeAll(() => fetchMock.activate());
+  afterAll(() => fetchMock.deactivate());
+
+  it('writes scoring_<token> snapshot when cvtext_ entry contains scoring data', async () => {
+    const token = 'b'.repeat(64);
+    const cvTextKey = `cvtext_${token}`;
+    const mockScoring = { skor: 71, verdict: 'DO', skor_6d: { portfolio: 7 } };
+    await env.GASLAMAR_SESSIONS.put(cvTextKey, JSON.stringify({
+      text: 'CV content for scoring test',
+      job_desc: JOB_DESC,
+      ip: '10.1.1.1',
+      scoring: mockScoring,
+    }), { expirationTtl: 86400 });
+
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
+      .reply(200, JSON.stringify({
+        data: { id: 'inv_scoring_snap', link: 'https://web.mayar.club/pay/inv_scoring_snap' }
+      }))
+      .times(1);
+
+    const res = await post('/create-payment', {
+      tier: 'single',
+      cv_text_key: cvTextKey,
+    }, {}, '10.1.1.1');
+    expect(res.status).toBe(200);
+
+    // cvtext_ entry must be deleted (consumed)
+    const cvEntry = await env.GASLAMAR_SESSIONS.get(cvTextKey, { type: 'json' });
+    expect(cvEntry).toBeNull();
+
+    // scoring_ snapshot must be preserved for /get-scoring fallback
+    const snapshot = await env.GASLAMAR_SESSIONS.get(`scoring_${token}`, { type: 'json' });
+    expect(snapshot).not.toBeNull();
+    expect(snapshot.scoring).toBeDefined();
+    expect(snapshot.scoring.skor).toBe(71);
+    expect(snapshot.scoring.verdict).toBe('DO');
+  });
+
+  it('does not write scoring_ key when cvtext_ has no scoring field', async () => {
+    // seedCVTextKey omits scoring — verifies graceful no-op when scoring is absent
+    const key = await seedCVTextKey(undefined, '10.1.1.2');
+    const token = key.slice('cvtext_'.length);
+
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
+      .reply(200, JSON.stringify({
+        data: { id: 'inv_no_scoring', link: 'https://web.mayar.club/pay/inv_no_scoring' }
+      }))
+      .times(1);
+
+    const res = await post('/create-payment', {
+      tier: 'single',
+      cv_text_key: key,
+    }, {}, '10.1.1.2');
+    expect(res.status).toBe(200);
+
+    // scoring_ key should not exist (nothing to preserve)
+    const snapshot = await env.GASLAMAR_SESSIONS.get(`scoring_${token}`, { type: 'json' });
+    expect(snapshot).toBeNull();
+  });
+});
+
+describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () => {
+  it('returns scoring from cvtext_ entry when it is still present', async () => {
+    const token = 'c'.repeat(64);
+    const mockScoring = { skor: 85, verdict: 'DO', skor_6d: {} };
+    await env.GASLAMAR_SESSIONS.put(`cvtext_${token}`, JSON.stringify({
+      text: 'raw cv',
+      job_desc: 'raw jd',
+      ip: '1.2.3.4',
+      scoring: mockScoring,
+    }), { expirationTtl: 86400 });
+
+    const res = await get(`/get-scoring?key=cvtext_${token}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.scoring.skor).toBe(85);
+    // Must never expose raw fields
+    expect(body.text).toBeUndefined();
+    expect(body.job_desc).toBeUndefined();
+    expect(body.ip).toBeUndefined();
+  });
+
+  it('falls back to scoring_ snapshot when cvtext_ was deleted by payment creation', async () => {
+    const token = 'd'.repeat(64);
+    const mockScoring = { skor: 62, verdict: 'TIMED', skor_6d: {} };
+
+    // Simulate post-payment state: cvtext_ gone, scoring_ snapshot present
+    await env.GASLAMAR_SESSIONS.delete(`cvtext_${token}`);
+    await env.GASLAMAR_SESSIONS.put(`scoring_${token}`, JSON.stringify({ scoring: mockScoring }), { expirationTtl: 86400 });
+
+    const res = await get(`/get-scoring?key=cvtext_${token}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.scoring.skor).toBe(62);
+    expect(body.scoring.verdict).toBe('TIMED');
+  });
+
+  it('returns 404 when both cvtext_ and scoring_ keys are absent', async () => {
+    const token = 'e'.repeat(64);
+    const res = await get(`/get-scoring?key=cvtext_${token}`);
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+  });
+
+  it('rejects key without cvtext_ prefix', async () => {
+    const res = await get('/get-scoring?key=badprefix_' + 'f'.repeat(64));
+    expect(res.status).toBe(400);
+  });
+});
+
 describe('POST /api/log', () => {
   it('accepts application/json body and returns ok:true', async () => {
     const res = await post('/api/log', { event: 'test_error', data: { message: 'test' } });

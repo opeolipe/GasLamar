@@ -29,7 +29,14 @@ export async function handleGetScoring(request, env) {
     return jsonResponse({ message: 'Key tidak valid', valid: false }, 400, request, env);
   }
 
-  const stored = await env.GASLAMAR_SESSIONS.get(key, { type: 'json' });
+  let stored = await env.GASLAMAR_SESSIONS.get(key, { type: 'json' });
+  if (!stored || !stored.scoring) {
+    // cvtext_ entry may have been deleted after payment creation. Fall back to the
+    // scoring snapshot preserved by /create-payment so hasil.html can still render
+    // if the user returns to /hasil after a Mayar redirect (cancel or back-navigation).
+    const fallbackKey = `scoring_${key.slice('cvtext_'.length)}`;
+    stored = await env.GASLAMAR_SESSIONS.get(fallbackKey, { type: 'json' });
+  }
   if (!stored || !stored.scoring) {
     return jsonResponse({ valid: false }, 404, request, env);
   }
