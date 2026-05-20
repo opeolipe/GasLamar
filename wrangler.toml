@@ -128,6 +128,7 @@ invocation_logs = true
 # Production environment overrides
 [env.production]
 name = "gaslamar-worker"
+workers_dev = true
 routes = [
   { pattern = "gaslamar.com/*", zone_name = "gaslamar.com" },
   { pattern = "www.gaslamar.com/*", zone_name = "gaslamar.com" },
