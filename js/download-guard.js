@@ -12,9 +12,9 @@
  *   server-side gate does not run.
  *
  * Valid entry paths — guard allows these through:
- *   1. ?token=<hex>      — email link; download.js will call /exchange-token
- *   2. gaslamar_session  — normal post-payment flow set by payment.js
- *   3. gaslamar_delivery — email delivery confirmed; React handles session state
+ *   1. ?token=<hex>           — email link; download.js will call /exchange-token
+ *   2. gaslamar_has_session   — non-sensitive flag set by payment.js after /create-payment
+ *   3. gaslamar_delivery      — email delivery confirmed; React handles session state
  *
  * All other cases → immediate replace-redirect to /
  * (window.location.replace so the download page is not added to browser history).
@@ -29,12 +29,14 @@
   if (token && /^[0-9a-f]{32}$/.test(token)) return;
   if (token) { window.location.replace('/'); return; }
 
-  // Path 2: normal flow — session_id stored by payment.js after /create-payment.
-  // In production the server-side Worker gate already verified the session cookie,
-  // but this check also guards staging and direct-Pages access.
+  // Path 2: normal flow — presence flag written by payment.js after /create-payment.
+  // The actual session_id is never stored client-side; the HttpOnly cookie is the
+  // authoritative credential. This flag is only a routing hint for this guard.
+  // The legacy gaslamar_session check handles sessions created before this change.
   try {
-    var sessionId = localStorage.getItem('gaslamar_session');
-    if (sessionId && sessionId.startsWith('sess_')) return;
+    if (localStorage.getItem('gaslamar_has_session') === '1') return;
+    var legacyId = localStorage.getItem('gaslamar_session');
+    if (legacyId && legacyId.startsWith('sess_')) return;
   } catch (_) {
     // localStorage blocked (e.g. Safari strict private mode) — redirect safely
   }
