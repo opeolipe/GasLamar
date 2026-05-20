@@ -163,3 +163,41 @@ which breaks the vitest startup (vite config load fails). Fix must be:
 2. Update `vitest.config.js` for API changes in the new version
 3. Verify all 504 tests still pass
 4. Commit in an isolated PR so any regression is isolated from feature work
+
+---
+
+## Cloudflare Worker workers_dev must be explicit in named environments (2026-05-20)
+
+When a Cloudflare Worker uses a named environment (`[env.production]`) with custom `routes`,
+the `workers_dev` subdomain is controlled independently. Leaving it unset caused the
+`gaslamar-worker.carolineratuolivia.workers.dev/health` URL to return a Cloudflare
+HTML "Page not found" even though the `/health` handler existed in the code.
+
+**Symptoms that distinguish this from a missing handler:**
+- Response is HTML "Page not found", not our JSON `{ message: 'Not found' }` → the
+  worker itself is unreachable, not just the route
+- All tests pass locally — the handler is correct, it's a deployment config issue
+
+**Fix pattern:**
+```toml
+[env.production]
+name = "gaslamar-worker"
+workers_dev = true   # required for gaslamar-worker.*.workers.dev to respond
+routes = [...]
+
+[env.staging]
+name = "gaslamar-worker-staging"
+workers_dev = false  # staging is only accessible via its custom route
+routes = [...]
+```
+
+**Also:** Health endpoints must handle `HEAD` alongside `GET` — many uptime monitors
+default to HEAD requests. The Cloudflare runtime strips the body automatically; no
+special handling needed beyond extending the method check.
+
+```javascript
+// router.js — correct pattern
+if ((method === 'GET' || method === 'HEAD') && pathname === '/health') {
+  return jsonResponse({ status: 'ok', timestamp: new Date().toISOString() }, 200, request, env);
+}
+```
