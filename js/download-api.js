@@ -34,7 +34,7 @@ async function handlePaidSession(data, sessionId) {
   clearTimeout(pollTimer);
 
   const creditsForHeartbeat = data.total_credits != null ? data.total_credits : 1;
-  startSessionHeartbeat(sessionId, creditsForHeartbeat);
+  startSessionHeartbeat(sessionId);
   if (data.expires_at) startCountdown(data.expires_at, creditsForHeartbeat);
 
   const creditsRemaining = data.credits_remaining != null ? data.credits_remaining : 1;
@@ -184,10 +184,8 @@ function scheduleNextPoll(sessionId) {
 // ── startSessionHeartbeat ─────────────────────────────────────────────────────
 // Pings /session/ping every HEARTBEAT_INTERVAL ms to refresh the KV TTL
 // while the user remains on the page. No-ops if already running.
-function startSessionHeartbeat(sessionId, totalCredits) {
+function startSessionHeartbeat(sessionId) {
   if (heartbeatTimer) return;
-  const isMulti       = (totalCredits || 1) > 1;
-  const validityLabel = isMulti ? '30 hari' : '7 hari';
   heartbeatTimer = setInterval(async function() {
     try {
       const res = await fetch(WORKER_URL + '/session/ping', {
