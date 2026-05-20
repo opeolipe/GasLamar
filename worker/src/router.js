@@ -32,7 +32,8 @@ export async function route(request, env, ctx) {
 
   // Health check — must be first: no rate limiting, no auth, no KV reads.
   // Used by uptime monitors (UptimeRobot, Cloudflare Health Checks, etc.).
-  if (method === 'GET' && pathname === '/health') {
+  // HEAD is handled alongside GET — runtime strips the body automatically.
+  if ((method === 'GET' || method === 'HEAD') && pathname === '/health') {
     return jsonResponse({
       status: 'ok',
       timestamp: new Date().toISOString(),

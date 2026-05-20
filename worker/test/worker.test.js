@@ -261,6 +261,17 @@ describe('/health', () => {
     const body = await res.json();
     expect(Object.keys(body).sort()).toEqual(['status', 'timestamp']);
   });
+
+  it('HEAD /health returns 200 with headers but no body', async () => {
+    const res = await SELF.fetch('https://gaslamar.com/health', {
+      method: 'HEAD',
+      headers: { 'CF-Connecting-IP': '1.2.3.4' },
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toContain('application/json');
+    const body = await res.text();
+    expect(body).toBe('');
+  });
 });
 
 describe('CORS', () => {
