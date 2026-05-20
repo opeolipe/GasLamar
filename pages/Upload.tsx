@@ -119,7 +119,28 @@ export default function Upload() {
       });
     }
 
+    // Paid session recovery: user has a session from a previous payment.
+    // Show a banner directing them back to download, and suppress reason-based notices.
+    let hasPaidSession = false;
     if (!isNewPackage) {
+      try {
+        const sessStorage = sessionStorage.getItem('gaslamar_session');
+        const sessLocal   = localStorage.getItem('gaslamar_session');
+        if (
+          (sessStorage && sessStorage.startsWith('sess_')) ||
+          (sessLocal   && sessLocal.startsWith('sess_'))
+        ) {
+          hasPaidSession = true;
+          newNotices.push({
+            type: 'info',
+            text: 'Kamu sudah upload CV sebelumnya.',
+            link: { href: 'download.html', label: 'Lanjutkan ke download' },
+          });
+        }
+      } catch (_) {}
+    }
+
+    if (!isNewPackage && !hasPaidSession) {
       const reason = params.get('reason');
       if (reason === 'no_session') {
         history.replaceState(null, '', location.pathname);
