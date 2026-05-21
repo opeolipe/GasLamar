@@ -5,73 +5,86 @@
 
 ## BLOCKER — Must fix before merging
 
-- [ ] **Restore Unicode bypass protection in `worker/src/sanitize.js`**
+- [x] **Restore Unicode bypass protection in `worker/src/sanitize.js`**
   Removed: `UNICODE_FORMAT_RE` stripping + `.normalize('NFKC')` before `hasPromptInjection()`.
   An attacker can insert zero-width chars (U+200B, U+00AD, bidi overrides) inside trigger
   words (e.g. "ig​nore previous instructions") to bypass the prompt injection filter.
   Fix: restore the `UNICODE_FORMAT_RE` constant and the `normalized = sample.replace(...).normalize('NFKC')` line.
+  ✓ Preserved by merge — staging HEAD already had full protection.
 
-- [ ] **Restore the 7 Unicode bypass tests in `worker/test/sanitize.test.js`**
+- [x] **Restore the 7 Unicode bypass tests in `worker/test/sanitize.test.js`**
   The tests were deleted alongside the protection they covered. Bring them back.
   They live in the `// ── Unicode bypass guards (M3: strip format chars + NFKC)` section.
+  ✓ Preserved by merge — all 7 tests already present in staging HEAD.
 
 ---
 
 ## HIGH — Fix before merging (functional regressions)
 
-- [ ] **Restore scoring snapshot in `worker/src/handlers/createPayment.js`**
+- [x] **Restore scoring snapshot in `worker/src/handlers/createPayment.js`**
   The `scoring_${token}` KV write was removed. After payment, if the user navigates back
   to hasil.html (cancel / back-button from Mayar), `/get-scoring` returns 404 because
   `cvtext_` was deleted and no snapshot fallback exists.
   Fix: restore the `if (stored.scoring) { await env.GASLAMAR_SESSIONS.put('scoring_...') }`
   block and the corresponding fallback in `worker/src/handlers/getScoring.js`.
+  ✓ Preserved by merge — both snapshot write and fallback already present.
 
-- [ ] **Restore same scoring snapshot in `worker/src/handlers/bypassPayment.js`**
+- [x] **Restore same scoring snapshot in `worker/src/handlers/bypassPayment.js`**
   Same issue — sandbox/E2E flow also lost the snapshot write.
+  ✓ Preserved by merge — snapshot write already present.
 
-- [ ] **Decide on `ANALYSIS_CACHE_VERSION` rollback (`worker/src/cacheVersions.js`)**
+- [x] **Decide on `ANALYSIS_CACHE_VERSION` rollback (`worker/src/cacheVersions.js`)**
   Changed from `v17` → `v16`. If accidental, revert to `v17`.
   If intentional (e.g. v17 formula was wrong), document why and confirm no stale v16
   entries exist in KV that could serve incorrect scores.
+  ✓ Preserved by merge — ANALYSIS_CACHE_VERSION = 'v17' retained.
 
 ---
 
 ## MEDIUM — Fix or explicitly accept before merging
 
-- [ ] **Fix rate limit for `/get-session` (`worker/src/handlers/getSession.js`)**
+- [x] **Fix rate limit for `/get-session` (`worker/src/handlers/getSession.js`)**
   Rate limiter removed. The original code was broken (wrong call signature:
   `rateLimitResponse(rl.retryAfter)` instead of `rateLimitResponse(request, env, retryAfter)`).
   Fix properly: `if (!rl.allowed) return rateLimitResponse(request, env, rl.retryAfter ?? 60);`
+  ✓ Fixed — correct 3-arg call restored.
 
-- [ ] **Restore CF burst guard for `/resend-access` (`worker/src/handlers/resendAccess.js`)**
+- [x] **Restore CF burst guard for `/resend-access` (`worker/src/handlers/resendAccess.js`)**
   `RATE_LIMITER_RESEND_ACCESS` CF-native binding removed, leaving only KV rate limiting.
   KV requires a round-trip per request; the CF edge limiter was faster under burst attacks.
   Either restore it as the first check (before any KV reads) or document the removal.
+  ✓ Preserved by merge — CF guard already first check in staging.
 
-- [ ] **Verify `/api/log` sendBeacon compatibility (`worker/src/router.js`)**
+- [x] **Verify `/api/log` sendBeacon compatibility (`worker/src/router.js`)**
   `text/plain` content-type support removed. `sendBeacon` sends `text/plain`.
   Check if any frontend path still uses `sendBeacon` for error reporting;
   if yes, restore `|| contentType.includes('text/plain')` in the content-type check.
+  ✓ Preserved by merge — `text/plain` support already in router.js.
 
-- [ ] **Time-box the `checkSession.js` fallback path**
+- [x] **Time-box the `checkSession.js` fallback path**
   `?session=` query-param fallback re-introduces session IDs in URLs (browser history,
   access logs, Referer headers). "Backward compat during rollout" — add a tracking issue
   or config flag so it gets removed once rollout is confirmed complete.
+  ✓ Non-issue — staging already removed the fallback (commit 00acbca). PR's fallback
+  tests replaced with a test verifying the fallback is correctly rejected.
 
 ---
 
 ## LOW — Nice to have
 
-- [ ] **Add rate limit test for `/exchange-token` burst**
+- [x] **Add rate limit test for `/exchange-token` burst**
   Handler reuses `RATE_LIMITER_PAYMENT` (5/min) but no test covers it.
+  ✓ Added: `rate-limits burst attempts (reuses RATE_LIMITER_PAYMENT: 5/min per IP)` test.
 
-- [ ] **Restore `capped` log field in `resendAccess.js`**
+- [x] **Restore `capped` log field in `resendAccess.js`**
   `capped: activeIds.length > 3` removed from `resend_access_sent` log event.
   Useful for ops visibility when a user has many active sessions.
+  ✓ Preserved by merge — `capped` field already present in staging.
 
-- [ ] **Add comment to `generate.js` explaining TOCTOU tradeoff**
+- [x] **Add comment to `generate.js` explaining TOCTOU tradeoff**
   Nonce re-read pattern removed. Briefly document why the simpler lock is acceptable
   (Worker 30s wall clock, session state machine as secondary protection).
+  ✓ Non-issue — nonce re-read pattern and full TOCTOU comments already in generate.js.
 
 ---
 
@@ -84,7 +97,7 @@
 | MEDIUM | 4 — get-session rate limit, CF burst guard, sendBeacon, fallback TTL |
 | LOW | 3 — exchange-token test, log field, TOCTOU comment |
 
-**Do not merge until BLOCKERs and HIGH items are resolved.**
+**All items resolved. Safe to merge PR #416 (with the staged fixes applied).**
 
 ---
 
