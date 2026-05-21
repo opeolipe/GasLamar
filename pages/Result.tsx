@@ -364,7 +364,9 @@ export default function Result() {
         }));
       } catch (_) {}
 
-      sessionStorage.removeItem('gaslamar_cv_key');
+      // gaslamar_cv_key intentionally kept — hasil-guard.js needs it if user
+      // returns from Mayar (cancel/back). Server already deleted cvtext_ KV;
+      // /get-scoring falls back to the scoring_ snapshot from createPayment.
       setPayBtnOverride('Mengalihkan ke halaman pembayaran...');
       setTransitionInvoiceUrl(invoice_url);
 

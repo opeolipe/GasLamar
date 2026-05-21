@@ -1,7 +1,7 @@
 export { WORKER_URL } from '@/lib/sessionUtils';
 
 export const ESTIMATED_MS     = 45000;
-export const FETCH_TIMEOUT_MS = 55000;
+export const FETCH_TIMEOUT_MS = 90000;
 export const TOTAL_STEPS      = 4;
 export const STEP_INTERVAL    = Math.floor(ESTIMATED_MS / (TOTAL_STEPS + 1));
 
