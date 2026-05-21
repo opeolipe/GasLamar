@@ -35,6 +35,7 @@ function clearClientSessionData(sessionId) {
   localStorage.removeItem('gaslamar_session');         // legacy: was set by payment.js before this fix
   localStorage.removeItem('gaslamar_has_session');     // presence flag set by payment.js; cleared here on session end
   localStorage.removeItem('gaslamar_tier');            // legacy belt-and-suspenders
+  localStorage.removeItem('gaslamar_delivery');        // set by ResendEmail on resend success; holds {sessionId,email,sentAt}
 }
 
 // ── syncTierFromServer ────────────────────────────────────────────────────────

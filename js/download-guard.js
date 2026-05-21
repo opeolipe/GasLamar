@@ -35,13 +35,19 @@
   try {
     if (localStorage.getItem('gaslamar_has_session') === '1') return;
   } catch (_) {
-    // localStorage blocked (e.g. Safari strict private mode) — redirect safely
+    // localStorage blocked (e.g. Safari strict private mode) — fail closed.
+    window.location.replace('/');
+    return;
   }
 
   // Path 3: delivery flow — email was sent; React renders the delivery section.
   try {
     if (localStorage.getItem('gaslamar_delivery')) return;
-  } catch (_) {}
+  } catch (_) {
+    // localStorage blocked — fail closed.
+    window.location.replace('/');
+    return;
+  }
 
   // No valid entry — redirect before body renders.
   window.location.replace('/');

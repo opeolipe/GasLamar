@@ -70,6 +70,7 @@ simple = { limit = 5, period = 60 }
 #   RESEND_API_KEY           — optional, enables post-payment confirmation emails
 [env.staging]
 name = "gaslamar-worker-staging"
+workers_dev = false
 routes = [
   { pattern = "api-staging.gaslamar.com/*", zone_name = "gaslamar.com" },
 ]
@@ -128,6 +129,7 @@ invocation_logs = true
 # Production environment overrides
 [env.production]
 name = "gaslamar-worker"
+workers_dev = true
 routes = [
   { pattern = "gaslamar.com/*", zone_name = "gaslamar.com" },
   { pattern = "www.gaslamar.com/*", zone_name = "gaslamar.com" },

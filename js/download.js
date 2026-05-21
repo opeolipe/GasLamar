@@ -55,12 +55,14 @@ function downloadFile(lang, format) {
         credentials: 'include',
         body:        JSON.stringify({ email_token: emailToken }),
       });
+      // Strip the token from the URL regardless of outcome — an expired or invalid
+      // token has no value but would otherwise persist in browser history.
+      history.replaceState(null, '', location.pathname);
       if (res.ok) {
         const data = await res.json();
         if (data.session_id) {
           sessionIdCache     = data.session_id;
         }
-        history.replaceState(null, '', location.pathname);
         startPolling(sessionIdCache);
       } else {
         showSessionError(
