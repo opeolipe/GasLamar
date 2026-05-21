@@ -53,21 +53,20 @@ async function fillValidJD(page: Page) {
 }
 
 /**
- * Seed localStorage so download page finds a valid session.
+ * Seed localStorage so download-guard.js allows the page to render.
  * Uses addInitScript so values are set BEFORE download-guard.js (a synchronous
  * blocking <head> script) runs — eliminates any race with page.evaluate timing.
+ *
+ * The guard only checks gaslamar_has_session === '1' (a non-sensitive routing
+ * flag). The actual session_id is HttpOnly-cookie-based and returned by the
+ * mocked /check-session response; it is never stored client-side.
  */
-async function setupDownloadSession(page: Page, sessionId = TEST_SESSION_ID) {
-  await page.addInitScript((sid) => {
+async function setupDownloadSession(page: Page) {
+  await page.addInitScript(() => {
     if (location.pathname.startsWith('/download')) {
-      // download-guard.js reads localStorage; useDownloadSession reads sessionStorage
-      localStorage.setItem('gaslamar_session', sid);
-      sessionStorage.setItem('gaslamar_session', sid);
-      localStorage.setItem(`gaslamar_secret_${sid}`, 'e2e-test-secret');
-      sessionStorage.setItem(`gaslamar_secret_${sid}`, 'e2e-test-secret');
-      sessionStorage.setItem('gaslamar_tier', 'single');
+      localStorage.setItem('gaslamar_has_session', '1');
     }
-  }, sessionId);
+  });
 }
 
 /** Mock /check-session → paid (triggers startGeneration). */
