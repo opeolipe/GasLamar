@@ -211,16 +211,19 @@ export default function Access() {
   // email field no longer has focus. Firing while the user is still typing causes a
   // spurious blur that captures an incomplete email (e.g. 'gmail.co' before 'gmail.com'),
   // which triggers a false-positive typo suggestion and permanently disables the button.
+  // prevShowConfirmField is only set inside the timer callback (not before it fires) so
+  // that a skip (email still focused) leaves the flag false and allows a retry the next
+  // time showConfirmField transitions false→true.
   const prevShowConfirmField = useRef(false);
   useEffect(() => {
     if (showConfirmField && !prevShowConfirmField.current) {
       const t = setTimeout(() => {
         const emailInput = document.getElementById('access-email');
         if (document.activeElement !== emailInput) {
+          prevShowConfirmField.current = true;
           confirmEmailRef.current?.focus();
         }
       }, 280);
-      prevShowConfirmField.current = true;
       return () => clearTimeout(t);
     }
     if (!showConfirmField) prevShowConfirmField.current = false;
