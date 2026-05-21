@@ -412,12 +412,12 @@ async function proceedToPayment() {
       tier_price_idr: TIER_CONFIG[selectedTier].price,
     });
 
-    // Store session_id in localStorage so download-guard.js (Path 2) can let the user
+    // Store a non-sensitive presence flag so download-guard.js (Path 2) can let the user
     // through after Mayar's post-payment redirect. The HttpOnly cookie set by the Worker
-    // remains the authoritative credential for all server-side calls.
-    // Tier is not stored here — the authoritative value is fetched from /check-session.
+    // is the authoritative credential for all server-side calls — the actual session_id
+    // is never written to client-accessible storage.
     if (session_id) {
-      try { localStorage.setItem('gaslamar_session', session_id); } catch (_) {}
+      try { localStorage.setItem('gaslamar_has_session', '1'); } catch (_) {}
     }
 
     // cv_text_key has been consumed server-side — remove from session
