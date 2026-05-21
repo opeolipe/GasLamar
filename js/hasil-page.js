@@ -20,14 +20,14 @@
   function update() {
     const remaining = SESSION_SECS - Math.floor((Date.now() - analyzeTime) / 1000);
     if (remaining <= 0) {
-      textEl.textContent = 'Preview analisis sudah kedaluwarsa — hasil ini masih bisa kamu lihat, tapi tidak bisa lanjut bayar.';
+      textEl.textContent = 'Waktu bayar sudah habis — hasil masih bisa kamu lihat, tapi perlu upload ulang CV untuk lanjut.';
       el.style.background = '#FEF2F2';
       el.style.borderColor = '#FECACA';
       el.style.color = '#B91C1C';
       // M25: Disable pay button when session expires so user doesn't attempt payment
       // that will return a server 404 with no helpful explanation.
       var payBtn = document.getElementById('pay-btn');
-      if (payBtn) { payBtn.disabled = true; payBtn.title = 'Sesi sudah berakhir — upload ulang CV kamu untuk lanjut bayar.'; }
+      if (payBtn) { payBtn.disabled = true; payBtn.title = 'Waktu sudah habis — upload ulang CV kamu untuk melanjutkan pembayaran.'; }
       return;
     }
     const h = Math.floor(remaining / 3600);
@@ -38,18 +38,18 @@
       el.style.background = '#FEF2F2';
       el.style.borderColor = '#FECACA';
       el.style.color = '#B91C1C';
-      textEl.innerHTML = `<span aria-hidden="true">⚠️</span> Preview berakhir dalam ${m}m ${s}s — selesaikan pembayaran sekarang!`;
+      textEl.textContent = `Waktu tersisa: ${m}m ${s}s — selesaikan pembayaran sekarang!`;
     } else if (remaining <= 1800) {
       el.style.background = '#FFFBEB';
       el.style.borderColor = '#FCD34D';
       el.style.color = '#92400E';
-      textEl.innerHTML = h > 0
-        ? `<span aria-hidden="true">⏰</span> Preview analisis berlaku ${h}j ${m}m lagi — bayar sebelum kedaluwarsa`
-        : `<span aria-hidden="true">⏰</span> Preview analisis berlaku ${m}m ${s}s lagi — bayar sebelum kedaluwarsa`;
+      textEl.textContent = h > 0
+        ? `Hasil analisis berlaku ${h}j ${m}m lagi — bayar sebelum waktu habis`
+        : `Hasil analisis berlaku ${m}m ${s}s lagi — bayar sebelum waktu habis`;
     } else {
-      textEl.innerHTML = h > 0
-        ? `<span aria-hidden="true">⏰</span> Preview analisis berlaku ${h}j ${m}m lagi`
-        : `<span aria-hidden="true">⏰</span> Preview analisis berlaku ${m}m ${s}s lagi`;
+      textEl.textContent = h > 0
+        ? `Hasil analisis berlaku ${h}j ${m}m lagi`
+        : `Hasil analisis berlaku ${m}m ${s}s lagi`;
     }
     setTimeout(update, 1000);
   }

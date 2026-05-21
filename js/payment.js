@@ -329,8 +329,7 @@ async function proceedToPayment() {
   const cvTextKey = sessionStorage.getItem('gaslamar_cv_key');
 
   if (!cvTextKey) {
-    alert('Data CV tidak ditemukan. Mohon upload CV kamu kembali.');
-    window.location.href = 'upload.html';
+    showPaymentError('Data CV tidak ditemukan. Mohon upload CV kamu kembali.');
     return;
   }
 
@@ -464,9 +463,9 @@ async function proceedToPayment() {
       });
     }
 
-    let msg = 'Terjadi kesalahan. Coba lagi.';
+    let msg = 'Gagal menghubungi server. Coba lagi.';
     if (err.name === 'AbortError') {
-      msg = 'Koneksi timeout. Coba lagi.';
+      msg = 'Koneksi lambat. Periksa internet kamu lalu coba lagi.';
     } else if (err.message) {
       msg = err.message;
     }
@@ -489,9 +488,26 @@ function showPaymentError(message) {
 
 function showExpiryError() {
   paymentInProgress = false;
-  // Redirect to upload with reason so the user gets a clear banner explaining what happened.
-  // Inline error state was confusing and left the page in an ambiguous half-dead state.
-  window.location.replace('upload.html?reason=cv_expired');
+  const btn = document.getElementById('pay-btn');
+  if (btn) { btn.disabled = true; }
+
+  const ctaArea = document.getElementById('cta-area');
+  const existing = document.getElementById('payment-error');
+  if (existing) existing.remove();
+
+  const errDiv = document.createElement('div');
+  errDiv.id = 'payment-error';
+  errDiv.className = 'mt-3 p-3 bg-amber-50 border border-amber-300 rounded-xl text-amber-900 text-sm text-center';
+
+  const msg = document.createTextNode('Waktu analisis sudah habis. ');
+  const link = document.createElement('a');
+  link.href = 'upload.html';
+  link.className = 'underline font-medium';
+  link.textContent = 'Upload CV kembali untuk melanjutkan pembayaran.';
+
+  errDiv.appendChild(msg);
+  errDiv.appendChild(link);
+  if (ctaArea) ctaArea.after(errDiv);
 }
 
 // DevTools deterrent — educational notice, not a security control.

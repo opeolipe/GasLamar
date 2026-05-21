@@ -50,10 +50,10 @@ if (_redirectReason === 'session_expired' || _redirectReason === 'no_session' ||
   const _noticeEl = document.createElement('div');
   _noticeEl.className = 'session-notice-banner';
   _noticeEl.textContent = _redirectReason === 'no_session'
-    ? 'Sesi download tidak ditemukan. Silakan upload CV dan selesaikan pembayaran.'
+    ? 'Sesi tidak ditemukan. Silakan upload CV dan selesaikan pembayaran.'
     : _redirectReason === 'cv_expired'
-    ? '⏰ Sesi analisis sudah kedaluwarsa (berlaku 2 jam). Upload ulang CV kamu untuk lanjut bayar.'
-    : 'Sesi analisis tidak ditemukan atau sudah kadaluarsa. Silakan upload ulang CV kamu.';
+    ? 'Waktu analisis sudah habis. Upload CV kembali untuk melanjutkan pembayaran.'
+    : 'Sesi analisis tidak ditemukan atau sudah kedaluwarsa. Silakan upload ulang CV kamu.';
   document.querySelector('.card').insertBefore(_noticeEl, document.querySelector('.card').firstChild);
 }
 
