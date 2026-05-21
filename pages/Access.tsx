@@ -207,6 +207,10 @@ export default function Access() {
     if (!showConfirmField) prevShowConfirmField.current = false;
   }, [showConfirmField]);
 
+  useEffect(() => {
+    return () => { if (blurTimerRef.current) clearTimeout(blurTimerRef.current); };
+  }, []);
+
   const primaryBorderClass  = emailError ? 'border-red-400 ring-red-200' : showConfirmed ? 'border-green-400 ring-green-100' : 'border-slate-200';
   const confirmBorderClass  = showConfirmError ? 'border-red-400 ring-red-200' : showConfirmSuccess ? 'border-green-400 ring-green-100' : 'border-slate-200';
 

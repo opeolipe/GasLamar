@@ -17,9 +17,9 @@ const CANONICAL_DOMAINS = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com
 const KNOWN_VALID_DOMAINS = new Set([
   'email.com', 'mail.com', 'ymail.com', 'rocketmail.com',
   'me.com', 'live.com', 'msn.com', 'pm.com',
-  // Indonesian TLD variants close to canonical domains
+  // Regional variants of canonical domains (.co.id = Indonesian, .co = Colombia ccTLD)
   'yahoo.co.id', 'yahoo.co', 'gmail.co.id',
-  // Common work/regional providers near edit-distance 1
+  // Privacy/work providers that are far from canonical domains (safelist as defence-in-depth)
   'zoho.com', 'proton.me', 'tutanota.com',
 ]);
 
