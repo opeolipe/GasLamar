@@ -31,8 +31,10 @@
  *   gaslamar_tier            Server-confirmed tier (corrected on poll response)
  *   gaslamar_filename        CV filename for display purposes only
  *
- * The session_id is not persisted in client storage. Download pages bootstrap
- * from the HttpOnly cookie via /check-session.
+ * payment.js writes a non-sensitive presence flag (gaslamar_has_session=1) so
+ * download-guard.js can pass the user through on Mayar's post-payment redirect.
+ * The actual session_id is never written to client storage. Download pages verify
+ * the session via /check-session using the HttpOnly cookie.
  */
 
 // ── State name constants ──────────────────────────────────────────────────────
@@ -125,6 +127,7 @@ function clearDownloadSession(sessionId) {
     sessionStorage.removeItem('gaslamar_score_summary');
     sessionStorage.removeItem('gaslamar_session');
     localStorage.removeItem('gaslamar_session');
+    localStorage.removeItem('gaslamar_has_session');
   } catch (_) {}
 }
 

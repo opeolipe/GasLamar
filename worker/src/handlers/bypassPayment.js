@@ -93,8 +93,15 @@ export async function handleBypassPayment(request, env) {
     ip,
     mayar_invoice_id: 'bypass_sandbox',
   });
-  // Delete cv_text_key AFTER createSession succeeds — mirrors production payment flow.
-  // If createSession throws, cv_text_key is still intact and the user can retry.
+  // Preserve scoring snapshot then delete cv_text_key — mirrors createPayment.js so
+  // /get-scoring fallback works if a test navigates to /hasil after bypassing payment.
+  if (stored.scoring) {
+    await env.GASLAMAR_SESSIONS.put(
+      `scoring_${cv_text_key.slice('cvtext_'.length)}`,
+      JSON.stringify({ scoring: stored.scoring }),
+      { expirationTtl: 86400 },
+    ).catch(() => {});
+  }
   await env.GASLAMAR_SESSIONS.delete(cv_text_key);
 
   log('bypass_payment_created', { sessionId, tier, credits });

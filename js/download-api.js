@@ -67,10 +67,11 @@ async function poll(sessionId) {
 
   try {
     // Session auth travels only via the HttpOnly cookie set by /create-payment.
+    // No session ID in headers — the server ignores custom session headers and
+    // reads exclusively from the cookie.
     const checkUrl = WORKER_URL + '/check-session';
     const res = await fetch(checkUrl, {
       credentials: 'include',
-      headers: { 'X-Session-Id': sessionId },
     });
 
     if (res.status === 400) {
