@@ -24,7 +24,7 @@ if (_analyzeErr) {
   const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
   const cvKey = sessionStorage.getItem('gaslamar_cv_key') || '';
   if (!analyzeTime || !cvKey.startsWith('cvtext_')) return;
-  const remaining = 7200 - Math.floor((Date.now() - analyzeTime) / 1000);
+  const remaining = 86400 - Math.floor((Date.now() - analyzeTime) / 1000);
   if (remaining <= 0) return; // already expired — no stale results to surface
   const h = Math.floor(remaining / 3600);
   const m = Math.floor((remaining % 3600) / 60);
