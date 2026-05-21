@@ -9,8 +9,8 @@ test.describe('Logging and analytics minimization', () => {
       const init = (window as any).posthog?._i?.[0];
       const config = init?.[1] || {};
       const props = config.sanitize_properties?.({
-        $current_url: 'https://gaslamar.com/download?session=sess_test&token=abc123&utm_source=test',
-        $referrer: 'https://gaslamar.com/access?token=abc123',
+        $current_url: 'https://gaslamar.com/download?session=sess_test&token=abc123&sessionId=sess_test&utm_source=test',
+        $referrer: 'https://gaslamar.com/access?token=abc123&sessionId=sess_test',
         $initial_current_url: 'https://gaslamar.com/upload?session=sess_test',
       });
       return {
@@ -27,7 +27,9 @@ test.describe('Logging and analytics minimization', () => {
     expect(result.currentUrl).toContain('utm_source=test');
     expect(result.currentUrl).not.toContain('session=');
     expect(result.currentUrl).not.toContain('token=');
+    expect(result.currentUrl).not.toContain('sessionId=');
     expect(result.referrer).not.toContain('token=');
+    expect(result.referrer).not.toContain('sessionId=');
     expect(result.initialUrl).not.toContain('session=');
   });
 });

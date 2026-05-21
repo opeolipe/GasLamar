@@ -17,7 +17,7 @@ posthog.init('phc_DmeD8QdyUMMGwZ4GUKnDurFXrquR3APqUKrcEuDbgy3X',{
   disable_external_dependency_loading:true,
   // Strip sensitive URL params (session token, email token) from all captured URLs.
   sanitize_properties: function(props) {
-    var STRIP = ['session', 'token'];
+    var STRIP = ['session', 'token', 'sessionId'];
     function scrub(url) {
       if (!url) return url;
       try {
