@@ -87,6 +87,13 @@ export default function Access() {
     }
   }
 
+  function handleEmailFocus() {
+    if (blurTimerRef.current) {
+      clearTimeout(blurTimerRef.current);
+      blurTimerRef.current = null;
+    }
+  }
+
   function handleEmailBlur() {
     if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
     blurTimerRef.current = setTimeout(() => {
@@ -341,6 +348,7 @@ export default function Access() {
                       autoComplete="email"
                       value={email}
                       onChange={e => handleEmailChange(e.target.value)}
+                      onFocus={handleEmailFocus}
                       onBlur={handleEmailBlur}
                       placeholder="email@kamu.com"
                       required
