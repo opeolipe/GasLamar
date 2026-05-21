@@ -157,7 +157,7 @@ export default function Result() {
       : 'Pilih paket untuk melanjutkan'
   );
 
-  const payBtnDisabled = paymentInProgress || !selectedTier;
+  const payBtnDisabled = paymentInProgress || !selectedTier || countdown.isExpired;
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   function handleTierSelect(tier: string) {
@@ -341,7 +341,8 @@ export default function Result() {
         const errMsg = (err as any).message || `Server error: ${response.status}`;
         if ((response.status === 400 && (err as any).code === 'cv_expired') || response.status === 403) {
           setPaymentInProgress(false);
-          window.location.replace('upload.html?reason=cv_expired');
+          setPayBtnOverride(null);
+          setPaymentError('Waktu analisis sudah habis. Klik "Upload CV lain" di bawah untuk melanjutkan.');
           return;
         }
         throw new Error(errMsg);
@@ -389,7 +390,7 @@ export default function Result() {
       const e = err as Error;
       ;(window as any).Analytics?.trackError?.('payment_api', { tier: selectedTier, is_timeout: e.name === 'AbortError', error_message: e.message });
 
-      const msg = e.name === 'AbortError' ? 'Koneksi timeout. Coba lagi.' : e.message || 'Terjadi kesalahan. Coba lagi.';
+      const msg = e.name === 'AbortError' ? 'Koneksi lambat. Periksa internet kamu lalu coba lagi.' : e.message || 'Gagal menghubungi server. Coba lagi.';
       setPaymentError(msg);
     }
   }

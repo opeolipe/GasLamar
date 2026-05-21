@@ -157,7 +157,7 @@ export default function Upload() {
         newNotices.push({ type: 'info', text: 'Sesi analisis sudah berakhir. Silakan upload CV kembali untuk analisis baru.' });
       } else if (reason === 'cv_expired') {
         history.replaceState(null, '', location.pathname);
-        newNotices.push({ type: 'info', text: '⏰ Sesi analisis sudah kedaluwarsa (berlaku 2 jam). Upload ulang CV kamu untuk lanjut bayar.' });
+        newNotices.push({ type: 'info', text: 'Waktu analisis sudah habis. Upload CV kembali untuk melanjutkan pembayaran.' });
       }
 
       const uploadErr = sessionStorage.getItem('gaslamar_upload_error');
