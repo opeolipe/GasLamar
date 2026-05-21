@@ -34,6 +34,7 @@ function clearClientSessionData(sessionId) {
   sessionStorage.removeItem('gaslamar_session');       // defensive — cleared for hygiene (sessionStorage variant)
   localStorage.removeItem('gaslamar_session');         // set by payment.js; cleared here on session end
   localStorage.removeItem('gaslamar_tier');            // legacy belt-and-suspenders
+  localStorage.removeItem('gaslamar_delivery');        // set by ResendEmail on resend success; holds {sessionId,email,sentAt}
 }
 
 // ── syncTierFromServer ────────────────────────────────────────────────────────
