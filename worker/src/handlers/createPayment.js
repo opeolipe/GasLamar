@@ -132,6 +132,18 @@ export async function handleCreatePayment(request, env) {
         { expirationTtl: credits > 1 ? 2592000 : 604800 }
       );
 
+      // Preserve scoring snapshot so /get-scoring can still serve hasil.html if the user
+      // returns to /hasil after the payment redirect (e.g. cancellation or back-navigation).
+      // The raw CV text is deleted below; scoring data contains no PII and is safe to keep.
+      // Non-critical: a write failure here must not abort payment — suppress with .catch().
+      if (stored.scoring) {
+        await env.GASLAMAR_SESSIONS.put(
+          `scoring_${cv_text_key.slice('cvtext_'.length)}`,
+          JSON.stringify({ scoring: stored.scoring }),
+          { expirationTtl: 86400 }, // 24 h — matches original cvtext_ window
+        ).catch((e) => console.warn(JSON.stringify({ event: 'scoring_snapshot_write_failed', error: e.message })));
+      }
+
       // Delete cv_text_key LAST — only after both the session and secondary index are
       // persisted. If either write above throws (KV transient error), cv_text_key still
       // exists so the user can retry after the invoice lock expires (60 s). Deleting first

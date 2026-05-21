@@ -420,8 +420,10 @@ async function proceedToPayment() {
       try { localStorage.setItem('gaslamar_has_session', '1'); } catch (_) {}
     }
 
-    // cv_text_key has been consumed server-side — remove from session
-    sessionStorage.removeItem('gaslamar_cv_key');
+    // Keep gaslamar_cv_key in sessionStorage so hasil-guard.js passes if the user
+    // returns to /hasil after the Mayar redirect (cancel or back-navigation).
+    // The actual cvtext_ KV entry was deleted server-side; /get-scoring falls back
+    // to the scoring_<token> snapshot preserved by /create-payment.
 
     // Redirect to Mayar payment page
     // H9 FIX: Always validate invoice_url against the Mayar domain allowlist.

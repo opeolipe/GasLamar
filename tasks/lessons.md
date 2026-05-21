@@ -234,3 +234,26 @@ After a payment refactor that moved the session credential to an HttpOnly cookie
 - A misleading comment ("legacy key, no longer written") on the `clearClientSessionData` call masked that the localStorage write was still necessary.
 
 **Fix:** `payment.js` now extracts `session_id` from the `/create-payment` response and writes it to `localStorage.gaslamar_session` before redirecting to Mayar. The HttpOnly cookie remains the sole server-side credential.
+
+---
+
+## Payment redirect — scoring snapshot and sessionStorage guard
+
+**Pattern:** When `POST /create-payment` succeeds, it deletes the `cvtext_` KV entry to prevent
+re-use. If the user then cancels at Mayar and navigates back to `/hasil`, two things fail:
+1. `hasil-guard.js` finds `gaslamar_cv_key` missing from sessionStorage → redirects to upload
+   with "session expired" error. (Cause: `payment.js` was explicitly clearing the key.)
+2. Even if the guard passes, `GET /get-scoring` returns 404 because the KV entry is gone.
+
+**Fix:**
+- `payment.js`: do NOT remove `gaslamar_cv_key` from sessionStorage on payment initiation.
+  The KV entry is already deleted server-side; keeping the sessionStorage key is harmless
+  and lets the guard pass on return.
+- `createPayment.js`: before deleting `cvtext_`, preserve `stored.scoring` under `scoring_<token>`
+  with 24h TTL. Failure is non-critical — suppress with `.catch()` so payment proceeds.
+- `getScoring.js`: when `cvtext_<token>` is not found, fall back to `scoring_<token>`.
+  Returns the same `{ valid: true, scoring }` response; never exposes cv_text/job_desc/ip.
+
+**Rule:** Any time a short-lived KV entry is deleted as part of state advancement (single-use
+consumption), check whether any subsequent user action legitimately needs data from that entry.
+If so, preserve the needed subset under a separate key before deleting.
