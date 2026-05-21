@@ -1,3 +1,11 @@
+## /validate-session 404 is not a bug (2026-05-21)
+
+`GET /validate-session?cvKey=cvtext_<token>` returns 404 when the KV entry is not found — this is correct, expected behavior (cvtext_ entries expire after 24h). Do not treat this as a broken endpoint. Testing with a stale or manually constructed key will always 404. Similarly, `/create-payment` returns 400 (`cv_expired`) when the cvtext_ key has expired — also correct, not a bug. Both errors mean "start a new session," not "the API is down."
+
+Session tokens are in an HttpOnly cookie, never in sessionStorage. `gaslamar_has_session=1` in localStorage is a non-sensitive routing flag only — it is not the session token.
+
+---
+
 ## Scoring false positives from Indonesian CV artefacts (2026-05-11)
 
 Education degree codes (D1, D3, S1, S2, S3) and bare career-tenure strings ("14 tahun pengalaman") are not achievement metrics. LLMs regularly include them in `angka_di_cv` despite prompt instructions, because the examples and exclusion list were incomplete.

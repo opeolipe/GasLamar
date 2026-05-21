@@ -77,7 +77,12 @@ export default function Access() {
   function handleEmailChange(value: string) {
     setEmail(value);
     setEmailError('');
-    setEmailSuggestion(suggestEmailFix(value));
+    // Only update an already-visible suggestion during typing; new suggestions fire on blur.
+    // This prevents the confirm field from hiding/showing mid-keystroke when the user types
+    // through a Levenshtein-1 domain (e.g. gmail.co → gmail.com).
+    if (emailSuggestion) {
+      setEmailSuggestion(suggestEmailFix(value));
+    }
     setEmailIsDisposable(false);
     setEmailIsConfirmed(false);
     setConfirmError('');
@@ -208,6 +213,10 @@ export default function Access() {
     }
     if (!showConfirmField) prevShowConfirmField.current = false;
   }, [showConfirmField]);
+
+  useEffect(() => {
+    return () => { if (blurTimerRef.current) clearTimeout(blurTimerRef.current); };
+  }, []);
 
   const primaryBorderClass  = emailError ? 'border-red-400 ring-red-200' : showConfirmed ? 'border-green-400 ring-green-100' : 'border-slate-200';
   const confirmBorderClass  = showConfirmError ? 'border-red-400 ring-red-200' : showConfirmSuccess ? 'border-green-400 ring-green-100' : 'border-slate-200';
