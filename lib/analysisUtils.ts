@@ -1,6 +1,8 @@
 export { WORKER_URL } from '@/lib/sessionUtils';
 
 export const ESTIMATED_MS     = 45000;
+// 90s: staging Haiku PDF analyses require 3 sequential LLM calls (~60s observed).
+// Prod Sonnet finishes faster (~40s) but shares this ceiling to avoid divergence.
 export const FETCH_TIMEOUT_MS = 90000;
 export const TOTAL_STEPS      = 4;
 export const STEP_INTERVAL    = Math.floor(ESTIMATED_MS / (TOTAL_STEPS + 1));
