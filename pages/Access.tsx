@@ -50,6 +50,10 @@ export default function Access() {
 
   const blurTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const confirmEmailRef = useRef<HTMLInputElement>(null);
+  // Always reflects the latest email state — used by the blur timer so it validates
+  // the current value even when the blur fires mid-keystroke (e.g. from the auto-focus).
+  const emailRef = useRef(email);
+  emailRef.current = email;
 
   // ── Derived ──────────────────────────────────────────────────────────────
   const emailValid       = EMAIL_REGEX.test(email.trim());
@@ -102,7 +106,7 @@ export default function Access() {
   function handleEmailBlur() {
     if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
     blurTimerRef.current = setTimeout(() => {
-      const result = validateEmail(email);
+      const result = validateEmail(emailRef.current);
       setEmailError(result.error ?? '');
       setEmailSuggestion(result.suggestion);
       setEmailIsDisposable(result.isDisposable);
@@ -203,11 +207,19 @@ export default function Access() {
   const showConfirmError    = !emailError && !emailSuggestion && !!confirmError;
   const showConfirmSuccess  = !emailError && !emailSuggestion && emailIsConfirmed && emailsMatch && confirmTouched;
 
-  // Auto-focus confirm input when it slides into view
+  // Auto-focus confirm input when it slides into view — but only when the primary
+  // email field no longer has focus. Firing while the user is still typing causes a
+  // spurious blur that captures an incomplete email (e.g. 'gmail.co' before 'gmail.com'),
+  // which triggers a false-positive typo suggestion and permanently disables the button.
   const prevShowConfirmField = useRef(false);
   useEffect(() => {
     if (showConfirmField && !prevShowConfirmField.current) {
-      const t = setTimeout(() => confirmEmailRef.current?.focus(), 280);
+      const t = setTimeout(() => {
+        const emailInput = document.getElementById('access-email');
+        if (document.activeElement !== emailInput) {
+          confirmEmailRef.current?.focus();
+        }
+      }, 280);
       prevShowConfirmField.current = true;
       return () => clearTimeout(t);
     }
