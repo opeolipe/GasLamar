@@ -39,7 +39,7 @@ function cleanupSecretStorage(storage: Storage, activeSessionId: string, now: nu
   const keys: string[] = [];
   for (let i = 0; i < storage.length; i++) {
     const key = storage.key(i);
-    if (key?.startsWith(SECRET_PREFIX)) keys.push(key);
+    if (key?.startsWith(SECRET_PREFIX) && !key.startsWith(SECRET_SEEN_PREFIX)) keys.push(key);
   }
 
   for (const key of keys) {

@@ -376,7 +376,7 @@ test.describe('GasLamar CV Flow', () => {
     await expect(page.locator('[data-testid="generate-cv-button"]')).toBeEnabled();
   });
 
-  test('download page preserves recovery when sessionStorage is missing', async ({ page }) => {
+  test('download page loads from localStorage when sessionStorage is empty', async ({ page }) => {
     const sessionId = 'sess_e2e-localstorage-only';
     await page.addInitScript((sid) => {
       if (location.pathname.startsWith('/download')) {
@@ -395,11 +395,42 @@ test.describe('GasLamar CV Flow', () => {
     const storageState = await page.evaluate((sid) => ({
       localSession: localStorage.getItem('gaslamar_session'),
       sessionSession: sessionStorage.getItem('gaslamar_session'),
-      activeSecret: localStorage.getItem(`gaslamar_secret_${sid}`),
     }), sessionId);
     expect(storageState.localSession).toBe(sessionId);
     expect(storageState.sessionSession).toBeNull();
-    expect(storageState.activeSecret).toBeNull();
+  });
+
+  test('first cleanup visit stamps seen entry for stale secret without deleting it', async ({ page }) => {
+    const activeSession = 'sess_e2e-active-firstseen';
+    const oldSession    = 'sess_e2e-old-firstseen';
+
+    await page.addInitScript(({ activeSession, oldSession }) => {
+      if (location.pathname.startsWith('/download')) {
+        localStorage.setItem('gaslamar_session', activeSession);
+        localStorage.setItem(`gaslamar_secret_${activeSession}`, 'active-secret');
+        localStorage.setItem(`gaslamar_secret_${oldSession}`, 'old-secret');
+        // No seen_ entry — simulates first time cleanup sees this stale key
+      }
+    }, { activeSession, oldSession });
+
+    await mockCheckSession(page, { status: 'paid', session_id: activeSession });
+    await mockGetSession(page);
+    await mockGenerate(page);
+
+    await page.goto('/download');
+    await expect(page.locator('[data-testid="cv-content"]')).toBeVisible({ timeout: 30000 });
+
+    const storageState = await page.evaluate(({ activeSession, oldSession }) => ({
+      activeSecret:  localStorage.getItem(`gaslamar_secret_${activeSession}`),
+      oldSecret:     localStorage.getItem(`gaslamar_secret_${oldSession}`),
+      oldSeen:       localStorage.getItem(`gaslamar_secret_seen_${oldSession}`),
+      spuriousSeen:  localStorage.getItem(`gaslamar_secret_seen_seen_${oldSession}`),
+    }), { activeSession, oldSession });
+
+    expect(storageState.activeSecret).toBe('active-secret');
+    expect(storageState.oldSecret).toBe('old-secret');      // not deleted yet — grace window just started
+    expect(storageState.oldSeen).not.toBeNull();            // seen_ entry stamped on this visit
+    expect(storageState.spuriousSeen).toBeNull();           // no seen_seen_ pollution
   });
 
   test('stale gaslamar_secret keys are cleaned only after a new valid session is confirmed', async ({ page }) => {
@@ -424,13 +455,15 @@ test.describe('GasLamar CV Flow', () => {
     await expect(page.locator('[data-testid="cv-content"]')).toBeVisible({ timeout: 30000 });
 
     const storageState = await page.evaluate(({ activeSession, oldSession }) => ({
-      activeSecret: localStorage.getItem(`gaslamar_secret_${activeSession}`),
-      oldSecret: localStorage.getItem(`gaslamar_secret_${oldSession}`),
-      oldSeen: localStorage.getItem(`gaslamar_secret_seen_${oldSession}`),
+      activeSecret:  localStorage.getItem(`gaslamar_secret_${activeSession}`),
+      oldSecret:     localStorage.getItem(`gaslamar_secret_${oldSession}`),
+      oldSeen:       localStorage.getItem(`gaslamar_secret_seen_${oldSession}`),
+      spuriousSeen:  localStorage.getItem(`gaslamar_secret_seen_seen_${oldSession}`),
     }), { activeSession, oldSession });
     expect(storageState.activeSecret).toBe('active-secret');
     expect(storageState.oldSecret).toBeNull();
     expect(storageState.oldSeen).toBeNull();
+    expect(storageState.spuriousSeen).toBeNull();           // no seen_seen_ pollution from prefix collision
   });
 
   test('recent previous gaslamar_secret key is preserved during the grace window', async ({ page }) => {
