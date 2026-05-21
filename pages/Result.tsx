@@ -352,7 +352,14 @@ export default function Result() {
       ;(window as any).Analytics?.track?.('payment_session_created', { tier: selectedTier, tier_price_idr: TIER_CONFIG[selectedTier].price });
 
       let validUrl = false;
-      try { const parsed = new URL(invoice_url); validUrl = parsed.protocol === 'https:'; } catch (_) {}
+      try {
+        const parsed = new URL(invoice_url);
+        const h = parsed.hostname;
+        validUrl = parsed.protocol === 'https:' && (
+          h === 'mayar.id' || h.endsWith('.mayar.id') ||
+          h === 'mayar.club' || h.endsWith('.mayar.club')
+        );
+      } catch (_) {}
       if (!validUrl) throw new Error('URL pembayaran tidak valid. Coba lagi.');
 
       try {
@@ -362,9 +369,15 @@ export default function Result() {
           tier:   selectedTier,
           cv_key: cvTextKey,
         }));
-      } catch (_) {}
+      } catch (storageErr) {
+        // Non-fatal: invoice already created server-side. Pending-invoice reuse
+        // (cancel-and-return) won't work but the user can still complete payment.
+        console.warn('[GasLamar] sessionStorage write failed (quota?):', storageErr);
+      }
 
-      sessionStorage.removeItem('gaslamar_cv_key');
+      // gaslamar_cv_key intentionally kept — hasil-guard.js needs it if user
+      // returns from Mayar (cancel/back). Server already deleted cvtext_ KV;
+      // /get-scoring falls back to the scoring_ snapshot from createPayment.
       setPayBtnOverride('Mengalihkan ke halaman pembayaran...');
       setTransitionInvoiceUrl(invoice_url);
 
