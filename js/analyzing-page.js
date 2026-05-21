@@ -29,7 +29,7 @@ const totalSteps = 4;
 let startTime = Date.now();
 const estimatedMs = 35000;
 // Maximum time we wait for the /analyze response (PDF needs 3 sequential Claude calls)
-const FETCH_TIMEOUT_MS = 55000;
+const FETCH_TIMEOUT_MS = 90000;
 let analysisComplete = false;
 let abortController = new AbortController();
 // Distinguish user-initiated cancel from our timeout abort
