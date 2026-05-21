@@ -24,12 +24,12 @@
 
   var cvKey       = sessionStorage.getItem('gaslamar_cv_key') || '';
   var analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
-  var SESSION_SECS = 7200;
+  var SESSION_SECS = 86400;
 
   // cv_key must have the expected format (cvtext_<token>) — required for server fetch
   if (!cvKey || !cvKey.startsWith('cvtext_')) { redirect('no_session'); return; }
 
-  // Session must not be older than 2 hours — send to /access so returning
+  // Session must not be older than 24 hours — send to /access so returning
   // paid users can recover their CV download link without re-uploading.
   var isExpired = analyzeTime > 0 && (Date.now() - analyzeTime) / 1000 > SESSION_SECS;
   if (isExpired) {

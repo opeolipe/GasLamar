@@ -1,39 +1,44 @@
-# Fix: Payment Session Expiry During Redirect to Mayar
+# Fix: Mayar Callback Not Processed + Payment Flow Blocked
 
-## Root Cause
-Two compounding issues cause "session expired" error when user returns from Mayar:
+## Root Cause Analysis
 
-1. **Frontend** (`payment.js` line 424): Explicitly removes `gaslamar_cv_key` from
-   sessionStorage after payment initiation. When user returns to `/hasil`,
-   `hasil-guard.js` can't find the key → redirects to `upload.html?reason=no_session`.
+Two independent bugs block the payment and callback flow:
 
-2. **Backend** (`createPayment.js` line 139): Deletes the `cvtext_` KV entry after
-   creating the Mayar invoice. Even if guard passes (Fix 1 applied), `scoring.js`
-   calls `GET /get-scoring` which reads the deleted KV entry → 404 → redirects to
-   `access.html?expired=1&source=hasil`.
+### Bug A — Frontend session TTL mismatch (2 h frontend vs 24 h backend)
+`analyze.js` stores the `cvtext_` KV entry with a **24-hour** TTL. But every frontend
+freshness check uses **2 hours**. After 2 h the pay button is disabled and the user is
+redirected to `access.html` even though the backend key is still valid for 22 more hours.
 
-## Fix Plan
+Affected constants:
+- `js/hasil-guard.js` — `SESSION_SECS = 7200`
+- `js/hasil-page.js` — `SESSION_SECS = 7200`
+- `js/analyzing-page.js` — `< 7200000`
+- `js/session-controller.js` — `ANALYSIS_FRESHNESS_MS = 7200000`
 
-- [x] **createPayment.js**: Before deleting `cvtext_`, preserve scoring snapshot
-  under `scoring_<token>` with 24h TTL (same as original cvtext_ window).
-  Non-critical write — errors are logged but don't abort payment creation.
+### Bug B — Webhook verification rejects valid Mayar sandbox callbacks
+When staging has `MAYAR_WEBHOOK_SECRET` configured **and** Mayar sandbox sends its
+webhook with **no auth header** (neither `x-callback-token` nor `x-mayar-signature`),
+the code falls through to the HMAC check which returns `{ valid: false }` → **401**.
 
-- [x] **getScoring.js**: After failing to find `cvtext_<token>`, fall back to
-  `scoring_<token>` key. Returns same `{ valid: true, scoring }` response.
-  Security: still returns only scoring, never cv_text/job_desc/ip.
+Flow in `mayar.js → verifyMayarWebhook`:
+1. `isSandbox = true`, secret is set → skips the `!secret` early return
+2. Checks `x-callback-token` → absent → does NOT return
+3. Falls through to HMAC check — looks for `x-mayar-signature`
+4. No signature → returns `{ valid: false }` → 401
 
-- [x] **payment.js**: Remove `sessionStorage.removeItem('gaslamar_cv_key')`.
-  Keep the key so hasil-guard.js passes when user returns from Mayar.
-  The actual KV entry is already deleted server-side; the sessionStorage key
-  just lets the guard pass.
+The fix: when in sandbox mode with a secret set, if neither auth header is present
+(not a wrong signature — just *absent*), allow through with a warning. An absent header
+means Mayar sandbox sent nothing to verify; a wrong value is still rejected.
 
-- [x] **worker.test.js**: Add tests for scoring snapshot preservation and
-  getScoring fallback behavior.
+## Tasks
 
-- [x] **tasks/lessons.md**: Document pattern.
-
-## Invariants to Preserve
-- No raw CV text or job_desc ever returned by /get-scoring
-- Payment creation still deletes cvtext_ (prevents re-use)
-- Scoring snapshot write failure does NOT abort payment
-- All existing tests still pass
+- [x] Investigate codebase and reproduce both bugs
+- [x] Fix A1: `js/hasil-guard.js` — update SESSION_SECS 7200→86400
+- [x] Fix A2: `js/hasil-page.js` — update SESSION_SECS 7200→86400, fix comment
+- [x] Fix A3: `js/analyzing-page.js` — update 7200000→86400000, update SYNC comment
+- [x] Fix A4: `js/session-controller.js` — update ANALYSIS_FRESHNESS_MS 7200000→86400000
+- [x] Fix B: `worker/src/mayar.js` — sandbox webhook: allow when no auth header present
+- [x] Add test: `verifyMayarWebhook` sandbox+secret+no-headers → valid:true
+- [x] Run `cd worker && npm test` — all 533 tests pass
+- [ ] Commit and push to `claude/fix-mayar-callback-0NsG7`
+- [ ] Append learnings to `tasks/lessons.md`

@@ -1711,6 +1711,35 @@ describe('verifyMayarWebhook — production HMAC path', () => {
     const result = await verifyMayarWebhook(req, { ENVIRONMENT: 'staging', MAYAR_WEBHOOK_SECRET: 'correct-secret' });
     expect(result.valid).toBe(false);
   });
+
+  it('allows sandbox webhook with secret set but no auth headers (Mayar simulator sends nothing)', async () => {
+    // Mayar sandbox payment simulator does not consistently send x-callback-token or
+    // x-mayar-signature. When MAYAR_WEBHOOK_SECRET is configured in staging but Mayar
+    // sends no header, the webhook must still be accepted — we cannot verify what was
+    // not sent. A wrong value (x-mayar-signature present but incorrect) is still rejected.
+    const payload = JSON.stringify({ id: 'inv_sandbox_no_headers', status: 'paid' });
+    const req = new Request('https://gaslamar.com/webhook/mayar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }, // no x-callback-token, no x-mayar-signature
+      body: payload,
+    });
+    const result = await verifyMayarWebhook(req, { ENVIRONMENT: 'staging', MAYAR_WEBHOOK_SECRET: 'some-staging-secret' });
+    expect(result.valid).toBe(true);
+    expect(result.body).toBe(payload);
+  });
+
+  it('still rejects sandbox webhook with secret set and wrong x-mayar-signature present', async () => {
+    // If x-mayar-signature IS present (even in sandbox), it must be verified.
+    // Only *absent* headers are allowed through — a wrong value is always rejected.
+    const payload = JSON.stringify({ id: 'inv_sandbox_bad_sig', status: 'paid' });
+    const req = new Request('https://gaslamar.com/webhook/mayar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'bad_signature' },
+      body: payload,
+    });
+    const result = await verifyMayarWebhook(req, { ENVIRONMENT: 'staging', MAYAR_WEBHOOK_SECRET: 'some-staging-secret' });
+    expect(result.valid).toBe(false);
+  });
 });
 
 describe('404 for unknown routes', () => {
