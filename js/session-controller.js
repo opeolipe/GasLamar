@@ -81,9 +81,10 @@ function isExhausted(status) {
 
 /**
  * Returns the cvtext_ key + timestamp from sessionStorage if fresh, null otherwise.
- * ANALYSIS_FRESHNESS_MS must match the 2h window in hasil-guard.js and the KV TTL.
+ * ANALYSIS_FRESHNESS_MS must match SESSION_SECS in hasil-guard.js / hasil-page.js
+ * and the expirationTtl in worker/src/handlers/analyze.js (86400 s = 24 h).
  */
-const ANALYSIS_FRESHNESS_MS = 7200000; // 2 hours
+const ANALYSIS_FRESHNESS_MS = 86400000; // 24 hours
 
 function getAnalysisSession() {
   try {

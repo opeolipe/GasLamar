@@ -213,6 +213,18 @@ export async function verifyMayarWebhook(request, env) {
       }
       return { valid: diff === 0, body };
     }
+
+    // Neither x-callback-token nor x-mayar-signature is present.
+    // Mayar sandbox does not consistently send authentication headers when triggered
+    // from the simulator or test mode. We cannot verify what was not sent, so allow
+    // through with a warning. A signature that IS present but wrong is still rejected
+    // (x-mayar-signature path falls through to HMAC below).
+    // Production always requires HMAC — this branch is sandbox-only.
+    const hasSig = !!(request.headers.get('x-mayar-signature') || request.headers.get('X-Mayar-Signature'));
+    if (!hasSig) {
+      console.warn(JSON.stringify({ event: 'webhook_sandbox_no_auth_header', environment: env.ENVIRONMENT }));
+      return { valid: true, body };
+    }
   }
 
   const signature = request.headers.get('x-mayar-signature') || request.headers.get('X-Mayar-Signature');

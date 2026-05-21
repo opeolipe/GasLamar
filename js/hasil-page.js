@@ -4,7 +4,7 @@
   const el = document.getElementById('session-countdown');
   const textEl = document.getElementById('countdown-text');
   if (!analyzeTime || !el || !textEl) { if (el) el.style.display = 'none'; return; }
-  const SESSION_SECS = 7200; // matches worker cvtext_ TTL (2h)
+  const SESSION_SECS = 86400; // matches worker cvtext_ TTL (24h)
   var toastShown = false;
 
   function showExpiryToast() {
