@@ -496,6 +496,45 @@ test.describe('GasLamar CV Flow', () => {
 
   // Coupon input removed — users enter discount codes directly on Mayar's checkout page.
 
+  test('job description counter and validation update after direct value assignment', async ({ page }) => {
+    await uploadCV(page, SAMPLE_CV_PATH);
+
+    const jdLength = await page.evaluate(() => {
+      const textarea = document.querySelector<HTMLTextAreaElement>('[data-testid="jd-textarea"]');
+      if (!textarea) throw new Error('JD textarea missing');
+
+      const prefix = [
+        'Digital Marketing Specialist - PT Digital Solution',
+        '',
+        'Requirements:',
+        '- Social media management',
+        '- Google Analytics',
+        '',
+        'Responsibilities:',
+        '- Manage Instagram and TikTok content',
+        '- Create monthly performance reports',
+        '',
+      ].join('\n');
+      textarea.value = prefix + 'x'.repeat(4871 - prefix.length);
+      return textarea.value.length;
+    });
+
+    expect(jdLength).toBe(4871);
+    await expect(page.locator('text=4.871 / 5.000 karakter')).toBeVisible();
+    await expect(page.locator('[data-testid="submit-upload"]')).toBeEnabled();
+
+    const cappedLength = await page.evaluate(() => {
+      const textarea = document.querySelector<HTMLTextAreaElement>('[data-testid="jd-textarea"]');
+      if (!textarea) throw new Error('JD textarea missing');
+
+      textarea.value = 'x'.repeat(5001);
+      return textarea.value.length;
+    });
+
+    expect(cappedLength).toBe(5000);
+    await expect(page.locator('text=5.000 / 5.000 karakter')).toBeVisible();
+  });
+
   // ── MOBILE VIEWPORT ───────────────────────────────────────────────────────
 
   test('mobile viewport: submit button meets 44px touch target, dropzone visible', async ({ page }) => {

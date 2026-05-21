@@ -35,19 +35,54 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
     ? 'text-xs text-amber-500'
     : 'text-xs text-slate-400';
 
-  // Native listener catches programmatic `el.value = x; el.dispatchEvent(new Event('input'))`
+  function syncTextareaValue(raw: string, el?: HTMLTextAreaElement | null) {
+    const capped = raw.length > MAX_JD_CHARS ? raw.slice(0, MAX_JD_CHARS) : raw;
+    if (el && el.value !== capped) el.value = capped;
+    onChangeRef.current(capped);
+    if (el) {
+      el.style.height = 'auto';
+      el.style.height = `${el.scrollHeight}px`;
+    }
+  }
+
+  // Native listener catches programmatic `el.value = x; el.dispatchEvent(new Event('input'))`.
   useEffect(() => {
     const el = internalRef.current;
     if (!el) return;
     function onNativeInput() {
-      const raw = el!.value;
-      const capped = raw.length > MAX_JD_CHARS ? raw.slice(0, MAX_JD_CHARS) : raw;
-      onChangeRef.current(capped);
-      el!.style.height = 'auto';
-      el!.style.height = `${el!.scrollHeight}px`;
+      syncTextareaValue(el!.value, el);
     }
     el.addEventListener('input', onNativeInput);
     return () => el.removeEventListener('input', onNativeInput);
+  }, []);
+
+  // Direct `textarea.value = x` does not fire an input event, so bridge that path too.
+  useEffect(() => {
+    const el = internalRef.current;
+    if (!el) return;
+
+    const ownDescriptor = Object.getOwnPropertyDescriptor(el, 'value');
+    const protoDescriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
+    const descriptor = ownDescriptor ?? protoDescriptor;
+    if (!descriptor?.get || !descriptor?.set) return;
+
+    Object.defineProperty(el, 'value', {
+      configurable: true,
+      get() {
+        return descriptor.get!.call(this);
+      },
+      set(next) {
+        const raw = String(next ?? '');
+        const capped = raw.length > MAX_JD_CHARS ? raw.slice(0, MAX_JD_CHARS) : raw;
+        descriptor.set!.call(this, capped);
+        syncTextareaValue(capped, this as HTMLTextAreaElement);
+      },
+    });
+
+    return () => {
+      if (ownDescriptor) Object.defineProperty(el, 'value', ownDescriptor);
+      else Reflect.deleteProperty(el, 'value');
+    };
   }, []);
 
   // Resize height when value changes via React state (URL fetcher, session restore)
@@ -75,10 +110,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
   ].join(' ');
 
   function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    const raw = e.target.value;
-    onChange(raw.length > MAX_JD_CHARS ? raw.slice(0, MAX_JD_CHARS) : raw);
-    e.target.style.height = 'auto';
-    e.target.style.height = `${e.target.scrollHeight}px`;
+    syncTextareaValue(e.target.value, e.target);
   }
 
   return (
