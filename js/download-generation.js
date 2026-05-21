@@ -167,15 +167,6 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
       credits_remaining: credits_remaining || 0,
     });
 
-    // Clear session storage only when all credits are exhausted
-    if (!credits_remaining || credits_remaining <= 0) {
-      sessionStorage.removeItem('gaslamar_session');
-      localStorage.removeItem('gaslamar_session');
-      localStorage.removeItem('gaslamar_has_session');
-      localStorage.removeItem('gaslamar_tier');  // belt-and-suspenders for legacy data
-      sessionStorage.removeItem('gaslamar_tier');
-    }
-
     setProgress(90);
     setGeneratingText('Hampir selesai...');
 
@@ -186,6 +177,16 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
       // Post-download coaching card — called here (not inside showDownloadReady)
       // so the caller controls sequencing after the download UI is rendered.
       showPostDownloadActions(credits_remaining || 0, tier);
+
+      // Clear session after the UI is fully rendered so sessionIdCache is no longer
+      // needed for any concurrent multi-credit interaction on the same page.
+      if (!credits_remaining || credits_remaining <= 0) {
+        sessionStorage.removeItem('gaslamar_session');
+        localStorage.removeItem('gaslamar_session');
+        localStorage.removeItem('gaslamar_has_session');
+        localStorage.removeItem('gaslamar_tier');  // belt-and-suspenders for legacy data
+        sessionStorage.removeItem('gaslamar_tier');
+      }
       if (persist_failed) {
         var container = document.getElementById('post-download-actions');
         if (container) {
