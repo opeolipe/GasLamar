@@ -77,7 +77,12 @@ export default function Access() {
   function handleEmailChange(value: string) {
     setEmail(value);
     setEmailError('');
-    setEmailSuggestion(suggestEmailFix(value));
+    // Only update an already-visible suggestion during typing; new suggestions fire on blur.
+    // This prevents the confirm field from hiding/showing mid-keystroke when the user types
+    // through a Levenshtein-1 domain (e.g. gmail.co → gmail.com).
+    if (emailSuggestion) {
+      setEmailSuggestion(suggestEmailFix(value));
+    }
     setEmailIsDisposable(false);
     setEmailIsConfirmed(false);
     setConfirmError('');
