@@ -8,7 +8,7 @@ import { clientIp } from '../utils.js';
 export async function handleGetSession(request, env) {
   const ip = clientIp(request);
   const rl = await checkRateLimitKV(env, ip, 10, 60, 'get_session');
-  if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
+  if (!rl.allowed) return rateLimitResponse(request, env, rl.retryAfter ?? 60);
   const session_id = getSessionIdFromCookie(request);
 
   if (!session_id) {
