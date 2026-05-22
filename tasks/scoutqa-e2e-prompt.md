@@ -3,7 +3,6 @@
 > **Target:** `https://staging.gaslamar.pages.dev` (staging) / `https://gaslamar.com` (prod read-only)  
 > **Worker (staging):** `https://api-staging.gaslamar.com`  
 > **Health check:** `GET https://gaslamar-worker.carolineratuolivia.workers.dev/health`  
-> **Bypass payment secret:** use `BYPASS_PAYMENT_SECRET` env var for sandbox sessions  
 > **Goal:** Full pre-launch audit — system function, CV rewrite quality, UI/UX, security, edge cases  
 > **Deliverable:** Structured report per phase; file bugs with repro steps, severity, and expected vs. actual
 
@@ -35,7 +34,7 @@ Walk the complete happy path once before any targeted testing:
 2. Go to `upload.html` — upload a valid 1-page PDF CV + paste a job description → submit
 3. `analyzing.html` loads, spinner/progress shows — wait for redirect to `hasil.html`
 4. `hasil.html` shows a score (0–100), a verdict (`DO` / `TIMED` / `DO NOT`), 5D breakdown, and gap list
-5. Click pay → `bypass-payment` endpoint creates a paid session (staging only)
+5. Click pay → complete payment via Mayar sandbox → webhook fires → session becomes `paid`
 6. `download.html` loads — generate in Indonesian → file downloads (PDF or DOCX)
 7. Generate in English → second file downloads
 8. Confirm session state ends at `exhausted` (single/coba) or `ready` (multi-credit tiers)
@@ -91,14 +90,7 @@ Check: old sessions carrying legacy state `'pending'` (not `'pending_payment'`) 
 - Duplicate call with same `cv_text_key` within 60s → second call blocked by `invoice_lock_` (no duplicate invoice created)
 - All 4 tiers (`coba`, `single`, `3pack`, `jobhunt`) → correct prices from `TIER_PRICES`
 
-### 1.4 `/bypass-payment` — Sandbox Guard
-- Valid secret + valid tier + valid `cv_text_key` → 200, session cookie set, status = `paid`
-- Invalid secret → 401 or 403 (constant-time comparison, no timing leak)
-- Missing secret → 401
-- **In production:** must return 404 regardless of secret — verify `ENVIRONMENT === 'production'` guard is active (check prod worker directly)
-- Rate limit: >20 req/min from same IP → 429
-
-### 1.5 `/generate` — CV Tailoring
+### 1.4 `/generate` — CV Tailoring
 - Session in `paid` or `ready` state → generation runs, returns CV
 - Language `id` → Indonesian CV produced
 - Language `en` → English CV produced (not available on `coba` tier — verify 403)
@@ -106,35 +98,34 @@ Check: old sessions carrying legacy state `'pending'` (not `'pending_payment'`) 
 - `jobhunt` tier: 10 credits, multiple generate calls, credits decrement correctly
 - Session in `exhausted` → 403 (no regeneration allowed)
 - Concurrent duplicate `/generate` calls within 120s lock window → only one proceeds; second gets 429 or appropriate error
-- Generation failure mid-call (simulate by removing KV write permission) → session rolls back to `paid`, credits unchanged
 
-### 1.6 `/get-scoring` — Score Retrieval After Tab Refresh
+### 1.5 `/get-scoring` — Score Retrieval After Tab Refresh  
 - After `/analyze`, call `GET /get-scoring?key=cvtext_<token>` → returns scoring snapshot
 - No `key` param → 400
 - Unknown key → 404
 - Response must contain `scoring` but NOT `cv_text` or `job_desc`
 - Rate limit: >10 req/min per IP → 429
 
-### 1.7 `/exchange-token` — Email Link Redemption
+### 1.6 `/exchange-token` — Email Link Redemption
 - Valid `email_token` (128-bit hex, within 1h TTL) → 200, session cookie set, token deleted from KV
 - Same token used twice → 401 (token deleted on first use)
 - Expired token (>1h) → 401
 - Malformed token (not 32-char hex) → 400
 
-### 1.8 `/validate-coupon` — Coupon System
+### 1.7 `/validate-coupon` — Coupon System
 - Valid coupon code → `{ valid: true, discount: <amount> }`
 - Invalid/expired coupon → `{ valid: false, message: "..." }` — never 5xx
 - GET with query params (not body) — confirm Fetch spec compliance
 - Rate limit: >10 req/min per IP → 429
 - Coupon valid on one tier but not another (if tier-locked) → correct rejection message
 
-### 1.9 `/resend-access` — Access Recovery
+### 1.8 `/resend-access` — Access Recovery
 - Valid email with existing session → generic success regardless of whether email exists
 - Same email twice within 1h → second call rate-limited
 - >10 req/hour from same IP → 429
 - Response body must NOT reveal whether the email exists in the system (enumeration protection)
 
-### 1.10 `/fetch-job-url` — JD from URL
+### 1.9 `/fetch-job-url` — JD from URL
 - LinkedIn job URL → JD text extracted
 - Non-allowlisted domain (e.g., `https://reddit.com/...`) → 400 domain rejection
 - URL shortener (e.g., `https://bit.ly/...`) → 400 intentionally blocked
@@ -142,13 +133,13 @@ Check: old sessions carrying legacy state `'pending'` (not `'pending_payment'`) 
 - Malformed URL → 400
 - Valid URL but 404 response → graceful 400/502 with clear message
 
-### 1.11 `/interview-kit` — Interview Prep Generation
+### 1.10 `/interview-kit` — Interview Prep Generation
 - Valid session (`ready` or `exhausted`) → returns interview prep (questions, email template, WhatsApp opener, elevator pitch)
 - Call twice in same session → second call served from cache `kit_<session_id>_<language>` (faster, identical content)
 - Language `id` vs `en` → separate cache keys, separate language outputs
 - Invalid session → 401
 
-### 1.12 `/feedback` and `/api/log`
+### 1.11 `/feedback` and `/api/log`
 - POST `/feedback` with valid body → 200, fire-and-forget (no response body required)
 - POST `/api/log` → 200; verify PII is stripped from stored log (no email, no session ID in plain text)
 - Both endpoints rate-limited — verify 429 on burst
@@ -343,8 +334,6 @@ Report any browser-specific rendering or JS failures.
 - Access `/generate` with no session cookie → 401
 - Access `/generate` with a session cookie for a different user's session ID → 401 (session must be bound to cookie, not guessable by ID alone)
 - Access `/get-result` with a valid session ID but wrong cookie → 401
-- Access `/bypass-payment` in production → must return 404 (test against `gaslamar.com` directly)
-- Access `/bypass-payment` on staging with wrong secret → 401
 
 ### 4.3 CORS Enforcement
 - Request from `https://evil.com` with `Origin: https://evil.com` → no `Access-Control-Allow-Origin` header in response (or rejected)
@@ -362,7 +351,6 @@ For each endpoint with a rate limit, send burst traffic and verify 429 is return
 | `/get-scoring` | 10 req/min per IP | Send 11 requests |
 | `/validate-coupon` | 10 req/min per IP | Send 11 requests |
 | `/resend-access` | 2/hour per email + 10/hour per IP | Send 3 with same email |
-| `/bypass-payment` | 20 req/min per IP | Send 21 requests |
 | `/api/log` | (check worker) | Burst 30 requests |
 
 Verify 429 responses have a `Retry-After` header or clear message. Verify 429 does not leak internal state.
@@ -380,12 +368,8 @@ Verify 429 responses have a `Retry-After` header or clear message. Verify 429 do
 - Session cookie has `SameSite=Strict` or `Lax` → verify in response headers
 - Cookie does not contain the actual session data (only an opaque ID) — verify it's a reference, not a JWT with claims
 
-### 4.7 `bypassPayment.js` Production Guard
-- On production URL (`gaslamar.com`), POST `/bypass-payment` with correct secret must return 404
-- This is a critical invariant — if it returns anything other than 404 in prod, file as critical severity
-
-### 4.8 Error Response Hygiene
-- Trigger a 500 error (if possible via malformed input) → response must NOT contain stack traces, file paths, or internal identifiers
+### 4.7 Error Response Hygiene
+- Trigger a 500 (if possible via malformed input) → response must NOT contain stack traces, file paths, or internal identifiers
 - 404 responses: generic message, no path disclosure
 - All error responses: JSON format with `{ error: "..." }` — not raw exception text
 
@@ -506,7 +490,6 @@ For each bug found, report:
 
 Before launch, the following must all be confirmed clean:
 
-- [ ] `/bypass-payment` returns 404 in production
 - [ ] HMAC webhook verification working (invalid sig → 401)
 - [ ] No CV rewrite produces new numbers or skills not in original CV
 - [ ] No banned phrases in any generated CV output
