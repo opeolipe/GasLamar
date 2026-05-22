@@ -1,0 +1,82 @@
+# GasLamar
+
+> GasLamar is an AI-powered CV and resume tailoring service for Indonesian job seekers. Upload a CV, paste a job description, get a fit score with gap analysis, then download a tailored CV in Bahasa Indonesia and English — no sign-up required, one-time purchase.
+
+## About
+
+GasLamar helps job seekers in Indonesia optimize their CVs for specific job postings. The pipeline extracts structured data from a CV and job description, scores the match across six dimensions, diagnoses the gaps in plain language, and rewrites the CV to close those gaps. CV generation happens entirely on the client side (browser) — the worker never stores or serves file bytes.
+
+The product is aimed at Indonesians applying to local and international roles. All interface copy is in Bahasa Indonesia; generated CVs are available in both Bahasa Indonesia and English (depending on the purchased tier).
+
+## User Flow
+
+- [Home / Landing page](https://gaslamar.com/) — Product overview, how it works, pricing, FAQ
+- [Upload](https://gaslamar.com/upload.html) — Step 1: upload CV (PDF, DOCX, or TXT, max 5 MB) and paste a job description or link to a LinkedIn/Indeed/Glassdoor listing
+- [Privacy Policy](https://gaslamar.com/privacy.html) — Data handling, retention, and user rights
+- [Terms of Service](https://gaslamar.com/terms.html) — Terms for using GasLamar
+- [Accessibility Statement](https://gaslamar.com/accessibility.html) — Accessibility commitments
+
+## Scoring Framework
+
+GasLamar scores each CV–job pair across six dimensions:
+
+| Dimension | What it measures |
+|---|---|
+| `portfolio` | Relevance of past experience and projects to the target role |
+| `recruiter_signal` | Headline strength, keyword density, ATS readiness |
+| `north_star` | Career trajectory alignment with the target role |
+| `effort` | How much work tailoring the CV would require |
+| `risk` | Red flags: employment gaps, frequent job changes, parsing issues |
+| `opportunity_cost` | Derived from effort; not independently scored |
+
+A final verdict is issued: **DO** (pursue now), **TIMED** (pursue soon), or **DO NOT** (skip this role).
+
+## Pricing
+
+One-time purchases — no subscriptions. Session tokens expire after the stated period.
+
+| Plan | Price (IDR) | Credits | Languages | Session TTL |
+|---|---|---|---|---|
+| Coba Dulu | 29,000 | 1 | Bahasa Indonesia only | 7 days |
+| Single | 59,000 | 1 | ID + EN | 7 days |
+| 3-Pack | 149,000 | 3 | ID + EN | 30 days |
+| Job Hunt Pack | 299,000 | 10 | ID + EN | 30 days |
+
+One credit = one tailored CV generation (ID and/or EN). Credits are consumed per generation, not per download.
+
+## Public API
+
+All endpoints are on `https://gaslamar.com` (Cloudflare Worker).
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/analyze` | POST | Main pipeline — extracts CV + JD, scores fit, diagnoses gaps. Accepts `multipart/form-data` with `cv` (file) and `job_desc` (text) or `job_url` fields. |
+| `/fetch-job-url` | POST | Fetches a job description from a supported URL (LinkedIn, Indeed, Glassdoor, Kalibrr, Jobstreet). Returns extracted text. |
+| `/validate-coupon` | POST | Validates a discount coupon code against Mayar before payment. Returns discount amount. |
+| `/get-scoring` | GET | Returns the scoring snapshot for a prior analysis session. Query param: `key=cvtext_<token>`. Rate-limited 10 req/min per IP. |
+| `/resend-access` | POST | Re-sends a download link to a registered email. Rate-limited 2 req/hour per email. |
+| `/exchange-token` | POST | Exchanges a single-use email token for a session cookie (enables cross-device download links). |
+| `/health` | GET | Worker health check. |
+
+> Note: Session-bound endpoints (`/create-payment`, `/get-session`, `/generate`, `/interview-kit`, `/webhook/mayar`) require a valid session cookie and are not intended for direct API use. They are excluded from public documentation.
+
+## Technology
+
+- **Runtime:** Cloudflare Workers (serverless) + Cloudflare Pages (static CDN)
+- **AI models:** Claude Sonnet (production analysis), Claude Haiku (staging + all tailoring)
+- **Session store:** Cloudflare KV (sessions, analysis cache, rate-limit counters)
+- **Payments:** Mayar (Indonesian payment gateway, HMAC-verified webhooks)
+- **CV generation:** Browser-side — docx.js (DOCX), jsPDF (PDF)
+- **Frontend:** Vanilla JS + React (score page), Tailwind CSS
+
+## Privacy and Data
+
+- CVs and job descriptions are processed transiently and cached for up to 48 hours (keyed by content hash + IP) to avoid redundant LLM calls. They are not stored permanently.
+- No account or email is required to analyze a CV. Email is collected only if the user chooses to receive a download link.
+- CV text keys are bound to the uploading IP address. Cross-IP access is blocked server-side.
+- See the [Privacy Policy](https://gaslamar.com/privacy.html) for full details.
+
+## Optional
+
+- [Sitemap](https://gaslamar.com/sitemap.xml)
+- [robots.txt](https://gaslamar.com/robots.txt)
