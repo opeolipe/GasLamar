@@ -5,7 +5,7 @@
  */
 
 import { SELF, env, fetchMock } from 'cloudflare:test';
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { getCorsHeaders, isOriginAllowed } from '../src/cors.js';
 import { verifyMayarWebhook } from '../src/mayar.js';
 import { GEN_KEY_PREFIX_ID, GEN_KEY_PREFIX_EN } from '../src/cacheVersions.js';
@@ -271,6 +271,36 @@ describe('/health', () => {
     expect(res.headers.get('Content-Type')).toContain('application/json');
     const body = await res.text();
     expect(body).toBe('');
+  });
+});
+
+describe('POST /api/log — privacy redaction', () => {
+  it('redacts emails, tokens, session secrets, raw CV, and raw JD from client logs', async () => {
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      const res = await post('/api/log', {
+        email: 'alice@example.com',
+        session_secret: 'secret-client-value',
+        token: '0123456789abcdef0123456789abcdef',
+        cv: 'RAW CV CONTENT SHOULD NOT LOG',
+        job_desc: 'RAW JD CONTENT SHOULD NOT LOG',
+        message: 'alice@example.com failed at https://gaslamar.com/download?session=sess_abc&token=tok_123 session_secret=secret-client-value',
+      }, {}, '10.91.0.1');
+
+      expect(res.status).toBe(200);
+      const logged = spy.mock.calls.map(call => String(call[0])).join('\n');
+      expect(logged).toContain('client_log');
+      expect(logged).not.toContain('alice@example.com');
+      expect(logged).not.toContain('secret-client-value');
+      expect(logged).not.toContain('0123456789abcdef0123456789abcdef');
+      expect(logged).not.toContain('RAW CV CONTENT SHOULD NOT LOG');
+      expect(logged).not.toContain('RAW JD CONTENT SHOULD NOT LOG');
+      expect(logged).toContain('[EMAIL_REDACTED]');
+      expect(logged).toContain('[REDACTED]');
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 

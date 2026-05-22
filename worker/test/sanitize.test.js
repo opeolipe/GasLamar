@@ -197,6 +197,36 @@ describe('sanitizeLogValue', () => {
     expect(sanitizeLogValue(true)).toBe(true);
     expect(sanitizeLogValue({ a: 1 })).toEqual({ a: 1 });
   });
+
+  it('redacts email addresses', () => {
+    expect(sanitizeLogValue('user alice@example.com logged in')).toBe('user [EMAIL_REDACTED] logged in');
+    expect(sanitizeLogValue('no email here')).toBe('no email here');
+  });
+
+  it('redacts token/session URL params', () => {
+    expect(sanitizeLogValue('https://gaslamar.com/download?token=abc123&other=yes')).toBe('https://gaslamar.com/download?token=[REDACTED]&other=yes');
+    expect(sanitizeLogValue('https://x.com/page?session=sess_abc&utm=test')).toBe('https://x.com/page?session=[REDACTED]&utm=test');
+    expect(sanitizeLogValue('https://x.com/?session_secret=xyz')).toBe('https://x.com/?session_secret=[REDACTED]');
+    expect(sanitizeLogValue('no params here')).toBe('no params here');
+  });
+
+  it('redacts key=value credential pairs', () => {
+    expect(sanitizeLogValue('session_secret=supersecret msg')).toBe('session_secret=[REDACTED] msg');
+    expect(sanitizeLogValue('token=abc123 sent')).toBe('token=[REDACTED] sent');
+    expect(sanitizeLogValue('password=hunter2 used')).toBe('password=[REDACTED] used');
+  });
+
+  it('does not redact compound names like reset_token', () => {
+    expect(sanitizeLogValue('reset_token=abc')).toBe('reset_token=abc');
+    expect(sanitizeLogValue('access_token=abc')).toBe('access_token=abc');
+  });
+
+  it('output is always <= maxLen even when replacements expand the string', () => {
+    const withEmail = 'a@b.co'.repeat(100);
+    expect(sanitizeLogValue(withEmail, 50).length).toBeLessThanOrEqual(50);
+    const withToken = '?token=x'.repeat(100);
+    expect(sanitizeLogValue(withToken, 50).length).toBeLessThanOrEqual(50);
+  });
 });
 
 // ── hasPromptInjection (hard-reject detector) ─────────────────────────────────

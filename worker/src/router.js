@@ -138,7 +138,10 @@ export async function route(request, env, ctx) {
       : { raw: bodyText };
     // Sanitize all string values before writing to logs to prevent log injection.
     // Mask PII field names to avoid leaking sensitive data into Cloudflare log storage.
-    const PII_FIELDS = new Set(['email', 'session_id', 'token', 'secret', 'password', 'key', 'session_' + 'secret']);
+    const PII_FIELDS = new Set([
+      'email', 'session_id', 'token', 'secret', 'password', 'key', 'session_' + 'secret',
+      'cv', 'cv_text', 'raw_cv', 'job_desc', 'jd', 'raw_jd',
+    ]);
     const body = Object.fromEntries(
       Object.entries(rawBody).map(([k, v]) => {
         const safeKey = sanitizeLogValue(k, 100);
