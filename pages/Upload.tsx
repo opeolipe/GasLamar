@@ -145,7 +145,7 @@ export default function Upload() {
       const reason = params.get('reason');
       if (reason === 'no_session') {
         history.replaceState(null, '', location.pathname);
-        newNotices.push({ type: 'info', text: 'Sesi tidak ditemukan atau sudah kedaluwarsa (hasil analisis aktif 2 jam). Silakan upload CV kembali untuk memulai analisis baru.' });
+        newNotices.push({ type: 'info', text: 'Sesi tidak ditemukan atau sudah kedaluwarsa (hasil analisis aktif 24 jam). Silakan upload CV kembali untuk memulai analisis baru.' });
       } else if (reason === 'missing_data') {
         history.replaceState(null, '', location.pathname);
         newNotices.push({ type: 'warning', text: 'Data sesi tidak lengkap. Silakan upload CV kamu untuk memulai.' });
@@ -169,7 +169,7 @@ export default function Upload() {
       const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
       const cvKey = sessionStorage.getItem('gaslamar_cv_key') || '';
       if (analyzeTime && cvKey.startsWith('cvtext_')) {
-        const remaining = 7200 - Math.floor((Date.now() - analyzeTime) / 1000);
+        const remaining = 86400 - Math.floor((Date.now() - analyzeTime) / 1000);
         if (remaining > 0) {
           const h = Math.floor(remaining / 3600);
           const m = Math.floor((remaining % 3600) / 60);
