@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   WORKER_URL,
   clearClientSessionData,
+  cleanupStaleSessionSecrets,
 } from '@/lib/sessionUtils';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -222,6 +223,7 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         const expiresAt        = data.expires_at        ?? null;
 
         sessionStorage.setItem('gaslamar_tier', tier);
+        cleanupStaleSessionSecrets(sId);
 
         ;(window as any).Analytics?.track?.('payment_confirmed', {
           tier,
@@ -248,6 +250,7 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         const totalCreds = data.total_credits     ?? 1;
         const expiresAt  = data.expires_at        ?? null;
         sessionStorage.setItem('gaslamar_tier', tier);
+        cleanupStaleSessionSecrets(sId);
         setSessionData({ tier, creditsRemaining: 0, totalCredits: totalCreds, expiresAt });
         setPhase('returning');
         return;

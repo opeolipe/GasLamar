@@ -5,7 +5,7 @@
  */
 
 import { SELF, env, fetchMock } from 'cloudflare:test';
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { getCorsHeaders, isOriginAllowed } from '../src/cors.js';
 import { verifyMayarWebhook } from '../src/mayar.js';
 import { GEN_KEY_PREFIX_ID, GEN_KEY_PREFIX_EN } from '../src/cacheVersions.js';
@@ -271,6 +271,36 @@ describe('/health', () => {
     expect(res.headers.get('Content-Type')).toContain('application/json');
     const body = await res.text();
     expect(body).toBe('');
+  });
+});
+
+describe('POST /api/log — privacy redaction', () => {
+  it('redacts emails, tokens, session secrets, raw CV, and raw JD from client logs', async () => {
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      const res = await post('/api/log', {
+        email: 'alice@example.com',
+        session_secret: 'secret-client-value',
+        token: '0123456789abcdef0123456789abcdef',
+        cv: 'RAW CV CONTENT SHOULD NOT LOG',
+        job_desc: 'RAW JD CONTENT SHOULD NOT LOG',
+        message: 'alice@example.com failed at https://gaslamar.com/download?session=sess_abc&token=tok_123 session_secret=secret-client-value',
+      }, {}, '10.91.0.1');
+
+      expect(res.status).toBe(200);
+      const logged = spy.mock.calls.map(call => String(call[0])).join('\n');
+      expect(logged).toContain('client_log');
+      expect(logged).not.toContain('alice@example.com');
+      expect(logged).not.toContain('secret-client-value');
+      expect(logged).not.toContain('0123456789abcdef0123456789abcdef');
+      expect(logged).not.toContain('RAW CV CONTENT SHOULD NOT LOG');
+      expect(logged).not.toContain('RAW JD CONTENT SHOULD NOT LOG');
+      expect(logged).toContain('[EMAIL_REDACTED]');
+      expect(logged).toContain('[REDACTED]');
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 
@@ -1072,6 +1102,13 @@ describe('GET /check-session', () => {
     expect(body.credits_remaining).toBeDefined();
   });
 
+  it('rejects X-Session-Id header alone when no cookie is present (no URL fallback)', async () => {
+    const sessionId = await seedSession('paid', 'single');
+    // Staging removed the URL/header fallback — X-Session-Id without a cookie must be rejected.
+    const res = await get('/check-session', { 'X-Session-Id': sessionId });
+    expect(res.status).toBe(401);
+  });
+
   it('cookie path is not affected by stale X-Session-Secret headers', async () => {
     const sessionId = await seedSession('paid', 'single');
     const ip = '10.88.0.45';
@@ -1081,6 +1118,113 @@ describe('GET /check-session', () => {
     }
   });
 
+});
+
+describe('POST /exchange-token — abuse regression', () => {
+  it('rejects malformed, short, non-hex, and wrong-length tokens before KV lookup', async () => {
+    const cases = [
+      [undefined, '10.89.0.1'],
+      ['', '10.89.0.2'],
+      ['abc123', '10.89.0.3'],
+      ['zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz', '10.89.0.4'],
+      ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '10.89.0.5'],
+    ];
+
+    for (const [emailToken, ip] of cases) {
+      const body = emailToken === undefined ? {} : { email_token: emailToken };
+      const res = await post('/exchange-token', body, {}, ip);
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ message: 'Token tidak valid' });
+    }
+  });
+
+  it('exchanges a valid token once and rejects replay', async () => {
+    const sessionId = await seedSession('ready', 'single');
+    const token = '0123456789abcdef0123456789abcdef';
+    await env.GASLAMAR_SESSIONS.put(`email_token_${token}`, JSON.stringify({ session_id: sessionId }), { expirationTtl: 3600 });
+
+    const first = await post('/exchange-token', { email_token: token }, {}, '10.89.0.6');
+    expect(first.status).toBe(200);
+    const firstBody = await first.json();
+    expect(firstBody).toEqual({ ok: true, session_id: sessionId });
+    expect(first.headers.get('Set-Cookie')).toContain(`session_id=${sessionId}`);
+    expect(await env.GASLAMAR_SESSIONS.get(`email_token_${token}`)).toBeNull();
+
+    const replay = await post('/exchange-token', { email_token: token }, {}, '10.89.0.7');
+    expect(replay.status).toBe(404);
+    expect(await replay.json()).toEqual({ message: 'Token tidak valid atau sudah kedaluwarsa' });
+  });
+
+  it('rate-limits burst attempts (reuses RATE_LIMITER_PAYMENT: 5/min per IP)', async () => {
+    const ip = '10.89.0.8';
+    const fakeToken = 'ffffffffffffffffffffffffffffffff'; // 32 hex chars — valid format, won't exist in KV
+
+    // First 5 requests return 404 (token not found) — rate limiter allows them.
+    for (let i = 0; i < 5; i++) {
+      const res = await post('/exchange-token', { email_token: fakeToken }, {}, ip);
+      expect(res.status).toBe(404);
+    }
+
+    // 6th request is blocked by the rate limiter.
+    const blocked = await post('/exchange-token', { email_token: fakeToken }, {}, ip);
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get('Retry-After')).toBeTruthy();
+  });
+});
+
+describe('POST /resend-access — abuse regression', () => {
+  it('stays silent for unknown emails', async () => {
+    const res = await post('/resend-access', { email: 'unknown-access@example.com' }, {}, '10.90.0.1');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      success: true,
+      message: 'Jika email terdaftar, link baru telah dikirim.',
+    });
+  });
+
+  it('rate-limits by email hash (3/hour) and returns 429 on the 4th request', async () => {
+    const email = 'email-limited@example.com';
+    const emailHash = await sha256Full(email);
+
+    // Limit is 3/hour — first 3 requests from different IPs all pass.
+    for (const ip of ['10.90.0.2', '10.90.0.3', '10.90.0.4']) {
+      const res = await post('/resend-access', { email }, {}, ip);
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({
+        success: true,
+        message: 'Jika email terdaftar, link baru telah dikirim.',
+      });
+    }
+
+    // 4th request (any IP) hits the email rate limit and returns 429.
+    const fourthIp = '10.90.0.6';
+    const limited = await post('/resend-access', { email }, {}, fourthIp);
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get('Retry-After')).toBeTruthy();
+
+    // Counter stays at 3 — not incremented when blocked.
+    const emailLimiter = await env.GASLAMAR_SESSIONS.get(`rate_limit_resend_access_${emailHash}`, { type: 'json' });
+    expect(emailLimiter.count).toBe(3);
+  });
+
+  it('CF burst guard blocks resend-access after 5 requests/min per IP', async () => {
+    const ip = '10.90.0.5';
+
+    // CF rate limiter is 5/min — first 5 requests from the same IP pass.
+    for (let i = 0; i < 5; i++) {
+      const res = await post('/resend-access', { email: `ip-burst-${i}@example.com` }, {}, ip);
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({
+        success: true,
+        message: 'Jika email terdaftar, link baru telah dikirim.',
+      });
+    }
+
+    // 6th request hits the CF burst guard and returns 429.
+    const limited = await post('/resend-access', { email: 'ip-burst-final@example.com' }, {}, ip);
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get('Retry-After')).toBeTruthy();
+  });
 });
 
 describe('GET /validate-session', () => {
@@ -1709,6 +1853,35 @@ describe('verifyMayarWebhook — production HMAC path', () => {
       body: payload,
     });
     const result = await verifyMayarWebhook(req, { ENVIRONMENT: 'staging', MAYAR_WEBHOOK_SECRET: 'correct-secret' });
+    expect(result.valid).toBe(false);
+  });
+
+  it('allows sandbox webhook with secret set but no auth headers (Mayar simulator sends nothing)', async () => {
+    // Mayar sandbox payment simulator does not consistently send x-callback-token or
+    // x-mayar-signature. When MAYAR_WEBHOOK_SECRET is configured in staging but Mayar
+    // sends no header, the webhook must still be accepted — we cannot verify what was
+    // not sent. A wrong value (x-mayar-signature present but incorrect) is still rejected.
+    const payload = JSON.stringify({ id: 'inv_sandbox_no_headers', status: 'paid' });
+    const req = new Request('https://gaslamar.com/webhook/mayar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }, // no x-callback-token, no x-mayar-signature
+      body: payload,
+    });
+    const result = await verifyMayarWebhook(req, { ENVIRONMENT: 'staging', MAYAR_WEBHOOK_SECRET: 'some-staging-secret' });
+    expect(result.valid).toBe(true);
+    expect(result.body).toBe(payload);
+  });
+
+  it('still rejects sandbox webhook with secret set and wrong x-mayar-signature present', async () => {
+    // If x-mayar-signature IS present (even in sandbox), it must be verified.
+    // Only *absent* headers are allowed through — a wrong value is always rejected.
+    const payload = JSON.stringify({ id: 'inv_sandbox_bad_sig', status: 'paid' });
+    const req = new Request('https://gaslamar.com/webhook/mayar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'bad_signature' },
+      body: payload,
+    });
+    const result = await verifyMayarWebhook(req, { ENVIRONMENT: 'staging', MAYAR_WEBHOOK_SECRET: 'some-staging-secret' });
     expect(result.valid).toBe(false);
   });
 });

@@ -16,7 +16,7 @@
       if (window.__gaslamarNoSession === 'expired') {
         const msgEl = document.getElementById('no-session-msg');
         if (msgEl) msgEl.innerHTML =
-          '⏰ Sesi analisis sudah berakhir (berlaku 2 jam).<br>Silakan upload ulang CV kamu untuk memulai analisis baru.';
+          'Hasil analisis kamu sudah kedaluwarsa.<br>Upload CV kembali untuk memulai analisis baru.';
       }
       noSessionEl.classList.remove('hidden');
     }

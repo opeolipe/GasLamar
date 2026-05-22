@@ -14,9 +14,10 @@ if (!cvData || !jobDesc) {
   // Scoring is now server-side so we only need the key + timestamp (no scoring blob check).
   const existingKey = sessionStorage.getItem('gaslamar_cv_key');
   const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
-  // SYNC: 7200000ms (2h) must match SESSION_SECS (7200) in hasil-page.js and
-  //       the 7200000 freshness check in hasil-guard.js. Change all three together.
-  const isFresh = existingKey && analyzeTime && (Date.now() - analyzeTime) < 7200000;
+  // SYNC: 86400000ms (24h) must match SESSION_SECS (86400) in hasil-page.js,
+  //       hasil-guard.js, and ANALYSIS_FRESHNESS_MS in session-controller.js.
+  //       Must also match the expirationTtl in worker/src/handlers/analyze.js.
+  const isFresh = existingKey && analyzeTime && (Date.now() - analyzeTime) < 86400000;
   window.location.replace(isFresh ? 'hasil.html' : 'upload.html');
 }
 

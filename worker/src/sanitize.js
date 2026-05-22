@@ -222,5 +222,14 @@ export function sanitizeForLLM(text) {
  */
 export function sanitizeLogValue(value, maxLen = 500) {
   if (typeof value !== 'string') return value;
-  return value.replace(CONTROL_CHAR_RE, '').slice(0, maxLen);
+  // Slice to maxLen first so the three PII regexes run on at most maxLen chars
+  // (prevents O(n²) scan on adversarial 8 KB field values). A second slice at
+  // the end re-caps the output because replacements may expand the string.
+  return value
+    .replace(CONTROL_CHAR_RE, '')
+    .slice(0, maxLen)
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[EMAIL_REDACTED]')
+    .replace(/([?&](?:token|session|session_secret)=)[^&\s]+/gi, '$1[REDACTED]')
+    .replace(/\b(session_secret|token|secret|password)\s*[:=]\s*['"]?[^'",\s}&]+/gi, '$1=[REDACTED]')
+    .slice(0, maxLen);
 }

@@ -31,7 +31,7 @@ export function useSessionCountdown(analyzeTime: number): SessionCountdown {
 
   if (remaining <= 0) {
     return {
-      text: 'Preview analisis sudah kedaluwarsa — hasil ini masih bisa kamu lihat, tapi tidak bisa lanjut bayar.',
+      text: 'Waktu bayar sudah habis — hasil masih bisa kamu lihat, tapi perlu upload ulang CV untuk lanjut.',
       variant: 'expired',
       isExpiringSoon: false,
       isExpired: true,
@@ -44,7 +44,7 @@ export function useSessionCountdown(analyzeTime: number): SessionCountdown {
 
   if (remaining <= 300) {
     return {
-      text: `⚠️ Preview berakhir dalam ${m}m ${s}s — selesaikan pembayaran sekarang!`,
+      text: `Waktu tersisa: ${m}m ${s}s — selesaikan pembayaran sekarang!`,
       variant: 'warning',
       isExpiringSoon: true,
       isExpired: false,
@@ -54,8 +54,8 @@ export function useSessionCountdown(analyzeTime: number): SessionCountdown {
   if (remaining <= 1800) {
     return {
       text: h > 0
-        ? `Preview aktif ${h}j ${m}m lagi`
-        : `Preview aktif ${m}m lagi`,
+        ? `Hasil analisis berlaku ${h}j ${m}m lagi — bayar sebelum waktu habis`
+        : `Hasil analisis berlaku ${m}m lagi — bayar sebelum waktu habis`,
       variant: 'warning',
       isExpiringSoon: false,
       isExpired: false,
@@ -64,8 +64,8 @@ export function useSessionCountdown(analyzeTime: number): SessionCountdown {
 
   return {
     text: h > 0
-      ? `Preview aktif ${h}j ${m}m lagi`
-      : `Preview aktif ${m}m lagi`,
+      ? `Hasil analisis berlaku ${h}j ${m}m lagi`
+      : `Hasil analisis berlaku ${m}m lagi`,
     variant: 'default',
     isExpiringSoon: false,
     isExpired: false,

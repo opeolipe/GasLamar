@@ -1,3 +1,11 @@
+## /validate-session 404 is not a bug (2026-05-21)
+
+`GET /validate-session?cvKey=cvtext_<token>` returns 404 when the KV entry is not found — this is correct, expected behavior (cvtext_ entries expire after 24h). Do not treat this as a broken endpoint. Testing with a stale or manually constructed key will always 404. Similarly, `/create-payment` returns 400 (`cv_expired`) when the cvtext_ key has expired — also correct, not a bug. Both errors mean "start a new session," not "the API is down."
+
+Session tokens are in an HttpOnly cookie, never in sessionStorage. `gaslamar_has_session=1` in localStorage is a non-sensitive routing flag only — it is not the session token.
+
+---
+
 ## Scoring false positives from Indonesian CV artefacts (2026-05-11)
 
 Education degree codes (D1, D3, S1, S2, S3) and bare career-tenure strings ("14 tahun pengalaman") are not achievement metrics. LLMs regularly include them in `angka_di_cv` despite prompt instructions, because the examples and exclusion list were incomplete.
@@ -257,3 +265,58 @@ re-use. If the user then cancels at Mayar and navigates back to `/hasil`, two th
 **Rule:** Any time a short-lived KV entry is deleted as part of state advancement (single-use
 consumption), check whether any subsequent user action legitimately needs data from that entry.
 If so, preserve the needed subset under a separate key before deleting.
+
+---
+
+## Frontend freshness TTL must always match backend KV expirationTtl (2026-05-21)
+
+`analyze.js` stores the `cvtext_` KV entry with `expirationTtl: 86400` (24 h).
+Four frontend files historically used **7200** (2 h) as the freshness window:
+- `js/hasil-guard.js` (`SESSION_SECS`)
+- `js/hasil-page.js` (`SESSION_SECS`)
+- `js/analyzing-page.js` (inline `7200000` ms literal)
+- `js/session-controller.js` (`ANALYSIS_FRESHNESS_MS`)
+
+The mismatch caused:
+- Pay button disabled after 2 h even though backend accepts payment for 22 more hours
+- `hasil-guard.js` redirecting to `access.html?expired=1` prematurely (user saw "sesi habis")
+- `analyzing-page.js` routing back to `upload.html` instead of `hasil.html` for returning users
+
+**Rule:** Keep one canonical backend TTL in `analyze.js`. All frontend freshness checks
+must be updated atomically whenever that value changes. The comment in `session-controller.js`
+`ANALYSIS_FRESHNESS_MS must match … the KV TTL` is the canonical sync signal — trust the
+backend TTL, not the comment's stated value.
+
+---
+
+## Mayar sandbox webhook: allow through when NO auth header is sent (2026-05-21)
+
+When staging has `MAYAR_WEBHOOK_SECRET` set AND Mayar sandbox sends its webhook with
+**no** `x-callback-token` or `x-mayar-signature` header, the original code fell through
+to the HMAC check which returned `{valid: false}` → 401. The webhook was silently dropped
+and the session was never marked paid.
+
+**Flow before fix:**
+1. `isSandbox = true`, secret set → skips `!secret` early return
+2. `callbackToken === null` → does NOT return in sandbox branch
+3. Falls through to HMAC block → `!signature` → `{ valid: false }` → 401
+
+**Fix pattern (in `verifyMayarWebhook`):**
+```
+if (isSandbox) {
+  if (callbackToken !== null) { verify and return; }
+  const hasSig = !!(x-mayar-signature header);
+  if (!hasSig) {
+    console.warn('webhook_sandbox_no_auth_header');
+    return { valid: true, body };          ← allow when nothing was sent
+  }
+  // hasSig → fall through to HMAC (wrong sig still rejected)
+}
+```
+
+**Key distinction:**
+- Header **absent** → cannot verify → allow (sandbox only, with warning)
+- Header **present but wrong** → HMAC fails → reject (both sandbox and production)
+
+**Test coverage:** Add `verifyMayarWebhook` unit tests for both the new "absent" path
+and a regression test confirming wrong values are still rejected even in sandbox.

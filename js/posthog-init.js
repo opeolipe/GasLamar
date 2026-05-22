@@ -8,6 +8,7 @@ posthog.init('phc_DmeD8QdyUMMGwZ4GUKnDurFXrquR3APqUKrcEuDbgy3X',{
   api_host:'https://eu.i.posthog.com',
   person_profiles:'identified_only',
   defaults:'2026-01-30',
+  autocapture:false,
   disable_surveys:true,
   disable_web_experiments:true,
   disable_session_recording:true,

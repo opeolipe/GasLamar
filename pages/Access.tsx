@@ -50,6 +50,10 @@ export default function Access() {
 
   const blurTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const confirmEmailRef = useRef<HTMLInputElement>(null);
+  // Always reflects the latest email state — used by the blur timer so it validates
+  // the current value even when the blur fires mid-keystroke (e.g. from the auto-focus).
+  const emailRef = useRef(email);
+  emailRef.current = email;
 
   // ── Derived ──────────────────────────────────────────────────────────────
   const emailValid       = EMAIL_REGEX.test(email.trim());
@@ -77,7 +81,12 @@ export default function Access() {
   function handleEmailChange(value: string) {
     setEmail(value);
     setEmailError('');
-    setEmailSuggestion(suggestEmailFix(value));
+    // Only update an already-visible suggestion during typing; new suggestions fire on blur.
+    // This prevents the confirm field from hiding/showing mid-keystroke when the user types
+    // through a Levenshtein-1 domain (e.g. gmail.co → gmail.com).
+    if (emailSuggestion) {
+      setEmailSuggestion(suggestEmailFix(value));
+    }
     setEmailIsDisposable(false);
     setEmailIsConfirmed(false);
     setConfirmError('');
@@ -87,10 +96,17 @@ export default function Access() {
     }
   }
 
+  function handleEmailFocus() {
+    if (blurTimerRef.current) {
+      clearTimeout(blurTimerRef.current);
+      blurTimerRef.current = null;
+    }
+  }
+
   function handleEmailBlur() {
     if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
     blurTimerRef.current = setTimeout(() => {
-      const result = validateEmail(email);
+      const result = validateEmail(emailRef.current);
       setEmailError(result.error ?? '');
       setEmailSuggestion(result.suggestion);
       setEmailIsDisposable(result.isDisposable);
@@ -191,16 +207,31 @@ export default function Access() {
   const showConfirmError    = !emailError && !emailSuggestion && !!confirmError;
   const showConfirmSuccess  = !emailError && !emailSuggestion && emailIsConfirmed && emailsMatch && confirmTouched;
 
-  // Auto-focus confirm input when it slides into view
+  // Auto-focus confirm input when it slides into view — but only when the primary
+  // email field no longer has focus. Firing while the user is still typing causes a
+  // spurious blur that captures an incomplete email (e.g. 'gmail.co' before 'gmail.com'),
+  // which triggers a false-positive typo suggestion and permanently disables the button.
+  // prevShowConfirmField is only set inside the timer callback (not before it fires) so
+  // that a skip (email still focused) leaves the flag false and allows a retry the next
+  // time showConfirmField transitions false→true.
   const prevShowConfirmField = useRef(false);
   useEffect(() => {
     if (showConfirmField && !prevShowConfirmField.current) {
-      const t = setTimeout(() => confirmEmailRef.current?.focus(), 280);
-      prevShowConfirmField.current = true;
+      const t = setTimeout(() => {
+        const emailInput = document.getElementById('access-email');
+        if (document.activeElement !== emailInput) {
+          prevShowConfirmField.current = true;
+          confirmEmailRef.current?.focus();
+        }
+      }, 280);
       return () => clearTimeout(t);
     }
     if (!showConfirmField) prevShowConfirmField.current = false;
   }, [showConfirmField]);
+
+  useEffect(() => {
+    return () => { if (blurTimerRef.current) clearTimeout(blurTimerRef.current); };
+  }, []);
 
   const primaryBorderClass  = emailError ? 'border-red-400 ring-red-200' : showConfirmed ? 'border-green-400 ring-green-100' : 'border-slate-200';
   const confirmBorderClass  = showConfirmError ? 'border-red-400 ring-red-200' : showConfirmSuccess ? 'border-green-400 ring-green-100' : 'border-slate-200';
@@ -341,6 +372,7 @@ export default function Access() {
                       autoComplete="email"
                       value={email}
                       onChange={e => handleEmailChange(e.target.value)}
+                      onFocus={handleEmailFocus}
                       onBlur={handleEmailBlur}
                       placeholder="email@kamu.com"
                       required
