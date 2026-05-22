@@ -377,6 +377,127 @@ test.describe('GasLamar CV Flow', () => {
     await expect(page.locator('[data-testid="generate-cv-button"]')).toBeEnabled();
   });
 
+  test('download page loads from localStorage when sessionStorage is empty', async ({ page }) => {
+    const sessionId = 'sess_e2e-localstorage-only';
+    await page.addInitScript((sid) => {
+      if (location.pathname.startsWith('/download')) {
+        localStorage.setItem('gaslamar_session', sid);
+        sessionStorage.clear();
+      }
+    }, sessionId);
+
+    await mockCheckSession(page, { status: 'paid', session_id: sessionId, credits_remaining: 2, total_credits: 3 });
+    await mockGetSession(page);
+    await mockGenerate(page, { credits_remaining: 1, total_credits: 3 });
+
+    await page.goto('/download?session=' + sessionId);
+    await expect(page.locator('[data-testid="cv-content"]')).toBeVisible({ timeout: 30000 });
+
+    const storageState = await page.evaluate((sid) => ({
+      localSession: localStorage.getItem('gaslamar_session'),
+      sessionSession: sessionStorage.getItem('gaslamar_session'),
+    }), sessionId);
+    expect(storageState.localSession).toBe(sessionId);
+    expect(storageState.sessionSession).toBeNull();
+  });
+
+  test('first cleanup visit stamps seen entry for stale secret without deleting it', async ({ page }) => {
+    const activeSession = 'sess_e2e-active-firstseen';
+    const oldSession    = 'sess_e2e-old-firstseen';
+
+    await page.addInitScript(({ activeSession, oldSession }) => {
+      if (location.pathname.startsWith('/download')) {
+        localStorage.setItem('gaslamar_session', activeSession);
+        localStorage.setItem(`gaslamar_secret_${activeSession}`, 'active-secret');
+        localStorage.setItem(`gaslamar_secret_${oldSession}`, 'old-secret');
+        // No seen_ entry — simulates first time cleanup sees this stale key
+      }
+    }, { activeSession, oldSession });
+
+    await mockCheckSession(page, { status: 'paid', session_id: activeSession });
+    await mockGetSession(page);
+    await mockGenerate(page);
+
+    await page.goto('/download');
+    await expect(page.locator('[data-testid="cv-content"]')).toBeVisible({ timeout: 30000 });
+
+    const storageState = await page.evaluate(({ activeSession, oldSession }) => ({
+      activeSecret:  localStorage.getItem(`gaslamar_secret_${activeSession}`),
+      oldSecret:     localStorage.getItem(`gaslamar_secret_${oldSession}`),
+      oldSeen:       localStorage.getItem(`gaslamar_secret_seen_${oldSession}`),
+      spuriousSeen:  localStorage.getItem(`gaslamar_secret_seen_seen_${oldSession}`),
+    }), { activeSession, oldSession });
+
+    expect(storageState.activeSecret).toBe('active-secret');
+    expect(storageState.oldSecret).toBe('old-secret');      // not deleted yet — grace window just started
+    expect(storageState.oldSeen).not.toBeNull();            // seen_ entry stamped on this visit
+    expect(storageState.spuriousSeen).toBeNull();           // no seen_seen_ pollution
+  });
+
+  test('stale gaslamar_secret keys are cleaned only after a new valid session is confirmed', async ({ page }) => {
+    const activeSession = 'sess_e2e-active-cleanup';
+    const oldSession = 'sess_e2e-old-cleanup';
+    const oldSeenAt = Date.now() - (16 * 60 * 1000);
+
+    await page.addInitScript(({ activeSession, oldSession, oldSeenAt }) => {
+      if (location.pathname.startsWith('/download')) {
+        localStorage.setItem('gaslamar_session', activeSession);
+        localStorage.setItem(`gaslamar_secret_${activeSession}`, 'active-secret');
+        localStorage.setItem(`gaslamar_secret_${oldSession}`, 'old-secret');
+        localStorage.setItem(`gaslamar_secret_seen_${oldSession}`, String(oldSeenAt));
+      }
+    }, { activeSession, oldSession, oldSeenAt });
+
+    await mockCheckSession(page, { status: 'paid', session_id: activeSession });
+    await mockGetSession(page);
+    await mockGenerate(page);
+
+    await page.goto('/download');
+    await expect(page.locator('[data-testid="cv-content"]')).toBeVisible({ timeout: 30000 });
+
+    const storageState = await page.evaluate(({ activeSession, oldSession }) => ({
+      activeSecret:  localStorage.getItem(`gaslamar_secret_${activeSession}`),
+      oldSecret:     localStorage.getItem(`gaslamar_secret_${oldSession}`),
+      oldSeen:       localStorage.getItem(`gaslamar_secret_seen_${oldSession}`),
+      spuriousSeen:  localStorage.getItem(`gaslamar_secret_seen_seen_${oldSession}`),
+    }), { activeSession, oldSession });
+    expect(storageState.activeSecret).toBe('active-secret');
+    expect(storageState.oldSecret).toBeNull();
+    expect(storageState.oldSeen).toBeNull();
+    expect(storageState.spuriousSeen).toBeNull();           // no seen_seen_ pollution from prefix collision
+  });
+
+  test('recent previous gaslamar_secret key is preserved during the grace window', async ({ page }) => {
+    const activeSession = 'sess_e2e-active-grace';
+    const recentSession = 'sess_e2e-recent-grace';
+    const recentSeenAt = Date.now() - (5 * 60 * 1000);
+
+    await page.addInitScript(({ activeSession, recentSession, recentSeenAt }) => {
+      if (location.pathname.startsWith('/download')) {
+        localStorage.setItem('gaslamar_session', activeSession);
+        localStorage.setItem(`gaslamar_secret_${activeSession}`, 'active-secret');
+        localStorage.setItem(`gaslamar_secret_${recentSession}`, 'recent-secret');
+        localStorage.setItem(`gaslamar_secret_seen_${recentSession}`, String(recentSeenAt));
+      }
+    }, { activeSession, recentSession, recentSeenAt });
+
+    await mockCheckSession(page, { status: 'paid', session_id: activeSession });
+    await mockGetSession(page);
+    await mockGenerate(page);
+
+    await page.goto('/download');
+    await expect(page.locator('[data-testid="cv-content"]')).toBeVisible({ timeout: 30000 });
+
+    const storageState = await page.evaluate(({ activeSession, recentSession }) => ({
+      activeSecret: localStorage.getItem(`gaslamar_secret_${activeSession}`),
+      recentSecret: localStorage.getItem(`gaslamar_secret_${recentSession}`),
+      recentSeen: localStorage.getItem(`gaslamar_secret_seen_${recentSession}`),
+    }), { activeSession, recentSession });
+    expect(storageState.activeSecret).toBe('active-secret');
+    expect(storageState.recentSecret).toBe('recent-secret');
+    expect(storageState.recentSeen).toBe(String(recentSeenAt));
+  });
+
   // ── NO SESSION ON HASIL PAGE ──────────────────────────────────────────────
 
   test('hasil page shows no-session message when sessionStorage is empty', async ({ page }) => {
