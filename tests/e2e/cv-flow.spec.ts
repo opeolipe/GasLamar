@@ -381,6 +381,7 @@ test.describe('GasLamar CV Flow', () => {
     const sessionId = 'sess_e2e-localstorage-only';
     await page.addInitScript((sid) => {
       if (location.pathname.startsWith('/download')) {
+        localStorage.setItem('gaslamar_has_session', '1');
         localStorage.setItem('gaslamar_session', sid);
         sessionStorage.clear();
       }
@@ -407,6 +408,7 @@ test.describe('GasLamar CV Flow', () => {
 
     await page.addInitScript(({ activeSession, oldSession }) => {
       if (location.pathname.startsWith('/download')) {
+        localStorage.setItem('gaslamar_has_session', '1');
         localStorage.setItem('gaslamar_session', activeSession);
         localStorage.setItem(`gaslamar_secret_${activeSession}`, 'active-secret');
         localStorage.setItem(`gaslamar_secret_${oldSession}`, 'old-secret');
@@ -441,6 +443,7 @@ test.describe('GasLamar CV Flow', () => {
 
     await page.addInitScript(({ activeSession, oldSession, oldSeenAt }) => {
       if (location.pathname.startsWith('/download')) {
+        localStorage.setItem('gaslamar_has_session', '1');
         localStorage.setItem('gaslamar_session', activeSession);
         localStorage.setItem(`gaslamar_secret_${activeSession}`, 'active-secret');
         localStorage.setItem(`gaslamar_secret_${oldSession}`, 'old-secret');
@@ -474,6 +477,7 @@ test.describe('GasLamar CV Flow', () => {
 
     await page.addInitScript(({ activeSession, recentSession, recentSeenAt }) => {
       if (location.pathname.startsWith('/download')) {
+        localStorage.setItem('gaslamar_has_session', '1');
         localStorage.setItem('gaslamar_session', activeSession);
         localStorage.setItem(`gaslamar_secret_${activeSession}`, 'active-secret');
         localStorage.setItem(`gaslamar_secret_${recentSession}`, 'recent-secret');
