@@ -1376,7 +1376,7 @@ describe('GET /validate-session', () => {
 
   it('returns valid:true via scoring_ fallback when cvtext_ was consumed by create-payment', async () => {
     // Simulate /create-payment deleting cvtext_ but preserving scoring_ snapshot.
-    const token = crypto.randomUUID().replace(/-/g, '');
+    const token = cvHexToken();
     const cvKey = `cvtext_${token}`;
     const scoringKey = `scoring_${token}`;
     // Only scoring_ exists; cvtext_ is gone.
@@ -2667,21 +2667,6 @@ describe('Session token non-disclosure', () => {
     expect(res.headers.get('Set-Cookie')).toMatch(/session_id=sess_/);
   });
 
-  it('POST /bypass-payment sets the HttpOnly cookie without returning session_id in JSON', async () => {
-    const key = `cvtext_${cvHexToken()}`;
-    await env.GASLAMAR_SESSIONS.put(key, JSON.stringify({
-      text: 'Budi Santoso\nSoftware Engineer\nReact Node.js',
-      job_desc: JOB_DESC,
-      ip: '10.78.0.2',
-    }), { expirationTtl: 3600 });
-
-    const res = await post('/bypass-payment', { tier: 'single', cv_text_key: key, bypass_secret: 'test-bypass-secret' }, {}, '10.78.0.2');
-    expect(res.status).toBe(200);
-
-    const body = await res.json();
-    expect(body).toEqual({ ok: true });
-    expect(res.headers.get('Set-Cookie')).toMatch(/session_id=sess_/);
-  });
 });
 
 // ── (end Patch 5 abuse/rate-limit tests) ──────────────────────────────────────
@@ -3479,103 +3464,6 @@ describe('POST /interview-kit', () => {
 
     expect(cachedId).not.toBeNull();
     expect(cachedEn).not.toBeNull();
-  });
-});
-
-describe('POST /bypass-payment — sandbox bypass', () => {
-  const CV_TEXT = 'Budi Santoso\nSoftware Engineer\n\nPENGALAMAN\nDeveloper PT XYZ 2020-2024\n- Node.js REST API\n- React dashboard\n\nPENDIDIKAN\nS1 Teknik Informatika UI 2020';
-
-  async function seedCVKey(ip = '5.5.5.5') {
-    const key = `cvtext_${cvHexToken()}`;
-    await env.GASLAMAR_SESSIONS.put(key, JSON.stringify({ text: CV_TEXT, job_desc: JOB_DESC, ip }), { expirationTtl: 3600 });
-    return key;
-  }
-
-  it('happy path — creates paid session and returns only an HttpOnly cookie', async () => {
-    const key = await seedCVKey();
-    const res = await post('/bypass-payment', { tier: 'single', cv_text_key: key, bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
-    expect(res.status).toBe(200);
-
-    const body = await res.json();
-    expect(body).toEqual({ ok: true });
-
-    const setCookie = res.headers.get('set-cookie');
-    expect(setCookie).toContain('session_id=sess_');
-
-    const sessionId = sessionIdFromSetCookie(res);
-    const session = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
-    expect(session.status).toBe('paid');
-    expect(session.tier).toBe('single');
-    expect(session.mayar_invoice_id).toBe('bypass_sandbox');
-    expect(session.cv_text).toBe(CV_TEXT);
-    expect(session.session_secret_hash).toBeUndefined();
-  });
-
-  it('consumes cv_text_key — second call returns 400 (key not found)', async () => {
-    const key = await seedCVKey();
-    const res1 = await post('/bypass-payment', { tier: 'single', cv_text_key: key, bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
-    expect(res1.status).toBe(200);
-
-    const res2 = await post('/bypass-payment', { tier: 'single', cv_text_key: key, bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
-    expect(res2.status).toBe(400);
-    const body2 = await res2.json();
-    expect(body2.message).toMatch(/kedaluwarsa|analisis/i);
-  });
-
-  it('rejects missing tier → 400', async () => {
-    const key = await seedCVKey();
-    const res = await post('/bypass-payment', { cv_text_key: key, bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
-    expect(res.status).toBe(400);
-  });
-
-  it('rejects invalid tier → 400', async () => {
-    const key = await seedCVKey();
-    const res = await post('/bypass-payment', { tier: 'premium', cv_text_key: key, bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
-    expect(res.status).toBe(400);
-    const body = await res.json();
-    expect(body.message).toMatch(/tier/i);
-  });
-
-  it('rejects cv_text_key without cvtext_ prefix → 400', async () => {
-    const res = await post('/bypass-payment', { tier: 'single', cv_text_key: 'sess_abc123', bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
-    expect(res.status).toBe(400);
-    const body = await res.json();
-    expect(body.message).toMatch(/cv_text_key/i);
-  });
-
-  it('rejects unknown cv_text_key → 400', async () => {
-    const nonexistentKey = `cvtext_${cvHexToken()}`;
-    const res = await post('/bypass-payment', { tier: 'single', cv_text_key: nonexistentKey, bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
-    expect(res.status).toBe(400);
-    const body = await res.json();
-    expect(body.message).toMatch(/kedaluwarsa|analisis/i);
-  });
-
-  it('sets correct credits for 3pack tier', async () => {
-    const key = await seedCVKey();
-    const res = await post('/bypass-payment', { tier: '3pack', cv_text_key: key, bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body).toEqual({ ok: true });
-    const sessionId = sessionIdFromSetCookie(res);
-    const session = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
-    expect(session.credits_remaining).toBe(3);
-    expect(session.total_credits).toBe(3);
-  });
-
-  it('does not require a client-readable session_secret', async () => {
-    const key = await seedCVKey();
-    const res = await post('/bypass-payment', { tier: 'single', cv_text_key: key, bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
-    expect(res.status).toBe(200);
-  });
-
-  it('rejects malformed JSON body → 400', async () => {
-    const res = await SELF.fetch('https://gaslamar.com/bypass-payment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Origin: GASLAMAR_ORIGIN, 'CF-Connecting-IP': '5.5.5.5' },
-      body: 'not-json',
-    });
-    expect(res.status).toBe(400);
   });
 });
 

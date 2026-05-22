@@ -17,7 +17,6 @@ import { handleResendEmail }    from './handlers/resendEmail.js';
 import { handleResendAccess }  from './handlers/resendAccess.js';
 import { handleInterviewKit }  from './handlers/interviewKit.js';
 import { handleGetResult } from './handlers/getResult.js';
-import { handleBypassPayment } from './handlers/bypassPayment.js';
 import { handleValidateCoupon } from './handlers/validateCoupon.js';
 import { handleGetScoring } from './handlers/getScoring.js';
 
@@ -152,10 +151,6 @@ export async function route(request, env, ctx) {
 
   if (method === 'POST' && apiPath === '/interview-kit') {
     return handleInterviewKit(request, env);
-  }
-
-  if (method === 'POST' && apiPath === '/bypass-payment') {
-    return handleBypassPayment(request, env);
   }
 
   if (method === 'POST' && apiPath === '/validate-coupon') {
