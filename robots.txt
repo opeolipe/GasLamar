@@ -9,3 +9,6 @@ Disallow: /generate
 Disallow: /webhook/
 
 Allow: /
+
+# AI/LLM crawlers
+LLMs: /llms.txt
