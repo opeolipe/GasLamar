@@ -25,6 +25,8 @@ export function clearClientSessionData(sessionId: string | null): void {
   sessionStorage.removeItem('gaslamar_session');
   sessionStorage.removeItem('gaslamar_user_id');
   localStorage.removeItem('gaslamar_session');
+  localStorage.removeItem('gaslamar_has_session');
+  localStorage.removeItem('gaslamar_delivery');
   localStorage.removeItem('gaslamar_user_id');
   localStorage.removeItem('gaslamar_tier');
   if (sessionId) {
@@ -66,8 +68,23 @@ function cleanupSecretStorage(storage: Storage, activeSessionId: string, now: nu
   }
 }
 
-export function cleanupStaleSessionSecrets(activeSessionId: string): void {
-  if (!activeSessionId?.startsWith('sess_')) return;
+function clearAllStoredSecrets(storage: Storage): void {
+  const keys: string[] = [];
+  for (let i = 0; i < storage.length; i++) {
+    const key = storage.key(i);
+    if (key?.startsWith(SECRET_PREFIX) || key?.startsWith(SECRET_SEEN_PREFIX)) keys.push(key);
+  }
+
+  for (const key of keys) storage.removeItem(key);
+}
+
+export function cleanupStaleSessionSecrets(activeSessionId: string | null): void {
+  if (!activeSessionId?.startsWith('sess_')) {
+    try { clearAllStoredSecrets(sessionStorage); } catch (_) {}
+    try { clearAllStoredSecrets(localStorage); } catch (_) {}
+    return;
+  }
+
   const now = Date.now();
   try { cleanupSecretStorage(sessionStorage, activeSessionId, now); } catch (_) {}
   try { cleanupSecretStorage(localStorage, activeSessionId, now); } catch (_) {}

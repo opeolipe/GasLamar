@@ -17,14 +17,9 @@ function startPolling(sessionId) {
 // ── restartPolling ────────────────────────────────────────────────────────────
 // Called by the "Check Again" button after auto-polling has exhausted MAX_POLLS.
 function restartPolling() {
-  const sessionId = sessionIdCache;
-  if (!sessionId) {
-    showSessionError('Sesi tidak ditemukan', 'Link download tidak valid.');
-    return;
-  }
   document.getElementById('check-btn').classList.add('hidden');
   document.getElementById('contact-btn').classList.add('hidden');
-  startPolling(sessionId);
+  startPolling(null);
 }
 
 // ── handlePaidSession ─────────────────────────────────────────────────────────

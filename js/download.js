@@ -59,11 +59,8 @@ function downloadFile(lang, format) {
       // token has no value but would otherwise persist in browser history.
       history.replaceState(null, '', location.pathname);
       if (res.ok) {
-        const data = await res.json();
-        if (data.session_id) {
-          sessionIdCache     = data.session_id;
-        }
-        startPolling(sessionIdCache);
+        await res.json().catch(function() { return {}; });
+        startPolling(null);
       } else {
         showSessionError(
           'Link Kedaluwarsa',
@@ -79,8 +76,8 @@ function downloadFile(lang, format) {
   }
 
   // ── Path 2: cookie-only normal flow ───────────────────────────────────────
-  // The Worker validates the HttpOnly session cookie and returns the session_id
-  // for in-memory UI state only. The browser never persists it in localStorage.
+  // The Worker validates the HttpOnly session cookie without exposing the
+  // session_id to JavaScript.
   showState('waiting-payment');
   try {
     const res = await fetch(WORKER_URL + '/check-session', {
@@ -90,13 +87,8 @@ function downloadFile(lang, format) {
       showSessionError('Sesi tidak ditemukan', 'Link download tidak valid. Coba lagi dari awal.');
       return;
     }
-    const data = await res.json();
-    if (!data.session_id || !data.session_id.startsWith('sess_')) {
-      showSessionError('Sesi tidak ditemukan', 'Link download tidak valid. Coba lagi dari awal.');
-      return;
-    }
-    sessionIdCache = data.session_id;
-    startPolling(data.session_id);
+    await res.json().catch(function() { return {}; });
+    startPolling(null);
   } catch (_) {
     showSessionError('Terjadi Kesalahan', 'Tidak dapat menghubungi server. Coba refresh halaman ini.');
     return;

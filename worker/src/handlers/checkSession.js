@@ -54,7 +54,6 @@ export async function handleCheckSession(request, env) {
     : null;
 
   return jsonResponse({
-    session_id: sessionId,
     status: session.status,
     credits_remaining: session.credits_remaining ?? 1,
     total_credits: session.total_credits ?? 1,

@@ -248,11 +248,10 @@ async function showExhaustedResult(data) {
 }
 
 // ── retryGeneration ───────────────────────────────────────────────────────────
-// Called by the "Coba Lagi" error button. Reloads if session ID is gone.
+// Called by the "Coba Lagi" error button. Auth travels via the HttpOnly cookie.
 let retryGenerationInProgress = false;
 async function retryGeneration() {
   if (retryGenerationInProgress) return;
-  if (!sessionIdCache) { window.location.reload(); return; }
   retryGenerationInProgress = true;
   const retryBtn = document.getElementById('error-retry-btn');
   if (retryBtn) retryBtn.disabled = true;
@@ -260,7 +259,7 @@ async function retryGeneration() {
     tier: sessionStorage.getItem('gaslamar_tier') || undefined,
   });
   try {
-    await fetchAndGenerateCV(sessionIdCache);
+    await fetchAndGenerateCV(null);
   } finally {
     retryGenerationInProgress = false;
     if (retryBtn) retryBtn.disabled = false;
@@ -273,7 +272,7 @@ async function retryGeneration() {
 async function generateForNewJob() {
   const textarea = document.getElementById('new-job-desc');
   const btn      = document.getElementById('new-job-btn');
-  if (!textarea || !btn || !sessionIdCache) return;
+  if (!textarea || !btn) return;
 
   const newJobDesc = textarea.value.trim();
   if (!newJobDesc) { textarea.focus(); return; }
@@ -308,7 +307,7 @@ async function generateForNewJob() {
     setGeneratingText('AI sedang menulis CV untuk loker baru...');
 
     // Step 3: generate with the new job description
-    await generateCVContent(sessionIdCache, tier, newJobDesc);
+    await generateCVContent(null, tier, newJobDesc);
 
   } catch (err) {
     btn.disabled    = false;
