@@ -253,7 +253,7 @@ export async function handleGenerate(request, env, ctx) {
         await updateSession(env, session_id, {
           status: SESSION_STATES.EXHAUSTED,
           credits_remaining: 0,
-        }).catch(() => {});
+        }).catch(e3 => logError('generate_session_update_failed', { session_id, target: 'exhausted', error: e3.message }));
         ctx.waitUntil(
           sendCVReadyEmail(session_id, score, gaps, env)
             .catch(e => logError('cv_ready_email_failed', { session_id, error: e.message }))
@@ -262,13 +262,15 @@ export async function handleGenerate(request, env, ctx) {
         await updateSession(env, session_id, {
           status: SESSION_STATES.EXHAUSTED,
           credits_remaining: 0,
-        }).catch(() => {});
+        }).catch(e3 => logError('generate_session_update_failed', { session_id, target: 'exhausted', error: e3.message }));
       }
     } else {
       // Credits remain — transition to 'ready' (not 'paid') so the client knows a result exists.
       const updates = { status: SESSION_STATES.READY, credits_remaining: newCreditsRemaining };
       if (newJobDesc && newJobDesc.trim()) updates.job_desc = effectiveJobDesc;
-      await updateSession(env, session_id, updates);
+      await updateSession(env, session_id, updates).catch(e3 =>
+        logError('generate_session_update_failed', { session_id, target: 'ready', credits_remaining: newCreditsRemaining, error: e3.message })
+      );
       if (ctx && (score !== undefined || gaps !== undefined)) {
         ctx.waitUntil(sendCVReadyEmail(session_id, score, gaps, env).catch(e => {
           logError('cv_ready_email_failed', { session_id, error: e.message });
@@ -313,6 +315,13 @@ export async function handleGenerate(request, env, ctx) {
       : 'Generate CV gagal. Coba lagi.';
     return jsonResponse({ message: userMsg }, 500, request, env);
   } finally {
-    await env.GASLAMAR_SESSIONS.delete(lockKey).catch(() => {});
+    // Only delete the lock if it still contains our nonce.
+    // If generation exceeded the 60s KV TTL, the lock auto-expired and a concurrent
+    // request may have already written a new nonce — deleting that would remove their
+    // protection and allow a third concurrent request to start.
+    const currentLock = await env.GASLAMAR_SESSIONS.get(lockKey).catch(() => null);
+    if (currentLock === lockNonce) {
+      await env.GASLAMAR_SESSIONS.delete(lockKey).catch(() => {});
+    }
   }
 }

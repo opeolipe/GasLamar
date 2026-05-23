@@ -4,6 +4,7 @@ import { TIER_CREDITS, VALID_TIERS } from '../constants.js';
 import { checkRateLimitKV } from '../rateLimit.js';
 import { createSession } from '../sessions.js';
 import { makeSessionCookie } from '../cookies.js';
+import { SESSION_STATES } from '../sessionStates.js';
 
 /**
  * POST /bypass-payment — sandbox-only payment bypass for E2E testing.
@@ -71,7 +72,7 @@ export async function handleBypassPayment(request, env) {
     return jsonResponse({ message: 'Tier tidak valid' }, 400, request, env);
   }
 
-  if (!cv_text_key.startsWith('cvtext_')) {
+  if (!/^cvtext_[0-9a-f]{64}$/.test(cv_text_key)) {
     return jsonResponse({ message: 'cv_text_key tidak valid' }, 400, request, env);
   }
 
@@ -87,7 +88,7 @@ export async function handleBypassPayment(request, env) {
     cv_text: stored.text,
     job_desc: stored.job_desc,
     tier,
-    status: 'paid',
+    status: SESSION_STATES.PAID,
     credits_remaining: credits,
     total_credits: credits,
     ip,

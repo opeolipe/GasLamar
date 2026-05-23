@@ -48,7 +48,7 @@ export async function handleCreatePayment(request, env) {
   }
 
   // Look up extracted CV text from KV (set by /analyze) — never re-extract
-  if (!cv_text_key.startsWith('cvtext_')) {
+  if (!/^cvtext_[0-9a-f]{64}$/.test(cv_text_key)) {
     return jsonResponse({ message: 'cv_text_key tidak valid' }, 400, request, env);
   }
   const stored = await env.GASLAMAR_SESSIONS.get(cv_text_key, { type: 'json' });

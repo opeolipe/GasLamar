@@ -128,6 +128,11 @@ function jsonRequest(path, body, ip = '1.2.3.4') {
   });
 }
 
+/** Generates a valid cvtext_ key token: 64 lowercase hex chars (matches production hexToken(32)). */
+function cvHexToken() {
+  return Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 /** Seed a cvtext_ key in KV and return the key.
  *  ip should match the CF-Connecting-IP used in subsequent /create-payment calls.
  */
@@ -135,7 +140,7 @@ async function seedCVTextKey(
   text = 'Budi Santoso\nSoftware Engineer\n\nPENGALAMAN\nDeveloper PT XYZ 2020-2024\n- Node.js REST API\n- React dashboard\n\nPENDIDIKAN\nS1 Teknik Informatika UI 2020',
   ip = '1.2.3.4',
 ) {
-  const key = `cvtext_${crypto.randomUUID()}`;
+  const key = `cvtext_${cvHexToken()}`;
   await env.GASLAMAR_SESSIONS.put(key, JSON.stringify({ text, job_desc: JOB_DESC, ip }), { expirationTtl: 3600 });
   return key;
 }
@@ -711,9 +716,11 @@ describe('POST /create-payment — validation', () => {
   });
 
   it('rejects expired / missing cv_text_key → 400', async () => {
+    // Use a valid-format key that simply does not exist in KV — tests the "expired" path
+    const nonexistentKey = `cvtext_${cvHexToken()}`;
     const res = await post('/create-payment', {
       tier: 'single',
-      cv_text_key: 'cvtext_nonexistent',
+      cv_text_key: nonexistentKey,
     });
     expect(res.status).toBe(400);
     const body = await res.json();
@@ -3228,7 +3235,7 @@ describe('POST /bypass-payment — sandbox bypass', () => {
   const CV_TEXT = 'Budi Santoso\nSoftware Engineer\n\nPENGALAMAN\nDeveloper PT XYZ 2020-2024\n- Node.js REST API\n- React dashboard\n\nPENDIDIKAN\nS1 Teknik Informatika UI 2020';
 
   async function seedCVKey(ip = '5.5.5.5') {
-    const key = `cvtext_${crypto.randomUUID()}`;
+    const key = `cvtext_${cvHexToken()}`;
     await env.GASLAMAR_SESSIONS.put(key, JSON.stringify({ text: CV_TEXT, job_desc: JOB_DESC, ip }), { expirationTtl: 3600 });
     return key;
   }
@@ -3285,7 +3292,8 @@ describe('POST /bypass-payment — sandbox bypass', () => {
   });
 
   it('rejects unknown cv_text_key → 400', async () => {
-    const res = await post('/bypass-payment', { tier: 'single', cv_text_key: 'cvtext_nonexistent', bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
+    const nonexistentKey = `cvtext_${cvHexToken()}`;
+    const res = await post('/bypass-payment', { tier: 'single', cv_text_key: nonexistentKey, bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.message).toMatch(/kedaluwarsa|analisis/i);
