@@ -1,4 +1,4 @@
-import { corsResponse, forbiddenOriginResponse, isUnsafeOrigin, jsonResponse } from './cors.js';
+import { forbiddenOriginResponse, isUnsafeOrigin, jsonResponse, corsResponse } from './cors.js';
 import { clientIp, log, logError } from './utils.js';
 import { checkRateLimitKV, rateLimitResponse } from './rateLimit.js';
 import { sanitizeLogValue } from './sanitize.js';
@@ -81,6 +81,13 @@ export async function route(request, env, ctx) {
       status: 'ok',
       timestamp: new Date().toISOString(),
     }, 200, request, env);
+  }
+
+  // CORS preflight — browsers send OPTIONS before non-simple cross-origin requests.
+  // Must return 2xx; a 404 fails the preflight and blocks the subsequent POST entirely.
+  // Placed before all route handlers so no endpoint-specific match is needed.
+  if (method === 'OPTIONS') {
+    return corsResponse('', 204, {}, request, env);
   }
 
   // Mayar webhooks are server-to-server and do not carry a browser Origin.

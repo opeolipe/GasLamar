@@ -286,6 +286,33 @@ describe('/health', () => {
   });
 });
 
+describe('OPTIONS — CORS preflight', () => {
+  it('returns 204 for OPTIONS to any API path', async () => {
+    const res = await SELF.fetch('https://gaslamar.com/analyze', {
+      method: 'OPTIONS',
+      headers: { Origin: GASLAMAR_ORIGIN, 'CF-Connecting-IP': '1.2.3.4' },
+    });
+    expect(res.status).toBe(204);
+  });
+
+  it('returns CORS headers on OPTIONS response', async () => {
+    const res = await SELF.fetch('https://gaslamar.com/generate', {
+      method: 'OPTIONS',
+      headers: { Origin: GASLAMAR_ORIGIN, 'CF-Connecting-IP': '1.2.3.4' },
+    });
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe(GASLAMAR_ORIGIN);
+    expect(res.headers.get('Access-Control-Allow-Methods')).toContain('POST');
+  });
+
+  it('returns 204 for OPTIONS to /webhook/mayar (webhook path is not blocked for OPTIONS)', async () => {
+    const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
+      method: 'OPTIONS',
+      headers: { Origin: GASLAMAR_ORIGIN, 'CF-Connecting-IP': '1.2.3.4' },
+    });
+    expect(res.status).toBe(204);
+  });
+});
+
 describe('POST /api/log — privacy redaction', () => {
   it('redacts emails, tokens, session secrets, raw CV, and raw JD from client logs', async () => {
     const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -1394,6 +1421,16 @@ describe('GET /validate-session', () => {
     const body = await res.json();
     expect(body.valid).toBe(false);
     expect(body.reason).toBe('not_found');
+  });
+
+  it('rate-limits after 20 requests per minute per IP → 429', async () => {
+    const ip = '10.96.99.1';
+    // Exhaust the 20-request window
+    for (let i = 0; i < 20; i++) {
+      await get('/validate-session?cvKey=cvtext_missing', {}, ip);
+    }
+    const res = await get('/validate-session?cvKey=cvtext_missing', {}, ip);
+    expect(res.status).toBe(429);
   });
 });
 
@@ -3828,5 +3865,69 @@ describe('POST /api/log', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('POST /get-result — exhausted field', () => {
+  const CV_RESULT = {
+    cv_id: 'Budi Santoso\nSoftware Engineer',
+    cv_id_docx: 'Budi Santoso\nSoftware Engineer',
+    cv_en: null,
+    cv_en_docx: null,
+    job_title: 'Engineer',
+    company: 'PT XYZ',
+    tier: 'single',
+    saved_at: Date.now(),
+  };
+
+  it('returns exhausted:true when session is in exhausted state', async () => {
+    const sessionId = `sess_${crypto.randomUUID()}`;
+    await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
+      cv_text: 'cv', job_desc: 'jd', tier: 'single', status: 'exhausted',
+      created_at: Date.now(), credits_remaining: 0, total_credits: 1,
+    }), { expirationTtl: 600 });
+    await env.GASLAMAR_SESSIONS.put(`cv_result_${sessionId}`, JSON.stringify(CV_RESULT), { expirationTtl: 600 });
+
+    const res = await post('/get-result', {}, { Cookie: `session_id=${sessionId}` });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.exhausted).toBe(true);
+  });
+
+  it('returns exhausted:false when session still has credits (multi-credit user)', async () => {
+    const sessionId = `sess_${crypto.randomUUID()}`;
+    await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
+      cv_text: 'cv', job_desc: 'jd', tier: '3pack', status: 'ready',
+      created_at: Date.now(), credits_remaining: 2, total_credits: 3,
+    }), { expirationTtl: 600 });
+    await env.GASLAMAR_SESSIONS.put(`cv_result_${sessionId}`, JSON.stringify({ ...CV_RESULT, tier: '3pack' }), { expirationTtl: 600 });
+
+    const res = await post('/get-result', {}, { Cookie: `session_id=${sessionId}` });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.exhausted).toBe(false);
+  });
+
+  it('returns exhausted:true when session is absent (expired after last credit)', async () => {
+    const sessionId = `sess_${crypto.randomUUID()}`;
+    // No session entry — only the cv_result_ entry remains
+    await env.GASLAMAR_SESSIONS.put(`cv_result_${sessionId}`, JSON.stringify(CV_RESULT), { expirationTtl: 600 });
+
+    const res = await post('/get-result', {}, { Cookie: `session_id=${sessionId}` });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.exhausted).toBe(true);
+  });
+
+  it('returns 401 when no session cookie', async () => {
+    const res = await post('/get-result', {});
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 404 when cv_result_ entry is absent', async () => {
+    const sessionId = `sess_${crypto.randomUUID()}`;
+    const res = await post('/get-result', {}, { Cookie: `session_id=${sessionId}` });
+    expect(res.status).toBe(404);
   });
 });

@@ -3,8 +3,8 @@ import { clientIp, log } from '../utils.js';
 import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
 
 export async function handleValidateSession(request, env) {
-  const ip  = clientIp(request);
-  const rl  = await checkRateLimitKV(env, ip, 10, 60, 'validate_session');
+  const ip = clientIp(request);
+  const rl = await checkRateLimitKV(env, ip, 20, 60, 'validate_session');
   if (!rl.allowed) return rateLimitResponse(request, env, rl.retryAfter ?? 60);
 
   const url = new URL(request.url);
