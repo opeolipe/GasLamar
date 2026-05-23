@@ -330,10 +330,11 @@ export function useDownloadSession(): UseDownloadSessionReturn {
           });
           if (!mountedRef.current) return;
 
+          history.replaceState(null, '', location.pathname);
+
           if (res.ok) {
             await res.json().catch(() => ({}));
             setHasSession(true);
-            history.replaceState(null, '', location.pathname);
             startPolling();
           } else {
             showError(

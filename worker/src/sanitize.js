@@ -231,5 +231,6 @@ export function sanitizeLogValue(value, maxLen = 500) {
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[EMAIL_REDACTED]')
     .replace(/([?&](?:token|session|session_secret)=)[^&\s]+/gi, '$1[REDACTED]')
     .replace(/\b(session_secret|token|secret|password)\s*[:=]\s*['"]?[^'",\s}&]+/gi, '$1=[REDACTED]')
+    .replace(/\bsess_[A-Za-z0-9-]{8,64}\b/g, '[SESSION_REDACTED]')
     .slice(0, maxLen);
 }
