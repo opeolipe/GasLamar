@@ -198,7 +198,7 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         return;
       }
 
-      const data     = await res.json() as { status: string; tier?: string; credits_remaining?: number; total_credits?: number; expires_at?: number };
+      const data     = await res.json() as { status: string; session_id?: string; tier?: string; credits_remaining?: number; total_credits?: number; expires_at?: number };
       const { status } = data;
 
       // Non-blocking debug log so the payment flow can be traced in browser DevTools
@@ -216,7 +216,7 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         const expiresAt        = data.expires_at        ?? null;
 
         sessionStorage.setItem('gaslamar_tier', tier);
-        cleanupStaleSessionSecrets(null);
+        cleanupStaleSessionSecrets(data.session_id ?? null);
 
         ;(window as any).Analytics?.track?.('payment_confirmed', {
           tier,
