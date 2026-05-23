@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "test": "node --test tests/unit/*.test.js",
     "build:vendor": "node scripts/vendor.js",
     "build:js": "node scripts/build.js",
     "build:react": "node scripts/build-react.js",

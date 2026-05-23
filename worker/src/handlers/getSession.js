@@ -33,8 +33,6 @@ export async function handleGetSession(request, env) {
   }
 
   return jsonResponse({
-    cv: session.cv_text,
-    job_desc: session.job_desc,
     tier: session.tier,
     credits_remaining: session.credits_remaining ?? 1,
     total_credits: session.total_credits ?? 1,

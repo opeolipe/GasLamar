@@ -25,7 +25,7 @@ export type SessionPhase = 'init' | 'waiting' | 'confirmed' | 'returning' | 'err
 
 export interface UseDownloadSessionReturn {
   phase:           SessionPhase;
-  sessionId:       string | null;
+  hasSession:      boolean;
   sessionData:     SessionData | null;
   statusText:      string;
   showCheckButton: boolean;
@@ -52,7 +52,7 @@ function getBackoffDelay(pollCount: number): number {
 
 export function useDownloadSession(): UseDownloadSessionReturn {
   const [phase,           setPhase]           = useState<SessionPhase>('init');
-  const [sessionId,       setSessionId]       = useState<string | null>(null);
+  const [hasSession,      setHasSession]      = useState(false);
   const [sessionData,     setSessionData]     = useState<SessionData | null>(null);
   const [statusText,      setStatusText]      = useState('Memeriksa status pembayaran...');
   const [showCheckButton, setShowCheckButton] = useState(false);
@@ -64,7 +64,6 @@ export function useDownloadSession(): UseDownloadSessionReturn {
   const authFailureCountRef   = useRef(0); // consecutive 401s — resets on any non-401
   const pollTimerRef          = useRef<ReturnType<typeof setTimeout> | null>(null);
   const heartbeatTimerRef     = useRef<ReturnType<typeof setInterval> | null>(null);
-  const sessionIdRef          = useRef<string | null>(null);
   const mountedRef            = useRef(true);
   // Set to true on staging hostname or when ?dev=1 is in the URL. Captured at
   // init time before history.replaceState strips the token query param.
@@ -110,7 +109,7 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         });
         if (res.status === 404 && mountedRef.current) {
           stopHeartbeat();
-          clearClientSessionData(sessionIdRef.current);
+          clearClientSessionData(null);
           showError(
             'Sesi Kedaluwarsa',
             `📅 Sesi download kamu sudah berakhir (berlaku ${label}). Upload ulang CV untuk memulai analisis baru, atau hubungi support@gaslamar.com jika kamu masih punya kredit tersisa.`,
@@ -124,19 +123,13 @@ export function useDownloadSession(): UseDownloadSessionReturn {
 
   // ── Polling ───────────────────────────────────────────────────────────────
 
-  function scheduleNextPoll(sId: string, delay = POLL_INTERVAL) {
+  function scheduleNextPoll(delay = POLL_INTERVAL) {
     if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
-    pollTimerRef.current = setTimeout(() => poll(sId), delay);
+    pollTimerRef.current = setTimeout(() => poll(), delay);
   }
 
-  async function poll(sId: string) {
+  async function poll() {
     if (!mountedRef.current) return;
-
-    // Guard against a corrupted session ID reaching the server
-    if (!sId || !sId.startsWith('sess_') || sId.length < 10) {
-      showError('Sesi tidak valid', 'ID sesi tidak valid. Coba lagi dari awal.');
-      return;
-    }
 
     pollCountRef.current++;
 
@@ -172,7 +165,7 @@ export function useDownloadSession(): UseDownloadSessionReturn {
             'auth_failure',
           );
         } else {
-          scheduleNextPoll(sId, getBackoffDelay(pollCountRef.current));
+          scheduleNextPoll(getBackoffDelay(pollCountRef.current));
         }
         return;
       }
@@ -181,10 +174,10 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         notFoundCountRef.current++;
         setStatusText(`Sesi belum ditemukan, mencoba lagi... (${notFoundCountRef.current}/4)`);
         if (notFoundCountRef.current < 4) {
-          scheduleNextPoll(sId);
+          scheduleNextPoll();
           return;
         }
-        clearClientSessionData(sId);
+        clearClientSessionData(null);
         showError(
           'Sesi Tidak Ditemukan',
           'Sesi pembayaran tidak ditemukan. Jika kamu baru saja membayar, coba refresh halaman ini — kadang butuh 1–2 menit. Jika masalah berlanjut, hubungi support@gaslamar.com dengan bukti pembayaran.',
@@ -197,7 +190,7 @@ export function useDownloadSession(): UseDownloadSessionReturn {
 
       if (!res.ok) {
         if (pollCountRef.current < MAX_POLLS) {
-          scheduleNextPoll(sId, getBackoffDelay(pollCountRef.current));
+          scheduleNextPoll(getBackoffDelay(pollCountRef.current));
         } else {
           setShowCheckButton(true);
           setStatusText('Pembayaran belum terkonfirmasi. Jika kamu sudah membayar, tunggu beberapa saat lalu muat ulang halaman ini.');
@@ -205,7 +198,7 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         return;
       }
 
-      const data     = await res.json() as { status: string; tier?: string; credits_remaining?: number; total_credits?: number; expires_at?: number; session_id?: string };
+      const data     = await res.json() as { status: string; tier?: string; credits_remaining?: number; total_credits?: number; expires_at?: number };
       const { status } = data;
 
       // Non-blocking debug log so the payment flow can be traced in browser DevTools
@@ -223,7 +216,7 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         const expiresAt        = data.expires_at        ?? null;
 
         sessionStorage.setItem('gaslamar_tier', tier);
-        cleanupStaleSessionSecrets(sId);
+        cleanupStaleSessionSecrets(null);
 
         ;(window as any).Analytics?.track?.('payment_confirmed', {
           tier,
@@ -250,7 +243,7 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         const totalCreds = data.total_credits     ?? 1;
         const expiresAt  = data.expires_at        ?? null;
         sessionStorage.setItem('gaslamar_tier', tier);
-        cleanupStaleSessionSecrets(sId);
+        cleanupStaleSessionSecrets(null);
         setSessionData({ tier, creditsRemaining: 0, totalCredits: totalCreds, expiresAt });
         setPhase('returning');
         return;
@@ -263,14 +256,14 @@ export function useDownloadSession(): UseDownloadSessionReturn {
           setShowCheckButton(true);
           setStatusText('Pembayaran belum terkonfirmasi. Jika kamu sudah membayar, tunggu beberapa saat lalu muat ulang halaman ini.');
         } else {
-          scheduleNextPoll(sId, getBackoffDelay(pollCountRef.current));
+          scheduleNextPoll(getBackoffDelay(pollCountRef.current));
         }
         return;
       }
 
       // Session fully consumed in old format
       if (status === 'deleted') {
-        clearClientSessionData(sId);
+        clearClientSessionData(null);
         ;(window as any).Analytics?.track?.('download_session_deleted', { poll_attempts: pollCountRef.current });
         showError(
           'CV Sudah Diunduh',
@@ -281,7 +274,7 @@ export function useDownloadSession(): UseDownloadSessionReturn {
 
       // Unknown status — keep polling until MAX_POLLS
       if (pollCountRef.current < MAX_POLLS) {
-        scheduleNextPoll(sId, getBackoffDelay(pollCountRef.current));
+        scheduleNextPoll(getBackoffDelay(pollCountRef.current));
       } else {
         setShowCheckButton(true);
         setStatusText('Klik tombol di bawah untuk cek ulang.');
@@ -289,12 +282,12 @@ export function useDownloadSession(): UseDownloadSessionReturn {
 
     } catch (_) {
       if (pollCountRef.current < MAX_POLLS && mountedRef.current) {
-        scheduleNextPoll(sId, getBackoffDelay(pollCountRef.current));
+        scheduleNextPoll(getBackoffDelay(pollCountRef.current));
       }
     }
   }
 
-  function startPolling(sId: string) {
+  function startPolling() {
     pollCountRef.current        = 0;
     notFoundCountRef.current    = 0;
     authFailureCountRef.current = 0;
@@ -302,19 +295,14 @@ export function useDownloadSession(): UseDownloadSessionReturn {
     setStatusText('Memeriksa status pembayaran...');
     setPhase('waiting');
     // 2s initial delay absorbs Cloudflare KV eventual-consistency lag
-    pollTimerRef.current = setTimeout(() => poll(sId), 2000);
+    pollTimerRef.current = setTimeout(() => poll(), 2000);
   }
 
   // ── Manual check-now ──────────────────────────────────────────────────────
 
   const onCheckNow = useCallback(() => {
-    const sId = sessionIdRef.current;
-    if (!sId) {
-      showError('Sesi tidak ditemukan', 'Link download tidak valid.');
-      return;
-    }
     setShowCheckButton(false);
-    startPolling(sId);
+    startPolling();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Initialization ────────────────────────────────────────────────────────
@@ -343,13 +331,10 @@ export function useDownloadSession(): UseDownloadSessionReturn {
           if (!mountedRef.current) return;
 
           if (res.ok) {
-            const data = await res.json() as { session_id?: string };
-            if (data.session_id) {
-              sessionIdRef.current = data.session_id;
-              setSessionId(data.session_id);
-            }
+            await res.json().catch(() => ({}));
+            setHasSession(true);
             history.replaceState(null, '', location.pathname);
-            startPolling(sessionIdRef.current!);
+            startPolling();
           } else {
             showError(
               'Link Kedaluwarsa',
@@ -368,8 +353,8 @@ export function useDownloadSession(): UseDownloadSessionReturn {
     }
 
     // ── Path 2: cookie-only bootstrap ───────────────────────────────────────
-    // The session_id cookie is HttpOnly, so the client asks the server for the
-    // current session metadata and keeps the returned ID only in React memory.
+    // The session_id cookie is HttpOnly, so the client asks the server for
+    // current session metadata without exposing the ID to JavaScript.
     (async () => {
       setPhase('waiting');
       try {
@@ -381,15 +366,9 @@ export function useDownloadSession(): UseDownloadSessionReturn {
           return;
         }
 
-        const data = await res.json() as { session_id?: string };
-        if (!data.session_id || !data.session_id.startsWith('sess_')) {
-          showError('Sesi tidak ditemukan', 'Link download tidak valid. Coba lagi dari awal.');
-          return;
-        }
-
-        sessionIdRef.current = data.session_id;
-        setSessionId(data.session_id);
-        startPolling(data.session_id);
+        await res.json().catch(() => ({}));
+        setHasSession(true);
+        startPolling();
       } catch (_) {
         if (mountedRef.current) {
           showError('Terjadi Kesalahan', 'Tidak dapat menghubungi server. Coba refresh halaman ini.');
@@ -400,7 +379,7 @@ export function useDownloadSession(): UseDownloadSessionReturn {
 
   return {
     phase,
-    sessionId,
+    hasSession,
     sessionData,
     statusText,
     showCheckButton,

@@ -1,4 +1,4 @@
-import { forbiddenOriginResponse, isUnsafeOrigin, jsonResponse } from './cors.js';
+import { corsResponse, forbiddenOriginResponse, isUnsafeOrigin, jsonResponse } from './cors.js';
 import { clientIp, log, logError } from './utils.js';
 import { checkRateLimitKV, rateLimitResponse } from './rateLimit.js';
 import { sanitizeLogValue } from './sanitize.js';
@@ -20,6 +20,50 @@ import { handleGetResult } from './handlers/getResult.js';
 import { handleBypassPayment } from './handlers/bypassPayment.js';
 import { handleValidateCoupon } from './handlers/validateCoupon.js';
 import { handleGetScoring } from './handlers/getScoring.js';
+
+function noStoreRedirect(location) {
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: location,
+      'Cache-Control': 'no-store',
+    },
+  });
+}
+
+const API_METHODS = new Map([
+  ['/analyze', ['POST']],
+  ['/create-payment', ['POST']],
+  ['/webhook/mayar', ['POST']],
+  ['/session/ping', ['POST']],
+  ['/check-session', ['GET']],
+  ['/validate-session', ['GET']],
+  ['/get-scoring', ['GET']],
+  ['/get-session', ['POST']],
+  ['/generate', ['POST']],
+  ['/get-result', ['POST']],
+  ['/submit-email', ['POST']],
+  ['/fetch-job-url', ['POST']],
+  ['/exchange-token', ['POST']],
+  ['/resend-email', ['POST']],
+  ['/resend-access', ['POST']],
+  ['/interview-kit', ['POST']],
+  ['/bypass-payment', ['POST']],
+  ['/validate-coupon', ['POST']],
+  ['/log', ['POST']],
+  ['/feedback', ['POST']],
+]);
+
+function methodNotAllowed(request, env, allowedMethods) {
+  const allow = [...allowedMethods, 'OPTIONS'].join(', ');
+  return corsResponse(
+    JSON.stringify({ message: 'Method not allowed' }),
+    405,
+    { 'Content-Type': 'application/json', Allow: allow },
+    request,
+    env,
+  );
+}
 
 // CSRF defence: CORS response headers do not stop a browser from sending a
 // cross-site form/no-cors POST with cookies. Unsafe browser-originated methods
@@ -58,7 +102,7 @@ export async function route(request, env, ctx) {
     return handleMayarWebhook(request, env, ctx);
   }
 
-  if (method === 'POST' && (pathname === '/session/ping' || pathname === '/api/session/ping')) {
+  if (method === 'POST' && apiPath === '/session/ping') {
     return handleSessionPing(request, env);
   }
 
@@ -106,7 +150,7 @@ export async function route(request, env, ctx) {
     return handleResendAccess(request, env);
   }
 
-  if (method === 'POST' && (pathname === '/interview-kit' || pathname === '/api/interview-kit')) {
+  if (method === 'POST' && apiPath === '/interview-kit') {
     return handleInterviewKit(request, env);
   }
 
@@ -119,7 +163,7 @@ export async function route(request, env, ctx) {
   }
 
 
-  if (method === 'POST' && pathname === '/api/log') {
+  if (method === 'POST' && apiPath === '/log') {
     const ip = clientIp(request);
     const kvResult = await checkRateLimitKV(env, ip, 30, 60, 'client_log');
     if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60);
@@ -153,7 +197,7 @@ export async function route(request, env, ctx) {
     return jsonResponse({ ok: true }, 200, request, env);
   }
 
-  if (method === 'POST' && pathname === '/feedback') {
+  if (method === 'POST' && apiPath === '/feedback') {
     const ip = clientIp(request);
     const kvResult = await checkRateLimitKV(env, ip, 10, 60, 'feedback');
     if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60);
@@ -173,31 +217,45 @@ export async function route(request, env, ctx) {
     return jsonResponse({ ok: true }, 200, request, env);
   }
 
+  const allowedMethods = API_METHODS.get(apiPath);
+  if (allowedMethods && !allowedMethods.includes(method)) {
+    return methodNotAllowed(request, env, allowedMethods);
+  }
+
   // In production the Worker owns gaslamar.com/* — proxy unmatched GET/HEAD requests
   // to the Pages deployment so HTML pages and static assets are served correctly.
   // redirect:'manual' prevents an infinite loop if Pages ever redirects pages.dev
   // back to gaslamar.com (the Worker would follow that redirect into itself).
   if ((method === 'GET' || method === 'HEAD') && env.ENVIRONMENT === 'production') {
+    if (pathname === '/hasil') {
+      return noStoreRedirect('/upload.html?reason=no_session');
+    }
+
+    if (pathname === '/download') {
+      return noStoreRedirect('/?reason=no_session');
+    }
+
     if (pathname === '/download.html') {
       const token = url.searchParams.get('token');
       const hasValidToken = typeof token === 'string' && /^[0-9a-f]{32}$/.test(token);
       const hasSessionCookie = /(?:^|;\s*)session_id=sess_[^;]{1,60}/.test(request.headers.get('Cookie') || '');
       if (!hasValidToken && !hasSessionCookie) {
-        return new Response(null, {
-          status: 302,
-          headers: {
-            Location: '/?reason=no_session',
-            'Cache-Control': 'no-store',
-          },
-        });
+        return noStoreRedirect('/?reason=no_session');
       }
     }
 
     // Hardcoded — never sourced from env vars to prevent open proxy misconfiguration.
     // pathname and url.search come from the request but only form path/query, not hostname.
-    const pagesUrl = 'https://gaslamar.pages.dev' + pathname + url.search;
+    const upstreamSearch = new URLSearchParams(url.search);
+    ['token', 'session', 'sessionId'].forEach((name) => upstreamSearch.delete(name));
+    const sanitizedSearch = upstreamSearch.toString();
+    const pagesUrl = 'https://gaslamar.pages.dev' + pathname + (sanitizedSearch ? `?${sanitizedSearch}` : '');
     const proxyHeaders = new Headers(request.headers);
     proxyHeaders.delete('host');
+    // The Pages origin only serves static assets. Session cookies and auth headers
+    // are Worker-only credentials and must never be forwarded to the upstream fetch.
+    proxyHeaders.delete('cookie');
+    proxyHeaders.delete('authorization');
     try {
       const proxied = await fetch(new Request(pagesUrl, {
         method: request.method,

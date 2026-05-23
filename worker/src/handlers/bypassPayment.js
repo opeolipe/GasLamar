@@ -14,8 +14,8 @@ import { makeSessionCookie } from '../cookies.js';
  * Usage (staging / local):
  *   curl -X POST https://<worker>/bypass-payment \
  *     -H 'Content-Type: application/json' \
- *     -d '{"tier":"single","cv_text_key":"cvtext_<key from /analyze>"}'
- *   → { "session_id": "sess_..." }  +  Set-Cookie: session_id=...
+ *     -d '{"tier":"single","cv_text_key":"cvtext_<key from /analyze>","bypass_secret":"..."}'
+ *   → { "ok": true }  +  Set-Cookie: session_id=...
  *
  * Then navigate to /download.html — the cookie carries the session automatically.
  */
@@ -107,5 +107,5 @@ export async function handleBypassPayment(request, env) {
   log('bypass_payment_created', { sessionId, tier, credits });
 
   const cookieHeader = makeSessionCookie(sessionId, credits > 1);
-  return jsonResponseWithCookie({ session_id: sessionId }, 200, cookieHeader, request, env);
+  return jsonResponseWithCookie({ ok: true }, 200, cookieHeader, request, env);
 }

@@ -31,7 +31,7 @@ export interface GenerateCVError {
 export type GenerateStatus = 'idle' | 'running' | 'done' | 'error';
 
 export interface GenerateCVParams {
-  sessionId:     string;
+  sessionId?:    string | null;
   jobDesc?:      string;
 }
 
@@ -110,7 +110,7 @@ export function useGenerateCV(): UseGenerateCVReturn {
         return;
       }
       if (res.status === 404) {
-        clearClientSessionData(params.sessionId);
+        clearClientSessionData(params.sessionId ?? null);
         const errData  = await res.json().catch(() => ({} as Record<string, unknown>));
         const t        = sessionStorage.getItem('gaslamar_tier') || '';
         const validity = (t === '3pack' || t === 'jobhunt') ? '30 hari' : '7 hari';

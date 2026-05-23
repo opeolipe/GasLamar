@@ -40,7 +40,6 @@ import ResendEmail           from '@/components/download/ResendEmail';
 type PageView = 'waiting' | 'generating' | 'ready' | 'credits-dashboard' | 'error';
 
 interface DeliveryData {
-  sessionId: string;
   email:     string;
   sentAt:    number;
 }
@@ -89,10 +88,8 @@ export default function Download() {
 
   useEffect(() => {
     if (session.phase === 'confirmed' && viewRef.current === 'waiting') {
-      const { sessionId } = session;
-      if (!sessionId) return;
       setView('generating');
-      generate.startGeneration({ sessionId });
+      generate.startGeneration({});
     }
   }, [session.phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -162,7 +159,7 @@ export default function Download() {
       view === 'credits-dashboard' &&
       generate.content === null &&
       session.sessionData?.creditsRemaining === 0 &&
-      !!session.sessionId;
+      session.hasSession;
 
     if (!isExhaustedRestore) return;
 
@@ -202,7 +199,7 @@ export default function Download() {
         setView('ready');
       })
       .catch(err => logError('cv_result_restore_failed', { message: (err as Error)?.message }));
-  }, [view, generate.content, restoredContent, session.sessionData?.creditsRemaining, session.sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [view, generate.content, restoredContent, session.sessionData?.creditsRemaining, session.hasSession]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Countdown helpers ─────────────────────────────────────────────────────
 
@@ -280,11 +277,9 @@ export default function Download() {
 
 
   const handleGenerateForNewJob = useCallback(async (jobDesc: string) => {
-    const { sessionId } = session;
-    if (!sessionId) return;
     setView('generating');
-    generate.startGeneration({ sessionId, jobDesc });
-  }, [session.sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
+    generate.startGeneration({ jobDesc });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleUrlFetch = useCallback(async (url: string): Promise<string> => {
     const res = await fetch(`${WORKER_URL}/fetch-job-url`, {
@@ -321,9 +316,9 @@ export default function Download() {
   // did actually pay, the confirmation email carries their download link.
   const handleStartFresh = useCallback(() => {
     try { sessionStorage.removeItem('gaslamar_pending_invoice'); } catch (_) {}
-    clearClientSessionData(session.sessionId);
+    clearClientSessionData(null);
     window.location.href = 'upload.html';
-  }, [session.sessionId]);
+  }, []);
 
   // ── Derived values ────────────────────────────────────────────────────────
 
@@ -450,7 +445,7 @@ export default function Download() {
               retryable={sessionError.retryable}
               reason={sessionError.reason}
               onRetry={generate.error?.retryable ? generate.retryGeneration : undefined}
-              onRestart={() => clearClientSessionData(session.sessionId)}
+              onRestart={() => clearClientSessionData(null)}
             />
           </div>
         )}

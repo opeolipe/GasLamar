@@ -7,6 +7,7 @@
 import { SELF, env, fetchMock } from 'cloudflare:test';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { getCorsHeaders, isOriginAllowed } from '../src/cors.js';
+import { route } from '../src/router.js';
 import { verifyMayarWebhook } from '../src/mayar.js';
 import { GEN_KEY_PREFIX_ID, GEN_KEY_PREFIX_EN } from '../src/cacheVersions.js';
 import { handleResendAccess } from '../src/handlers/resendAccess.js';
@@ -38,6 +39,12 @@ function makeDOCXBase64() {
   let bin = '';
   for (const b of buf) bin += String.fromCharCode(b);
   return btoa(bin);
+}
+
+function sessionIdFromSetCookie(res) {
+  const match = (res.headers.get('set-cookie') || res.headers.get('Set-Cookie') || '').match(/session_id=(sess_[^;]+)/);
+  expect(match).not.toBeNull();
+  return match[1];
 }
 
 /**
@@ -301,6 +308,61 @@ describe('POST /api/log — privacy redaction', () => {
     } finally {
       spy.mockRestore();
     }
+  });
+});
+
+describe('protected state page routing', () => {
+  beforeAll(() => fetchMock.activate());
+  afterAll(() => fetchMock.deactivate());
+
+  it('production redirects extensionless /hasil and /download before proxying to Pages', async () => {
+    const productionEnv = { ...env, ENVIRONMENT: 'production' };
+
+    const hasil = await route(new Request('https://gaslamar.com/hasil', {
+      method: 'GET',
+      headers: { 'CF-Connecting-IP': '1.2.3.4' },
+    }), productionEnv, {});
+    expect(hasil.status).toBe(302);
+    expect(hasil.headers.get('Location')).toBe('/upload.html?reason=no_session');
+    expect(hasil.headers.get('Cache-Control')).toBe('no-store');
+
+    const download = await route(new Request('https://gaslamar.com/download', {
+      method: 'GET',
+      headers: { 'CF-Connecting-IP': '1.2.3.4' },
+    }), productionEnv, {});
+    expect(download.status).toBe(302);
+    expect(download.headers.get('Location')).toBe('/?reason=no_session');
+    expect(download.headers.get('Cache-Control')).toBe('no-store');
+  });
+
+  it('production Pages proxy strips cookies and sensitive query params upstream', async () => {
+    let upstreamRequest = null;
+    fetchMock
+      .get('https://gaslamar.pages.dev')
+      .intercept({ path: () => true, method: 'GET' })
+      .reply((opts) => {
+        upstreamRequest = opts;
+        return {
+          statusCode: 200,
+          data: '<!doctype html><title>Download</title>',
+          responseOptions: { headers: { 'content-type': 'text/html' } },
+        };
+      })
+      .times(1);
+
+    const res = await route(new Request('https://gaslamar.com/download.html?token=0123456789abcdef0123456789abcdef', {
+      method: 'GET',
+      headers: {
+        Cookie: 'session_id=sess_should_not_leave_worker; other=value',
+        'CF-Connecting-IP': '1.2.3.4',
+      },
+    }), { ...env, ENVIRONMENT: 'production' }, {});
+
+    expect(res.status).toBe(200);
+    expect(upstreamRequest?.path).toBe('/download.html');
+    const upstreamHeaders = upstreamRequest?.headers;
+    const cookieHeader = upstreamHeaders?.cookie ?? upstreamHeaders?.Cookie;
+    expect(cookieHeader).toBeUndefined();
   });
 });
 
@@ -741,6 +803,24 @@ describe('POST /create-payment — validation', () => {
     expect(res.status).toBe(400);
     expect(res.status).not.toBe(403);
   });
+
+  it('releases the invoice lock when the payment API key is missing', async () => {
+    const key = await seedCVTextKey(undefined, '10.97.2.1');
+    const testEnv = { ...env, MAYAR_API_KEY_SANDBOX: undefined };
+
+    const res = await route(new Request('https://gaslamar.com/create-payment', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Origin: GASLAMAR_ORIGIN,
+        'CF-Connecting-IP': '10.97.2.1',
+      },
+      body: JSON.stringify({ tier: 'single', cv_text_key: key }),
+    }), testEnv, {});
+
+    expect(res.status).toBe(503);
+    await expect(env.GASLAMAR_SESSIONS.get(`invoice_lock_${key}`)).resolves.toBeNull();
+  });
 });
 
 describe('POST /create-payment — one-time key consumption', () => {
@@ -764,10 +844,11 @@ describe('POST /create-payment — one-time key consumption', () => {
     }, {}, '10.0.0.12');
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.session_id).toMatch(/^sess_/);
+    expect(body).not.toHaveProperty('session_id');
     expect(res.headers.get('set-cookie')).toContain('HttpOnly');
 
-    const session = await env.GASLAMAR_SESSIONS.get(body.session_id, { type: 'json' });
+    const sessionId = sessionIdFromSetCookie(res);
+    const session = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
     expect(session).not.toBeNull();
     expect(session.session_secret_hash).toBeUndefined();
   });
@@ -792,7 +873,7 @@ describe('POST /create-payment — one-time key consumption', () => {
     }, {}, '10.0.0.2');
     expect(res1.status).toBe(200);
     const body1 = await res1.json();
-    expect(body1.session_id).toMatch(/^sess_/);
+    expect(body1).not.toHaveProperty('session_id');
     expect(body1.invoice_url).toBeTruthy();
 
     // Key is consumed — second call fails
@@ -825,7 +906,9 @@ describe('API aliases', () => {
     }, {}, '10.0.0.13');
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.session_id).toMatch(/^sess_/);
+    expect(body).not.toHaveProperty('session_id');
+    expect(body.invoice_url).toBeTruthy();
+    expect(res.headers.get('set-cookie')).toContain('HttpOnly');
     fetchMock.deactivate();
   });
 });
@@ -1067,7 +1150,7 @@ describe('GET /check-session', () => {
     const res = await get('/check-session', sessionCookie(sessionId));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.session_id).toBe(sessionId);
+    expect(body).not.toHaveProperty('session_id');
     expect(body.status).toBe('pending');
   });
 
@@ -1076,7 +1159,7 @@ describe('GET /check-session', () => {
     const res = await get('/check-session?session=' + sessionId, sessionCookie(sessionId));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.session_id).toBe(sessionId);
+    expect(body).not.toHaveProperty('session_id');
     expect(body.status).toBe('paid');
     expect(body.credits_remaining).toBeDefined();
     expect(body.ttl_seconds).toBeDefined();
@@ -1146,7 +1229,7 @@ describe('POST /exchange-token — abuse regression', () => {
     const first = await post('/exchange-token', { email_token: token }, {}, '10.89.0.6');
     expect(first.status).toBe(200);
     const firstBody = await first.json();
-    expect(firstBody).toEqual({ ok: true, session_id: sessionId });
+    expect(firstBody).toEqual({ ok: true });
     expect(first.headers.get('Set-Cookie')).toContain(`session_id=${sessionId}`);
     expect(await env.GASLAMAR_SESSIONS.get(`email_token_${token}`)).toBeNull();
 
@@ -1291,13 +1374,30 @@ describe('POST /get-session', () => {
     expect(res.status).toBe(403);
   });
 
-  it('returns cv/job_desc/tier and sets status to generating for paid session', async () => {
+  it('returns a normal 429 response when the get-session rate limit is exceeded', async () => {
+    const ip = '10.96.9.1';
+    await env.GASLAMAR_SESSIONS.put(
+      `rate_limit_get_session_${ip}`,
+      JSON.stringify({ start: Math.floor(Date.now() / 1000), count: 10 }),
+      { expirationTtl: 60 },
+    );
+
+    const sessionId = await seedSession('paid', 'single');
+    const res = await post('/get-session', {}, sessionCookie(sessionId), ip);
+
+    expect(res.status).toBe(429);
+    expect(res.headers.get('Retry-After')).toBeTruthy();
+    const body = await res.json();
+    expect(body.error).toBe('Too many requests');
+  });
+
+  it('returns metadata only and sets status to generating for paid session', async () => {
     const sessionId = await seedSession('paid', 'single');
     const res = await post('/get-session', {}, sessionCookie(sessionId));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.cv).toBeTruthy();
-    expect(body.job_desc).toBeTruthy();
+    expect(body).not.toHaveProperty('cv');
+    expect(body).not.toHaveProperty('job_desc');
     expect(body.tier).toBe('single');
 
     // Session status should now be 'generating'
@@ -2355,7 +2455,7 @@ describe('POST /exchange-token — single-use enforcement', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
-    expect(body.session_id).toBe(sessionId);
+    expect(body).not.toHaveProperty('session_id');
     expect(res.headers.get('Set-Cookie')).toMatch(/session_id=/);
   });
 
@@ -2383,6 +2483,21 @@ describe('POST /exchange-token — single-use enforcement', () => {
 
     const remaining = await env.GASLAMAR_SESSIONS.get(kvKey);
     expect(remaining).toBeNull();
+  });
+
+  it('rejects and consumes a token mapped to a malformed session id', async () => {
+    const token = crypto.randomUUID().replace(/-/g, '');
+    const kvKey = `email_token_${token}`;
+    await env.GASLAMAR_SESSIONS.put(
+      kvKey,
+      JSON.stringify({ session_id: 'sess_bad; SameSite=None' }),
+      { expirationTtl: 3600 },
+    );
+
+    const res = await post('/exchange-token', { email_token: token }, {}, '10.202.0.4');
+    expect(res.status).toBe(404);
+    expect(res.headers.get('Set-Cookie')).toBeNull();
+    await expect(env.GASLAMAR_SESSIONS.get(kvKey)).resolves.toBeNull();
   });
 });
 
@@ -2419,7 +2534,6 @@ describe('GET /check-session — response shape and field allowlist', () => {
     const body = await res.json();
 
     // Documented fields must be present
-    expect(body).toHaveProperty('session_id', sessionId);
     expect(body).toHaveProperty('status', 'paid');
     expect(body).toHaveProperty('credits_remaining');
     expect(body).toHaveProperty('total_credits');
@@ -2427,6 +2541,7 @@ describe('GET /check-session — response shape and field allowlist', () => {
     expect(body).toHaveProperty('ttl_seconds');
 
     // Sensitive session fields must NOT be present
+    expect(body).not.toHaveProperty('session_id');
     expect(body).not.toHaveProperty('cv_text');
     expect(body).not.toHaveProperty('job_desc');
     expect(body).not.toHaveProperty('email');
@@ -2444,6 +2559,37 @@ describe('GET /check-session — response shape and field allowlist', () => {
   });
 });
 
+describe('Session token non-disclosure', () => {
+  it('POST /exchange-token sets the HttpOnly cookie without returning session_id in JSON', async () => {
+    const sessionId = await seedSession('paid', 'single');
+    const token = '0123456789abcdef0123456789abcdef';
+    await env.GASLAMAR_SESSIONS.put(`email_token_${token}`, JSON.stringify({ session_id: sessionId }), { expirationTtl: 3600 });
+
+    const res = await post('/exchange-token', { email_token: token }, {}, '10.78.0.1');
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body).toEqual({ ok: true });
+    expect(res.headers.get('Set-Cookie')).toMatch(/session_id=sess_/);
+  });
+
+  it('POST /bypass-payment sets the HttpOnly cookie without returning session_id in JSON', async () => {
+    const key = `cvtext_${crypto.randomUUID()}`;
+    await env.GASLAMAR_SESSIONS.put(key, JSON.stringify({
+      text: 'Budi Santoso\nSoftware Engineer\nReact Node.js',
+      job_desc: JOB_DESC,
+      ip: '10.78.0.2',
+    }), { expirationTtl: 3600 });
+
+    const res = await post('/bypass-payment', { tier: 'single', cv_text_key: key, bypass_secret: 'test-bypass-secret' }, {}, '10.78.0.2');
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body).toEqual({ ok: true });
+    expect(res.headers.get('Set-Cookie')).toMatch(/session_id=sess_/);
+  });
+});
+
 // ── (end Patch 5 abuse/rate-limit tests) ──────────────────────────────────────
 
 describe('Cookie-only session auth — POST /get-session', () => {
@@ -2452,7 +2598,8 @@ describe('Cookie-only session auth — POST /get-session', () => {
     const res = await post('/get-session', {}, sessionCookie(sessionId));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.cv).toBeTruthy();
+    expect(body).not.toHaveProperty('cv');
+    expect(body).not.toHaveProperty('job_desc');
     expect(body.tier).toBe('single');
   });
 
@@ -2461,7 +2608,8 @@ describe('Cookie-only session auth — POST /get-session', () => {
     const res = await post('/get-session', {}, { ...sessionCookie(sessionId), 'X-Session-Secret': 'wrong-secret' });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.cv).toBeTruthy();
+    expect(body).not.toHaveProperty('cv');
+    expect(body).not.toHaveProperty('job_desc');
     expect(body.tier).toBe('single');
   });
 
@@ -3203,6 +3351,22 @@ describe('POST /interview-kit', () => {
     expect(body.message).toMatch(/terpotong|coba lagi/i);
   });
 
+  it('does not expose parser or upstream exception details on Interview Kit failure', async () => {
+    const sessionId = await seedSession('paid', 'single');
+
+    fetchMock
+      .get('https://api.anthropic.com')
+      .intercept({ path: '/v1/messages', method: 'POST' })
+      .reply(200, JSON.stringify({ content: [{ text: 'not json at all' }] }))
+      .times(1);
+
+    const res = await post('/interview-kit', { language: 'id' }, sessionCookie(sessionId), nextKitIp());
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.message).toBe('Gagal menghasilkan Interview Kit. Coba lagi.');
+    expect(body.message).not.toMatch(/unexpected|json|token|syntax/i);
+  });
+
   it('stores separate KV cache keys for id vs en language', async () => {
     const sessionId = await seedSession('paid', 'single');
     const ip = nextKitIp();
@@ -3233,18 +3397,19 @@ describe('POST /bypass-payment — sandbox bypass', () => {
     return key;
   }
 
-  it('happy path — creates paid session and returns session_id with cookie', async () => {
+  it('happy path — creates paid session and returns only an HttpOnly cookie', async () => {
     const key = await seedCVKey();
     const res = await post('/bypass-payment', { tier: 'single', cv_text_key: key, bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
     expect(res.status).toBe(200);
 
     const body = await res.json();
-    expect(body.session_id).toMatch(/^sess_/);
+    expect(body).toEqual({ ok: true });
 
     const setCookie = res.headers.get('set-cookie');
     expect(setCookie).toContain('session_id=sess_');
 
-    const session = await env.GASLAMAR_SESSIONS.get(body.session_id, { type: 'json' });
+    const sessionId = sessionIdFromSetCookie(res);
+    const session = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
     expect(session.status).toBe('paid');
     expect(session.tier).toBe('single');
     expect(session.mayar_invoice_id).toBe('bypass_sandbox');
@@ -3295,8 +3460,10 @@ describe('POST /bypass-payment — sandbox bypass', () => {
     const key = await seedCVKey();
     const res = await post('/bypass-payment', { tier: '3pack', cv_text_key: key, bypass_secret: 'test-bypass-secret' }, {}, '5.5.5.5');
     expect(res.status).toBe(200);
-    const { session_id } = await res.json();
-    const session = await env.GASLAMAR_SESSIONS.get(session_id, { type: 'json' });
+    const body = await res.json();
+    expect(body).toEqual({ ok: true });
+    const sessionId = sessionIdFromSetCookie(res);
+    const session = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
     expect(session.credits_remaining).toBe(3);
     expect(session.total_credits).toBe(3);
   });
@@ -3537,6 +3704,9 @@ describe('POST /create-payment — scoring snapshot preservation', () => {
 });
 
 describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () => {
+  let scoringIpSeq = 0;
+  const nextScoringIp = () => `10.221.0.${++scoringIpSeq}`;
+
   it('returns scoring from cvtext_ entry when it is still present', async () => {
     const token = 'c'.repeat(64);
     const mockScoring = { skor: 85, verdict: 'DO', skor_6d: {} };
@@ -3547,7 +3717,7 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
       scoring: mockScoring,
     }), { expirationTtl: 86400 });
 
-    const res = await get(`/get-scoring?key=cvtext_${token}`);
+    const res = await get(`/get-scoring?key=cvtext_${token}`, {}, nextScoringIp());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.valid).toBe(true);
@@ -3566,7 +3736,7 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
     await env.GASLAMAR_SESSIONS.delete(`cvtext_${token}`);
     await env.GASLAMAR_SESSIONS.put(`scoring_${token}`, JSON.stringify({ scoring: mockScoring }), { expirationTtl: 86400 });
 
-    const res = await get(`/get-scoring?key=cvtext_${token}`);
+    const res = await get(`/get-scoring?key=cvtext_${token}`, {}, nextScoringIp());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.valid).toBe(true);
@@ -3576,19 +3746,46 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
 
   it('returns 404 when both cvtext_ and scoring_ keys are absent', async () => {
     const token = 'e'.repeat(64);
-    const res = await get(`/get-scoring?key=cvtext_${token}`);
+    const res = await get(`/get-scoring?key=cvtext_${token}`, {}, nextScoringIp());
     expect(res.status).toBe(404);
     const body = await res.json();
     expect(body.valid).toBe(false);
   });
 
   it('rejects key without cvtext_ prefix', async () => {
-    const res = await get('/get-scoring?key=badprefix_' + 'f'.repeat(64));
+    const res = await get('/get-scoring?key=badprefix_' + 'f'.repeat(64), {}, nextScoringIp());
     expect(res.status).toBe(400);
   });
 });
 
 describe('POST /api/log', () => {
+  it('returns method-not-allowed instead of a static 404 for wrong-method client logging calls', async () => {
+    const res = await SELF.fetch('https://gaslamar.com/api/log', {
+      method: 'GET',
+      headers: {
+        Origin: GASLAMAR_ORIGIN,
+        'CF-Connecting-IP': '1.2.3.4',
+      },
+    });
+    expect(res.status).toBe(405);
+    expect(res.headers.get('Allow')).toBe('POST, OPTIONS');
+  });
+
+  it('answers CORS preflight for client logging', async () => {
+    const res = await SELF.fetch('https://gaslamar.com/api/log', {
+      method: 'OPTIONS',
+      headers: {
+        Origin: GASLAMAR_ORIGIN,
+        'Access-Control-Request-Method': 'POST',
+        'Access-Control-Request-Headers': 'Content-Type',
+        'CF-Connecting-IP': '1.2.3.4',
+      },
+    });
+    expect(res.status).toBe(204);
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe(GASLAMAR_ORIGIN);
+    expect(res.headers.get('Access-Control-Allow-Methods')).toContain('POST');
+  });
+
   it('accepts application/json body and returns ok:true', async () => {
     const res = await post('/api/log', { event: 'test_error', data: { message: 'test' } });
     expect(res.status).toBe(200);
