@@ -169,7 +169,7 @@ export async function handleGenerate(request, env, ctx) {
     return jsonResponse({ message: 'Sedang diproses, coba lagi sebentar.' }, 409, request, env);
   }
   const lockNonce = crypto.randomUUID();
-  await env.GASLAMAR_SESSIONS.put(lockKey, lockNonce, { expirationTtl: 60 });
+  await env.GASLAMAR_SESSIONS.put(lockKey, lockNonce, { expirationTtl: 120 });
   // Re-read: if a concurrent write overwrote our nonce before we get here, reject.
   const confirmedLock = await env.GASLAMAR_SESSIONS.get(lockKey);
   if (confirmedLock !== lockNonce) {

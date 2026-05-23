@@ -1350,7 +1350,8 @@ describe('GET /validate-session', () => {
   });
 
   it('returns valid:false for unknown key → 404', async () => {
-    const res = await get('/validate-session?cvKey=cvtext_nonexistent_key_abc');
+    // Valid format but key doesn't exist in KV — should return 404.
+    const res = await get('/validate-session?cvKey=cvtext_' + '0'.repeat(64));
     expect(res.status).toBe(404);
     const body = await res.json();
     expect(body.valid).toBe(false);
