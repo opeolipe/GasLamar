@@ -65,6 +65,34 @@ function methodNotAllowed(request, env, allowedMethods) {
   );
 }
 
+const CLIENT_LOG_PII_FIELDS = new Set([
+  'email', 'session_id', 'token', 'secret', 'password', 'key', 'session_' + 'secret',
+  'cv', 'cv_text', 'raw_cv', 'job_desc', 'jd', 'raw_jd',
+]);
+
+function sanitizeClientLogValue(key, value, depth = 0) {
+  const safeKey = sanitizeLogValue(key, 100);
+  if (CLIENT_LOG_PII_FIELDS.has(String(safeKey).toLowerCase())) return '[REDACTED]';
+  if (value === null || value === undefined) return value;
+  if (typeof value === 'string') return sanitizeLogValue(value, 500);
+  if (typeof value === 'number' || typeof value === 'boolean') return value;
+  if (depth >= 3) return '[TRUNCATED]';
+  if (Array.isArray(value)) {
+    return value.slice(0, 20).map((item, index) => sanitizeClientLogValue(String(index), item, depth + 1));
+  }
+  if (typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value)
+        .slice(0, 50)
+        .map(([childKey, childValue]) => [
+          sanitizeLogValue(childKey, 100),
+          sanitizeClientLogValue(childKey, childValue, depth + 1),
+        ])
+    );
+  }
+  return sanitizeLogValue(String(value), 500);
+}
+
 // CSRF defence: CORS response headers do not stop a browser from sending a
 // cross-site form/no-cors POST with cookies. Unsafe browser-originated methods
 // must reject disallowed Origin values before any handler reads or mutates data.
@@ -180,16 +208,12 @@ export async function route(request, env, ctx) {
     const rawBody = (contentType.includes('application/json') || contentType.includes('text/plain'))
       ? (() => { try { const p = JSON.parse(bodyText); return (p !== null && typeof p === 'object' && !Array.isArray(p)) ? p : {}; } catch { return { raw: bodyText }; } })()
       : { raw: bodyText };
-    // Sanitize all string values before writing to logs to prevent log injection.
-    // Mask PII field names to avoid leaking sensitive data into Cloudflare log storage.
-    const PII_FIELDS = new Set([
-      'email', 'session_id', 'token', 'secret', 'password', 'key', 'session_' + 'secret',
-      'cv', 'cv_text', 'raw_cv', 'job_desc', 'jd', 'raw_jd',
-    ]);
+    // Sanitize recursively before writing to logs to prevent log injection and
+    // nested PII leaks from client payloads shaped like { event, data: {...} }.
     const body = Object.fromEntries(
       Object.entries(rawBody).map(([k, v]) => {
         const safeKey = sanitizeLogValue(k, 100);
-        const safeVal = PII_FIELDS.has(String(safeKey).toLowerCase()) ? '[REDACTED]' : sanitizeLogValue(v, 500);
+        const safeVal = sanitizeClientLogValue(k, v);
         return [safeKey, safeVal];
       })
     );
