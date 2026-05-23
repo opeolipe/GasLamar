@@ -41,7 +41,7 @@ export function useResultData(): ResultDataState {
           const s = body?.scoring;
           const skor = parseInt(String(s?.skor));
           if (isNaN(skor) || skor < 0 || skor > 100) { fail('missing'); return; }
-          if (time > 0 && (Date.now() - time) / 1000 > 7200) { fail('expired'); return; }
+          if (time > 0 && (Date.now() - time) / 1000 > 86400) { fail('expired'); return; }
           try { sessionStorage.setItem('gaslamar_scoring', JSON.stringify(s)); } catch (_) {}
           setState({ data: s, cvKey: cvKeyVal, analyzeTime: time, loading: false, error: null, noSession: null });
         })
@@ -58,8 +58,8 @@ export function useResultData(): ResultDataState {
     // cv_key format check
     if (cvKeyVal && !cvKeyVal.startsWith('cvtext_')) { fail('expired'); return; }
 
-    // Session must not be older than 2 hours
-    if (time > 0 && (Date.now() - time) / 1000 > 7200) { fail('expired'); return; }
+    // Session must not be older than 24 hours (matches server-side cvtext_ TTL and hasil-guard.js)
+    if (time > 0 && (Date.now() - time) / 1000 > 86400) { fail('expired'); return; }
 
     // Must have analyze_time
     if (!time) { fail('missing'); return; }

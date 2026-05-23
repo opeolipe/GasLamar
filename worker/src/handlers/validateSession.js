@@ -12,8 +12,19 @@ export async function handleValidateSession(request, env) {
     return jsonResponse({ valid: false, reason: 'invalid_key' }, 400, request, env);
   }
 
-  const stored = await env.GASLAMAR_SESSIONS.get(cvKey, { type: 'json' });
+  let stored = await env.GASLAMAR_SESSIONS.get(cvKey, { type: 'json' });
   if (!stored) {
+    // cvtext_ entry may have been consumed by /create-payment (which deletes it after
+    // storing a scoring snapshot under scoring_<token>). Check the snapshot so that
+    // users returning from Mayar after a cancel/back-navigation are not incorrectly
+    // redirected to access.html — their scoring data is still present and they can
+    // use the cached invoice URL or re-upload if needed.
+    const fallbackKey = `scoring_${cvKey.slice('cvtext_'.length)}`;
+    const fallback = await env.GASLAMAR_SESSIONS.get(fallbackKey);
+    if (fallback) {
+      log('validate_session_scoring_fallback', { ip: clientIp(request) });
+      return jsonResponse({ valid: true, note: 'scoring_snapshot' }, 200, request, env);
+    }
     return jsonResponse({ valid: false, reason: 'not_found' }, 404, request, env);
   }
 
