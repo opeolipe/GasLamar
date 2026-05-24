@@ -2597,7 +2597,7 @@ describe('Session token non-disclosure', () => {
   });
 
   it('POST /bypass-payment sets the HttpOnly cookie without returning session_id in JSON', async () => {
-    const key = `cvtext_${crypto.randomUUID()}`;
+    const key = `cvtext_${cvHexToken()}`;
     await env.GASLAMAR_SESSIONS.put(key, JSON.stringify({
       text: 'Budi Santoso\nSoftware Engineer\nReact Node.js',
       job_desc: JOB_DESC,
