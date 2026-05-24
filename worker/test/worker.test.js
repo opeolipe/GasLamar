@@ -1357,6 +1357,28 @@ describe('GET /validate-session', () => {
     const body = await res.json();
     expect(body.valid).toBe(true);
   });
+
+  it('returns valid:true via scoring_ fallback when cvtext_ was consumed by create-payment', async () => {
+    // Simulate /create-payment deleting cvtext_ but preserving scoring_ snapshot.
+    const token = crypto.randomUUID().replace(/-/g, '');
+    const cvKey = `cvtext_${token}`;
+    const scoringKey = `scoring_${token}`;
+    // Only scoring_ exists; cvtext_ is gone.
+    await env.GASLAMAR_SESSIONS.put(scoringKey, JSON.stringify({ scoring: { skor: 72 } }), { expirationTtl: 3600 });
+    const res = await get('/validate-session?cvKey=' + encodeURIComponent(cvKey));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.note).toBe('scoring_snapshot');
+  });
+
+  it('returns valid:false → 404 when neither cvtext_ nor scoring_ exists', async () => {
+    const res = await get('/validate-session?cvKey=cvtext_' + 'a'.repeat(64));
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+    expect(body.reason).toBe('not_found');
+  });
 });
 
 describe('POST /get-session', () => {
@@ -1848,6 +1870,55 @@ describe('POST /webhook/mayar — multi-candidate invoice ID fallback', () => {
     expect(res.status).toBe(200);
     const updated = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
     expect(updated?.status).toBe('paid');
+  });
+});
+
+describe('POST /webhook/mayar — case-insensitive isPaid status', () => {
+  async function seedAndIndex(status) {
+    const sessionId = await seedSession('pending', 'single');
+    const invoiceId = `inv_case_${status.replace(/[^a-z0-9]/gi, '_')}`;
+    await env.GASLAMAR_SESSIONS.put(
+      `mayar_session_${invoiceId}`,
+      JSON.stringify({ session_id: sessionId }),
+      { expirationTtl: 604800 },
+    );
+    const payload = JSON.stringify({ id: invoiceId, status });
+    const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'any_sig' },
+      body: payload,
+    });
+    const updated = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
+    return { status: res.status, sessionStatus: updated?.status };
+  }
+
+  it('processes status "PAID" (uppercase)', async () => {
+    const { status, sessionStatus } = await seedAndIndex('PAID');
+    expect(status).toBe(200);
+    expect(sessionStatus).toBe('paid');
+  });
+
+  it('processes status "Paid" (mixed case)', async () => {
+    const { status, sessionStatus } = await seedAndIndex('Paid');
+    expect(status).toBe(200);
+    expect(sessionStatus).toBe('paid');
+  });
+
+  it('processes status "SUCCESS" (uppercase)', async () => {
+    const { status, sessionStatus } = await seedAndIndex('SUCCESS');
+    expect(status).toBe(200);
+    expect(sessionStatus).toBe('paid');
+  });
+
+  it('processes status "Settlement" (mixed case)', async () => {
+    const { status, sessionStatus } = await seedAndIndex('Settlement');
+    expect(status).toBe(200);
+    expect(sessionStatus).toBe('paid');
+  });
+
+  it('does not process status "pending" (not a paid status)', async () => {
+    const { sessionStatus } = await seedAndIndex('pending');
+    expect(sessionStatus).toBe('pending'); // unchanged
   });
 });
 

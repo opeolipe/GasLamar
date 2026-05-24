@@ -91,13 +91,16 @@ export async function handleMayarWebhook(request, env, ctx) {
   }
 
   if (!sessionId) {
-    // Cannot recover — log for operator visibility and return 200 so Mayar stops retrying
-    console.error(JSON.stringify({ event: 'webhook_no_session', invoiceId, status, redirectUrl }));
+    // Cannot recover — log all tried IDs so the operator can compare against the KV index
+    // stored by /create-payment (logged as mayar_session_index_stored at payment creation).
+    console.error(JSON.stringify({ event: 'webhook_no_session', triedIds: candidateInvoiceIds, status, redirectUrl }));
     return new Response('OK', { status: 200 });
   }
 
-  // Check if payment is successful — covers all known Mayar status variants across API versions and sandbox
-  const isPaid = ['paid', 'settlement', 'capture', 'PAID', 'SETTLEMENT', 'CAPTURE', 'success', 'SUCCESS', 'completed', 'COMPLETED', 'confirmed', 'CONFIRMED'].includes(status);
+  // Check if payment is successful — case-insensitive to handle all Mayar status variants
+  // across API versions, sandbox, and any future mixed-case additions.
+  const isPaid = typeof status === 'string' &&
+    ['paid', 'settlement', 'capture', 'success', 'completed', 'confirmed'].includes(status.toLowerCase());
 
   if (!isPaid) {
     console.log(JSON.stringify({ event: 'webhook_status_not_paid', sessionId, invoiceId, status }));
