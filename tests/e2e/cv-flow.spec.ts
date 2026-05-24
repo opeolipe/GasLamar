@@ -386,6 +386,7 @@ test.describe('GasLamar CV Flow', () => {
       }
     }, sessionId);
 
+    await setupDownloadSession(page);
     await mockCheckSession(page, { status: 'paid', session_id: sessionId, credits_remaining: 2, total_credits: 3 });
     await mockGetSession(page);
     await mockGenerate(page, { credits_remaining: 1, total_credits: 3 });
@@ -414,6 +415,7 @@ test.describe('GasLamar CV Flow', () => {
       }
     }, { activeSession, oldSession });
 
+    await setupDownloadSession(page);
     await mockCheckSession(page, { status: 'paid', session_id: activeSession });
     await mockGetSession(page);
     await mockGenerate(page);
@@ -448,6 +450,7 @@ test.describe('GasLamar CV Flow', () => {
       }
     }, { activeSession, oldSession, oldSeenAt });
 
+    await setupDownloadSession(page);
     await mockCheckSession(page, { status: 'paid', session_id: activeSession });
     await mockGetSession(page);
     await mockGenerate(page);
@@ -481,6 +484,7 @@ test.describe('GasLamar CV Flow', () => {
       }
     }, { activeSession, recentSession, recentSeenAt });
 
+    await setupDownloadSession(page);
     await mockCheckSession(page, { status: 'paid', session_id: activeSession });
     await mockGetSession(page);
     await mockGenerate(page);
