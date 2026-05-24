@@ -1,14 +1,18 @@
 import { jsonResponse } from '../cors.js';
 import { clientIp, log } from '../utils.js';
+import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
 
 export async function handleValidateSession(request, env) {
+  const ip  = clientIp(request);
+  const rl  = await checkRateLimitKV(env, ip, 10, 60, 'validate_session');
+  if (!rl.allowed) return rateLimitResponse(request, env, rl.retryAfter ?? 60);
+
   const url = new URL(request.url);
   const cvKey = url.searchParams.get('cvKey');
 
-  // H7 FIX: Enforce a maximum length on cvKey before the KV lookup.
-  // Without a cap, a 1 MB cvtext_<garbage> string wastes CPU on key processing
-  // and KV round-trip overhead, enabling a low-effort CPU exhaustion attack.
-  if (!cvKey || !cvKey.startsWith('cvtext_') || cvKey.length > 256) {
+  // Strict format: exactly "cvtext_" + 64 lowercase hex chars (256-bit random token).
+  // Mirrors the validation in getScoring.js — prevents oversized KV key lookups.
+  if (!cvKey || !/^cvtext_[0-9a-f]{64}$/.test(cvKey)) {
     return jsonResponse({ valid: false, reason: 'invalid_key' }, 400, request, env);
   }
 
@@ -28,7 +32,6 @@ export async function handleValidateSession(request, env) {
     return jsonResponse({ valid: false, reason: 'not_found' }, 404, request, env);
   }
 
-  const ip = clientIp(request);
   if (stored.ip && stored.ip !== ip) {
     log('validate_session_ip_mismatch', { ip, stored_ip: stored.ip });
     // Intentional log-only: this endpoint is display-only (scoring page freshness check).

@@ -47,7 +47,9 @@ export async function handleCreatePayment(request, env) {
     return jsonResponse({ message: 'Data tidak lengkap' }, 400, request, env);
   }
 
-  // Look up extracted CV text from KV (set by /analyze) — never re-extract
+  // Strict format: exactly "cvtext_" + 64 lowercase hex chars (256-bit random token).
+  // Mirrors getScoring.js validation — prevents oversized KV key lookups that hit
+  // Cloudflare's 512-byte key limit with a confusing error.
   if (!/^cvtext_[0-9a-f]{64}$/.test(cv_text_key)) {
     return jsonResponse({ message: 'cv_text_key tidak valid' }, 400, request, env);
   }

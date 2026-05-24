@@ -1202,10 +1202,25 @@ describe('GET /check-session', () => {
   it('cookie path is not affected by stale X-Session-Secret headers', async () => {
     const sessionId = await seedSession('paid', 'single');
     const ip = '10.88.0.45';
-    for (let i = 0; i < 25; i++) {
+    for (let i = 0; i < 5; i++) {
       const res = await get('/check-session', { ...sessionCookie(sessionId), 'X-Session-Secret': FIXED_TEST_SECRET }, ip);
       expect(res.status).toBe(200);
     }
+  });
+
+  it('rate-limits burst attempts (20/min per IP via CF binding + KV)', async () => {
+    const ip = '10.88.0.99';
+
+    // First 20 requests are allowed — rate limiter has not triggered yet.
+    for (let i = 0; i < 20; i++) {
+      const res = await get('/check-session', {}, ip);
+      expect(res.status).toBe(401); // no cookie → 401, not 429
+    }
+
+    // 21st request is blocked by the rate limiter.
+    const blocked = await get('/check-session', {}, ip);
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get('Retry-After')).toBeTruthy();
   });
 
 });
@@ -1335,7 +1350,8 @@ describe('GET /validate-session', () => {
   });
 
   it('returns valid:false for unknown key → 404', async () => {
-    const res = await get('/validate-session?cvKey=cvtext_nonexistent_key_abc');
+    // Valid format but key doesn't exist in KV — should return 404.
+    const res = await get('/validate-session?cvKey=cvtext_' + '0'.repeat(64));
     expect(res.status).toBe(404);
     const body = await res.json();
     expect(body.valid).toBe(false);
@@ -2652,7 +2668,7 @@ describe('Session token non-disclosure', () => {
   });
 
   it('POST /bypass-payment sets the HttpOnly cookie without returning session_id in JSON', async () => {
-    const key = `cvtext_${crypto.randomUUID()}`;
+    const key = `cvtext_${cvHexToken()}`;
     await env.GASLAMAR_SESSIONS.put(key, JSON.stringify({
       text: 'Budi Santoso\nSoftware Engineer\nReact Node.js',
       job_desc: JOB_DESC,
