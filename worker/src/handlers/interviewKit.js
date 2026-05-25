@@ -76,7 +76,8 @@ export async function handleInterviewKit(request, env) {
       log('interview_kit_cache_hit', { session_id, language });
       return jsonResponse({ success: true, kit: cachedKit ?? cachedEntry }, 200, request, env);
     }
-  } catch {
+  } catch (e) {
+    logError('interview_kit_cache_read_failed', { session_id, error: e?.message });
     // proceed to session-gated generation
   }
 
