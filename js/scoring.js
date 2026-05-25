@@ -98,6 +98,9 @@
       primary_issue:  primary_issue,
       preview_before: scoring.preview_before || undefined,
       preview_after:  scoring.preview_after  || undefined,
+      entitas_klaim:  Array.isArray(scoring.entitas_klaim) ? scoring.entitas_klaim : undefined,
+      angka_di_cv:    typeof scoring.angka_di_cv  === 'string' ? scoring.angka_di_cv  : undefined,
+      skills_mentah:  typeof scoring.skills_mentah === 'string' ? scoring.skills_mentah : undefined,
     }));
   } catch (_) {}
 

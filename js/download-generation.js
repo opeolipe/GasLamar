@@ -100,6 +100,9 @@ async function generateCVContent(sessionId, tier, newJobDesc) {
       if (summary.primary_issue)                                  reqBody.primary_issue = summary.primary_issue;
       if (typeof summary.preview_before === 'string' && summary.preview_before) reqBody.preview_sample = summary.preview_before;
       if (typeof summary.preview_after  === 'string' && summary.preview_after)  reqBody.preview_after  = summary.preview_after;
+      if (Array.isArray(summary.entitas_klaim) && summary.entitas_klaim.length) reqBody.entitas_klaim  = summary.entitas_klaim;
+      if (typeof summary.angka_di_cv   === 'string' && summary.angka_di_cv)    reqBody.angka_di_cv    = summary.angka_di_cv;
+      if (typeof summary.skills_mentah === 'string' && summary.skills_mentah)  reqBody.skills_mentah  = summary.skills_mentah;
     } catch (_) { /* ignore malformed sessionStorage */ }
 
     const res = await fetch(WORKER_URL + '/generate', {

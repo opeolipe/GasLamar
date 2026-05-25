@@ -91,6 +91,20 @@ export async function handleGenerate(request, env, ctx) {
     angkaDiCv = sanitizeForLLM(rawAngkaDiCv.trim()) || null;
   }
 
+  // Optional skills_mentah — explicit skill list from CV (forwarded from /analyze response)
+  // Used alongside angka_di_cv to populate the ground-truth block in the tailor prompt.
+  const rawSkillsMentah = body.skills_mentah;
+  let skillsMentah = null;
+  if (rawSkillsMentah !== undefined) {
+    if (typeof rawSkillsMentah !== 'string' || rawSkillsMentah.length > 500) {
+      return jsonResponse({ message: 'skills_mentah tidak valid' }, 400, request, env);
+    }
+    if (hasPromptInjection(rawSkillsMentah)) {
+      return jsonResponse({ message: 'Konten tidak valid' }, 400, request, env);
+    }
+    skillsMentah = sanitizeForLLM(rawSkillsMentah.trim()) || null;
+  }
+
   // score and gaps are optional analytics fields forwarded to the CV-ready email.
   // Validate before use: score must be a finite number 0–100; gaps must be an
   // array of short strings. Reject the entire request if types are wrong.
@@ -180,8 +194,8 @@ export async function handleGenerate(request, env, ctx) {
     // Generate from KV data only — never from request body (except allowed job_desc override).
     // Run ID and EN tailoring in parallel to stay within Cloudflare's 30s wall-clock limit.
     // Sequential calls could reach 50s (2 × 25s Claude timeout) and hard-kill the Worker.
-    const extractedCV = (angkaDiCv || entitasKlaim)
-      ? { angka_di_cv: angkaDiCv ?? 'NOL ANGKA', entitas_klaim: entitasKlaim ?? [], skills_mentah: '' }
+    const extractedCV = (angkaDiCv || entitasKlaim || skillsMentah)
+      ? { angka_di_cv: angkaDiCv ?? 'NOL ANGKA', entitas_klaim: entitasKlaim ?? [], skills_mentah: skillsMentah ?? '' }
       : null;
 
     const tailorOpts = { issue: primaryIssue, previewSample, previewAfter, entitasKlaim, roleProfile, jdMode, extractedCV };
@@ -316,7 +330,7 @@ export async function handleGenerate(request, env, ctx) {
     return jsonResponse({ message: userMsg }, 500, request, env);
   } finally {
     // Only delete the lock if it still contains our nonce.
-    // If generation exceeded the 60s KV TTL, the lock auto-expired and a concurrent
+    // If generation exceeded the 120s KV TTL, the lock auto-expired and a concurrent
     // request may have already written a new nonce — deleting that would remove their
     // protection and allow a third concurrent request to start.
     const currentLock = await env.GASLAMAR_SESSIONS.get(lockKey).catch(() => null);

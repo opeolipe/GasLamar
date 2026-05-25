@@ -72,6 +72,10 @@ export async function handleExchangeToken(request, env) {
   // Delete immediately — single-use enforcement.
   // Must happen before the session check so that two concurrent requests with the
   // same token can't both pass and both receive a cookie (double-use race).
+  // Note: KV is eventually consistent across regions; a concurrent request in a
+  // different region may see the token as still present for a brief window after
+  // this delete. True atomic single-use would require Durable Objects, but the
+  // practical race window is small and tokens are already short-lived (1h TTL).
   await env.GASLAMAR_SESSIONS.delete(kvKey);
 
   // Verify the linked session still exists in KV

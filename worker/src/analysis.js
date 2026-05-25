@@ -150,6 +150,12 @@ export async function analyzeCV(cvText, jobDesc, env) {
   if (Array.isArray(extractedData?.cv?.entitas_klaim)) {
     scoring.entitas_klaim = extractedData.cv.entitas_klaim.slice(0, 20);
   }
+  if (typeof extractedData?.cv?.angka_di_cv === 'string') {
+    scoring.angka_di_cv = extractedData.cv.angka_di_cv.slice(0, 400);
+  }
+  if (typeof extractedData?.cv?.skills_mentah === 'string') {
+    scoring.skills_mentah = extractedData.cv.skills_mentah.slice(0, 500);
+  }
 
   if (allFlags.length > 0) {
     scoring.red_flags = allFlags;
