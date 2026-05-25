@@ -3866,6 +3866,40 @@ describe('POST /api/log', () => {
     const body = await res.json();
     expect(body.ok).toBe(true);
   });
+
+  it('redacts nested PII and raw CV/JD values from client log payloads', async () => {
+    const logs = [];
+    const originalLog = console.log;
+    console.log = (...args) => {
+      logs.push(args.join(' '));
+      originalLog(...args);
+    };
+    try {
+      const res = await post('/api/log', {
+        event: 'nested_pii',
+        data: {
+          email: 'user@example.com',
+          session_id: 'sess_abc',
+          token: '0123456789abcdef0123456789abcdef',
+          cv_text: 'Sensitive CV line',
+          job_desc: 'Sensitive JD line',
+          message: 'failed for user@example.com?token=0123456789abcdef0123456789abcdef',
+        },
+      });
+      expect(res.status).toBe(200);
+      const emitted = logs.find(line => line.includes('"event":"client_log"') && line.includes('nested_pii'));
+      expect(emitted).toBeTruthy();
+      expect(emitted).not.toContain('user@example.com');
+      expect(emitted).not.toContain('sess_abc');
+      expect(emitted).not.toContain('0123456789abcdef0123456789abcdef');
+      expect(emitted).not.toContain('Sensitive CV line');
+      expect(emitted).not.toContain('Sensitive JD line');
+      expect(emitted).toContain('[REDACTED]');
+      expect(emitted).toContain('[EMAIL_REDACTED]');
+    } finally {
+      console.log = originalLog;
+    }
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

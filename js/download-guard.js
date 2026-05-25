@@ -14,7 +14,8 @@
  * Valid entry paths — guard allows these through:
  *   1. ?token=<hex>           — email link; download.js will call /exchange-token
  *   2. gaslamar_has_session=1 — non-sensitive routing flag set by payment.js (session_id itself is never stored client-side)
- *   3. gaslamar_delivery      — email delivery confirmed; React handles session state
+ *   3. gaslamar_session       — legacy routing hint for users who paid before cookie-only auth
+ *   4. gaslamar_delivery      — email delivery confirmed; React handles session state
  *
  * All other cases → immediate replace-redirect to /
  * (window.location.replace so the download page is not added to browser history).
@@ -43,7 +44,17 @@
     return;
   }
 
-  // Path 3: delivery flow — email was sent; React renders the delivery section.
+  // Path 3: legacy normal flow. Do not send this ID to the Worker; it is only
+  // a routing hint so pre-cookie sessions reach React and fail/recover cleanly.
+  try {
+    var legacySession = localStorage.getItem('gaslamar_session') || sessionStorage.getItem('gaslamar_session');
+    if (/^sess_[A-Za-z0-9-]{8,64}$/.test(legacySession || '')) return;
+  } catch (_) {
+    window.location.replace('/');
+    return;
+  }
+
+  // Path 4: delivery flow — email was sent; React renders the delivery section.
   try {
     if (localStorage.getItem('gaslamar_delivery')) return;
   } catch (_) {

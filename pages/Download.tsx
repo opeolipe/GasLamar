@@ -89,9 +89,9 @@ export default function Download() {
   useEffect(() => {
     if (session.phase === 'confirmed' && viewRef.current === 'waiting') {
       setView('generating');
-      generate.startGeneration({});
+      generate.startGeneration({ sessionId: session.sessionData?.sessionId ?? null });
     }
-  }, [session.phase]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [session.phase, session.sessionData?.sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (session.phase === 'returning' && viewRef.current === 'waiting') {
