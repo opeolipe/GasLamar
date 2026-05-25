@@ -164,7 +164,7 @@ export async function analyzeCV(cvText, jobDesc, env) {
   //   skor_kualitas     ≈ portfolio × 2       (old kualitas was 0–20)
   //   skor_keywords     ≈ recruiter_signal     (raw, maps 0–10 to an informal keyword score)
   // Do not add new scoring logic here — use skor_6d instead.
-  scoring.skor_relevansi    = skor_6d.north_star * 4;
+  scoring.skor_relevansi    = Math.round(skor_6d.north_star * 4);
   scoring.skor_requirements = Math.round(skor_6d.recruiter_signal * 3);
   scoring.skor_kualitas     = Math.round(skor_6d.portfolio * 2);
   scoring.skor_keywords     = Math.round(skor_6d.recruiter_signal);
