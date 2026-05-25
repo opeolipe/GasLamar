@@ -57,6 +57,18 @@ export function getSessionIdFromCookie(request) {
 }
 
 /**
+ * Extract and validate the short-lived analysis key cookie used to gate hasil.html.
+ * The value is a cvtext_ token; it is still IP-bound in KV before any sensitive
+ * operation can use it.
+ */
+export function getCvTextKeyFromCookie(request) {
+  const cookies = parseCookies(request.headers.get('Cookie'));
+  const key = cookies.cv_text_key;
+  if (key && /^cvtext_[0-9a-f]{64}$/.test(key)) return key;
+  return null;
+}
+
+/**
  * Build a Set-Cookie value for the session_id cookie.
  * Max-Age matches the session KV TTL: 7 days (single/coba) or 30 days (multi-credit).
  *
@@ -68,6 +80,11 @@ export function makeSessionCookie(sessionId, isMulti = false) {
   // SameSite=None; Secure is safe here: Cloudflare Workers only accept HTTPS connections,
   // so the Secure flag is always satisfied. No explicit HTTPS check is needed.
   return `session_id=${sessionId}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${maxAge}`;
+}
+
+/** Build a short-lived HttpOnly cookie for the analysis result page. */
+export function makeCvTextKeyCookie(cvTextKey) {
+  return `cv_text_key=${cvTextKey}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=86400`;
 }
 
 /** Build a cookie that immediately clears the session (Max-Age=0). */

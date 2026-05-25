@@ -98,7 +98,7 @@ export async function handleBypassPayment(request, env) {
   if (stored.scoring) {
     await env.GASLAMAR_SESSIONS.put(
       `scoring_${cv_text_key.slice('cvtext_'.length)}`,
-      JSON.stringify({ scoring: stored.scoring }),
+      JSON.stringify({ scoring: stored.scoring, ip }),
       { expirationTtl: 86400 },
     ).catch(() => {});
   }
