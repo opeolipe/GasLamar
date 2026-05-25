@@ -14,14 +14,14 @@ LLM = extraction + text only. All scoring is pure JS.
 |---|---|
 | 1. EXTRACT | LLM → structured CV+JD data. Cache: `extract_v5_<hash>` 24h |
 | 2. ANALYZE | pure JS — skill match, format, archetype, red flags |
-| 3. SCORE | formula → 6D scores, verdict (DO/TIMED/DO NOT), timebox. Cache: `analysis_v16_<hash>` 48h |
+| 3. SCORE | formula → 6D scores, verdict (DO/TIMED/DO NOT), timebox. Cache: `analysis_v17_<hash>` 48h |
 | 4. DIAGNOSE | LLM → human-readable gap explanation only (cannot change scores) |
 | 5. REWRITE | LLM via `/generate` → tailored CV in ID + EN. Cache: `gen_id_v13_<hash>` / `gen_en_v13_<hash>` 48h |
 | 6. VALIDATE | schema check + 1 retry after every LLM call |
 
 **Cache bump rule:** two independent versions in `cacheVersions.js`:
 - `EXTRACT_CACHE_VERSION` (`extract_v5_*`) — bump when changing `pipeline/extract.js` or `prompts/extract.js`
-- `ANALYSIS_CACHE_VERSION` (`analysis_v16_*`) — bump when changing anything else in `pipeline/` or `prompts/`
+- `ANALYSIS_CACHE_VERSION` (`analysis_v17_*`) — bump when changing anything else in `pipeline/` or `prompts/`
 - Tailoring: bump `GEN_KEY_PREFIX_ID` (`gen_id_v13_`) / `GEN_KEY_PREFIX_EN` (`gen_en_v13_`) in `cacheVersions.js` when changing tailor prompts
 
 **Session state machine** (`worker/src/sessionStates.js`):
@@ -169,7 +169,7 @@ npm start                       # serve frontend locally on :3000
 - **`opportunity_cost` is derived, not scored** — always 5 or 10, computed from `effort`. It is never independently scored. Don't add scoring logic here.
 - **`skor_sesudah` is deterministic JS** — not LLM-generated. Formula: `skor + 10 + improvement`, rounded to nearest 5, clamped to [skor+10, 95]. Improvement = min(25, min(20, missing_skills × 3) + 5 if no numbers). The +10 minimum headroom is always added before improvement.
 - **Red-flag penalty is absolute** — -15 (1 flag), -20 (2 flags), -25 (3+ flags). Plus an extra -10 if any flag matches `format|karakter|parsing|ATS` keywords — total can reach -35. Applied to `skor` and `skor_sesudah` only — never to `skor_6d`.
-- **CV silently truncated in tailoring** — `tailoring.js` truncates CVs at 4000 chars. Old experience entries are dropped without error or warning.
+- **CV silently truncated in tailoring** — `tailoring.js` activates section-aware truncation for CVs over 4000 chars: keeps up to 2 experience entries + skills section, with a hard fallback cut at 10 000 chars. CVs under 4000 chars are passed through unchanged. No error or warning is emitted.
 - **Coupon GET with body forbidden** — Mayar's docs show `GET /coupon/validate` with a JSON body (curl `--data`), but the Fetch API spec forbids GET bodies (throws TypeError). Always use query string params for this endpoint. Using `method:'GET'` + `body:` will silently return `valid:false` in production.
 - **Coupon discount is UX-only** — GasLamar shows a projected discounted price but Mayar is authoritative. The actual discount is applied on Mayar's checkout page when the user enters the code. A coupon that passes our validation may still be rejected at Mayar checkout if it expires between validation and payment.
 
