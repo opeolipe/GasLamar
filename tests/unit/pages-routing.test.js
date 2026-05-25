@@ -55,13 +55,13 @@ test('React generation exhaustion clears download routing flag', () => {
 
 test('React email-token exchange strips token before success or failure handling', () => {
   const source = readFileSync('hooks/useDownloadSession.ts', 'utf8');
-  const tokenExchangeBlock = source.match(/const res = await fetch\(`\$\{WORKER_URL\}\/exchange-token`[\s\S]*?if \(res\.ok\)/);
+  const tokenExchangeBlock = source.match(/if \(emailToken\) \{[\s\S]*?const res = await fetch\(`\$\{WORKER_URL\}\/exchange-token`/);
 
   assert.ok(tokenExchangeBlock, 'missing email-token exchange block');
   assert.match(
     tokenExchangeBlock[0],
     /history\.replaceState\(null, '', location\.pathname\);/,
-    'download email token must be stripped from the URL before branching on exchange success/failure',
+    'download email token must be stripped from the URL before network exchange success, failure, or timeout',
   );
 });
 

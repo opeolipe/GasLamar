@@ -12,6 +12,7 @@ export interface SessionData {
   creditsRemaining: number;
   totalCredits:     number;
   expiresAt:        number | null;
+  sessionId?:        string | null;
 }
 
 export interface SessionError {
@@ -46,6 +47,23 @@ const MAX_AUTH_FAILURES  = 2;
 
 function getBackoffDelay(pollCount: number): number {
   return Math.min(POLL_INTERVAL * Math.pow(1.3, Math.max(0, pollCount - 1)), 8000);
+}
+
+function getLegacyStoredSessionId(): string | null {
+  try {
+    const candidate =
+      sessionStorage.getItem('gaslamar_session') ||
+      localStorage.getItem('gaslamar_session');
+    return candidate && /^sess_[A-Za-z0-9-]{8,64}$/.test(candidate) ? candidate : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function getResponseSessionId(data: { session_id?: unknown }): string | null {
+  return typeof data.session_id === 'string' && /^sess_[A-Za-z0-9-]{8,64}$/.test(data.session_id)
+    ? data.session_id
+    : null;
 }
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
@@ -198,8 +216,9 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         return;
       }
 
-      const data     = await res.json() as { status: string; tier?: string; credits_remaining?: number; total_credits?: number; expires_at?: number };
+      const data     = await res.json() as { status: string; tier?: string; credits_remaining?: number; total_credits?: number; expires_at?: number; session_id?: unknown };
       const { status } = data;
+      const activeSessionId = getResponseSessionId(data) || getLegacyStoredSessionId();
 
       // Non-blocking debug log so the payment flow can be traced in browser DevTools
       if (status !== 'paid' && status !== 'generating') {
@@ -216,7 +235,7 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         const expiresAt        = data.expires_at        ?? null;
 
         sessionStorage.setItem('gaslamar_tier', tier);
-        cleanupStaleSessionSecrets(null);
+        cleanupStaleSessionSecrets(activeSessionId);
 
         ;(window as any).Analytics?.track?.('payment_confirmed', {
           tier,
@@ -224,7 +243,7 @@ export function useDownloadSession(): UseDownloadSessionReturn {
           poll_attempts:  pollCountRef.current,
         });
 
-        setSessionData({ tier, creditsRemaining, totalCredits, expiresAt });
+        setSessionData({ tier, creditsRemaining, totalCredits, expiresAt, sessionId: activeSessionId });
 
         // Returning multi-credit user: has used ≥1 credit already (ready state or
         // re-visiting after a previous successful generation)
@@ -243,8 +262,8 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         const totalCreds = data.total_credits     ?? 1;
         const expiresAt  = data.expires_at        ?? null;
         sessionStorage.setItem('gaslamar_tier', tier);
-        cleanupStaleSessionSecrets(null);
-        setSessionData({ tier, creditsRemaining: 0, totalCredits: totalCreds, expiresAt });
+        cleanupStaleSessionSecrets(activeSessionId);
+        setSessionData({ tier, creditsRemaining: 0, totalCredits: totalCreds, expiresAt, sessionId: activeSessionId });
         setPhase('returning');
         return;
       }
@@ -319,6 +338,7 @@ export function useDownloadSession(): UseDownloadSessionReturn {
     // ── Path 1: email link with ?token= ──────────────────────────────────────
     if (emailToken) {
       setPhase('waiting');
+      history.replaceState(null, '', location.pathname);
 
       (async () => {
         try {
@@ -329,8 +349,6 @@ export function useDownloadSession(): UseDownloadSessionReturn {
             body: JSON.stringify({ email_token: emailToken }),
           });
           if (!mountedRef.current) return;
-
-          history.replaceState(null, '', location.pathname);
 
           if (res.ok) {
             await res.json().catch(() => ({}));
