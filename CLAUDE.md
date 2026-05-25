@@ -60,7 +60,6 @@ Routes → `router.js`. Handlers → `worker/src/handlers/<endpoint>.js`. Pipeli
 | `worker/src/handlers/interviewKit.js` | Generates interview prep kit (questions, email template, WhatsApp opener, elevator pitch). Cache-first: `kit_<session_id>_<language>` 24h. No caching on first call — only stored after a successful generation. |
 | `router.js` (inline) | `POST /feedback` (user survey, fire-and-forget) and `POST /api/log` (client error logging) have no handler files — logic lives inline in `router.js`. |
 | `worker/src/handlers/mayarWebhook.js` | HMAC-SHA256 verification + idempotency sentinel `payment_processed_<session_id>` (48h TTL) — written BEFORE session update to survive retries. Normalizes many Mayar status variants (paid/settlement/capture/SUCCESS/…). Email send via `ctx.waitUntil`. |
-| `worker/src/handlers/bypassPayment.js` | Sandbox/E2E only — returns 404 if `ENVIRONMENT === 'production'`. Creates a paid session without going through Mayar. Used for automated tests. |
 | `js/download-guard.js` | Blocking external `<script>` loaded in download.html `<head>` (not inline). Three valid entry paths: `?token=` (email link), localStorage `gaslamar_session` (post-payment), localStorage `gaslamar_delivery` (email-delivery flow). All others → `window.location.replace('/')`. |
 | `worker/src/handlers/validateCoupon.js` | `POST /validate-coupon` — pre-payment coupon validation. Calls Mayar `GET /coupon/validate` as a query-string request (GET with body is forbidden by Fetch spec). Rate-limited 10 req/min per IP to block enumeration. Returns discount amount so the frontend can show a live discounted price before redirecting to Mayar. |
 | `worker/src/handlers/resendAccess.js` | `POST /resend-access` — re-sends a download link to a registered email. Dual-layer rate limiting: 2 req/hour per email + 10 req/hour per IP (prevents enumeration and credential stuffing). Always returns a generic success message regardless of whether the email exists. |
@@ -151,7 +150,6 @@ npm start                       # serve frontend locally on :3000
 - CORS: `gaslamar.com`, `www.gaslamar.com`, and `gaslamar.pages.dev` (Pages canonical) — see `constants.js` `PRODUCTION_ORIGINS`.
 - File validation: magic bytes (PDF `%PDF`, DOCX `PK`) + 5MB — server-side.
 - Rate limiting: Cloudflare native binding + KV fallback — **both** must allow.
-- `bypassPayment.js` must always return 404 in production — the `ENVIRONMENT === 'production'` guard must never be removed.
 
 ## Gotchas (common bug sources)
 

@@ -14,7 +14,6 @@ export default defineWorkersConfig({
             ANTHROPIC_API_KEY: 'test-anthropic-key-for-mocked-tests',
             MAYAR_API_KEY_SANDBOX: 'test-mayar-sandbox-key',
             MAYAR_API_KEY: 'test-mayar-production-key',
-            BYPASS_PAYMENT_SECRET: 'test-bypass-secret',
           },
         },
       },
