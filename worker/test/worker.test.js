@@ -1412,7 +1412,7 @@ describe('GET /validate-session', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.valid).toBe(true);
-    expect(body.note).toBe('scoring_snapshot');
+    expect(body.note).toBeUndefined();
   });
 
   it('returns valid:false → 404 when neither cvtext_ nor scoring_ exists', async () => {
@@ -1421,6 +1421,17 @@ describe('GET /validate-session', () => {
     const body = await res.json();
     expect(body.valid).toBe(false);
     expect(body.reason).toBe('not_found');
+  });
+
+  it('returns valid:false → 404 when scoring_ fallback exists but has no scoring field', async () => {
+    const token = cvHexToken();
+    const scoringKey = `scoring_${token}`;
+    // scoring_ exists but its value lacks the scoring field (e.g. empty or corrupt snapshot)
+    await env.GASLAMAR_SESSIONS.put(scoringKey, JSON.stringify({ other: 'data' }), { expirationTtl: 3600 });
+    const res = await get('/validate-session?cvKey=cvtext_' + token);
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
   });
 
   it('rate-limits after 20 requests per minute per IP → 429', async () => {
