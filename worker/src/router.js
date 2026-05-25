@@ -47,7 +47,6 @@ const API_METHODS = new Map([
   ['/resend-email', ['POST']],
   ['/resend-access', ['POST']],
   ['/interview-kit', ['POST']],
-  ['/bypass-payment', ['POST']],
   ['/validate-coupon', ['POST']],
   ['/log', ['POST']],
   ['/feedback', ['POST']],

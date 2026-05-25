@@ -316,7 +316,7 @@ export async function handleGenerate(request, env, ctx) {
     return jsonResponse({ message: userMsg }, 500, request, env);
   } finally {
     // Only delete the lock if it still contains our nonce.
-    // If generation exceeded the 60s KV TTL, the lock auto-expired and a concurrent
+    // If generation exceeded the 120s KV TTL, the lock auto-expired and a concurrent
     // request may have already written a new nonce — deleting that would remove their
     // protection and allow a third concurrent request to start.
     const currentLock = await env.GASLAMAR_SESSIONS.get(lockKey).catch(() => null);
