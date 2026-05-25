@@ -36,8 +36,22 @@ export function useResultData(): ResultDataState {
     if (!rawScoring) {
       if (!cvKeyVal.startsWith('cvtext_')) { fail('missing'); return; }
       fetch(`${WORKER_URL}/get-scoring?key=${encodeURIComponent(cvKeyVal)}`)
-        .then(r => r.ok ? r.json() : Promise.reject())
-        .then((body: { scoring: ScoringData }) => {
+        .then(async r => {
+          if (r.status === 404) {
+            // Key expired (cvtext_ deleted after payment, scoring_ also gone).
+            // Mirror scoring.js: clear local keys and send user to recovery page,
+            // not the upload page (which implies starting over from scratch).
+            try {
+              sessionStorage.removeItem('gaslamar_cv_key');
+              sessionStorage.removeItem('gaslamar_analyze_time');
+            } catch (_) {}
+            fail('expired');
+            return;
+          }
+          if (!r.ok) { fail('missing'); return; }
+          const body = await r.json() as { scoring?: ScoringData; valid?: boolean };
+          // getScoring returns { valid: true, scoring: ... } on success.
+          // valid:false is only sent on 404, which is handled above.
           const s = body?.scoring;
           const skor = parseInt(String(s?.skor));
           if (isNaN(skor) || skor < 0 || skor > 100) { fail('missing'); return; }
