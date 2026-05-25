@@ -9,6 +9,7 @@ export const PRODUCTION_ORIGINS = [
 export const STAGING_ORIGINS = [
   'https://staging.gaslamar.pages.dev',
   'https://localhost:3000',
+  'http://localhost:3000', // plain-HTTP dev servers (wrangler dev default)
 ];
 
 // ---- Tier Config ----

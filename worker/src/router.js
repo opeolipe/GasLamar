@@ -1,4 +1,4 @@
-import { forbiddenOriginResponse, isUnsafeOrigin, jsonResponse } from './cors.js';
+import { forbiddenOriginResponse, isUnsafeOrigin, jsonResponse, corsResponse } from './cors.js';
 import { clientIp, log, logError } from './utils.js';
 import { checkRateLimitKV, rateLimitResponse } from './rateLimit.js';
 import { sanitizeLogValue } from './sanitize.js';
@@ -17,9 +17,80 @@ import { handleResendEmail }    from './handlers/resendEmail.js';
 import { handleResendAccess }  from './handlers/resendAccess.js';
 import { handleInterviewKit }  from './handlers/interviewKit.js';
 import { handleGetResult } from './handlers/getResult.js';
-import { handleBypassPayment } from './handlers/bypassPayment.js';
 import { handleValidateCoupon } from './handlers/validateCoupon.js';
 import { handleGetScoring } from './handlers/getScoring.js';
+
+function noStoreRedirect(location) {
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: location,
+      'Cache-Control': 'no-store',
+    },
+  });
+}
+
+const API_METHODS = new Map([
+  ['/analyze', ['POST']],
+  ['/create-payment', ['POST']],
+  ['/webhook/mayar', ['POST']],
+  ['/session/ping', ['POST']],
+  ['/check-session', ['GET']],
+  ['/validate-session', ['GET']],
+  ['/get-scoring', ['GET']],
+  ['/get-session', ['POST']],
+  ['/generate', ['POST']],
+  ['/get-result', ['POST']],
+  ['/submit-email', ['POST']],
+  ['/fetch-job-url', ['POST']],
+  ['/exchange-token', ['POST']],
+  ['/resend-email', ['POST']],
+  ['/resend-access', ['POST']],
+  ['/interview-kit', ['POST']],
+  ['/bypass-payment', ['POST']],
+  ['/validate-coupon', ['POST']],
+  ['/log', ['POST']],
+  ['/feedback', ['POST']],
+]);
+
+function methodNotAllowed(request, env, allowedMethods) {
+  const allow = [...allowedMethods, 'OPTIONS'].join(', ');
+  return corsResponse(
+    JSON.stringify({ message: 'Method not allowed' }),
+    405,
+    { 'Content-Type': 'application/json', Allow: allow },
+    request,
+    env,
+  );
+}
+
+const CLIENT_LOG_PII_FIELDS = new Set([
+  'email', 'session_id', 'token', 'secret', 'password', 'key', 'session_' + 'secret',
+  'cv', 'cv_text', 'raw_cv', 'job_desc', 'jd', 'raw_jd',
+]);
+
+function sanitizeClientLogValue(key, value, depth = 0) {
+  const safeKey = sanitizeLogValue(key, 100);
+  if (CLIENT_LOG_PII_FIELDS.has(String(safeKey).toLowerCase())) return '[REDACTED]';
+  if (value === null || value === undefined) return value;
+  if (typeof value === 'string') return sanitizeLogValue(value, 500);
+  if (typeof value === 'number' || typeof value === 'boolean') return value;
+  if (depth >= 3) return '[TRUNCATED]';
+  if (Array.isArray(value)) {
+    return value.slice(0, 20).map((item, index) => sanitizeClientLogValue(String(index), item, depth + 1));
+  }
+  if (typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value)
+        .slice(0, 50)
+        .map(([childKey, childValue]) => [
+          sanitizeLogValue(childKey, 100),
+          sanitizeClientLogValue(childKey, childValue, depth + 1),
+        ])
+    );
+  }
+  return sanitizeLogValue(String(value), 500);
+}
 
 // CSRF defence: CORS response headers do not stop a browser from sending a
 // cross-site form/no-cors POST with cookies. Unsafe browser-originated methods
@@ -40,6 +111,13 @@ export async function route(request, env, ctx) {
     }, 200, request, env);
   }
 
+  // CORS preflight — browsers send OPTIONS before non-simple cross-origin requests.
+  // Must return 2xx; a 404 fails the preflight and blocks the subsequent POST entirely.
+  // Placed before all route handlers so no endpoint-specific match is needed.
+  if (method === 'OPTIONS') {
+    return corsResponse('', 204, {}, request, env);
+  }
+
   // Mayar webhooks are server-to-server and do not carry a browser Origin.
   // They are authenticated separately with HMAC inside handleMayarWebhook().
   if (!(method === 'POST' && pathname === '/webhook/mayar') && isUnsafeOrigin(request, env)) {
@@ -58,7 +136,7 @@ export async function route(request, env, ctx) {
     return handleMayarWebhook(request, env, ctx);
   }
 
-  if (method === 'POST' && (pathname === '/session/ping' || pathname === '/api/session/ping')) {
+  if (method === 'POST' && apiPath === '/session/ping') {
     return handleSessionPing(request, env);
   }
 
@@ -106,12 +184,8 @@ export async function route(request, env, ctx) {
     return handleResendAccess(request, env);
   }
 
-  if (method === 'POST' && (pathname === '/interview-kit' || pathname === '/api/interview-kit')) {
+  if (method === 'POST' && apiPath === '/interview-kit') {
     return handleInterviewKit(request, env);
-  }
-
-  if (method === 'POST' && apiPath === '/bypass-payment') {
-    return handleBypassPayment(request, env);
   }
 
   if (method === 'POST' && apiPath === '/validate-coupon') {
@@ -119,7 +193,7 @@ export async function route(request, env, ctx) {
   }
 
 
-  if (method === 'POST' && pathname === '/api/log') {
+  if (method === 'POST' && apiPath === '/log') {
     const ip = clientIp(request);
     const kvResult = await checkRateLimitKV(env, ip, 30, 60, 'client_log');
     if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60);
@@ -136,16 +210,12 @@ export async function route(request, env, ctx) {
     const rawBody = (contentType.includes('application/json') || contentType.includes('text/plain'))
       ? (() => { try { const p = JSON.parse(bodyText); return (p !== null && typeof p === 'object' && !Array.isArray(p)) ? p : {}; } catch { return { raw: bodyText }; } })()
       : { raw: bodyText };
-    // Sanitize all string values before writing to logs to prevent log injection.
-    // Mask PII field names to avoid leaking sensitive data into Cloudflare log storage.
-    const PII_FIELDS = new Set([
-      'email', 'session_id', 'token', 'secret', 'password', 'key', 'session_' + 'secret',
-      'cv', 'cv_text', 'raw_cv', 'job_desc', 'jd', 'raw_jd',
-    ]);
+    // Sanitize recursively before writing to logs to prevent log injection and
+    // nested PII leaks from client payloads shaped like { event, data: {...} }.
     const body = Object.fromEntries(
       Object.entries(rawBody).map(([k, v]) => {
         const safeKey = sanitizeLogValue(k, 100);
-        const safeVal = PII_FIELDS.has(String(safeKey).toLowerCase()) ? '[REDACTED]' : sanitizeLogValue(v, 500);
+        const safeVal = sanitizeClientLogValue(k, v);
         return [safeKey, safeVal];
       })
     );
@@ -153,7 +223,7 @@ export async function route(request, env, ctx) {
     return jsonResponse({ ok: true }, 200, request, env);
   }
 
-  if (method === 'POST' && pathname === '/feedback') {
+  if (method === 'POST' && apiPath === '/feedback') {
     const ip = clientIp(request);
     const kvResult = await checkRateLimitKV(env, ip, 10, 60, 'feedback');
     if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60);
@@ -173,31 +243,45 @@ export async function route(request, env, ctx) {
     return jsonResponse({ ok: true }, 200, request, env);
   }
 
+  const allowedMethods = API_METHODS.get(apiPath);
+  if (allowedMethods && !allowedMethods.includes(method)) {
+    return methodNotAllowed(request, env, allowedMethods);
+  }
+
   // In production the Worker owns gaslamar.com/* — proxy unmatched GET/HEAD requests
   // to the Pages deployment so HTML pages and static assets are served correctly.
   // redirect:'manual' prevents an infinite loop if Pages ever redirects pages.dev
   // back to gaslamar.com (the Worker would follow that redirect into itself).
   if ((method === 'GET' || method === 'HEAD') && env.ENVIRONMENT === 'production') {
+    if (pathname === '/hasil') {
+      return noStoreRedirect('/upload.html?reason=no_session');
+    }
+
+    if (pathname === '/download') {
+      return noStoreRedirect('/?reason=no_session');
+    }
+
     if (pathname === '/download.html') {
       const token = url.searchParams.get('token');
       const hasValidToken = typeof token === 'string' && /^[0-9a-f]{32}$/.test(token);
       const hasSessionCookie = /(?:^|;\s*)session_id=sess_[^;]{1,60}/.test(request.headers.get('Cookie') || '');
       if (!hasValidToken && !hasSessionCookie) {
-        return new Response(null, {
-          status: 302,
-          headers: {
-            Location: '/?reason=no_session',
-            'Cache-Control': 'no-store',
-          },
-        });
+        return noStoreRedirect('/?reason=no_session');
       }
     }
 
     // Hardcoded — never sourced from env vars to prevent open proxy misconfiguration.
     // pathname and url.search come from the request but only form path/query, not hostname.
-    const pagesUrl = 'https://gaslamar.pages.dev' + pathname + url.search;
+    const upstreamSearch = new URLSearchParams(url.search);
+    ['token', 'session', 'sessionId'].forEach((name) => upstreamSearch.delete(name));
+    const sanitizedSearch = upstreamSearch.toString();
+    const pagesUrl = 'https://gaslamar.pages.dev' + pathname + (sanitizedSearch ? `?${sanitizedSearch}` : '');
     const proxyHeaders = new Headers(request.headers);
     proxyHeaders.delete('host');
+    // The Pages origin only serves static assets. Session cookies and auth headers
+    // are Worker-only credentials and must never be forwarded to the upstream fetch.
+    proxyHeaders.delete('cookie');
+    proxyHeaders.delete('authorization');
     try {
       const proxied = await fetch(new Request(pagesUrl, {
         method: request.method,

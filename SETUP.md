@@ -111,8 +111,7 @@ gaslamar/
 │   │       ├── resendEmail.js    # POST /resend-email
 │   │       ├── resendAccess.js   # POST /resend-access
 │   │       ├── interviewKit.js   # POST /interview-kit
-│   │       ├── validateCoupon.js # POST /validate-coupon
-│   │       └── bypassPayment.js  # POST /bypass-payment (sandbox only, 404 in prod)
+│   │       └── validateCoupon.js # POST /validate-coupon
 │   ├── test/
 │   │   ├── worker.test.js     # Integration tests
 │   │   ├── pipeline.test.js   # Pipeline stage unit tests

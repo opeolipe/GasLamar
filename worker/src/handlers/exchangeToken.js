@@ -28,6 +28,8 @@ import { getSession } from '../sessions.js';
 import { makeSessionCookie } from '../cookies.js';
 import { KV_CV_RESULT_PREFIX } from '../constants.js';
 
+const SESSION_ID_RE = /^sess_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function handleExchangeToken(request, env) {
   const ip = clientIp(request);
 
@@ -61,6 +63,12 @@ export async function handleExchangeToken(request, env) {
     return jsonResponse({ message: 'Token tidak valid atau sudah kedaluwarsa' }, 404, request, env);
   }
 
+  if (typeof stored.session_id !== 'string' || !SESSION_ID_RE.test(stored.session_id)) {
+    await env.GASLAMAR_SESSIONS.delete(kvKey);
+    logError('exchange_token_malformed_session', { ip });
+    return jsonResponse({ message: 'Token tidak valid atau sudah kedaluwarsa' }, 404, request, env);
+  }
+
   // Delete immediately — single-use enforcement.
   // Must happen before the session check so that two concurrent requests with the
   // same token can't both pass and both receive a cookie (double-use race).
@@ -83,7 +91,7 @@ export async function handleExchangeToken(request, env) {
     const isMulti = result.tier === '3pack' || result.tier === 'jobhunt';
     log('exchange_token_result_only', { session_id: stored.session_id, ip });
     return jsonResponseWithCookie(
-      { ok: true, session_id: stored.session_id },
+      { ok: true },
       200,
       makeSessionCookie(stored.session_id, isMulti),
       request,
@@ -96,10 +104,8 @@ export async function handleExchangeToken(request, env) {
   const isMulti = (session.total_credits ?? 1) > 1;
   const cookieHeader = makeSessionCookie(stored.session_id, isMulti);
 
-  // Return session_id so the frontend can store it in localStorage for
-  // multi-credit session management (heartbeat, credit tracking, etc.)
   return jsonResponseWithCookie(
-    { ok: true, session_id: stored.session_id },
+    { ok: true },
     200,
     cookieHeader,
     request,

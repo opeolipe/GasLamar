@@ -106,6 +106,9 @@ export async function handleInterviewKit(request, env) {
     return jsonResponse({ success: true, kit: parsedKit }, 200, request, env);
   } catch (e) {
     logError('interview_kit_failed', { session_id, error: e.message });
-    return jsonResponse({ message: e.message || 'Gagal menghasilkan Interview Kit. Coba lagi.' }, 500, request, env);
+    const userMsg = e?.message === 'Respons AI terpotong. Coba lagi.'
+      ? e.message
+      : 'Gagal menghasilkan Interview Kit. Coba lagi.';
+    return jsonResponse({ message: userMsg }, 500, request, env);
   }
 }

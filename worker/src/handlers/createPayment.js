@@ -47,8 +47,10 @@ export async function handleCreatePayment(request, env) {
     return jsonResponse({ message: 'Data tidak lengkap' }, 400, request, env);
   }
 
-  // Look up extracted CV text from KV (set by /analyze) — never re-extract
-  if (!cv_text_key.startsWith('cvtext_')) {
+  // Strict format: exactly "cvtext_" + 64 lowercase hex chars (256-bit random token).
+  // Mirrors getScoring.js validation — prevents oversized KV key lookups that hit
+  // Cloudflare's 512-byte key limit with a confusing error.
+  if (!/^cvtext_[0-9a-f]{64}$/.test(cv_text_key)) {
     return jsonResponse({ message: 'cv_text_key tidak valid' }, 400, request, env);
   }
   const stored = await env.GASLAMAR_SESSIONS.get(cv_text_key, { type: 'json' });
@@ -65,6 +67,14 @@ export async function handleCreatePayment(request, env) {
     return jsonResponse({ message: 'Sesi tidak valid dari jaringan ini. Ulangi upload CV.' }, 403, request, env);
   }
 
+  // Validate Mayar API key before creating an invoice lock (gives a clear 503
+  // without blocking retries for 60s when staging/sandbox config is missing).
+  const mayarKey = env.ENVIRONMENT === 'production' ? env.MAYAR_API_KEY : env.MAYAR_API_KEY_SANDBOX;
+  if (!mayarKey) {
+    console.error(JSON.stringify({ event: 'create_payment_no_apikey', environment: env.ENVIRONMENT ?? 'sandbox' }));
+    return jsonResponse({ message: 'Layanan pembayaran sedang tidak tersedia. Hubungi support@gaslamar.com.' }, 503, request, env);
+  }
+
   // Idempotency: prevent duplicate invoices from rapid concurrent requests.
   // cv_text_key is single-use (deleted after invoice creation); a KV lock with a short
   // TTL ensures only one request reaches the Mayar API per cv_text_key.
@@ -79,14 +89,6 @@ export async function handleCreatePayment(request, env) {
   const sessionId = `sess_${crypto.randomUUID()}`;
 
   const credits = TIER_CREDITS[tier] ?? 1;
-
-  // Validate Mayar API key before creating a session (gives a clear 503 instead of a
-  // cryptic Mayar error when the secret is absent in staging/sandbox).
-  const mayarKey = env.ENVIRONMENT === 'production' ? env.MAYAR_API_KEY : env.MAYAR_API_KEY_SANDBOX;
-  if (!mayarKey) {
-    console.error(JSON.stringify({ event: 'create_payment_no_apikey', environment: env.ENVIRONMENT ?? 'sandbox' }));
-    return jsonResponse({ message: 'Layanan pembayaran sedang tidak tersedia. Hubungi support@gaslamar.com.' }, 503, request, env);
-  }
 
   try {
     // Redirect after payment completes — points to the right frontend per environment.
@@ -180,7 +182,7 @@ export async function handleCreatePayment(request, env) {
     const isMulti = credits > 1;
     const cookieHeader = makeSessionCookie(sessionId, isMulti);
 
-    return jsonResponseWithCookie({ session_id: sessionId, invoice_url }, 200, cookieHeader, request, env);
+    return jsonResponseWithCookie({ invoice_url }, 200, cookieHeader, request, env);
   } catch (e) {
     // Release invoice lock only for errors where Mayar never received the request
     // (network failures, validation errors). This allows the user to retry safely.

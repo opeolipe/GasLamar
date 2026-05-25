@@ -1,3 +1,21 @@
+## cvtext_ key format must be `cvtext_[0-9a-f]{64}` everywhere (2026-05-23)
+
+Any code path that accepts a user-supplied `cvtext_*` key must validate the strict format `^cvtext_[0-9a-f]{64}$` — not just `startsWith('cvtext_')` or a length cap. The production `/analyze` handler generates these keys with `hexToken(32)` (64 lowercase hex chars). Three endpoints (`createPayment`, `validateSession`, `bypassPayment`) previously accepted arbitrary strings, which could silently fail at Cloudflare KV's 512-byte key limit or accept malformed keys. Test helpers that seed `cvtext_` keys must also use the correct format (32 random bytes as hex) — never `crypto.randomUUID()`, which produces a UUID with hyphens that breaks the validation.
+
+---
+
+## Rate limiting must precede all KV reads (2026-05-23)
+
+Always apply rate limiting before any KV reads in handlers. If rate limiting comes after session lookups (as it did in `resendEmail.js`), every request in a flood pays the full KV cost before being blocked. The correct order: (1) rate limit by IP, (2) authenticate via cookie, (3) do KV work. Unauthenticated endpoints (`validateSession`, `getScoring`) are especially important — they must rate-limit before the KV call or become cheap amplification targets.
+
+---
+
+## generate.js lock TTL must exceed the worst-case generation time (2026-05-23)
+
+The session lock in `generate.js` (`lock_<session_id>`) was 60s but documented as 120s. Parallel Claude tailoring (ID + EN) can run >60s on slow networks or large CVs. If the lock expires before generation completes, a concurrent retry can slip through and double-generate. Always set the TTL to at least 120s (the documented value).
+
+---
+
 ## /validate-session 404 is not a bug (2026-05-21)
 
 `GET /validate-session?cvKey=cvtext_<token>` returns 404 when the KV entry is not found — this is correct, expected behavior (cvtext_ entries expire after 24h). Do not treat this as a broken endpoint. Testing with a stale or manually constructed key will always 404. Similarly, `/create-payment` returns 400 (`cv_expired`) when the cvtext_ key has expired — also correct, not a bug. Both errors mean "start a new session," not "the API is down."

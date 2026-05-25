@@ -1,1 +1,3 @@
+/hasil /upload.html?reason=no_session 302
+/download /?reason=no_session 302
 /favicon.ico /assets/favicon.svg?v=2 301

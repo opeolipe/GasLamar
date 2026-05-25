@@ -210,6 +210,10 @@ describe('sanitizeLogValue', () => {
     expect(sanitizeLogValue('no params here')).toBe('no params here');
   });
 
+  it('redacts bare session IDs in log strings', () => {
+    expect(sanitizeLogValue('failed for sess_12345678-1234-1234-1234-123456789abc')).toBe('failed for [SESSION_REDACTED]');
+  });
+
   it('redacts key=value credential pairs', () => {
     expect(sanitizeLogValue('session_secret=supersecret msg')).toBe('session_secret=[REDACTED] msg');
     expect(sanitizeLogValue('token=abc123 sent')).toBe('token=[REDACTED] sent');

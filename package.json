@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "test": "node --test tests/unit/*.test.js",
     "build:vendor": "node scripts/vendor.js",
     "build:js": "node scripts/build.js",
     "build:react": "node scripts/build-react.js",
@@ -13,7 +14,7 @@
     "check:cache": "node scripts/check-cache-versions.js",
     "dev": "node scripts/build.js --watch",
     "start": "npx serve . -p 3000",
-    "e2e:prep": "npm run build:react",
+    "e2e:prep": "npm run build:js && npm run build:react",
     "e2e": "npm run e2e:prep && npx playwright test",
     "e2e:serial": "npm run e2e:prep && npx playwright test --workers=1",
     "e2e:retry": "npm run e2e:prep && npx playwright test --retries=1",

@@ -103,7 +103,7 @@ export async function handleAnalyze(request, env) {
 
     // Store the full scoring result alongside cv_text so GET /get-scoring can serve
     // it to hasil.html without the client carrying the entire blob in sessionStorage.
-    // cv_text is only returned by /get-session (after payment) — never by /get-scoring.
+    // cv_text stays server-side and is consumed later by /generate.
     await env.GASLAMAR_SESSIONS.put(cvTextKey, JSON.stringify({
       text: extraction.text,
       job_desc: job_desc.slice(0, 5000),

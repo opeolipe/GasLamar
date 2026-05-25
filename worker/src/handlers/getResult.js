@@ -3,6 +3,8 @@ import { getSessionIdFromCookie } from '../cookies.js';
 import { log, clientIp } from '../utils.js';
 import { KV_CV_RESULT_PREFIX } from '../constants.js';
 import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
+import { getSession } from '../sessions.js';
+import { SESSION_STATES } from '../sessionStates.js';
 
 function sanitizeFinalExportText(text) {
   return String(text || '')
@@ -41,6 +43,12 @@ export async function handleGetResult(request, env) {
   if (typeof result.cv_id_docx === 'string') result.cv_id_docx = sanitizeFinalExportText(result.cv_id_docx);
   if (typeof result.cv_en === 'string') result.cv_en = sanitizeFinalExportText(result.cv_en);
   if (typeof result.cv_en_docx === 'string') result.cv_en_docx = sanitizeFinalExportText(result.cv_en_docx);
-  log('get_result_hit', { session_id });
-  return jsonResponse({ ...result, exhausted: true }, 200, request, env);
+
+  // Compute real exhaustion state rather than hardcoding true.
+  // Session may be absent (expired after last credit use) — that IS exhausted.
+  const session = await getSession(env, session_id);
+  const exhausted = !session || session.status === SESSION_STATES.EXHAUSTED;
+
+  log('get_result_hit', { session_id, exhausted });
+  return jsonResponse({ ...result, exhausted }, 200, request, env);
 }

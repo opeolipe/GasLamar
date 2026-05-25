@@ -405,7 +405,7 @@ async function proceedToPayment() {
       throw new Error(errMsg);
     }
 
-    const { invoice_url, session_id } = await response.json();
+    const { invoice_url } = await response.json();
     if (window.Analytics) Analytics.track('payment_session_created', {
       tier: selectedTier,
       tier_price_idr: TIER_CONFIG[selectedTier].price,
@@ -415,9 +415,7 @@ async function proceedToPayment() {
     // through after Mayar's post-payment redirect. The HttpOnly cookie set by the Worker
     // is the authoritative credential for all server-side calls — the actual session_id
     // is never written to client-accessible storage.
-    if (session_id) {
-      try { localStorage.setItem('gaslamar_has_session', '1'); } catch (_) {}
-    }
+    try { localStorage.setItem('gaslamar_has_session', '1'); } catch (_) {}
 
     // Keep gaslamar_cv_key in sessionStorage so hasil-guard.js passes if the user
     // returns to /hasil after the Mayar redirect (cancel or back-navigation).
