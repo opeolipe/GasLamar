@@ -38,6 +38,13 @@ async function getEmailIndex(env, email) {
 }
 
 export async function handleResendEmail(request, env) {
+  // Rate limit first — before any KV reads — to short-circuit floods cheaply.
+  const ip = clientIp(request);
+  const rl = await checkRateLimitKV(env, ip, 5, 60, 'resend_email');
+  if (!rl.allowed) {
+    return rateLimitResponse(request, env, rl.retryAfter ?? 60);
+  }
+
   const sessionId = getSessionIdFromCookie(request);
 
   if (!sessionId) {
@@ -75,13 +82,6 @@ export async function handleResendEmail(request, env) {
     }
   }
   const newEmail = rawEmail ? rawEmail.toLowerCase() : null;
-
-  // Rate limit: 5 resend attempts per IP per minute.
-  const ip = clientIp(request);
-  const rl = await checkRateLimitKV(env, ip, 5, 60, 'resend_email');
-  if (!rl.allowed) {
-    return rateLimitResponse(request, env, rl.retryAfter ?? 60);
-  }
 
   // Persist email change when a new address is supplied.
   if (newEmail && newEmail !== session.email) {

@@ -1,23 +1,37 @@
 import { jsonResponse } from '../cors.js';
 import { clientIp, log } from '../utils.js';
+import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
 
 export async function handleValidateSession(request, env) {
+  const ip = clientIp(request);
+  const rl = await checkRateLimitKV(env, ip, 20, 60, 'validate_session');
+  if (!rl.allowed) return rateLimitResponse(request, env, rl.retryAfter ?? 60);
+
   const url = new URL(request.url);
   const cvKey = url.searchParams.get('cvKey');
 
-  // H7 FIX: Enforce a maximum length on cvKey before the KV lookup.
-  // Without a cap, a 1 MB cvtext_<garbage> string wastes CPU on key processing
-  // and KV round-trip overhead, enabling a low-effort CPU exhaustion attack.
-  if (!cvKey || !cvKey.startsWith('cvtext_') || cvKey.length > 256) {
+  // Strict format: exactly "cvtext_" + 64 lowercase hex chars (256-bit random token).
+  // Mirrors the validation in getScoring.js — prevents oversized KV key lookups.
+  if (!cvKey || !/^cvtext_[0-9a-f]{64}$/.test(cvKey)) {
     return jsonResponse({ valid: false, reason: 'invalid_key' }, 400, request, env);
   }
 
-  const stored = await env.GASLAMAR_SESSIONS.get(cvKey, { type: 'json' });
+  let stored = await env.GASLAMAR_SESSIONS.get(cvKey, { type: 'json' });
   if (!stored) {
+    // cvtext_ entry may have been consumed by /create-payment (which deletes it after
+    // storing a scoring snapshot under scoring_<token>). Check the snapshot so that
+    // users returning from Mayar after a cancel/back-navigation are not incorrectly
+    // redirected to access.html — their scoring data is still present and they can
+    // use the cached invoice URL or re-upload if needed.
+    const fallbackKey = `scoring_${cvKey.slice('cvtext_'.length)}`;
+    const fallback = await env.GASLAMAR_SESSIONS.get(fallbackKey);
+    if (fallback) {
+      log('validate_session_scoring_fallback', { ip: clientIp(request) });
+      return jsonResponse({ valid: true, note: 'scoring_snapshot' }, 200, request, env);
+    }
     return jsonResponse({ valid: false, reason: 'not_found' }, 404, request, env);
   }
 
-  const ip = clientIp(request);
   if (stored.ip && stored.ip !== ip) {
     log('validate_session_ip_mismatch', { ip, stored_ip: stored.ip });
     // Intentional log-only: this endpoint is display-only (scoring page freshness check).

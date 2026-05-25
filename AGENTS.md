@@ -121,7 +121,6 @@ POST /analyze
 | POST | /resend-email | handlers/resendEmail.js | |
 | POST | /resend-access | handlers/resendAccess.js | Rate: 10/min per IP |
 | POST | /interview-kit (alias: /api/interview-kit) | handlers/interviewKit.js | |
-| POST | /bypass-payment | handlers/bypassPayment.js | 404 in production — sandbox/E2E only |
 | POST | /validate-coupon | handlers/validateCoupon.js | Rate: 10/min per IP |
 | POST | /api/log | inline in router.js | Client error logging |
 | POST | /feedback | inline in router.js | User survey, fire-and-forget |
@@ -185,7 +184,6 @@ Do not break these:
 - `/get-session` rejects sessions without `paid` status
 - Session lock (`lock_<session_id>`, TTL 120s) prevents double-generation races
 - Sessions transition to `exhausted` state after last credit — never deleted by `generate.js`
-- `bypassPayment.js` must return 404 in production — `ENVIRONMENT === 'production'` guard must never be removed
 - Webhook idempotency sentinel `payment_processed_<session_id>` (48h TTL) written BEFORE session update
 
 ---
