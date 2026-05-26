@@ -1362,7 +1362,6 @@
         <div class="env-item"><span class="env-item-label">Frontend</span>npm start (port 3000)</div>
         <div class="env-item"><span class="env-item-label">Tests</span>cd worker && npm test</div>
         <div class="env-item"><span class="env-item-label">Email</span>silent (no RESEND_API_KEY)</div>
-        <div class="env-item"><span class="env-item-label">Payment</span>POST /bypass-payment (non-prod only)</div>
       </div>
     </div>
   </section>
@@ -1390,10 +1389,6 @@
       <div class="invariant-item">
         <div class="invariant-icon">✓</div>
         <div>Rate limiting: Cloudflare native + KV fallback — both must allow a request.</div>
-      </div>
-      <div class="invariant-item">
-        <div class="invariant-icon">✓</div>
-        <div>bypassPayment.js must always return 404 in production — guard must never be removed.</div>
       </div>
       <div class="invariant-item">
         <div class="invariant-icon">✓</div>
@@ -1445,10 +1440,6 @@
           <tr>
             <td style="font-family:'IBM Plex Mono',monospace; font-size:10px; white-space:nowrap; color: var(--accent)">worker/src/handlers/mayarWebhook.js</td>
             <td class="t-trigger">HMAC-SHA256 + idempotency sentinel written BEFORE session update. Email via ctx.waitUntil.</td>
-          </tr>
-          <tr>
-            <td style="font-family:'IBM Plex Mono',monospace; font-size:10px; white-space:nowrap; color: var(--accent)">worker/src/handlers/bypassPayment.js</td>
-            <td class="t-trigger">Sandbox/E2E only — returns 404 if ENVIRONMENT === 'production'. Never remove guard.</td>
           </tr>
           <tr>
             <td style="font-family:'IBM Plex Mono',monospace; font-size:10px; white-space:nowrap; color: var(--accent)">js/config.js</td>

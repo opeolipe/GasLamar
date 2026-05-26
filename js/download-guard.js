@@ -33,8 +33,11 @@
   // Path 2: normal flow — presence flag written by payment.js after /create-payment.
   // The actual session_id is never stored client-side; the HttpOnly cookie is the
   // authoritative credential. This flag is only a routing hint for this guard.
+  // gaslamar_session (legacy key) is also accepted for backward compatibility with
+  // sessions established before the presence-flag refactor.
   try {
     if (localStorage.getItem('gaslamar_has_session') === '1') return;
+    if (localStorage.getItem('gaslamar_session')) return;
   } catch (_) {
     // localStorage blocked (e.g. Safari strict private mode) — fail closed.
     window.location.replace('/');

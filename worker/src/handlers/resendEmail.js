@@ -8,9 +8,10 @@ import { SESSION_STATES }                    from '../sessionStates.js';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// All post-payment states — ready and exhausted still have accessible CV results.
+// Only states that have an accessible CV result — PAID has never had /generate called
+// so there is no cv_result_ to attach. Sending a "CV ready" email from PAID state
+// would produce an empty email with no attachments.
 const PAID_STATUSES = new Set([
-  SESSION_STATES.PAID,
   SESSION_STATES.GENERATING,
   SESSION_STATES.READY,
   SESSION_STATES.EXHAUSTED,
@@ -38,6 +39,13 @@ async function getEmailIndex(env, email) {
 }
 
 export async function handleResendEmail(request, env) {
+  // Rate limit first — before any KV reads — to short-circuit floods cheaply.
+  const ip = clientIp(request);
+  const rl = await checkRateLimitKV(env, ip, 5, 60, 'resend_email');
+  if (!rl.allowed) {
+    return rateLimitResponse(request, env, rl.retryAfter ?? 60);
+  }
+
   const sessionId = getSessionIdFromCookie(request);
 
   if (!sessionId) {
@@ -75,13 +83,6 @@ export async function handleResendEmail(request, env) {
     }
   }
   const newEmail = rawEmail ? rawEmail.toLowerCase() : null;
-
-  // Rate limit: 5 resend attempts per IP per minute.
-  const ip = clientIp(request);
-  const rl = await checkRateLimitKV(env, ip, 5, 60, 'resend_email');
-  if (!rl.allowed) {
-    return rateLimitResponse(request, env, rl.retryAfter ?? 60);
-  }
 
   // Persist email change when a new address is supplied.
   if (newEmail && newEmail !== session.email) {

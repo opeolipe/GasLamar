@@ -1,4 +1,4 @@
-import { corsResponse, forbiddenOriginResponse, isUnsafeOrigin, jsonResponse } from './cors.js';
+import { forbiddenOriginResponse, isUnsafeOrigin, jsonResponse, corsResponse } from './cors.js';
 import { clientIp, log, logError } from './utils.js';
 import { checkRateLimitKV, rateLimitResponse } from './rateLimit.js';
 import { sanitizeLogValue } from './sanitize.js';
@@ -17,7 +17,6 @@ import { handleResendEmail }    from './handlers/resendEmail.js';
 import { handleResendAccess }  from './handlers/resendAccess.js';
 import { handleInterviewKit }  from './handlers/interviewKit.js';
 import { handleGetResult } from './handlers/getResult.js';
-import { handleBypassPayment } from './handlers/bypassPayment.js';
 import { handleValidateCoupon } from './handlers/validateCoupon.js';
 import { handleGetScoring } from './handlers/getScoring.js';
 import { getSession } from './sessions.js';
@@ -79,7 +78,6 @@ const API_METHODS = new Map([
   ['/resend-email', ['POST']],
   ['/resend-access', ['POST']],
   ['/interview-kit', ['POST']],
-  ['/bypass-payment', ['POST']],
   ['/validate-coupon', ['POST']],
   ['/log', ['POST']],
   ['/feedback', ['POST']],
@@ -143,9 +141,19 @@ export async function route(request, env, ctx) {
     }, 200, request, env);
   }
 
+  // CORS preflight — browsers send OPTIONS before non-simple cross-origin requests.
+  // Must return 2xx; a 404 fails the preflight and blocks the subsequent POST entirely.
+  // Placed before all route handlers so no endpoint-specific match is needed.
+  if (method === 'OPTIONS') {
+    return corsResponse('', 204, {}, request, env);
+  }
+
   // Mayar webhooks are server-to-server and do not carry a browser Origin.
   // They are authenticated separately with HMAC inside handleMayarWebhook().
-  if (!(method === 'POST' && pathname === '/webhook/mayar') && isUnsafeOrigin(request, env)) {
+  // Match both /webhook/mayar and /api/webhook/mayar so the handler is reachable
+  // regardless of which prefix Mayar's dashboard is configured to use.
+  const isWebhookPath = method === 'POST' && (pathname === '/webhook/mayar' || apiPath === '/webhook/mayar');
+  if (!isWebhookPath && isUnsafeOrigin(request, env)) {
     return forbiddenOriginResponse(request, env);
   }
 
@@ -157,7 +165,7 @@ export async function route(request, env, ctx) {
     return handleCreatePayment(request, env);
   }
 
-  if (method === 'POST' && pathname === '/webhook/mayar') {
+  if (isWebhookPath) {
     return handleMayarWebhook(request, env, ctx);
   }
 
@@ -211,10 +219,6 @@ export async function route(request, env, ctx) {
 
   if (method === 'POST' && apiPath === '/interview-kit') {
     return handleInterviewKit(request, env);
-  }
-
-  if (method === 'POST' && apiPath === '/bypass-payment') {
-    return handleBypassPayment(request, env);
   }
 
   if (method === 'POST' && apiPath === '/validate-coupon') {
