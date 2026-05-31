@@ -67,10 +67,17 @@ export function makeSessionCookie(sessionId, isMulti = false) {
   const maxAge = isMulti ? 2592000 : 604800;
   // SameSite=None; Secure is safe here: Cloudflare Workers only accept HTTPS connections,
   // so the Secure flag is always satisfied. No explicit HTTPS check is needed.
-  return `session_id=${sessionId}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${maxAge}`;
+  //
+  // Partitioned (CHIPS) enables the cookie to be stored in cross-site contexts
+  // (e.g. staging.gaslamar.pages.dev → api-staging.gaslamar.com) where browsers
+  // that block unpartitioned third-party cookies would otherwise discard it.
+  // In same-site / first-party contexts (production: gaslamar.com → gaslamar.com)
+  // the Partitioned attribute is ignored by the browser per the CHIPS spec.
+  return `session_id=${sessionId}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${maxAge}; Partitioned`;
 }
 
 /** Build a cookie that immediately clears the session (Max-Age=0). */
 export function clearSessionCookie() {
-  return 'session_id=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0';
+  // Partitioned must match the original Set-Cookie to clear the same cookie bucket.
+  return 'session_id=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0; Partitioned';
 }
