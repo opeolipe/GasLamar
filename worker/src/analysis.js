@@ -31,7 +31,7 @@ import {
 } from './pipeline/roleInference.js';
 import { getRoleProfile } from './roleProfiles.js';
 import { callDiagnose }  from './pipeline/diagnose.js';
-import { sha256Hex }     from './utils.js';
+import { sha256Hex, log } from './utils.js';
 import { EXTRACT_CACHE_VERSION, ANALYSIS_CACHE_VERSION } from './cacheVersions.js';
 
 // ---- Orchestrator ----
@@ -42,7 +42,7 @@ export async function analyzeCV(cvText, jobDesc, env) {
   const contentHash = await sha256Hex(cvText.trim() + '\x00' + jobDesc.trim());
   const cacheKey    = `analysis_${ANALYSIS_CACHE_VERSION}_${contentHash}`;
   let cached = null;
-  try { cached = await env.GASLAMAR_SESSIONS.get(cacheKey, { type: 'json' }); } catch (_) {}
+  try { cached = await env.GASLAMAR_SESSIONS.get(cacheKey, { type: 'json' }); } catch (e) { log('kv_read_error', { key: 'analysis_cache', error: String(e) }); }
   if (cached) {
     // Cache entries written by v7+ always contain the correctly-penalised skor.
     // The penalty is applied at write time (below) so there is nothing to patch here.
@@ -58,7 +58,7 @@ export async function analyzeCV(cvText, jobDesc, env) {
   // Bump EXTRACT_CACHE_VERSION (top of file) when changing extract.js or prompts/extract.js.
   const extractKey = `extract_${EXTRACT_CACHE_VERSION}_${contentHash}`;
   let extractedData = null;
-  try { extractedData = await env.GASLAMAR_SESSIONS.get(extractKey, { type: 'json' }); } catch (_) {}
+  try { extractedData = await env.GASLAMAR_SESSIONS.get(extractKey, { type: 'json' }); } catch (e) { log('kv_read_error', { key: 'extract_cache', error: String(e) }); }
   if (!extractedData) {
     extractedData = await callExtract(cvText, jobDesc, env);
     try {
@@ -67,7 +67,7 @@ export async function analyzeCV(cvText, jobDesc, env) {
         JSON.stringify(extractedData),
         { expirationTtl: 86400 },
       );
-    } catch (_) {}
+    } catch (e) { log('kv_write_error', { key: 'extract_cache', error: String(e) }); }
   }
 
   // ── Stage 2: ANALYZE (code, no AI) ────────────────────────────────────────
@@ -181,7 +181,7 @@ export async function analyzeCV(cvText, jobDesc, env) {
   scoring.skor_keywords     = Math.round(skor_6d.recruiter_signal);
 
   // ── Store in cache (48h TTL) ───────────────────────────────────────────────
-  try { await env.GASLAMAR_SESSIONS.put(cacheKey, JSON.stringify(scoring), { expirationTtl: 172800 }); } catch (_) {}
+  try { await env.GASLAMAR_SESSIONS.put(cacheKey, JSON.stringify(scoring), { expirationTtl: 172800 }); } catch (e) { log('kv_write_error', { key: 'analysis_cache', error: String(e) }); }
 
   return scoring;
 }
