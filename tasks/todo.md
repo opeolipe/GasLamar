@@ -23,3 +23,19 @@
 - M3: resend-email tests (401, 403, 400, 200, 404)
 - generate.js multi-credit / rollback tests
 - webhook ENVIRONMENT=undefined test
+
+---
+
+# /get-scoring atomic rate limit fix — 2026-05-31
+
+## Problem
+`getScoring.js` uses only `checkRateLimitKV` (non-atomic KV counter with TOCTOU race).
+15 parallel requests can all read `count=0` before any write completes → limit bypass.
+No CF native atomic binding for this endpoint. No rate-limit tests.
+
+## Steps
+- [ ] Add `RATE_LIMITER_GET_SCORING` CF native binding to wrangler.toml (namespace_id 1007, 10/min) — sandbox, staging, production
+- [ ] Update `getScoring.js` — import `checkRateLimit`, call CF binding first (atomic burst guard)
+- [ ] Add rate limiting tests to worker.test.js (new describe block, unique IP range 10.99.3.x)
+- [ ] Run tests — all must pass
+- [ ] Commit and push
