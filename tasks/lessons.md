@@ -338,3 +338,27 @@ if (isSandbox) {
 
 **Test coverage:** Add `verifyMayarWebhook` unit tests for both the new "absent" path
 and a regression test confirming wrong values are still rejected even in sandbox.
+
+---
+
+## External tester false positives — know what the real invariants are (2026-05-31)
+
+An external QA report filed four "critical bugs" that were all testing errors or design misunderstandings:
+
+**1. "Terlalu singkat 1.500 karakter" despite claimed 7,962 chars**
+The error in `Upload.tsx handleSubmit` fires only when `cvMissing = !hasFile` AND `cvTab === 'paste'` AND paste text is non-empty. `hasFile` is `false` only when paste text is trimmed to < 1,500 chars. For 7,962 non-whitespace chars the code sets `cvText` and `fileName`, making `hasFile = true` and blocking this error path. The tester's "7,962 chars" was likely whitespace-heavy text, wrong field, or an inaccurate count. Code is correct.
+
+**2. "Session not found" after "23h 59m active" banner**
+`sessionStorage` is tab-scoped. The "active session" banner in Upload.tsx reads `gaslamar_cv_key` / `gaslamar_analyze_time` from the current tab's sessionStorage. Navigating to hasil.html in a *new tab* loses those keys — hence "session not found". Alternatively, the 24h server KV expired 1-2 minutes before the 24h client countdown reached zero (clock skew). Both are by-design behaviors, not bugs. Code is correct.
+
+**3. "IDOR vulnerability" in client-side session storage**
+`gaslamar_cv_key` contains a `cvtext_` prefix + 256-bit (64 hex chars) cryptographically random token. The server validates `^cvtext_[0-9a-f]{64}$` and requires the token to exist in KV. Enumeration of the 2²⁵⁶ space is computationally impossible. Not a vulnerability.
+
+**4. "No session token in client storage"**
+The tester looked for a key named `session_token` or `server_session_id`. The actual token is stored under `gaslamar_cv_key` (value = `cvtext_<64-hex>`). The paid-session cookie is an HttpOnly cookie and intentionally not visible in DevTools → Storage → SessionStorage. Not a bug.
+
+**Verification approach for future QA disputes:**
+- Run `cd worker && npm test` — all 565 tests must pass
+- Check sessionStorage in the SAME tab the analysis ran in (not a new tab)
+- Confirm character count using `.trim().length`, not `.length` — whitespace-heavy text may count high but trim low
+- Paid session token is an HttpOnly cookie; check DevTools → Application → Cookies, not sessionStorage

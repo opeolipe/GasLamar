@@ -4,20 +4,20 @@
 - none
 
 ## HIGH
-- [ ] H1: generate.js:319 — fix comment "60s KV TTL" → "120s KV TTL"
-- [ ] H2: router.js — document (or handle) /api/webhook/mayar 404 gap
-- [ ] H3: resendEmail.js — remove SESSION_STATES.PAID from PAID_STATUSES
+- [x] H1: generate.js:319 — fix comment "60s KV TTL" → "120s KV TTL" (lock TTL is 120s at line 189, comment at line 331 correct)
+- [x] H2: router.js — document (or handle) /api/webhook/mayar 404 gap (lines 122-124 match both /webhook/mayar and /api/webhook/mayar)
+- [x] H3: resendEmail.js — remove SESSION_STATES.PAID from PAID_STATUSES (removed; comment explains PAID has no cv_result_)
 
 ## MEDIUM
-- [ ] M1: CLAUDE.md — change analysis_v16_ → analysis_v17_
-- [ ] M2: router.js:50 — remove dead /bypass-payment from API_METHODS
-- [ ] M4: generate.js:249,274 — send CV-ready email unconditionally when session.email exists
-- [ ] M5: generate.js — add KV fallback rate-limiter (5 req/min per IP) matching analyze.js pattern
+- [x] M1: CLAUDE.md — change analysis_v16_ → analysis_v17_ (already v17 throughout CLAUDE.md)
+- [x] M2: router.js:50 — remove dead /bypass-payment from API_METHODS (already absent from API_METHODS map)
+- [x] M4: generate.js:249,274 — send CV-ready email unconditionally when session.email exists (both exhausted and ready branches call sendCVReadyEmail)
+- [x] M5: generate.js — add KV fallback rate-limiter (5 req/min per IP) matching analyze.js pattern (checkRateLimitKV at line 23)
 
 ## LOW
-- [ ] L3: interviewKit.js:79 — log cache-read errors instead of swallowing
-- [ ] L4: CLAUDE.md — fix truncation gotcha (threshold + strategy)
-- [ ] L5: router.js:240-245 — add comment about gaslamar_delivery being client-side only
+- [x] L3: interviewKit.js:79 — log cache-read errors instead of swallowing (logError at line 92)
+- [x] L4: CLAUDE.md — fix truncation gotcha (threshold + strategy + corrected "no warning" claim)
+- [x] L5: router.js:240-245 — add comment about gaslamar_delivery being client-side only (comment at line 270)
 
 ## SKIP (test-coverage gaps — deferred)
 - M3: resend-email tests (401, 403, 400, 200, 404)

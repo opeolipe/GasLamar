@@ -31,7 +31,7 @@ export function useResultData(): ResultDataState {
     // Reject foreign URL session parameters
     if (urlSession !== null && !urlSession.startsWith('cvtext_')) { fail('expired'); return; }
 
-    // Scoring data may be absent after a tab refresh (scoring.js clears it on load).
+    // Scoring data may be absent when sessionStorage was cleared or on a fresh new-tab.
     // Fall back to GET /get-scoring using the cv_key capability token.
     if (!rawScoring) {
       if (!cvKeyVal.startsWith('cvtext_')) { fail('missing'); return; }
@@ -51,8 +51,10 @@ export function useResultData(): ResultDataState {
           if (!r.ok) { fail('missing'); return; }
           const body = await r.json() as { scoring?: ScoringData; valid?: boolean };
           // getScoring returns { valid: true, scoring: ... } on success.
-          // valid:false is only sent on 404, which is handled above.
-          const s = body?.scoring;
+          // valid:false is only sent on 404, handled above. Guard scoring presence
+          // explicitly so a malformed response doesn't reach the skor check.
+          if (!body?.scoring) { fail('missing'); return; }
+          const s = body.scoring;
           const skor = parseInt(String(s?.skor));
           if (isNaN(skor) || skor < 0 || skor > 100) { fail('missing'); return; }
           if (time > 0 && (Date.now() - time) / 1000 > 86400) { fail('expired'); return; }
