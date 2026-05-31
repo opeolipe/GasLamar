@@ -44,7 +44,7 @@ export async function handleMayarWebhook(request, env, ctx) {
     payload.data?.productId,    // payment-link ID — matches the index set by /create-payment
     payload.data?.invoice_id,   // alternate field name used in some API versions
     payload.data?.transactionId, // belt-and-suspenders for reverse mapping
-  ].filter((id, i, arr) => id && typeof id === 'string' && arr.indexOf(id) === i); // dedupe
+  ].filter((id, i, arr) => id && typeof id === 'string' && id.length <= 200 && arr.indexOf(id) === i); // dedupe + KV key length guard
 
   const redirectUrl = payload.redirect_url || payload.data?.redirect_url || '';
   const status = payload.status || payload.data?.status;

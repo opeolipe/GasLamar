@@ -83,11 +83,16 @@ function downloadFile(lang, format) {
     const res = await fetch(WORKER_URL + '/check-session', {
       credentials: 'include',
     });
-    if (!res.ok) {
+    // 401 = no session cookie at all — hard stop; the user never completed
+    // the payment flow or the cookie is blocked.
+    // All other non-ok codes (404 = expired session, 429 = rate-limited,
+    // 5xx = transient server error) are handled by the polling loop:
+    // poll() retries 404 up to 4 times, then checks /get-result and
+    // redirects to access.html; transient errors are retried until MAX_POLLS.
+    if (res.status === 401) {
       showSessionError('Sesi tidak ditemukan', 'Link download tidak valid. Coba lagi dari awal.');
       return;
     }
-    await res.json().catch(function() { return {}; });
     startPolling(null);
   } catch (_) {
     showSessionError('Terjadi Kesalahan', 'Tidak dapat menghubungi server. Coba refresh halaman ini.');

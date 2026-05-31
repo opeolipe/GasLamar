@@ -189,12 +189,13 @@ export async function verifyMayarWebhook(request, env) {
 
   const isSandbox = env.ENVIRONMENT !== 'production';
 
-  // Sandbox bypass: only skip HMAC when the secret is absent (Mayar sandbox
-  // uses a different signing key and behaviour is inconsistent).  If a secret IS
-  // configured in staging we still verify — this prevents a compromised staging
-  // URL from being used to forge webhook payloads even when the secret is set.
-  if (isSandbox && !secret) {
-    return { valid: true, body };
+  // Fail closed if no secret is configured in any environment — including sandbox.
+  // Previously, sandbox without a secret bypassed all auth (forged payloads accepted).
+  // Now: require a secret everywhere; sandbox still allows through when no auth header
+  // is present (Mayar simulator omits auth), but only after the secret check passes.
+  if (!secret) {
+    console.error(JSON.stringify({ event: 'webhook_no_secret_configured', environment: env.ENVIRONMENT }));
+    return { valid: false, body };
   }
 
   // Mayar sandbox sends x-callback-token (simple bearer) instead of x-mayar-signature (HMAC).

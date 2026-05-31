@@ -19,6 +19,8 @@ import { handleInterviewKit }  from './handlers/interviewKit.js';
 import { handleGetResult } from './handlers/getResult.js';
 import { handleValidateCoupon } from './handlers/validateCoupon.js';
 import { handleGetScoring } from './handlers/getScoring.js';
+import { getSession } from './sessions.js';
+import { getCvTextKeyFromCookie, getSessionIdFromCookie } from './cookies.js';
 
 function noStoreRedirect(location) {
   return new Response(null, {
@@ -28,6 +30,35 @@ function noStoreRedirect(location) {
       'Cache-Control': 'no-store',
     },
   });
+}
+
+async function getProtectedPageState(request, env) {
+  const sessionId = getSessionIdFromCookie(request);
+  const cvTextKey = getCvTextKeyFromCookie(request);
+  const ip = clientIp(request);
+  const state = {
+    hasSessionCookie: !!sessionId,
+    hasAnalysisCookie: !!cvTextKey,
+    sessionActive: false,
+    analysisActive: false,
+  };
+
+  if (sessionId) {
+    state.sessionActive = !!(await getSession(env, sessionId));
+  }
+
+  if (cvTextKey) {
+    const stored = await env.GASLAMAR_SESSIONS.get(cvTextKey, { type: 'json' });
+    if (stored?.scoring && (!stored.ip || stored.ip === ip)) {
+      state.analysisActive = true;
+    } else {
+      const fallbackKey = `scoring_${cvTextKey.slice('cvtext_'.length)}`;
+      const fallback = await env.GASLAMAR_SESSIONS.get(fallbackKey, { type: 'json' });
+      state.analysisActive = !!fallback?.scoring && (!fallback.ip || fallback.ip === ip);
+    }
+  }
+
+  return state;
 }
 
 const API_METHODS = new Map([
@@ -47,7 +78,6 @@ const API_METHODS = new Map([
   ['/resend-email', ['POST']],
   ['/resend-access', ['POST']],
   ['/interview-kit', ['POST']],
-  ['/bypass-payment', ['POST']],
   ['/validate-coupon', ['POST']],
   ['/log', ['POST']],
   ['/feedback', ['POST']],
@@ -120,7 +150,10 @@ export async function route(request, env, ctx) {
 
   // Mayar webhooks are server-to-server and do not carry a browser Origin.
   // They are authenticated separately with HMAC inside handleMayarWebhook().
-  if (!(method === 'POST' && pathname === '/webhook/mayar') && isUnsafeOrigin(request, env)) {
+  // Match both /webhook/mayar and /api/webhook/mayar so the handler is reachable
+  // regardless of which prefix Mayar's dashboard is configured to use.
+  const isWebhookPath = method === 'POST' && (pathname === '/webhook/mayar' || apiPath === '/webhook/mayar');
+  if (!isWebhookPath && isUnsafeOrigin(request, env)) {
     return forbiddenOriginResponse(request, env);
   }
 
@@ -132,7 +165,7 @@ export async function route(request, env, ctx) {
     return handleCreatePayment(request, env);
   }
 
-  if (method === 'POST' && pathname === '/webhook/mayar') {
+  if (isWebhookPath) {
     return handleMayarWebhook(request, env, ctx);
   }
 
@@ -253,8 +286,21 @@ export async function route(request, env, ctx) {
   // redirect:'manual' prevents an infinite loop if Pages ever redirects pages.dev
   // back to gaslamar.com (the Worker would follow that redirect into itself).
   if ((method === 'GET' || method === 'HEAD') && env.ENVIRONMENT === 'production') {
-    if (pathname === '/hasil') {
-      return noStoreRedirect('/upload.html?reason=no_session');
+    if (pathname === '/hasil' || pathname === '/hasil.html') {
+      const state = await getProtectedPageState(request, env);
+      if (state.analysisActive && pathname === '/hasil') {
+        return noStoreRedirect('/hasil.html');
+      }
+      if (!state.analysisActive && state.sessionActive) {
+        return noStoreRedirect('/download.html');
+      }
+      if (!state.analysisActive && (state.hasAnalysisCookie || state.hasSessionCookie)) {
+        return noStoreRedirect('/access.html?expired=1&source=hasil');
+      }
+      if (!state.analysisActive && pathname === '/hasil.html') {
+        return noStoreRedirect('/upload.html?reason=no_session');
+      }
+      if (pathname === '/hasil') return noStoreRedirect('/upload.html?reason=no_session');
     }
 
     if (pathname === '/download') {
@@ -264,8 +310,16 @@ export async function route(request, env, ctx) {
     if (pathname === '/download.html') {
       const token = url.searchParams.get('token');
       const hasValidToken = typeof token === 'string' && /^[0-9a-f]{32}$/.test(token);
-      const hasSessionCookie = /(?:^|;\s*)session_id=sess_[^;]{1,60}/.test(request.headers.get('Cookie') || '');
-      if (!hasValidToken && !hasSessionCookie) {
+      if (!hasValidToken) {
+        const state = await getProtectedPageState(request, env);
+        if (state.hasSessionCookie && !state.sessionActive) {
+          return noStoreRedirect('/access.html?expired=1&source=download');
+        }
+        if (!state.sessionActive) {
+          return noStoreRedirect('/?reason=no_session');
+        }
+      }
+      if (token && !hasValidToken) {
         return noStoreRedirect('/?reason=no_session');
       }
     }

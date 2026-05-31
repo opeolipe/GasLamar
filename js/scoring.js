@@ -35,11 +35,14 @@
 
   let scoring;
 
-  if (cvKey && cvKey.startsWith('cvtext_')) {
+  if (!cvKey || cvKey.startsWith('cvtext_')) {
     try {
       const _ac = new AbortController();
       const _at = setTimeout(() => _ac.abort(), 8000);
-      const res = await fetch(`${WORKER_URL}/get-scoring?key=${encodeURIComponent(cvKey)}`, { signal: _ac.signal });
+      const scoringUrl = cvKey && cvKey.startsWith('cvtext_')
+        ? `${WORKER_URL}/get-scoring?key=${encodeURIComponent(cvKey)}`
+        : `${WORKER_URL}/get-scoring`;
+      const res = await fetch(scoringUrl, { credentials: 'include', signal: _ac.signal });
       clearTimeout(_at);
 
       if (res.ok) {
@@ -98,6 +101,9 @@
       primary_issue:  primary_issue,
       preview_before: scoring.preview_before || undefined,
       preview_after:  scoring.preview_after  || undefined,
+      entitas_klaim:  Array.isArray(scoring.entitas_klaim) ? scoring.entitas_klaim : undefined,
+      angka_di_cv:    typeof scoring.angka_di_cv  === 'string' ? scoring.angka_di_cv  : undefined,
+      skills_mentah:  typeof scoring.skills_mentah === 'string' ? scoring.skills_mentah : undefined,
     }));
   } catch (_) {}
 

@@ -39,11 +39,23 @@ Generate the interview kit. All generated text (email, WhatsApp, tell_me_about_y
     throw new Error('Respons AI terpotong. Coba lagi.');
   }
 
-  const text     = claudeResponse.content[0].text;
-  const jsonStart = text.indexOf('{');
-  const jsonEnd   = text.lastIndexOf('}');
-  if (jsonStart === -1 || jsonEnd === -1) throw new Error('Format respons AI tidak valid.');
-  return JSON.parse(text.slice(jsonStart, jsonEnd + 1));
+  const text = claudeResponse.content[0].text;
+  const cleaned = text.replace(/```json\n?|\n?```/g, '').trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch (_) {}
+  const firstBrace = cleaned.indexOf('{');
+  if (firstBrace >= 0) {
+    let depth = 0, end = -1;
+    for (let i = firstBrace; i < cleaned.length; i++) {
+      if (cleaned[i] === '{') depth++;
+      else if (cleaned[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
+    }
+    if (end >= 0) {
+      try { return JSON.parse(cleaned.slice(firstBrace, end + 1)); } catch (_) {}
+    }
+  }
+  throw new Error('Format respons AI tidak valid.');
 }
 
 export async function handleInterviewKit(request, env) {
@@ -76,7 +88,8 @@ export async function handleInterviewKit(request, env) {
       log('interview_kit_cache_hit', { session_id, language });
       return jsonResponse({ success: true, kit: cachedKit ?? cachedEntry }, 200, request, env);
     }
-  } catch {
+  } catch (e) {
+    logError('interview_kit_cache_read_failed', { session_id, error: e?.message });
     // proceed to session-gated generation
   }
 

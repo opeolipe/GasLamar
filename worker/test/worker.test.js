@@ -347,7 +347,7 @@ describe('protected state page routing', () => {
   beforeAll(() => fetchMock.activate());
   afterAll(() => fetchMock.deactivate());
 
-  it('production redirects extensionless /hasil and /download before proxying to Pages', async () => {
+  it('production redirects extensionless /hasil and /download before proxying to Pages when no session exists', async () => {
     const productionEnv = { ...env, ENVIRONMENT: 'production' };
 
     const hasil = await route(new Request('https://gaslamar.com/hasil', {
@@ -367,6 +367,120 @@ describe('protected state page routing', () => {
     expect(download.headers.get('Cache-Control')).toBe('no-store');
   });
 
+  it('production redirects extensionless /hasil to download when an active paid session exists', async () => {
+    const sessionId = await seedSession('paid', 'single');
+
+    const res = await route(new Request('https://gaslamar.com/hasil', {
+      method: 'GET',
+      headers: {
+        Cookie: `session_id=${sessionId}`,
+        'CF-Connecting-IP': '1.2.3.4',
+      },
+    }), { ...env, ENVIRONMENT: 'production' }, {});
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get('Location')).toBe('/download.html');
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+  });
+
+  it('production redirects /download.html server-side when the session cookie is expired', async () => {
+    const res = await route(new Request('https://gaslamar.com/download.html', {
+      method: 'GET',
+      headers: {
+        Cookie: 'session_id=sess_nonexistent',
+        'CF-Connecting-IP': '1.2.3.4',
+      },
+    }), { ...env, ENVIRONMENT: 'production' }, {});
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get('Location')).toBe('/access.html?expired=1&source=download');
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+  });
+
+  it('production serves /hasil.html only when an active analysis cookie exists', async () => {
+    const cvTextKey = `cvtext_${'a'.repeat(64)}`;
+    await env.GASLAMAR_SESSIONS.put(cvTextKey, JSON.stringify({
+      ip: '1.2.3.4',
+      scoring: { skor: 72, gap: [] },
+    }), { expirationTtl: 3600 });
+
+    fetchMock
+      .get('https://gaslamar.pages.dev')
+      .intercept({ path: () => true, method: 'GET' })
+      .reply(() => {
+        return {
+          statusCode: 200,
+          data: '<!doctype html><title>Hasil</title>',
+          responseOptions: { headers: { 'content-type': 'text/html' } },
+        };
+      })
+      .times(1);
+
+    const res = await route(new Request('https://gaslamar.com/hasil.html', {
+      method: 'GET',
+      headers: {
+        Cookie: `cv_text_key=${cvTextKey}`,
+        'CF-Connecting-IP': '1.2.3.4',
+      },
+    }), { ...env, ENVIRONMENT: 'production' }, {});
+
+    expect(res.status, res.headers.get('Location') || '').toBe(200);
+  });
+
+  it('production redirects /hasil.html server-side when the analysis cookie is expired', async () => {
+    const res = await route(new Request('https://gaslamar.com/hasil.html', {
+      method: 'GET',
+      headers: {
+        Cookie: `cv_text_key=cvtext_${'b'.repeat(64)}`,
+        'CF-Connecting-IP': '1.2.3.4',
+      },
+    }), { ...env, ENVIRONMENT: 'production' }, {});
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get('Location')).toBe('/access.html?expired=1&source=hasil');
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+  });
+
+  it('production rejects /hasil.html when the analysis cookie belongs to a different IP', async () => {
+    const cvTextKey = `cvtext_${'9'.repeat(64)}`;
+    await env.GASLAMAR_SESSIONS.put(cvTextKey, JSON.stringify({
+      ip: '10.10.10.10',
+      scoring: { skor: 72, gap: [] },
+    }), { expirationTtl: 3600 });
+
+    const res = await route(new Request('https://gaslamar.com/hasil.html', {
+      method: 'GET',
+      headers: {
+        Cookie: `cv_text_key=${cvTextKey}`,
+        'CF-Connecting-IP': '20.20.20.20',
+      },
+    }), { ...env, ENVIRONMENT: 'production' }, {});
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get('Location')).toBe('/access.html?expired=1&source=hasil');
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+  });
+
+  it('production rejects /hasil.html fallback snapshots when the analysis cookie belongs to a different IP', async () => {
+    const token = '8'.repeat(64);
+    await env.GASLAMAR_SESSIONS.put(`scoring_${token}`, JSON.stringify({
+      ip: '10.10.10.10',
+      scoring: { skor: 72, gap: [] },
+    }), { expirationTtl: 3600 });
+
+    const res = await route(new Request('https://gaslamar.com/hasil.html', {
+      method: 'GET',
+      headers: {
+        Cookie: `cv_text_key=cvtext_${token}`,
+        'CF-Connecting-IP': '20.20.20.20',
+      },
+    }), { ...env, ENVIRONMENT: 'production' }, {});
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get('Location')).toBe('/access.html?expired=1&source=hasil');
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+  });
+
   it('production Pages proxy strips cookies and sensitive query params upstream', async () => {
     let upstreamRequest = null;
     fetchMock
@@ -382,10 +496,11 @@ describe('protected state page routing', () => {
       })
       .times(1);
 
+    const sessionId = await seedSession('paid', 'single');
     const res = await route(new Request('https://gaslamar.com/download.html?token=0123456789abcdef0123456789abcdef', {
       method: 'GET',
       headers: {
-        Cookie: 'session_id=sess_should_not_leave_worker; other=value',
+        Cookie: `session_id=${sessionId}; other=value`,
         'CF-Connecting-IP': '1.2.3.4',
       },
     }), { ...env, ENVIRONMENT: 'production' }, {});
@@ -653,6 +768,22 @@ describe('POST /analyze — validation', () => {
     expect(res.status).toBe(400);
   });
 
+  it('rejects unsupported cv file type → 400', async () => {
+    const cv = JSON.stringify({ type: 'html', data: btoa('<html><body>CV</body></html>') });
+    const res = await post('/analyze', { cv, job_desc: JOB_DESC }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/format.*tidak valid|tidak didukung/i);
+  });
+
+  it('rejects pasted text CV under 1500 chars → 422', async () => {
+    const cv = JSON.stringify({ type: 'txt', data: 'A'.repeat(1499) });
+    const res = await post('/analyze', { cv, job_desc: JOB_DESC }, {}, nextIp());
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.message).toMatch(/minimal 1\.500 karakter/i);
+  });
+
   it('accepts job_desc with exactly 100 trimmed chars — passes min-length check', async () => {
     // Should fail later (DOCX extraction → 422 "rusak") but NOT on the JD length check (400).
     // Using DOCX avoids a Claude API call (PDF path) that would time out without a mock.
@@ -737,6 +868,8 @@ describe('POST /analyze — happy path (mocked Claude)', () => {
     expect(typeof body.skor).toBe('number');
     expect(body.skor).toBeGreaterThan(0);
     expect(body.cv_text_key).toMatch(/^cvtext_/);
+    expect(res.headers.get('Set-Cookie')).toContain(`cv_text_key=${body.cv_text_key}`);
+    expect(res.headers.get('Set-Cookie')).toContain('HttpOnly');
 
     // Verify response shape matches the pre-refactor contract
     expect(body).toHaveProperty('skor_6d');
@@ -1412,7 +1545,7 @@ describe('GET /validate-session', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.valid).toBe(true);
-    expect(body.note).toBe('scoring_snapshot');
+    expect(body.note).toBeUndefined();
   });
 
   it('returns valid:false → 404 when neither cvtext_ nor scoring_ exists', async () => {
@@ -1421,6 +1554,17 @@ describe('GET /validate-session', () => {
     const body = await res.json();
     expect(body.valid).toBe(false);
     expect(body.reason).toBe('not_found');
+  });
+
+  it('returns valid:false → 404 when scoring_ fallback exists but has no scoring field', async () => {
+    const token = cvHexToken();
+    const scoringKey = `scoring_${token}`;
+    // scoring_ exists but its value lacks the scoring field (e.g. empty or corrupt snapshot)
+    await env.GASLAMAR_SESSIONS.put(scoringKey, JSON.stringify({ other: 'data' }), { expirationTtl: 3600 });
+    const res = await get('/validate-session?cvKey=cvtext_' + token);
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
   });
 
   it('rate-limits after 20 requests per minute per IP → 429', async () => {
@@ -1665,35 +1809,30 @@ describe('POST /webhook/mayar', () => {
   const WEBHOOK_SECRET = 'test_webhook_secret_key';
 
   beforeEach(async () => {
-    // Note: MAYAR_WEBHOOK_SECRET is injected via wrangler.toml [vars] or wrangler secret.
-    // In tests, the worker reads env.MAYAR_WEBHOOK_SECRET.
-    // Since we can't set secrets in vitest directly, we test the sandbox bypass
-    // (ENVIRONMENT !== 'production' + no secret = allows through).
-    // For HMAC tests, we rely on the sandbox bypass path.
+    // MAYAR_WEBHOOK_SECRET is injected via vitest.config.js miniflare bindings.
+    // Integration tests use the sandbox (ENVIRONMENT=sandbox) path: requests with no
+    // auth header are allowed through (Mayar simulator behaviour). Requests that DO
+    // send x-mayar-signature are subject to HMAC verification against the secret.
   });
 
-  it('returns 401 for invalid HMAC in production-like setup', async () => {
-    // We can test the rejection path by sending a wrong signature
-    // and ensuring the worker handles it. In sandbox mode without a secret,
-    // the worker allows through — so this test only applies when the secret is set.
-    // Testing the bypass: no secret in test env → webhook passes through
+  it('returns 401 for invalid HMAC signature', async () => {
+    // With MAYAR_WEBHOOK_SECRET configured and a wrong x-mayar-signature sent,
+    // the worker must reject the request regardless of sandbox/production mode.
     const payload = JSON.stringify({ status: 'paid', redirect_url: 'https://gaslamar.com/download.html?session=sess_test' });
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'wrong_sig' },
       body: payload,
     });
-    // In sandbox (no secret set), the webhook passes through
-    // The test verifies the endpoint is reachable and handles the body
-    expect([200, 401]).toContain(res.status);
+    expect(res.status).toBe(401);
   });
 
-  it('updates session to paid for valid webhook (sandbox bypass)', async () => {
+  it('updates session to paid for valid webhook (sandbox, no auth header)', async () => {
     const sessionId = await seedSession('pending', 'single');
     const invoiceId = 'inv_test_paid_1';
     await env.GASLAMAR_SESSIONS.put(`mayar_session_${invoiceId}`, JSON.stringify({ session_id: sessionId }), { expirationTtl: 604800 });
 
-    // In sandbox mode (no MAYAR_WEBHOOK_SECRET set), webhook passes HMAC check
+    // Mayar sandbox simulator omits auth headers — worker allows through with a warning.
     const payload = JSON.stringify({
       status: 'paid',
       id: invoiceId,
@@ -1702,7 +1841,7 @@ describe('POST /webhook/mayar', () => {
 
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'any_sig_in_sandbox' },
+      headers: { 'Content-Type': 'application/json' },
       body: payload,
     });
 
@@ -1726,7 +1865,7 @@ describe('POST /webhook/mayar', () => {
 
     await SELF.fetch('https://gaslamar.com/webhook/mayar', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'any_sig' },
+      headers: { 'Content-Type': 'application/json' },
       body: payload,
     });
 
@@ -1739,7 +1878,7 @@ describe('POST /webhook/mayar', () => {
     const payload = JSON.stringify({ status: 'paid', id: 'inv_missing_redirect' });
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'any_sig' },
+      headers: { 'Content-Type': 'application/json' },
       body: payload,
     });
     expect(res.status).toBe(200); // graceful no-op
@@ -1785,7 +1924,7 @@ describe('POST /webhook/mayar', () => {
 
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'any_sig_in_sandbox' },
+      headers: { 'Content-Type': 'application/json' },
       body: payload,
     });
 
@@ -1805,7 +1944,7 @@ describe('POST /webhook/mayar', () => {
 
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'any_sig' },
+      headers: { 'Content-Type': 'application/json' },
       body: payload,
     });
 
@@ -1838,7 +1977,7 @@ describe('POST /webhook/mayar', () => {
 
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'any_sig_in_sandbox' },
+      headers: { 'Content-Type': 'application/json' },
       body: payload,
     });
 
@@ -1861,7 +2000,7 @@ describe('POST /webhook/mayar', () => {
 
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'any_sig_in_sandbox' },
+      headers: { 'Content-Type': 'application/json' },
       body: payload,
     });
 
@@ -1893,7 +2032,7 @@ describe('POST /webhook/mayar — multi-candidate invoice ID fallback', () => {
 
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'any_sig' },
+      headers: { 'Content-Type': 'application/json' },
       body:    payload,
     });
 
@@ -1916,7 +2055,7 @@ describe('POST /webhook/mayar — multi-candidate invoice ID fallback', () => {
 
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'any_sig' },
+      headers: { 'Content-Type': 'application/json' },
       body:    payload,
     });
 
@@ -1938,7 +2077,7 @@ describe('POST /webhook/mayar — case-insensitive isPaid status', () => {
     const payload = JSON.stringify({ id: invoiceId, status });
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'any_sig' },
+      headers: { 'Content-Type': 'application/json' },
       body: payload,
     });
     const updated = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
@@ -2036,11 +2175,10 @@ describe('verifyMayarWebhook — production HMAC path', () => {
     expect(result.valid).toBe(false);
   });
 
-  it('bypasses HMAC in non-production only when no webhook secret is configured', async () => {
-    // C1 FIX: bypass only applies when sandbox AND no secret is configured.
-    // Staging WITH a secret now verifies HMAC — prevents a compromised staging URL
-    // from accepting forged webhooks when a secret is explicitly set.
-    const payload = JSON.stringify({ id: 'inv_staging_bypass', status: 'paid' });
+  it('rejects webhooks when no secret is configured regardless of environment', async () => {
+    // Fail-closed: no secret configured = reject in all environments (including sandbox).
+    // This prevents a staging URL with no secret from accepting forged payment webhooks.
+    const payload = JSON.stringify({ id: 'inv_no_secret_test', status: 'paid' });
 
     const req = new Request('https://gaslamar.com/webhook/mayar', {
       method:  'POST',
@@ -2048,15 +2186,15 @@ describe('verifyMayarWebhook — production HMAC path', () => {
       body:    payload,
     });
 
-    // staging without secret → bypass → valid regardless of signature
+    // staging without secret → fail closed → invalid
     const stagingNoSecretResult = await verifyMayarWebhook(req.clone(), { ENVIRONMENT: 'staging' });
-    expect(stagingNoSecretResult.valid).toBe(true);
+    expect(stagingNoSecretResult.valid).toBe(false);
 
-    // sandbox without secret → bypass → valid regardless of signature
+    // sandbox without secret → fail closed → invalid
     const sandboxResult = await verifyMayarWebhook(req.clone(), { ENVIRONMENT: 'sandbox' });
-    expect(sandboxResult.valid).toBe(true);
+    expect(sandboxResult.valid).toBe(false);
 
-    // staging WITH secret → HMAC verified → wrong sig = invalid (C1 fix)
+    // staging WITH secret → HMAC verified → wrong sig = invalid
     const stagingWithSecretResult = await verifyMayarWebhook(req.clone(), { ENVIRONMENT: 'staging', MAYAR_WEBHOOK_SECRET: 'some_secret' });
     expect(stagingWithSecretResult.valid).toBe(false);
   });
@@ -3737,7 +3875,7 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
       scoring: mockScoring,
     }), { expirationTtl: 86400 });
 
-    const res = await get(`/get-scoring?key=cvtext_${token}`, {}, nextScoringIp());
+    const res = await get(`/get-scoring?key=cvtext_${token}`, {}, '1.2.3.4');
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.valid).toBe(true);
@@ -3762,6 +3900,51 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
     expect(body.valid).toBe(true);
     expect(body.scoring.skor).toBe(62);
     expect(body.scoring.verdict).toBe('TIMED');
+  });
+
+  it('uses the HttpOnly analysis cookie when no key query parameter is present', async () => {
+    const token = 'f'.repeat(64);
+    const mockScoring = { skor: 78, verdict: 'DO', skor_6d: {} };
+    await env.GASLAMAR_SESSIONS.put(`cvtext_${token}`, JSON.stringify({
+      text: 'raw cv',
+      job_desc: 'raw jd',
+      ip: '1.2.3.4',
+      scoring: mockScoring,
+    }), { expirationTtl: 86400 });
+
+    const res = await get('/get-scoring', { Cookie: `cv_text_key=cvtext_${token}` }, '1.2.3.4');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.scoring.skor).toBe(78);
+  });
+
+  it('rejects scoring lookups when the cvtext_ key belongs to a different IP', async () => {
+    const token = 'a1'.repeat(32);
+    await env.GASLAMAR_SESSIONS.put(`cvtext_${token}`, JSON.stringify({
+      text: 'raw cv',
+      job_desc: 'raw jd',
+      ip: '10.221.99.1',
+      scoring: { skor: 51, verdict: 'TIMED', skor_6d: {} },
+    }), { expirationTtl: 86400 });
+
+    const res = await get(`/get-scoring?key=cvtext_${token}`, {}, '10.221.99.2');
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+  });
+
+  it('rejects scoring fallback snapshots when the preserved key belongs to a different IP', async () => {
+    const token = 'b1'.repeat(32);
+    await env.GASLAMAR_SESSIONS.put(`scoring_${token}`, JSON.stringify({
+      ip: '10.221.88.1',
+      scoring: { skor: 61, verdict: 'TIMED', skor_6d: {} },
+    }), { expirationTtl: 86400 });
+
+    const res = await get(`/get-scoring?key=cvtext_${token}`, {}, '10.221.88.2');
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
   });
 
   it('returns 404 when both cvtext_ and scoring_ keys are absent', async () => {

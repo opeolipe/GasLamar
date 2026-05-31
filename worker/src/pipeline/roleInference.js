@@ -70,7 +70,7 @@ export function inferRole(extractedData, analysisResult) {
   // Confidence is low when primary barely beats secondary, or when no keywords match.
   const confidence = primaryScore === 0
     ? 0
-    : Math.round((primaryScore / (primaryScore + secondaryScore + 1)) * 100) / 100;
+    : Math.round((primaryScore / (primaryScore + secondaryScore)) * 100) / 100;
 
   const secondaryRoles = sorted.slice(1)
     .filter(([, s]) => s > 0)

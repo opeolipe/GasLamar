@@ -8,9 +8,10 @@ import { SESSION_STATES }                    from '../sessionStates.js';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// All post-payment states — ready and exhausted still have accessible CV results.
+// Only states that have an accessible CV result — PAID has never had /generate called
+// so there is no cv_result_ to attach. Sending a "CV ready" email from PAID state
+// would produce an empty email with no attachments.
 const PAID_STATUSES = new Set([
-  SESSION_STATES.PAID,
   SESSION_STATES.GENERATING,
   SESSION_STATES.READY,
   SESSION_STATES.EXHAUSTED,

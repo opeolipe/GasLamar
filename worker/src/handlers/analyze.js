@@ -1,9 +1,10 @@
-import { jsonResponse } from '../cors.js';
+import { jsonResponse, jsonResponseWithCookie } from '../cors.js';
 import { clientIp, hexToken, logError } from '../utils.js';
 import { checkRateLimit, checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
 import { validateFileData, extractCVText } from '../fileExtraction.js';
 import { analyzeCV } from '../analysis.js';
 import { sanitizeForLLM, hasPromptInjection } from '../sanitize.js';
+import { makeCvTextKeyCookie } from '../cookies.js';
 
 export async function handleAnalyze(request, env) {
   const ip = clientIp(request);
@@ -114,7 +115,13 @@ export async function handleAnalyze(request, env) {
       scoring, // used by GET /get-scoring; cv_text is never exposed via that endpoint
     }), { expirationTtl: 86400 }); // 24 hours — gives users time to review hasil before paying
 
-    return jsonResponse({ ...scoring, cv_text_key: cvTextKey }, 200, request, env);
+    return jsonResponseWithCookie(
+      { ...scoring, cv_text_key: cvTextKey },
+      200,
+      makeCvTextKeyCookie(cvTextKey),
+      request,
+      env,
+    );
   } catch (e) {
     logError('analyze_failed', {
       reason: e.message,
