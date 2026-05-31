@@ -31,7 +31,7 @@ export function useResultData(): ResultDataState {
     // Reject foreign URL session parameters
     if (urlSession !== null && !urlSession.startsWith('cvtext_')) { fail('expired'); return; }
 
-    // Scoring data may be absent after a tab refresh (scoring.js clears it on load).
+    // Scoring data may be absent when sessionStorage was cleared or on a fresh new-tab.
     // Fall back to GET /get-scoring using the cv_key capability token.
     if (!rawScoring) {
       if (!cvKeyVal.startsWith('cvtext_')) { fail('missing'); return; }
