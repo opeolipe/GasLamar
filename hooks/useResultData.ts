@@ -36,15 +36,30 @@ export function useResultData(): ResultDataState {
     if (!rawScoring) {
       if (!cvKeyVal.startsWith('cvtext_')) { fail('missing'); return; }
       fetch(`${WORKER_URL}/get-scoring?key=${encodeURIComponent(cvKeyVal)}`)
-        .then(r => r.ok ? r.json() : Promise.reject())
-        .then((body: { valid: boolean; scoring: ScoringData }) => {
-          if (!body?.valid || !body?.scoring) { fail('missing'); return; }
+        .then(async r => {
+          if (r.status === 404) {
+            // Key expired (cvtext_ deleted after payment, scoring_ also gone).
+            // Mirror scoring.js: clear local keys and send user to recovery page,
+            // not the upload page (which implies starting over from scratch).
+            try {
+              sessionStorage.removeItem('gaslamar_cv_key');
+              sessionStorage.removeItem('gaslamar_analyze_time');
+            } catch (_) {}
+            fail('expired');
+            return;
+          }
+          if (!r.ok) { fail('missing'); return; }
+          const body = await r.json() as { scoring?: ScoringData; valid?: boolean };
+          // getScoring returns { valid: true, scoring: ... } on success.
+          // valid:false is only sent on 404, handled above. Guard scoring presence
+          // explicitly so a malformed response doesn't reach the skor check.
+          if (!body?.scoring) { fail('missing'); return; }
           const s = body.scoring;
           const skor = parseInt(String(s?.skor));
           if (isNaN(skor) || skor < 0 || skor > 100) { fail('missing'); return; }
           if (time > 0 && (Date.now() - time) / 1000 > 86400) { fail('expired'); return; }
           try { sessionStorage.setItem('gaslamar_scoring', JSON.stringify(s)); } catch (_) {}
-          setState({ data: s, cvKey: cvKeyVal, analyzeTime: time, loading: false, error: null, noSession: null });
+          setState({ data: s ?? null, cvKey: cvKeyVal, analyzeTime: time, loading: false, error: null, noSession: null });
         })
         .catch(() => fail('missing'));
       return;

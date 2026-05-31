@@ -24,10 +24,10 @@ export async function handleValidateSession(request, env) {
     // redirected to access.html — their scoring data is still present and they can
     // use the cached invoice URL or re-upload if needed.
     const fallbackKey = `scoring_${cvKey.slice('cvtext_'.length)}`;
-    const fallback = await env.GASLAMAR_SESSIONS.get(fallbackKey);
-    if (fallback) {
+    const fallback = await env.GASLAMAR_SESSIONS.get(fallbackKey, { type: 'json' });
+    if (fallback?.scoring) {
       log('validate_session_scoring_fallback', { ip: clientIp(request) });
-      return jsonResponse({ valid: true, note: 'scoring_snapshot' }, 200, request, env);
+      return jsonResponse({ valid: true }, 200, request, env);
     }
     return jsonResponse({ valid: false, reason: 'not_found' }, 404, request, env);
   }
