@@ -347,7 +347,7 @@ describe('protected state page routing', () => {
   beforeAll(() => fetchMock.activate());
   afterAll(() => fetchMock.deactivate());
 
-  it('production redirects extensionless /hasil and /download before proxying to Pages', async () => {
+  it('production redirects extensionless /hasil and /download before proxying to Pages when no session exists', async () => {
     const productionEnv = { ...env, ENVIRONMENT: 'production' };
 
     const hasil = await route(new Request('https://gaslamar.com/hasil', {
@@ -367,6 +367,120 @@ describe('protected state page routing', () => {
     expect(download.headers.get('Cache-Control')).toBe('no-store');
   });
 
+  it('production redirects extensionless /hasil to download when an active paid session exists', async () => {
+    const sessionId = await seedSession('paid', 'single');
+
+    const res = await route(new Request('https://gaslamar.com/hasil', {
+      method: 'GET',
+      headers: {
+        Cookie: `session_id=${sessionId}`,
+        'CF-Connecting-IP': '1.2.3.4',
+      },
+    }), { ...env, ENVIRONMENT: 'production' }, {});
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get('Location')).toBe('/download.html');
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+  });
+
+  it('production redirects /download.html server-side when the session cookie is expired', async () => {
+    const res = await route(new Request('https://gaslamar.com/download.html', {
+      method: 'GET',
+      headers: {
+        Cookie: 'session_id=sess_nonexistent',
+        'CF-Connecting-IP': '1.2.3.4',
+      },
+    }), { ...env, ENVIRONMENT: 'production' }, {});
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get('Location')).toBe('/access.html?expired=1&source=download');
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+  });
+
+  it('production serves /hasil.html only when an active analysis cookie exists', async () => {
+    const cvTextKey = `cvtext_${'a'.repeat(64)}`;
+    await env.GASLAMAR_SESSIONS.put(cvTextKey, JSON.stringify({
+      ip: '1.2.3.4',
+      scoring: { skor: 72, gap: [] },
+    }), { expirationTtl: 3600 });
+
+    fetchMock
+      .get('https://gaslamar.pages.dev')
+      .intercept({ path: () => true, method: 'GET' })
+      .reply(() => {
+        return {
+          statusCode: 200,
+          data: '<!doctype html><title>Hasil</title>',
+          responseOptions: { headers: { 'content-type': 'text/html' } },
+        };
+      })
+      .times(1);
+
+    const res = await route(new Request('https://gaslamar.com/hasil.html', {
+      method: 'GET',
+      headers: {
+        Cookie: `cv_text_key=${cvTextKey}`,
+        'CF-Connecting-IP': '1.2.3.4',
+      },
+    }), { ...env, ENVIRONMENT: 'production' }, {});
+
+    expect(res.status, res.headers.get('Location') || '').toBe(200);
+  });
+
+  it('production redirects /hasil.html server-side when the analysis cookie is expired', async () => {
+    const res = await route(new Request('https://gaslamar.com/hasil.html', {
+      method: 'GET',
+      headers: {
+        Cookie: `cv_text_key=cvtext_${'b'.repeat(64)}`,
+        'CF-Connecting-IP': '1.2.3.4',
+      },
+    }), { ...env, ENVIRONMENT: 'production' }, {});
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get('Location')).toBe('/access.html?expired=1&source=hasil');
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+  });
+
+  it('production rejects /hasil.html when the analysis cookie belongs to a different IP', async () => {
+    const cvTextKey = `cvtext_${'9'.repeat(64)}`;
+    await env.GASLAMAR_SESSIONS.put(cvTextKey, JSON.stringify({
+      ip: '10.10.10.10',
+      scoring: { skor: 72, gap: [] },
+    }), { expirationTtl: 3600 });
+
+    const res = await route(new Request('https://gaslamar.com/hasil.html', {
+      method: 'GET',
+      headers: {
+        Cookie: `cv_text_key=${cvTextKey}`,
+        'CF-Connecting-IP': '20.20.20.20',
+      },
+    }), { ...env, ENVIRONMENT: 'production' }, {});
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get('Location')).toBe('/access.html?expired=1&source=hasil');
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+  });
+
+  it('production rejects /hasil.html fallback snapshots when the analysis cookie belongs to a different IP', async () => {
+    const token = '8'.repeat(64);
+    await env.GASLAMAR_SESSIONS.put(`scoring_${token}`, JSON.stringify({
+      ip: '10.10.10.10',
+      scoring: { skor: 72, gap: [] },
+    }), { expirationTtl: 3600 });
+
+    const res = await route(new Request('https://gaslamar.com/hasil.html', {
+      method: 'GET',
+      headers: {
+        Cookie: `cv_text_key=cvtext_${token}`,
+        'CF-Connecting-IP': '20.20.20.20',
+      },
+    }), { ...env, ENVIRONMENT: 'production' }, {});
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get('Location')).toBe('/access.html?expired=1&source=hasil');
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+  });
+
   it('production Pages proxy strips cookies and sensitive query params upstream', async () => {
     let upstreamRequest = null;
     fetchMock
@@ -382,10 +496,11 @@ describe('protected state page routing', () => {
       })
       .times(1);
 
+    const sessionId = await seedSession('paid', 'single');
     const res = await route(new Request('https://gaslamar.com/download.html?token=0123456789abcdef0123456789abcdef', {
       method: 'GET',
       headers: {
-        Cookie: 'session_id=sess_should_not_leave_worker; other=value',
+        Cookie: `session_id=${sessionId}; other=value`,
         'CF-Connecting-IP': '1.2.3.4',
       },
     }), { ...env, ENVIRONMENT: 'production' }, {});
@@ -653,6 +768,22 @@ describe('POST /analyze — validation', () => {
     expect(res.status).toBe(400);
   });
 
+  it('rejects unsupported cv file type → 400', async () => {
+    const cv = JSON.stringify({ type: 'html', data: btoa('<html><body>CV</body></html>') });
+    const res = await post('/analyze', { cv, job_desc: JOB_DESC }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/format.*tidak valid|tidak didukung/i);
+  });
+
+  it('rejects pasted text CV under 1500 chars → 422', async () => {
+    const cv = JSON.stringify({ type: 'txt', data: 'A'.repeat(1499) });
+    const res = await post('/analyze', { cv, job_desc: JOB_DESC }, {}, nextIp());
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.message).toMatch(/minimal 1\.500 karakter/i);
+  });
+
   it('accepts job_desc with exactly 100 trimmed chars — passes min-length check', async () => {
     // Should fail later (DOCX extraction → 422 "rusak") but NOT on the JD length check (400).
     // Using DOCX avoids a Claude API call (PDF path) that would time out without a mock.
@@ -737,6 +868,8 @@ describe('POST /analyze — happy path (mocked Claude)', () => {
     expect(typeof body.skor).toBe('number');
     expect(body.skor).toBeGreaterThan(0);
     expect(body.cv_text_key).toMatch(/^cvtext_/);
+    expect(res.headers.get('Set-Cookie')).toContain(`cv_text_key=${body.cv_text_key}`);
+    expect(res.headers.get('Set-Cookie')).toContain('HttpOnly');
 
     // Verify response shape matches the pre-refactor contract
     expect(body).toHaveProperty('skor_6d');
@@ -3742,7 +3875,7 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
       scoring: mockScoring,
     }), { expirationTtl: 86400 });
 
-    const res = await get(`/get-scoring?key=cvtext_${token}`, {}, nextScoringIp());
+    const res = await get(`/get-scoring?key=cvtext_${token}`, {}, '1.2.3.4');
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.valid).toBe(true);
@@ -3767,6 +3900,51 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
     expect(body.valid).toBe(true);
     expect(body.scoring.skor).toBe(62);
     expect(body.scoring.verdict).toBe('TIMED');
+  });
+
+  it('uses the HttpOnly analysis cookie when no key query parameter is present', async () => {
+    const token = 'f'.repeat(64);
+    const mockScoring = { skor: 78, verdict: 'DO', skor_6d: {} };
+    await env.GASLAMAR_SESSIONS.put(`cvtext_${token}`, JSON.stringify({
+      text: 'raw cv',
+      job_desc: 'raw jd',
+      ip: '1.2.3.4',
+      scoring: mockScoring,
+    }), { expirationTtl: 86400 });
+
+    const res = await get('/get-scoring', { Cookie: `cv_text_key=cvtext_${token}` }, '1.2.3.4');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.scoring.skor).toBe(78);
+  });
+
+  it('rejects scoring lookups when the cvtext_ key belongs to a different IP', async () => {
+    const token = 'a1'.repeat(32);
+    await env.GASLAMAR_SESSIONS.put(`cvtext_${token}`, JSON.stringify({
+      text: 'raw cv',
+      job_desc: 'raw jd',
+      ip: '10.221.99.1',
+      scoring: { skor: 51, verdict: 'TIMED', skor_6d: {} },
+    }), { expirationTtl: 86400 });
+
+    const res = await get(`/get-scoring?key=cvtext_${token}`, {}, '10.221.99.2');
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+  });
+
+  it('rejects scoring fallback snapshots when the preserved key belongs to a different IP', async () => {
+    const token = 'b1'.repeat(32);
+    await env.GASLAMAR_SESSIONS.put(`scoring_${token}`, JSON.stringify({
+      ip: '10.221.88.1',
+      scoring: { skor: 61, verdict: 'TIMED', skor_6d: {} },
+    }), { expirationTtl: 86400 });
+
+    const res = await get(`/get-scoring?key=cvtext_${token}`, {}, '10.221.88.2');
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
   });
 
   it('returns 404 when both cvtext_ and scoring_ keys are absent', async () => {

@@ -1,6 +1,7 @@
 import { jsonResponse } from '../cors.js';
 import { clientIp } from '../utils.js';
 import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
+import { getCvTextKeyFromCookie } from '../cookies.js';
 
 /**
  * GET /get-scoring?key=cvtext_<token>
@@ -18,7 +19,7 @@ import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
 export async function handleGetScoring(request, env) {
   const ip  = clientIp(request);
   const url = new URL(request.url);
-  const key = url.searchParams.get('key') || '';
+  const key = url.searchParams.get('key') || getCvTextKeyFromCookie(request) || '';
 
   // Rate limit before any KV reads.
   const kvResult = await checkRateLimitKV(env, ip, 10, 60, 'get_scoring');
@@ -39,6 +40,9 @@ export async function handleGetScoring(request, env) {
   }
   if (!stored || !stored.scoring) {
     return jsonResponse({ valid: false }, 404, request, env);
+  }
+  if (stored.ip && stored.ip !== ip) {
+    return jsonResponse({ valid: false, reason: 'ip_mismatch' }, 403, request, env);
   }
 
   // Return scoring only — never cv_text, job_desc, ip, or inferred_role raw data.

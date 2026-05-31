@@ -141,7 +141,7 @@ export async function handleCreatePayment(request, env) {
       if (stored.scoring && typeof stored.scoring === 'object' && typeof stored.scoring.skor === 'number') {
         await env.GASLAMAR_SESSIONS.put(
           `scoring_${cv_text_key.slice('cvtext_'.length)}`,
-          JSON.stringify({ scoring: stored.scoring }),
+          JSON.stringify({ scoring: stored.scoring, ip }),
           { expirationTtl: 86400 }, // 24 h — matches original cvtext_ window
         ).catch((e) => console.warn(JSON.stringify({ event: 'scoring_snapshot_write_failed', error: e.message })));
       }

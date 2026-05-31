@@ -26,8 +26,9 @@
   var analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
   var SESSION_SECS = 86400;
 
-  // cv_key must have the expected format (cvtext_<token>) — required for server fetch
-  if (!cvKey || !cvKey.startsWith('cvtext_')) { redirect('no_session'); return; }
+  // cv_key is normally available in sessionStorage. If it is missing, let
+  // scoring.js try the HttpOnly cv_text_key cookie set by /analyze.
+  if (cvKey && !cvKey.startsWith('cvtext_')) { redirect('no_session'); return; }
 
   // Session must not be older than 24 hours — send to /access so returning
   // paid users can recover their CV download link without re-uploading.
@@ -38,11 +39,12 @@
     return;
   }
 
-  // analyze_time must be present (guards against manually injected keys)
-  if (!analyzeTime) { redirect('no_session'); return; }
+  // analyze_time must be present when a client-visible key is present. Cookie-only
+  // recovery is validated server-side by /get-scoring.
+  if (cvKey && !analyzeTime) { redirect('no_session'); return; }
 
   // If a valid cvtext_ key is in the URL, it must match what's in sessionStorage
-  if (urlSession && urlSession !== cvKey) { redirect('session_expired'); return; }
+  if (urlSession && cvKey && urlSession !== cvKey) { redirect('session_expired'); return; }
 
   // All checks passed — scoring.js will fetch from /get-scoring.
 })();

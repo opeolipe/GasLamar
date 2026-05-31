@@ -35,11 +35,14 @@
 
   let scoring;
 
-  if (cvKey && cvKey.startsWith('cvtext_')) {
+  if (!cvKey || cvKey.startsWith('cvtext_')) {
     try {
       const _ac = new AbortController();
       const _at = setTimeout(() => _ac.abort(), 8000);
-      const res = await fetch(`${WORKER_URL}/get-scoring?key=${encodeURIComponent(cvKey)}`, { signal: _ac.signal });
+      const scoringUrl = cvKey && cvKey.startsWith('cvtext_')
+        ? `${WORKER_URL}/get-scoring?key=${encodeURIComponent(cvKey)}`
+        : `${WORKER_URL}/get-scoring`;
+      const res = await fetch(scoringUrl, { credentials: 'include', signal: _ac.signal });
       clearTimeout(_at);
 
       if (res.ok) {
