@@ -39,8 +39,10 @@ import { EXTRACT_CACHE_VERSION, ANALYSIS_CACHE_VERSION } from './cacheVersions.j
 export async function analyzeCV(cvText, jobDesc, env) {
   // ── Cache check ───────────────────────────────────────────────────────────
   // Bump ANALYSIS_CACHE_VERSION (top of file) when changing pipeline/ or prompts/.
-  const cacheKey = `analysis_${ANALYSIS_CACHE_VERSION}_${await sha256Hex(cvText.trim() + '\x00' + jobDesc.trim())}`;
-  const cached = await env.GASLAMAR_SESSIONS.get(cacheKey, { type: 'json' });
+  const contentHash = await sha256Hex(cvText.trim() + '\x00' + jobDesc.trim());
+  const cacheKey    = `analysis_${ANALYSIS_CACHE_VERSION}_${contentHash}`;
+  let cached = null;
+  try { cached = await env.GASLAMAR_SESSIONS.get(cacheKey, { type: 'json' }); } catch (_) {}
   if (cached) {
     // Cache entries written by v7+ always contain the correctly-penalised skor.
     // The penalty is applied at write time (below) so there is nothing to patch here.
@@ -54,15 +56,18 @@ export async function analyzeCV(cvText, jobDesc, env) {
   // Extraction is cached independently so the LLM call is skipped on repeated
   // analysis of identical CV+JD content (e.g. user re-runs after payment).
   // Bump EXTRACT_CACHE_VERSION (top of file) when changing extract.js or prompts/extract.js.
-  const extractKey = `extract_${EXTRACT_CACHE_VERSION}_${await sha256Hex(cvText.trim() + '\x00' + jobDesc.trim())}`;
-  let extractedData = await env.GASLAMAR_SESSIONS.get(extractKey, { type: 'json' });
+  const extractKey = `extract_${EXTRACT_CACHE_VERSION}_${contentHash}`;
+  let extractedData = null;
+  try { extractedData = await env.GASLAMAR_SESSIONS.get(extractKey, { type: 'json' }); } catch (_) {}
   if (!extractedData) {
     extractedData = await callExtract(cvText, jobDesc, env);
-    await env.GASLAMAR_SESSIONS.put(
-      extractKey,
-      JSON.stringify(extractedData),
-      { expirationTtl: 86400 },
-    );
+    try {
+      await env.GASLAMAR_SESSIONS.put(
+        extractKey,
+        JSON.stringify(extractedData),
+        { expirationTtl: 86400 },
+      );
+    } catch (_) {}
   }
 
   // ── Stage 2: ANALYZE (code, no AI) ────────────────────────────────────────
@@ -176,7 +181,7 @@ export async function analyzeCV(cvText, jobDesc, env) {
   scoring.skor_keywords     = Math.round(skor_6d.recruiter_signal);
 
   // ── Store in cache (48h TTL) ───────────────────────────────────────────────
-  await env.GASLAMAR_SESSIONS.put(cacheKey, JSON.stringify(scoring), { expirationTtl: 172800 });
+  try { await env.GASLAMAR_SESSIONS.put(cacheKey, JSON.stringify(scoring), { expirationTtl: 172800 }); } catch (_) {}
 
   return scoring;
 }

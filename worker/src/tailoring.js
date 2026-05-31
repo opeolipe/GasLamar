@@ -134,7 +134,17 @@ function truncateCV(cvText, lang = 'id') {
     return cvText.slice(0, cutAt) + '\n\n' + note;
   }
 
-  return cvText;
+  // Section-aware truncation above found no recognisable structure (no PENGALAMAN KERJA
+  // header or fewer than 3 role separators).  For CVs in the 4 001 – 10 000 char range
+  // that reach this point, fall back to a line-boundary cut near THRESHOLD so the LLM
+  // still receives a bounded input instead of the full unstructured text.
+  const fallbackSlice = cvText.slice(0, THRESHOLD);
+  const fallbackCut   = Math.max(fallbackSlice.lastIndexOf('\n'), THRESHOLD - 200);
+  console.warn(JSON.stringify({ event: 'cv_truncated_fallback', original_len: cvText.length, result_len: fallbackCut }));
+  const fallbackNote = lang === 'en'
+    ? '[... CV shortened because it exceeds the processing limit ...]'
+    : '[... CV diperpendek karena terlalu panjang ...]';
+  return cvText.slice(0, fallbackCut) + '\n\n' + fallbackNote;
 }
 
 /**

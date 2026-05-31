@@ -37,8 +37,9 @@ export function useResultData(): ResultDataState {
       if (!cvKeyVal.startsWith('cvtext_')) { fail('missing'); return; }
       fetch(`${WORKER_URL}/get-scoring?key=${encodeURIComponent(cvKeyVal)}`)
         .then(r => r.ok ? r.json() : Promise.reject())
-        .then((body: { scoring: ScoringData }) => {
-          const s = body?.scoring;
+        .then((body: { valid: boolean; scoring: ScoringData }) => {
+          if (!body?.valid || !body?.scoring) { fail('missing'); return; }
+          const s = body.scoring;
           const skor = parseInt(String(s?.skor));
           if (isNaN(skor) || skor < 0 || skor > 100) { fail('missing'); return; }
           if (time > 0 && (Date.now() - time) / 1000 > 86400) { fail('expired'); return; }
