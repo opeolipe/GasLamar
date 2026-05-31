@@ -138,7 +138,7 @@ export async function handleCreatePayment(request, env) {
       // returns to /hasil after the payment redirect (e.g. cancellation or back-navigation).
       // The raw CV text is deleted below; scoring data contains no PII and is safe to keep.
       // Non-critical: a write failure here must not abort payment — suppress with .catch().
-      if (stored.scoring) {
+      if (stored.scoring && typeof stored.scoring === 'object' && typeof stored.scoring.skor === 'number') {
         await env.GASLAMAR_SESSIONS.put(
           `scoring_${cv_text_key.slice('cvtext_'.length)}`,
           JSON.stringify({ scoring: stored.scoring, ip }),

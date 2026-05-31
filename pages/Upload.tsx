@@ -338,7 +338,11 @@ export default function Upload() {
         sessionStorage.setItem('gaslamar_cv_draft', encoded);
         sessionStorage.setItem('gaslamar_filename_draft', 'CV dari paste');
       } catch (_) {}
-    } else if (!fileName || fileSize === '(teks ditempel)') {
+    } else {
+      // Clear any previously set CV data (whether from file upload or a prior valid paste)
+      // when paste text drops below the minimum. Without this, a user who uploaded a file
+      // and then switches to the paste tab would submit the old file payload instead of
+      // the short paste text they are editing.
       setCvText('');
       setFileName(null);
       setFileSize(null);

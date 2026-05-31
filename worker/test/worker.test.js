@@ -1545,7 +1545,7 @@ describe('GET /validate-session', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.valid).toBe(true);
-    expect(body.note).toBe('scoring_snapshot');
+    expect(body.note).toBeUndefined();
   });
 
   it('returns valid:false → 404 when neither cvtext_ nor scoring_ exists', async () => {
@@ -1554,6 +1554,17 @@ describe('GET /validate-session', () => {
     const body = await res.json();
     expect(body.valid).toBe(false);
     expect(body.reason).toBe('not_found');
+  });
+
+  it('returns valid:false → 404 when scoring_ fallback exists but has no scoring field', async () => {
+    const token = cvHexToken();
+    const scoringKey = `scoring_${token}`;
+    // scoring_ exists but its value lacks the scoring field (e.g. empty or corrupt snapshot)
+    await env.GASLAMAR_SESSIONS.put(scoringKey, JSON.stringify({ other: 'data' }), { expirationTtl: 3600 });
+    const res = await get('/validate-session?cvKey=cvtext_' + token);
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
   });
 
   it('rate-limits after 20 requests per minute per IP → 429', async () => {
@@ -1798,35 +1809,30 @@ describe('POST /webhook/mayar', () => {
   const WEBHOOK_SECRET = 'test_webhook_secret_key';
 
   beforeEach(async () => {
-    // Note: MAYAR_WEBHOOK_SECRET is injected via wrangler.toml [vars] or wrangler secret.
-    // In tests, the worker reads env.MAYAR_WEBHOOK_SECRET.
-    // Since we can't set secrets in vitest directly, we test the sandbox bypass
-    // (ENVIRONMENT !== 'production' + no secret = allows through).
-    // For HMAC tests, we rely on the sandbox bypass path.
+    // MAYAR_WEBHOOK_SECRET is injected via vitest.config.js miniflare bindings.
+    // Integration tests use the sandbox (ENVIRONMENT=sandbox) path: requests with no
+    // auth header are allowed through (Mayar simulator behaviour). Requests that DO
+    // send x-mayar-signature are subject to HMAC verification against the secret.
   });
 
-  it('returns 401 for invalid HMAC in production-like setup', async () => {
-    // We can test the rejection path by sending a wrong signature
-    // and ensuring the worker handles it. In sandbox mode without a secret,
-    // the worker allows through — so this test only applies when the secret is set.
-    // Testing the bypass: no secret in test env → webhook passes through
+  it('returns 401 for invalid HMAC signature', async () => {
+    // With MAYAR_WEBHOOK_SECRET configured and a wrong x-mayar-signature sent,
+    // the worker must reject the request regardless of sandbox/production mode.
     const payload = JSON.stringify({ status: 'paid', redirect_url: 'https://gaslamar.com/download.html?session=sess_test' });
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'wrong_sig' },
       body: payload,
     });
-    // In sandbox (no secret set), the webhook passes through
-    // The test verifies the endpoint is reachable and handles the body
-    expect([200, 401]).toContain(res.status);
+    expect(res.status).toBe(401);
   });
 
-  it('updates session to paid for valid webhook (sandbox bypass)', async () => {
+  it('updates session to paid for valid webhook (sandbox, no auth header)', async () => {
     const sessionId = await seedSession('pending', 'single');
     const invoiceId = 'inv_test_paid_1';
     await env.GASLAMAR_SESSIONS.put(`mayar_session_${invoiceId}`, JSON.stringify({ session_id: sessionId }), { expirationTtl: 604800 });
 
-    // In sandbox mode (no MAYAR_WEBHOOK_SECRET set), webhook passes HMAC check
+    // Mayar sandbox simulator omits auth headers — worker allows through with a warning.
     const payload = JSON.stringify({
       status: 'paid',
       id: invoiceId,
@@ -1835,7 +1841,7 @@ describe('POST /webhook/mayar', () => {
 
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'any_sig_in_sandbox' },
+      headers: { 'Content-Type': 'application/json' },
       body: payload,
     });
 
@@ -1859,7 +1865,7 @@ describe('POST /webhook/mayar', () => {
 
     await SELF.fetch('https://gaslamar.com/webhook/mayar', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'any_sig' },
+      headers: { 'Content-Type': 'application/json' },
       body: payload,
     });
 
@@ -1872,7 +1878,7 @@ describe('POST /webhook/mayar', () => {
     const payload = JSON.stringify({ status: 'paid', id: 'inv_missing_redirect' });
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'any_sig' },
+      headers: { 'Content-Type': 'application/json' },
       body: payload,
     });
     expect(res.status).toBe(200); // graceful no-op
@@ -1918,7 +1924,7 @@ describe('POST /webhook/mayar', () => {
 
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'any_sig_in_sandbox' },
+      headers: { 'Content-Type': 'application/json' },
       body: payload,
     });
 
@@ -1938,7 +1944,7 @@ describe('POST /webhook/mayar', () => {
 
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'any_sig' },
+      headers: { 'Content-Type': 'application/json' },
       body: payload,
     });
 
@@ -1971,7 +1977,7 @@ describe('POST /webhook/mayar', () => {
 
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'any_sig_in_sandbox' },
+      headers: { 'Content-Type': 'application/json' },
       body: payload,
     });
 
@@ -1994,7 +2000,7 @@ describe('POST /webhook/mayar', () => {
 
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'any_sig_in_sandbox' },
+      headers: { 'Content-Type': 'application/json' },
       body: payload,
     });
 
@@ -2026,7 +2032,7 @@ describe('POST /webhook/mayar — multi-candidate invoice ID fallback', () => {
 
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'any_sig' },
+      headers: { 'Content-Type': 'application/json' },
       body:    payload,
     });
 
@@ -2049,7 +2055,7 @@ describe('POST /webhook/mayar — multi-candidate invoice ID fallback', () => {
 
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'any_sig' },
+      headers: { 'Content-Type': 'application/json' },
       body:    payload,
     });
 
@@ -2071,7 +2077,7 @@ describe('POST /webhook/mayar — case-insensitive isPaid status', () => {
     const payload = JSON.stringify({ id: invoiceId, status });
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-mayar-signature': 'any_sig' },
+      headers: { 'Content-Type': 'application/json' },
       body: payload,
     });
     const updated = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
@@ -2169,11 +2175,10 @@ describe('verifyMayarWebhook — production HMAC path', () => {
     expect(result.valid).toBe(false);
   });
 
-  it('bypasses HMAC in non-production only when no webhook secret is configured', async () => {
-    // C1 FIX: bypass only applies when sandbox AND no secret is configured.
-    // Staging WITH a secret now verifies HMAC — prevents a compromised staging URL
-    // from accepting forged webhooks when a secret is explicitly set.
-    const payload = JSON.stringify({ id: 'inv_staging_bypass', status: 'paid' });
+  it('rejects webhooks when no secret is configured regardless of environment', async () => {
+    // Fail-closed: no secret configured = reject in all environments (including sandbox).
+    // This prevents a staging URL with no secret from accepting forged payment webhooks.
+    const payload = JSON.stringify({ id: 'inv_no_secret_test', status: 'paid' });
 
     const req = new Request('https://gaslamar.com/webhook/mayar', {
       method:  'POST',
@@ -2181,15 +2186,15 @@ describe('verifyMayarWebhook — production HMAC path', () => {
       body:    payload,
     });
 
-    // staging without secret → bypass → valid regardless of signature
+    // staging without secret → fail closed → invalid
     const stagingNoSecretResult = await verifyMayarWebhook(req.clone(), { ENVIRONMENT: 'staging' });
-    expect(stagingNoSecretResult.valid).toBe(true);
+    expect(stagingNoSecretResult.valid).toBe(false);
 
-    // sandbox without secret → bypass → valid regardless of signature
+    // sandbox without secret → fail closed → invalid
     const sandboxResult = await verifyMayarWebhook(req.clone(), { ENVIRONMENT: 'sandbox' });
-    expect(sandboxResult.valid).toBe(true);
+    expect(sandboxResult.valid).toBe(false);
 
-    // staging WITH secret → HMAC verified → wrong sig = invalid (C1 fix)
+    // staging WITH secret → HMAC verified → wrong sig = invalid
     const stagingWithSecretResult = await verifyMayarWebhook(req.clone(), { ENVIRONMENT: 'staging', MAYAR_WEBHOOK_SECRET: 'some_secret' });
     expect(stagingWithSecretResult.valid).toBe(false);
   });
