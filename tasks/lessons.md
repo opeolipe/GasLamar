@@ -362,3 +362,13 @@ The tester looked for a key named `session_token` or `server_session_id`. The ac
 - Check sessionStorage in the SAME tab the analysis ran in (not a new tab)
 - Confirm character count using `.trim().length`, not `.length` — whitespace-heavy text may count high but trim low
 - Paid session token is an HttpOnly cookie; check DevTools → Application → Cookies, not sessionStorage
+
+---
+
+## sessionStorage write order in useAnalysisPolling — critical keys must be written before large blobs
+
+**Pattern:** `gaslamar_cv_key` and `gaslamar_analyze_time` were written AFTER `gaslamar_scoring` (lines 181-183 in `hooks/useAnalysisPolling.ts`). `gaslamar_scoring` is the largest write (several KB of JSON). If it throws `QuotaExceededError` (iOS Safari, low-storage devices), the outer catch block fires before the two small critical keys are written. This prevents the redirect to `hasil.html` and shows a generic "Terjadi kesalahan" error instead.
+
+**Fix:** Always write small, guard-required keys first (`gaslamar_cv_key`, `gaslamar_analyze_time`), then wrap the large blob write in its own try-catch. The `gaslamar_scoring` write is non-critical — `useResultData.ts` already has a `GET /get-scoring` server-side fallback for exactly this scenario.
+
+**Rule:** In any success-path sessionStorage block, writes required to satisfy HTML inline guards or route conditions must come FIRST and must not be blocked by a preceding large write.
