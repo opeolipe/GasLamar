@@ -3,6 +3,7 @@ import { sanitizeForLLM, hasPromptInjection } from './sanitize.js';
 
 const INJECTION_ERROR = 'CV mengandung konten yang tidak diizinkan. Pastikan file CV tidak berisi perintah sistem.';
 const MAX_DOCX_XML_BYTES = 1_500_000;
+const MIN_TXT_CV_CHARS = 1500;
 
 // ---- File Validation ----
 
@@ -12,7 +13,7 @@ export function validateFileData(cvData) {
     const parsed = JSON.parse(cvData);
     if (!parsed.type || !parsed.data) return { valid: false, error: 'Format data tidak valid' };
     if (!['pdf', 'docx', 'txt'].includes(parsed.type)) {
-      return { valid: false, error: 'Format CV tidak didukung. Gunakan PDF, DOCX, atau TXT.' };
+      return { valid: false, error: 'Format CV tidak didukung. Upload CV dalam format PDF, DOCX, atau TXT.' };
     }
 
     // txt files carry raw text — no magic-byte check needed, just size guard
@@ -74,8 +75,8 @@ export async function extractCVText(cvData, env) {
       // Silently truncate rather than reject — extra chars may come from
       // sessionStorage manipulation but the user still deserves a result.
       const text = sanitizeForLLM(raw).slice(0, 60000);
-      if (text.trim().length < 1500) {
-        return { success: false, error: 'CV kamu terlalu pendek. Pastikan file berisi teks CV yang lengkap (minimal 1.500 karakter).' };
+      if (text.trim().length < MIN_TXT_CV_CHARS) {
+        return { success: false, error: 'CV kamu terlalu singkat. Tempel CV lengkap minimal 1.500 karakter.' };
       }
       return { success: true, text };
     }
