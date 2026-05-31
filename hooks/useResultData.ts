@@ -57,7 +57,7 @@ export function useResultData(): ResultDataState {
           if (isNaN(skor) || skor < 0 || skor > 100) { fail('missing'); return; }
           if (time > 0 && (Date.now() - time) / 1000 > 86400) { fail('expired'); return; }
           try { sessionStorage.setItem('gaslamar_scoring', JSON.stringify(s)); } catch (_) {}
-          setState({ data: s, cvKey: cvKeyVal, analyzeTime: time, loading: false, error: null, noSession: null });
+          setState({ data: s ?? null, cvKey: cvKeyVal, analyzeTime: time, loading: false, error: null, noSession: null });
         })
         .catch(() => fail('missing'));
       return;
