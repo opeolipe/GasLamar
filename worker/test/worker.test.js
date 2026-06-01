@@ -4356,3 +4356,53 @@ describe('POST /get-result — exhausted field', () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe('Security headers', () => {
+  const REQUIRED = [
+    ['content-security-policy', "default-src 'none'; frame-ancestors 'none'"],
+    ['x-frame-options', 'DENY'],
+    ['x-content-type-options', 'nosniff'],
+    ['strict-transport-security', 'max-age=31536000; includeSubDomains'],
+  ];
+
+  async function assertSecurityHeaders(res) {
+    for (const [header, expected] of REQUIRED) {
+      expect(res.headers.get(header), `Missing ${header}`).toBe(expected);
+    }
+  }
+
+  it('GET /health returns all four security headers', async () => {
+    const res = await get('/health');
+    await assertSecurityHeaders(res);
+  });
+
+  it('OPTIONS preflight returns CORS Allow-Origin header', async () => {
+    const res = await SELF.fetch('https://gaslamar.com/analyze', {
+      method: 'OPTIONS',
+      headers: { Origin: GASLAMAR_ORIGIN, 'CF-Connecting-IP': '1.2.3.4' },
+    });
+    expect(res.status).toBe(204);
+    expect(res.headers.get('access-control-allow-origin')).toBe(GASLAMAR_ORIGIN);
+  });
+
+  it('GET /check-session returns all four security headers', async () => {
+    const res = await get('/check-session');
+    await assertSecurityHeaders(res);
+  });
+
+  it('GET /get-scoring returns all four security headers (even on error)', async () => {
+    const res = await get('/get-scoring?key=cvtext_abc');
+    await assertSecurityHeaders(res);
+  });
+
+  it('POST /analyze validation error returns all four security headers', async () => {
+    const res = await post('/analyze', {});
+    await assertSecurityHeaders(res);
+  });
+
+  it('404 response returns all four security headers', async () => {
+    const res = await get('/nonexistent-endpoint-xyz');
+    await assertSecurityHeaders(res);
+  });
+});
+
