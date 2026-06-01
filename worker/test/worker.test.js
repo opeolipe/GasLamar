@@ -1340,40 +1340,44 @@ describe('POST /session/ping', () => {
 });
 
 describe('GET /check-session', () => {
-  it('returns 401 when no session cookie and no ?session= param', async () => {
+  it('returns 200+authenticated:false when no session cookie and no ?session= param', async () => {
     const res = await get('/check-session');
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200);
     const body = await res.json();
+    expect(body.authenticated).toBe(false);
     expect(body.reason).toBe('no_session');
   });
 
-  it('returns 401 when ?session= param lacks sess_ prefix (invalid format)', async () => {
+  it('returns 200+authenticated:false when ?session= param lacks sess_ prefix (invalid format)', async () => {
     // Non-sess_ values are not accepted even as fallback
     const res = await get('/check-session?session=invalid_id');
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200);
     const body = await res.json();
+    expect(body.authenticated).toBe(false);
     expect(body.reason).toBe('no_session');
   });
 
   it('ignores valid ?session= when no cookie is present', async () => {
     const res = await get('/check-session?session=sess_some_valid_looking_id');
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200);
     const body = await res.json();
+    expect(body.authenticated).toBe(false);
     expect(body.reason).toBe('no_session');
   });
 
   it('does not authenticate an existing session from the query string alone', async () => {
     const sessionId = await seedSession('paid', 'single');
     const res = await get(`/check-session?session=${sessionId}`);
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200);
     const body = await res.json();
+    expect(body.authenticated).toBe(false);
     expect(body.reason).toBe('no_session');
   });
 
   it('does not leak reduced metadata for query-only sessions', async () => {
     const sessionId = await seedSession('ready', '3pack');
     const res = await get(`/check-session?session=${sessionId}`);
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).not.toHaveProperty('status', 'ready');
     expect(body).not.toHaveProperty('tier', '3pack');
@@ -1426,9 +1430,12 @@ describe('GET /check-session', () => {
 
   it('rejects X-Session-Id header alone when no cookie is present (no URL fallback)', async () => {
     const sessionId = await seedSession('paid', 'single');
-    // Staging removed the URL/header fallback — X-Session-Id without a cookie must be rejected.
+    // Staging removed the URL/header fallback — X-Session-Id without a cookie must return no_session.
     const res = await get('/check-session', { 'X-Session-Id': sessionId });
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.authenticated).toBe(false);
+    expect(body.reason).toBe('no_session');
   });
 
   it('cookie path is not affected by stale X-Session-Secret headers', async () => {
@@ -1446,7 +1453,7 @@ describe('GET /check-session', () => {
     // First 10 unauthenticated requests are allowed — no session cookie → IP bucket.
     for (let i = 0; i < 10; i++) {
       const res = await get('/check-session', {}, ip);
-      expect(res.status).toBe(401); // no cookie → 401, not 429
+      expect(res.status).toBe(200); // no cookie → 200+authenticated:false, not 429
     }
 
     // 11th request is blocked by the rate limiter.
@@ -2062,8 +2069,9 @@ describe('POST /webhook/mayar', () => {
   it('rejects request to GET /check-session with no cookie and invalid session param', async () => {
     // ?session= without sess_ prefix is rejected (no fallback for malformed IDs)
     const res = await SELF.fetch('https://gaslamar.com/check-session?session=invalid_id');
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200);
     const body = await res.json();
+    expect(body.authenticated).toBe(false);
     expect(body.reason).toBe('no_session');
   });
 

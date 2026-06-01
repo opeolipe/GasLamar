@@ -171,8 +171,8 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         return;
       }
 
-      // 401 means auth is broken in this browser context (no cookie, no session param).
-      // This is not a transient error — stop the spinner immediately and show recovery.
+      // 401 (legacy) or 200+authenticated:false (current) means auth is broken in this
+      // browser context (no cookie). Not transient — stop spinner and show recovery.
       if (res.status === 401) {
         authFailureCountRef.current++;
         if (authFailureCountRef.current >= MAX_AUTH_FAILURES) {
@@ -216,9 +216,25 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         return;
       }
 
-      const data     = await res.json() as { status: string; tier?: string; credits_remaining?: number; total_credits?: number; expires_at?: number; session_id?: unknown };
+      const data     = await res.json() as { status: string; authenticated?: boolean; reason?: string; tier?: string; credits_remaining?: number; total_credits?: number; expires_at?: number; session_id?: unknown };
       const { status } = data;
       const activeSessionId = getResponseSessionId(data) || getLegacyStoredSessionId();
+
+      // 200 + authenticated:false means "no cookie" — treat like a legacy 401.
+      if (data.authenticated === false && data.reason === 'no_session') {
+        authFailureCountRef.current++;
+        if (authFailureCountRef.current >= MAX_AUTH_FAILURES) {
+          showError(
+            'Sesi tidak bisa dibuka di browser ini',
+            'Buka ulang dari link email atau minta link baru di halaman akses.',
+            false,
+            'auth_failure',
+          );
+        } else {
+          scheduleNextPoll(getBackoffDelay(pollCountRef.current));
+        }
+        return;
+      }
 
       // Non-blocking debug log so the payment flow can be traced in browser DevTools
       if (status !== 'paid' && status !== 'generating') {
@@ -383,10 +399,12 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         const res = await fetch(`${WORKER_URL}/check-session`, { credentials: 'include' });
         if (!mountedRef.current) return;
 
-        // 401 = no session cookie at all — hard stop.
+        // no_session (200 + authenticated:false) or legacy 401 = no cookie — hard stop.
         // All other non-ok codes (404 = session not yet created, 429 = rate-limited,
         // 5xx = transient) are handled by the polling loop.
-        if (res.status === 401) {
+        const initBody = res.ok ? await res.json().catch(() => ({})) as { authenticated?: boolean; reason?: string; status?: string } : null;
+        const isNoSession = res.status === 401 || (initBody?.authenticated === false && initBody?.reason === 'no_session');
+        if (isNoSession) {
           showError('Sesi tidak ditemukan', 'Link download tidak valid. Coba lagi dari awal.');
           return;
         }
