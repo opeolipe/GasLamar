@@ -71,7 +71,14 @@ Any finding observed on `*.pages.dev` or `*.workers.dev` direct URLs must be re-
 
 ## Automated CI Verification
 
-Both `deploy.yml` and `deploy-staging.yml` now run a `CORS security header check` step after every deploy. This step executes TC-CORS-1 through TC-CORS-4 and fails the pipeline if any assertion breaks. CI run logs serve as the audit trail for CORS compliance.
+Both `deploy.yml` and `deploy-staging.yml` run a `CORS security header check` step after every deploy:
+
+- **TC-CORS-1 through TC-CORS-4** (API checks) — fail the pipeline in both workflows.
+- **TC-STATIC-1** (no ACAO on non-API paths) — fail the pipeline in both workflows. `deploy.yml` checks `GET /` on `gaslamar.com`; `deploy-staging.yml` checks `GET /` on `api-staging.gaslamar.com`.
+
+CI run logs serve as the audit trail for CORS compliance.
+
+See also: `docs/qa-guidelines.md` §2 for the full manual testing procedure.
 
 ---
 
