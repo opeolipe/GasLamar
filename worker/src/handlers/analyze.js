@@ -14,7 +14,7 @@ export async function handleAnalyze(request, env) {
   // Both must allow the request for it to proceed.
   const [bindingOk, kvResult] = await Promise.all([
     checkRateLimit(env, env.RATE_LIMITER_ANALYZE, ip),
-    checkRateLimitKV(env, ip, 3, 60, 'analyze'),
+    checkRateLimitKV(env, ip, 10, 60, 'analyze'),
   ]);
   if (!bindingOk || !kvResult.allowed) {
     // Use the KV-computed remaining seconds when KV is the blocker; fall back to

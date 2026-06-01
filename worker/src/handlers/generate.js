@@ -20,7 +20,7 @@ export async function handleGenerate(request, env, ctx) {
     return rateLimitResponse(request, env);
   }
 
-  const kvRl = await checkRateLimitKV(env, ip, 5, 60, 'generate');
+  const kvRl = await checkRateLimitKV(env, ip, 10, 60, 'generate');
   if (!kvRl.allowed) return rateLimitResponse(request, env, kvRl.retryAfter ?? 60);
 
   // Session ID comes from the HttpOnly cookie — not the request body.

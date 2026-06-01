@@ -2,7 +2,7 @@ import { jsonResponse } from '../cors.js';
 import { log, logError, clientIp } from '../utils.js';
 import { getSession, getSessionTtl } from '../sessions.js';
 import { getSessionIdFromCookie } from '../cookies.js';
-import { checkRateLimit, checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
+import { checkRateLimit, checkRateLimitKVSession, rateLimitResponse } from '../rateLimit.js';
 
 export async function handleCheckSession(request, env) {
   const cookieSessionId = getSessionIdFromCookie(request);
@@ -20,11 +20,11 @@ export async function handleCheckSession(request, env) {
         ? 'firefox'
         : 'other';
 
-  // Primary: CF native binding (atomic, no TOCTOU). Secondary: KV-based counter as backup.
-  // Both must allow the request — 20 req/min per IP.
+  // Primary: CF native binding (atomic, no TOCTOU). Secondary: KV sliding window.
+  // Authenticated callers (valid session cookie) get 30 req/min; IP-only get 10 req/min.
   const [cfAllowed, kvResult] = await Promise.all([
     checkRateLimit(env, env.RATE_LIMITER_CHECK_SESSION, ip),
-    checkRateLimitKV(env, ip, 20, 60, 'check_session'),
+    checkRateLimitKVSession(env, ip, cookieSessionId, 10, 30, 60, 'check_session'),
   ]);
   if (!cfAllowed || !kvResult.allowed) {
     const retryAfter = !kvResult.allowed ? (kvResult.retryAfter ?? 60) : 60;
