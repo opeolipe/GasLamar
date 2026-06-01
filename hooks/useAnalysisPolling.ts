@@ -23,14 +23,16 @@ export interface AnalysisStep {
 }
 
 export interface UseAnalysisResult {
-  progress:    number;
-  steps:       AnalysisStep[];
-  timerText:   string;
-  error:       string | null;
-  isFileError: boolean;
-  isComplete:  boolean;
-  retry:       () => void;
-  cancel:      () => void;
+  progress:              number;
+  steps:                 AnalysisStep[];
+  timerText:             string;
+  error:                 string | null;
+  isFileError:           boolean;
+  isRateLimit:           boolean;
+  rateLimitSecsLeft:     number;
+  isComplete:            boolean;
+  retry:                 () => void;
+  cancel:                () => void;
 }
 
 const INIT_TIMER = `⏱️ Estimasi selesai: sekitar ${Math.ceil(ESTIMATED_MS / 1000)} detik`;
@@ -39,9 +41,13 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
   const [activeStep,  setActiveStep]  = useState(0);
   const [progress,    setProgress]    = useState(0);
   const [timerText,   setTimerText]   = useState(INIT_TIMER);
-  const [error,       setError]       = useState<string | null>(null);
-  const [isFileError, setIsFileError] = useState(false);
-  const [isComplete,  setIsComplete]  = useState(false);
+  const [error,            setError]            = useState<string | null>(null);
+  const [isFileError,      setIsFileError]      = useState(false);
+  const [isRateLimit,      setIsRateLimit]      = useState(false);
+  const [rateLimitSecsLeft, setRateLimitSecsLeft] = useState(0);
+  const [isComplete,       setIsComplete]       = useState(false);
+
+  const rateLimitTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Refs for mutable values accessed inside timer callbacks (avoids stale closures)
   const doneRef         = useRef(false);
@@ -65,8 +71,9 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
   );
 
   function clearAllTimers() {
-    if (timerRef.current)        { clearInterval(timerRef.current);       timerRef.current = null; }
-    if (fetchTimeoutRef.current) { clearTimeout(fetchTimeoutRef.current);  fetchTimeoutRef.current = null; }
+    if (timerRef.current)          { clearInterval(timerRef.current);        timerRef.current = null; }
+    if (fetchTimeoutRef.current)   { clearTimeout(fetchTimeoutRef.current);   fetchTimeoutRef.current = null; }
+    if (rateLimitTimerRef.current) { clearInterval(rateLimitTimerRef.current); rateLimitTimerRef.current = null; }
     stepTimeoutsRef.current.forEach(clearTimeout);
     stepTimeoutsRef.current = [];
   }
@@ -126,8 +133,13 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        if (res.status === 429)
-          throw new Error(`Terlalu banyak permintaan. Coba lagi dalam ${err.retryAfter || 60} detik.`);
+        if (res.status === 429) {
+          const secs = err.retryAfter || 60;
+          const rlErr = new Error(`Terlalu cepat. Coba lagi dalam ${secs} detik.`);
+          (rlErr as any).isRateLimit  = true;
+          (rlErr as any).retryAfter   = secs;
+          throw rlErr;
+        }
         if (res.status === 422) {
           const fileErr = new Error(err.message || 'CV tidak bisa dibaca. Coba konversi ke format DOCX atau TXT terlebih dahulu.');
           (fileErr as any).isFileError = true;
@@ -258,7 +270,9 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
       });
 
       let msg = e.message || 'Terjadi kesalahan. Coba lagi.';
-      let fileError = !!(e as any).isFileError;
+      let fileError  = !!(e as any).isFileError;
+      let rateLimit  = !!(e as any).isRateLimit;
+      let retryAfterSecs: number = (e as any).retryAfter || 0;
       if (e.name === 'TypeError') {
         msg = 'Tidak bisa terhubung ke server. Periksa koneksi internet kamu, lalu coba lagi.';
       } else if (timedOutRef.current || e.name === 'AbortError') {
@@ -266,6 +280,21 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
       }
 
       setIsFileError(fileError);
+      setIsRateLimit(rateLimit);
+
+      if (rateLimit && retryAfterSecs > 0) {
+        setRateLimitSecsLeft(retryAfterSecs);
+        rateLimitTimerRef.current = setInterval(() => {
+          setRateLimitSecsLeft(prev => {
+            if (prev <= 1) {
+              if (rateLimitTimerRef.current) { clearInterval(rateLimitTimerRef.current); rateLimitTimerRef.current = null; }
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      }
+
       setError(msg);
     }
   }
@@ -275,6 +304,9 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
     startRef.current = Date.now();
     setError(null);
     setIsFileError(false);
+    setIsRateLimit(false);
+    setRateLimitSecsLeft(0);
+    if (rateLimitTimerRef.current) { clearInterval(rateLimitTimerRef.current); rateLimitTimerRef.current = null; }
     setIsComplete(false);
     setProgress(0);
     setActiveStep(0);
@@ -297,5 +329,5 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
     return clearAllTimers;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { progress, steps, timerText, error, isFileError, isComplete, retry, cancel };
+  return { progress, steps, timerText, error, isFileError, isRateLimit, rateLimitSecsLeft, isComplete, retry, cancel };
 }
