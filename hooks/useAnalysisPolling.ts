@@ -113,10 +113,13 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
       });
 
       const res = await fetch(`${WORKER_URL}/analyze`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ cv: cvData, job_desc: jobDesc }),
-        signal:  abortRef.current.signal,
+        method:      'POST',
+        headers:     { 'Content-Type': 'application/json' },
+        body:        JSON.stringify({ cv: cvData, job_desc: jobDesc }),
+        signal:      abortRef.current.signal,
+        // credentials:'include' is required so the browser saves the HttpOnly cv_key cookie
+        // returned in the Set-Cookie header. Without this, cross-origin cookies are discarded.
+        credentials: 'include',
       });
 
       if (fetchTimeoutRef.current) { clearTimeout(fetchTimeoutRef.current); fetchTimeoutRef.current = null; }
@@ -134,7 +137,9 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
       }
 
       const result = await res.json();
-      const { cv_text_key: cvKey, ...scoringOnly } = result;
+      // cv_text_key is no longer returned in the response body — it is sent as an HttpOnly
+      // cookie (cv_key) by the server, preventing XSS from reading the analysis token.
+      const { ...scoringOnly } = result;
 
       // Extract sample context from cv_pending BEFORE clearing it (synchronous)
       try {
@@ -178,10 +183,7 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
         sessionStorage.setItem('gaslamar_result_id', resultId);
       } catch (_) {}
 
-      // Critical writes first — hasil-guard.js requires both to pass.
-      // These are small strings; write them before the potentially-large scoring blob
-      // so a QuotaExceededError on the blob doesn't block the redirect.
-      sessionStorage.setItem('gaslamar_cv_key',       cvKey || '');
+      // cv_key is now an HttpOnly cookie set by /analyze — not stored in sessionStorage.
       sessionStorage.setItem('gaslamar_analyze_time', String(Date.now()));
       // Non-critical: useResultData falls back to GET /get-scoring when absent.
       try { sessionStorage.setItem('gaslamar_scoring', JSON.stringify(scoringOnly)); } catch (_) {}

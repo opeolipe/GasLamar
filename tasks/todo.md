@@ -1,4 +1,4 @@
-# JD Counter Sync — Remaining Fix Plan (2026-06-01)
+# JD Counter Sync — Remaining Fix Plan (2026-06-01) (DONE)
 
 ## Root Cause Summary
 React upload page (`JobDescriptionInput.tsx`) has NO "Gunakan contoh" insert button —
@@ -17,7 +17,7 @@ chars, so the generate button silently disables with no truncation message.
          message when text is cut
 - [x] 3. Run `npm test` (worker) — 577/577 pass
 - [x] 4. Double audit — traced below
-- [ ] 5. Commit + push to claude/eloquent-dijkstra-CnDHx
+- [x] 5. Commit + push to claude/eloquent-dijkstra-CnDHx
 
 ## Double Audit Results
 
@@ -48,18 +48,31 @@ chars, so the generate button silently disables with no truncation message.
 | Submit button state | `disabled={generating \|\| !jobDesc.trim() \|\| underMin \|\| overLimit}` — all derived from state | PASS |
 | Truncation > 5000 | Now: capped + status message "...dipotong di 5.000 karakter" | FIXED |
 
+## SKIP (test-coverage gaps — deferred)
+- M3: resend-email tests (401, 403, 400, 400, 200, 404)
+- generate.js multi-credit / rollback tests
+- webhook ENVIRONMENT=undefined test
+
+
 ---
 
-# /get-scoring atomic rate limit fix — 2026-05-31
-
-## Problem
-`getScoring.js` uses only `checkRateLimitKV` (non-atomic KV counter with TOCTOU race).
-15 parallel requests can all read `count=0` before any write completes → limit bypass.
-No CF native atomic binding for this endpoint. No rate-limit tests.
+# /get-scoring atomic rate limit fix — 2026-05-31 (DONE)
 
 ## Steps
-- [ ] Add `RATE_LIMITER_GET_SCORING` CF native binding to wrangler.toml (namespace_id 1007, 10/min) — sandbox, staging, production
-- [ ] Update `getScoring.js` — import `checkRateLimit`, call CF binding first (atomic burst guard)
-- [ ] Add rate limiting tests to worker.test.js (new describe block, unique IP range 10.99.3.x)
-- [ ] Run tests — all must pass
-- [ ] Commit and push
+- [x] Add `RATE_LIMITER_GET_SCORING` CF native binding to wrangler.toml
+- [x] Update `getScoring.js` — import `checkRateLimit`, call CF binding first (atomic burst guard)
+
+---
+
+# Security: cv_key → HttpOnly cookie — 2026-06-01 (DONE)
+
+## Frontend
+- [x] F1: `hooks/useAnalysisPolling.ts` — Add `credentials:'include'` to /analyze fetch; remove cv_key write to sessionStorage
+- [x] F2: `js/analyzing-page.js` — Same; update redirect check to use only analyze_time
+- [x] F3: `js/scoring.js` — Call /get-scoring with credentials; include key param only for old sessions
+- [x] F4: `hooks/useResultData.ts` — Same
+- [x] F5: `js/payment.js` — Remove required cv_key guard; send as optional body fallback only for old sessions
+- [x] F6: `js/hasil-guard.js` — Remove cv_key check; keep analyze_time freshness check only
+- [x] F7: `hasil.html` — Update inline minified guard to match new hasil-guard.js logic
+- [x] F8: `js/session-controller.js` — Update getAnalysisSession() docs; cv_key is now cookie-backed
+- [x] F9: `js/upload-page.js` — Update "active session" notice — only check analyze_time

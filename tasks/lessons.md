@@ -1,3 +1,36 @@
+## Moving sessionStorage tokens to HttpOnly cookies: transition checklist (2026-06-01)
+
+When migrating a client-readable token (e.g. `gaslamar_cv_key`) to an HttpOnly cookie:
+
+1. **Backend first**: add `makeFooCookie()` / `getfooFromCookie()` helpers in `cookies.js`.
+   Each endpoint that used the token must: read cookie first → fall back to old param/body.
+   This keeps old sessions working until their TTL expires.
+
+2. **Server response change**: stop returning the token in the JSON body — set it via
+   `Set-Cookie` instead. This is the main XSS-prevention step.
+
+3. **Frontend analyze call**: add `credentials:'include'` so the browser saves the cookie
+   from the cross-origin response. Without this, Set-Cookie is silently discarded.
+
+4. **Remove storage writes**: delete every `sessionStorage.setItem('gaslamar_cv_key', ...)`.
+   Keep the key in the storage CLEAR list so stale legacy values are cleaned up on new uploads.
+
+5. **Guards that check the token synchronously** (inline `<script>` in `<head>`) cannot read
+   httpOnly cookies. Simplify them to check only the non-sensitive timestamp (`analyze_time`);
+   real auth is now server-side. Update both the source file AND the minified inline copy.
+
+6. **Backward compat**: frontend should include the legacy key from storage as a query/body
+   fallback for endpoints that still support it. New sessions send nothing — just the cookie.
+
+7. **Tests**: parse the cv_key from the `Set-Cookie` header (not the response body) to use in
+   subsequent KV lookups. Add new tests for the cookie path alongside existing param-path tests.
+
+8. **Grep check before shipping**:
+   `grep -r "setItem.*gaslamar_cv_key"` — must return nothing.
+   `grep -r "cv_text_key.*:" worker/src/handlers/analyze.js` — must return nothing in return value.
+
+---
+
 ## cvtext_ key format must be `cvtext_[0-9a-f]{64}` everywhere (2026-05-23)
 
 Any code path that accepts a user-supplied `cvtext_*` key must validate the strict format `^cvtext_[0-9a-f]{64}$` — not just `startsWith('cvtext_')` or a length cap. The production `/analyze` handler generates these keys with `hexToken(32)` (64 lowercase hex chars). Three endpoints (`createPayment`, `validateSession`, `bypassPayment`) previously accepted arbitrary strings, which could silently fail at Cloudflare KV's 512-byte key limit or accept malformed keys. Test helpers that seed `cvtext_` keys must also use the correct format (32 random bytes as hex) — never `crypto.randomUUID()`, which produces a UUID with hyphens that breaks the validation.

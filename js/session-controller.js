@@ -24,12 +24,18 @@
  *
  * Storage keys
  * ─────────────────────────────────────────────────────────────────────────────
+ * Cookies (HttpOnly — not readable by JS):
+ *   cv_key           cvtext_<64-hex> — analysis-session token from /analyze. Set by server.
+ *   session_id       sess_<uuid> — download/generation session. Set by /create-payment.
+ *
  * sessionStorage (tab-scoped, cleared on tab close):
- *   gaslamar_cv_key          cvtext_<token> from /analyze (32-byte random hex)
  *   gaslamar_analyze_time    Unix ms timestamp of last /analyze call
  *   gaslamar_score_summary   { skor, gap[], primary_issue } — passed to /generate email
  *   gaslamar_tier            Server-confirmed tier (corrected on poll response)
  *   gaslamar_filename        CV filename for display purposes only
+ *   gaslamar_cv_key          LEGACY: cvtext_<token> still present in old sessions
+ *                            (analyzed before the HttpOnly cookie migration). Absent for
+ *                            new sessions; the cv_key cookie is authoritative.
  *
  * payment.js writes a non-sensitive presence flag (gaslamar_has_session=1) so
  * download-guard.js can pass the user through on Mayar's post-payment redirect.
@@ -80,19 +86,24 @@ function isExhausted(status) {
 // ── Analysis session helpers ──────────────────────────────────────────────────
 
 /**
- * Returns the cvtext_ key + timestamp from sessionStorage if fresh, null otherwise.
+ * Returns the analyze_time (+ legacy cv_key if present) if the analysis session is fresh.
  * ANALYSIS_FRESHNESS_MS must match SESSION_SECS in hasil-guard.js / hasil-page.js
  * and the expirationTtl in worker/src/handlers/analyze.js (86400 s = 24 h).
+ *
+ * Note: cv_key is now an HttpOnly cookie for new sessions — not in sessionStorage.
+ * This function returns { time } for new sessions and { key, time } for old sessions
+ * that still carry the legacy key in storage.
  */
 const ANALYSIS_FRESHNESS_MS = 86400000; // 24 hours
 
 function getAnalysisSession() {
   try {
-    const key  = sessionStorage.getItem('gaslamar_cv_key') || '';
     const time = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0', 10);
-    if (!key.startsWith('cvtext_') || !time) return null;
+    if (!time) return null;
     if (Date.now() - time > ANALYSIS_FRESHNESS_MS) return null;
-    return { key, time };
+    // Legacy: old sessions still have the key in storage. New sessions use the HttpOnly cookie.
+    const key = sessionStorage.getItem('gaslamar_cv_key') || '';
+    return key ? { key, time } : { time };
   } catch (_) {
     return null;
   }

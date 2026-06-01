@@ -10,14 +10,12 @@ const filename  = sessionStorage.getItem('gaslamar_filename') || 'CV Kamu';
 
 // Redirect if no pending data (direct navigation or page refresh after completion)
 if (!cvData || !jobDesc) {
-  // If a fresh cv_key exists, the user already completed analysis — send them to hasil.html.
-  // Scoring is now server-side so we only need the key + timestamp (no scoring blob check).
-  const existingKey = sessionStorage.getItem('gaslamar_cv_key');
-  const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
+  // cv_key is now an HttpOnly cookie (not in sessionStorage). Check only analyze_time freshness.
   // SYNC: 86400000ms (24h) must match SESSION_SECS (86400) in hasil-page.js,
   //       hasil-guard.js, and ANALYSIS_FRESHNESS_MS in session-controller.js.
   //       Must also match the expirationTtl in worker/src/handlers/analyze.js.
-  const isFresh = existingKey && analyzeTime && (Date.now() - analyzeTime) < 86400000;
+  const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
+  const isFresh = analyzeTime && (Date.now() - analyzeTime) < 86400000;
   window.location.replace(isFresh ? 'hasil.html' : 'upload.html');
 }
 
@@ -139,10 +137,12 @@ async function runAnalysis() {
 
   try {
     const response = await fetch(WORKER_URL + '/analyze', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cv: cvData, job_desc: jobDesc }),
-      signal: abortController.signal
+      method:      'POST',
+      headers:     { 'Content-Type': 'application/json' },
+      body:        JSON.stringify({ cv: cvData, job_desc: jobDesc }),
+      signal:      abortController.signal,
+      // credentials:'include' saves the HttpOnly cv_key cookie returned in Set-Cookie.
+      credentials: 'include',
     });
 
     clearTimeout(analysisTimeoutId);
@@ -160,10 +160,8 @@ async function runAnalysis() {
 
     const result = await response.json();
 
-    // Store only the cv_text_key and timestamp — scoring is now fetched server-side by
-    // scoring.js via GET /get-scoring so hasil.html is not lost on tab reopen or refresh.
-    const { cv_text_key: _cvKey } = result;
-    sessionStorage.setItem('gaslamar_cv_key', _cvKey || '');
+    // cv_text_key is now an HttpOnly cookie set by the server — not stored in sessionStorage.
+    // Only the timestamp is kept so hasil-guard.js can check session freshness client-side.
     sessionStorage.setItem('gaslamar_analyze_time', String(Date.now()));
     // Remove any leftover scoring blob from a previous analysis (defensive cleanup).
     sessionStorage.removeItem('gaslamar_scoring');

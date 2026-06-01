@@ -32,10 +32,13 @@ export function useResultData(): ResultDataState {
     if (urlSession !== null && !urlSession.startsWith('cvtext_')) { fail('expired'); return; }
 
     // Scoring data may be absent when sessionStorage was cleared or on a fresh new-tab.
-    // Fall back to GET /get-scoring using the cv_key capability token.
+    // For new sessions: cv_key is an HttpOnly cookie sent automatically with credentials.
+    // For old sessions: cv_key is in sessionStorage and sent as a query param fallback.
     if (!rawScoring) {
-      if (!cvKeyVal.startsWith('cvtext_')) { fail('missing'); return; }
-      fetch(`${WORKER_URL}/get-scoring?key=${encodeURIComponent(cvKeyVal)}`)
+      const scoringUrl = cvKeyVal.startsWith('cvtext_')
+        ? `${WORKER_URL}/get-scoring?key=${encodeURIComponent(cvKeyVal)}`
+        : `${WORKER_URL}/get-scoring`;
+      fetch(scoringUrl, { credentials: 'include' })
         .then(async r => {
           if (r.status === 404) {
             // Key expired (cvtext_ deleted after payment, scoring_ also gone).
@@ -115,9 +118,14 @@ export function useResultData(): ResultDataState {
 
     setState({ data: parsed, cvKey: cvKeyVal, analyzeTime: time, loading: false, error: null, noSession: null });
 
-    // Defense-in-depth: server-side session key validation (fail-open on network error)
-    if (cvKeyVal.startsWith('cvtext_')) {
-      fetch(`${WORKER_URL}/validate-session?cvKey=${encodeURIComponent(cvKeyVal)}`)
+    // Defense-in-depth: server-side session key validation (fail-open on network error).
+    // Cookie-based: cv_key cookie is sent automatically with credentials.
+    // Query param included as fallback for old sessions that still have the key in sessionStorage.
+    {
+      const validateUrl = cvKeyVal.startsWith('cvtext_')
+        ? `${WORKER_URL}/validate-session?cvKey=${encodeURIComponent(cvKeyVal)}`
+        : `${WORKER_URL}/validate-session`;
+      fetch(validateUrl, { credentials: 'include' })
         .then(r => (r.ok ? r.json() : Promise.reject()))
         .then((result: { valid: boolean }) => {
           if (!result.valid) {
