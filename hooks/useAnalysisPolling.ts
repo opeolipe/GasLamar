@@ -183,7 +183,7 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
         sessionStorage.setItem('gaslamar_result_id', resultId);
       } catch (_) {}
 
-      // cv_key is now an HttpOnly cookie set by /analyze — not accessible from JS.
+      // cv_key is now an HttpOnly cookie set by /analyze — not readable from JS.
       sessionStorage.setItem('gaslamar_analyze_time', String(Date.now()));
       // Non-critical: useResultData falls back to GET /get-scoring when absent.
       try { sessionStorage.setItem('gaslamar_scoring', JSON.stringify(scoringOnly)); } catch (_) {}
