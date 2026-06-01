@@ -127,6 +127,10 @@ export async function handleGenerate(request, env, ctx) {
   const score = rawScore !== undefined ? Number(rawScore) : undefined;
   const gaps  = rawGaps;
 
+  // Optional analytics correlation ID generated server-side by /analyze.
+  // Validated below (after session load) against the stored result_id.
+  const clientResultId = typeof body.result_id === 'string' ? body.result_id : null;
+
   // Optional new job_desc for multi-credit re-use (3-Pack / JobHunt)
   if (newJobDesc !== undefined) {
     if (typeof newJobDesc !== 'string' || newJobDesc.length > 5000) {
@@ -152,6 +156,13 @@ export async function handleGenerate(request, env, ctx) {
 
   if (session.status !== SESSION_STATES.GENERATING) {
     return jsonResponse({ message: 'Sesi tidak valid atau pembayaran belum dikonfirmasi' }, 403, request, env);
+  }
+
+  // If the session carries a result_id (set by /analyze, copied by /create-payment),
+  // reject any request that supplies a mismatched ID — this prevents cross-session
+  // result enumeration even if a session cookie were somehow obtained by a third party.
+  if (session.result_id && clientResultId && clientResultId !== session.result_id) {
+    return jsonResponse({ message: 'Akses ditolak' }, 403, request, env);
   }
 
   const { cv_text, job_desc: storedJobDesc, tier, inferred_role: inferredRole } = session;

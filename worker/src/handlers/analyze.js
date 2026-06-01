@@ -104,6 +104,10 @@ export async function handleAnalyze(request, env) {
     // used from a different network if leaked from client storage.
     const cvTextKey = `cvtext_${hexToken(32)}`;
 
+    // Cryptographically random ID for analytics correlation across analyze→generate.
+    // Generated server-side so clients cannot forge or enumerate other users' IDs.
+    const resultId = crypto.randomUUID();
+
     // Store the full scoring result alongside cv_text so GET /get-scoring can serve
     // it to hasil.html without the client carrying the entire blob in sessionStorage.
     // cv_text stays server-side and is consumed later by /generate.
@@ -114,6 +118,7 @@ export async function handleAnalyze(request, env) {
       // enabling /generate to switch between targeted and inferred tailoring mode.
       inferred_role: scoring.inferred_role ?? null,
       ip,
+      result_id: resultId,
       scoring, // used by GET /get-scoring; cv_text is never exposed via that endpoint
     }), { expirationTtl: 86400 }); // 24 hours — gives users time to review hasil before paying
 
@@ -121,7 +126,7 @@ export async function handleAnalyze(request, env) {
     // This prevents XSS from reading the analysis-session token out of the JSON response.
     // Backward compat: old frontend code that read cv_text_key from the body will find it
     // absent — those sessions fall back to the query-param path in /get-scoring.
-    return jsonResponseWithCookie({ ...scoring }, 200, makeCvKeyCookie(cvTextKey), request, env);
+    return jsonResponseWithCookie({ ...scoring, result_id: resultId }, 200, makeCvKeyCookie(cvTextKey), request, env);
   } catch (e) {
     logError('analyze_failed', {
       reason: e.message,
