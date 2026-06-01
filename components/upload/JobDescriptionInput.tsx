@@ -43,7 +43,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
 
   const charCount = value.length;
   const atLimit   = charCount >= MAX_JD_CHARS;
-  const nearLimit = charCount >= 4500 && !atLimit;
+  const nearLimit = charCount >= 4800 && !atLimit;
   const counterCls = atLimit
     ? 'text-xs text-red-600 font-medium'
     : nearLimit
@@ -211,10 +211,8 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
           >
             {showExample ? 'Sembunyikan contoh' : 'Lihat contoh job description'}
           </button>
-          <span className={`${trimmed ? counterCls : 'text-xs text-slate-400'} flex-shrink-0`}>
-            {trimmed
-              ? `${charCount.toLocaleString('id-ID')} / ${MAX_JD_CHARS.toLocaleString('id-ID')} karakter`
-              : `min. ${MIN_JD_CHARS} karakter`}
+          <span className={`${counterCls} flex-shrink-0`}>
+            {charCount.toLocaleString('id-ID')} / {MAX_JD_CHARS.toLocaleString('id-ID')}
           </span>
         </div>
         {showExample && (
@@ -258,7 +256,11 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
           </div>
         ) : wasTruncated ? (
           <p role="alert" className="text-sm text-red-600 mt-2 font-medium break-words" style={{ overflowWrap: 'anywhere' }}>
-            ⚠️ Maksimal 5.000 karakter — teks terpotong.
+            ⚠️ Teks dipotong ke 5.000 karakter.
+          </p>
+        ) : atLimit ? (
+          <p role="alert" className="text-sm text-red-600 mt-2 font-medium break-words" style={{ overflowWrap: 'anywhere' }}>
+            ⚠️ Maksimal 5.000 karakter tercapai. Teks tambahan tidak akan disimpan.
           </p>
         ) : trimmed && quality.message ? (
           <p className="text-sm text-amber-700 mt-2 break-words" style={{ overflowWrap: 'anywhere' }}>
