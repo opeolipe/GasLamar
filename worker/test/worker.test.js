@@ -3991,7 +3991,10 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
     expect(body.scoring.skor).toBe(78);
   });
 
-  it('rejects scoring lookups when the cvtext_ key belongs to a different IP', async () => {
+  it('allows scoring lookups when the cvtext_ key was stored from a different IP (log-only)', async () => {
+    // IP mismatch is intentionally non-blocking on /get-scoring — same rationale as
+    // validateSession.js: mobile users and VPN users legitimately change IPs between
+    // /analyze and /get-scoring. The 256-bit random key is already unguessable.
     const token = 'a1'.repeat(32);
     await env.GASLAMAR_SESSIONS.put(`cvtext_${token}`, JSON.stringify({
       text: 'raw cv',
@@ -4001,12 +4004,14 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
     }), { expirationTtl: 86400 });
 
     const res = await get(`/get-scoring?key=cvtext_${token}`, {}, '10.221.99.2');
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.valid).toBe(false);
+    expect(body.valid).toBe(true);
+    expect(body.scoring.skor).toBe(51);
   });
 
-  it('rejects scoring fallback snapshots when the preserved key belongs to a different IP', async () => {
+  it('allows scoring fallback snapshots even when the preserved key belongs to a different IP', async () => {
+    // IP mismatch is log-only on /get-scoring — see above.
     const token = 'b1'.repeat(32);
     await env.GASLAMAR_SESSIONS.put(`scoring_${token}`, JSON.stringify({
       ip: '10.221.88.1',
@@ -4014,9 +4019,10 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
     }), { expirationTtl: 86400 });
 
     const res = await get(`/get-scoring?key=cvtext_${token}`, {}, '10.221.88.2');
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.valid).toBe(false);
+    expect(body.valid).toBe(true);
+    expect(body.scoring.skor).toBe(61);
   });
 
   it('returns 404 when both cvtext_ and scoring_ keys are absent', async () => {

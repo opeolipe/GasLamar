@@ -1,5 +1,5 @@
 import { jsonResponse } from '../cors.js';
-import { clientIp } from '../utils.js';
+import { clientIp, log } from '../utils.js';
 import { checkRateLimit, checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
 import { getCvKeyFromCookie } from '../cookies.js';
 
@@ -48,8 +48,13 @@ export async function handleGetScoring(request, env) {
   if (!stored || !stored.scoring) {
     return jsonResponse({ valid: false }, 404, request, env);
   }
+  // IP mismatch is intentionally non-blocking here — same rationale as validateSession.js:
+  // mobile users, carrier-grade NAT, and VPN users legitimately change IPs between
+  // /analyze and /get-scoring. The cvtext_ key is a 256-bit random token so it is
+  // already unguessable; IP binding adds friction without meaningful security benefit
+  // for a read-only scoring endpoint. Log for abuse visibility only.
   if (stored.ip && stored.ip !== ip) {
-    return jsonResponse({ valid: false, reason: 'ip_mismatch' }, 403, request, env);
+    log('get_scoring_ip_mismatch', { ip, stored_ip: stored.ip });
   }
 
   // Return scoring only — never cv_text, job_desc, ip, or inferred_role raw data.
