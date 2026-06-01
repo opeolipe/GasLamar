@@ -55,11 +55,10 @@ export function getCorsHeaders(request, env) {
 const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
-  // Deny framing by any origin — prevents clickjacking against API responses
   'X-Frame-Options': 'DENY',
-  // Restrict browser feature access — API worker has no need for any of these
+  'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
-  // Prevent proxies and browsers from caching API responses that contain session data
   'Cache-Control': 'no-store',
 };
 
