@@ -35,36 +35,41 @@ export function useResultData(): ResultDataState {
     // For new sessions: cv_key is an HttpOnly cookie sent automatically with credentials.
     // For old sessions: cv_key is in sessionStorage and sent as a query param fallback.
     if (!rawScoring) {
+      // Cookie-first URL: new sessions use the HttpOnly cv_key cookie (no query param);
+      // old sessions fall back to the query param for backward compatibility.
       const scoringUrl = cvKeyVal.startsWith('cvtext_')
         ? `${WORKER_URL}/get-scoring?key=${encodeURIComponent(cvKeyVal)}`
         : `${WORKER_URL}/get-scoring`;
-      fetch(scoringUrl, { credentials: 'include' })
-        .then(async r => {
-          if (r.status === 404) {
-            // Key expired (cvtext_ deleted after payment, scoring_ also gone).
-            // Mirror scoring.js: clear local keys and send user to recovery page,
-            // not the upload page (which implies starting over from scratch).
-            try {
-              sessionStorage.removeItem('gaslamar_cv_key');
-              sessionStorage.removeItem('gaslamar_analyze_time');
-            } catch (_) {}
-            fail('expired');
-            return;
-          }
-          if (!r.ok) { fail('missing'); return; }
-          const body = await r.json() as { scoring?: ScoringData; valid?: boolean };
-          // getScoring returns { valid: true, scoring: ... } on success.
-          // valid:false is only sent on 404, handled above. Guard scoring presence
-          // explicitly so a malformed response doesn't reach the skor check.
-          if (!body?.scoring) { fail('missing'); return; }
-          const s = body.scoring;
-          const skor = parseInt(String(s?.skor));
-          if (isNaN(skor) || skor < 0 || skor > 100) { fail('missing'); return; }
-          if (time > 0 && (Date.now() - time) / 1000 > 86400) { fail('expired'); return; }
-          try { sessionStorage.setItem('gaslamar_scoring', JSON.stringify(s)); } catch (_) {}
-          setState({ data: s ?? null, cvKey: cvKeyVal, analyzeTime: time, loading: false, error: null, noSession: null });
-        })
-        .catch(() => fail('missing'));
+
+      const fetchScoring = () =>
+        fetch(scoringUrl, { credentials: 'include' })
+          .then(async r => {
+            if (r.status === 404) {
+              // Key expired (cvtext_ deleted after payment, scoring_ also gone).
+              // Clear local keys and send user to recovery page, not upload (implies start over).
+              try {
+                sessionStorage.removeItem('gaslamar_cv_key');
+                sessionStorage.removeItem('gaslamar_analyze_time');
+              } catch (_) {}
+              fail('expired');
+              return;
+            }
+            if (!r.ok) throw new Error(`server_${r.status}`);
+            const body = await r.json() as { scoring?: ScoringData; valid?: boolean };
+            // getScoring returns { valid: true, scoring: ... } on success.
+            if (!body?.scoring) throw new Error('no_scoring_field');
+            const s = body.scoring;
+            const skor = parseInt(String(s?.skor));
+            if (isNaN(skor) || skor < 0 || skor > 100) { fail('missing'); return; }
+            if (time > 0 && (Date.now() - time) / 1000 > 86400) { fail('expired'); return; }
+            try { sessionStorage.setItem('gaslamar_scoring', JSON.stringify(s)); } catch (_) {}
+            setState({ data: s ?? null, cvKey: cvKeyVal, analyzeTime: time, loading: false, error: null, noSession: null });
+          });
+
+      // One automatic retry after a transient server/network error.
+      fetchScoring().catch(() => {
+        setTimeout(() => fetchScoring().catch(() => fail('missing')), 1500);
+      });
       return;
     }
 
