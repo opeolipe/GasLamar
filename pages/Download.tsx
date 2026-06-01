@@ -139,7 +139,6 @@ export default function Download() {
         tier:              generate.content.tier,
         credits_remaining: generate.content.creditsRemaining,
         is_trusted:        generate.content.isTrusted,
-        resultId:          sessionStorage.getItem('gaslamar_result_id') || undefined,
       });
     }
   }, [generate.status]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -267,7 +266,6 @@ export default function Download() {
         format,
         tier:       eff.tier,
         is_trusted: eff.isTrusted,
-        resultId:   sessionStorage.getItem('gaslamar_result_id') || undefined,
       });
     } catch (err) {
       logError('download_failed', { lang, format, message: (err as Error)?.message });
@@ -358,7 +356,7 @@ export default function Download() {
 
   const filename = effectiveContent
     ? buildCVFilename(effectiveContent.cvId, effectiveContent.jobTitle, effectiveContent.company, 'id', 'docx')
-    : (sessionStorage.getItem('gaslamar_candidate_name') || 'CV kamu');
+    : 'CV kamu';
 
   const sessionError = view === 'error'
     ? (session.error ?? generate.error ?? { title: 'Terjadi Kesalahan', message: 'Terjadi kesalahan. Coba refresh halaman.', retryable: false, reason: undefined })
