@@ -236,6 +236,28 @@
       </ul>
     </div>
 
+    <div class="section">
+      <h2><span aria-hidden="true">🔍</span> Panduan QA Aksesibilitas — Tombol Submit</h2>
+      <p>Tombol submit pada halaman upload menggunakan properti <code>disabled</code> HTML native — bukan <code>aria-disabled</code>. Ini adalah pola yang <strong>benar dan direkomendasikan</strong>.</p>
+      <h3 style="font-size:1rem;font-weight:700;margin-top:1rem;">Mengapa hanya <code>disabled</code> native?</h3>
+      <ul>
+        <li>Browser secara otomatis mengumumkan tombol <code>disabled</code> sebagai "tidak tersedia" (dimmed/unavailable/grayed out) kepada screen reader — tanpa perlu <code>aria-disabled</code>.</li>
+        <li>Menggunakan <code>aria-disabled="true"</code> sekaligus dengan <code>disabled</code> menyebabkan screen reader mengumumkan status dua kali (double-announcement) pada beberapa AT.</li>
+        <li><code>aria-disabled</code> hanya diperlukan bila kamu ingin elemen tetap <em>focusable</em> meski dinonaktifkan — skenario yang tidak berlaku untuk tombol submit ini.</li>
+      </ul>
+      <h3 style="font-size:1rem;font-weight:700;margin-top:1rem;">Perhatian saat inspeksi DOM</h3>
+      <p>Panel <strong>Accessibility</strong> di DevTools (Chrome/Firefox) menampilkan <em>properti aksesibilitas yang dikalkulasi</em> — termasuk entri <code>aria-disabled: true</code> yang berasal dari atribut <code>disabled</code> native. Ini bukan atribut DOM yang sesungguhnya. Untuk memverifikasi apakah <code>aria-disabled</code> benar-benar ada di HTML, gunakan panel <strong>Elements</strong> atau jalankan:</p>
+      <pre style="background:#F1F5F9;padding:0.75rem;border-radius:6px;font-size:0.8rem;overflow-x:auto;"><code>document.getElementById('submit-btn').hasAttribute('aria-disabled')
+// harus mengembalikan: false</code></pre>
+      <h3 style="font-size:1rem;font-weight:700;margin-top:1rem;">Skenario yang diharapkan</h3>
+      <ul>
+        <li><strong>Form tidak lengkap:</strong> tombol <code>disabled</code> (native), tidak ada <code>aria-disabled</code>, screen reader mengumumkan "tidak tersedia".</li>
+        <li><strong>Form lengkap:</strong> tombol <code>enabled</code>, tidak ada <code>aria-disabled</code>, screen reader mengumumkan label tombol normal.</li>
+        <li><strong>Sedang menganalisis:</strong> tombol <code>disabled</code> (native), tidak ada <code>aria-disabled</code>, label berubah menjadi "Sedang menganalisis CV kamu".</li>
+      </ul>
+      <p style="margin-top:0.75rem;">Perilaku ini diverifikasi secara otomatis oleh <strong>Playwright e2e test</strong> (<code>tests/e2e/upload-button-a11y.spec.ts</code>) pada setiap CI run.</p>
+    </div>
+
     <!-- Contact -->
     <div class="section">
       <h2><span aria-hidden="true">📬</span> Umpan Balik Aksesibilitas</h2>
@@ -281,6 +303,28 @@
         <li>Generated CV documents (PDF/DOCX) are not screen-reader optimised — this is a limitation of the file format, not the web interface</li>
       </ul>
       <p>If you encounter any other accessibility barriers, please let us know using the contact below.</p>
+    </div>
+
+    <div class="section">
+      <h2><span aria-hidden="true">🔍</span> QA Accessibility Guidance — Submit Button</h2>
+      <p>The upload page submit button uses the native HTML <code>disabled</code> property — not <code>aria-disabled</code>. This is the <strong>correct and recommended</strong> pattern.</p>
+      <h3 style="font-size:1rem;font-weight:700;margin-top:1rem;">Why only native <code>disabled</code>?</h3>
+      <ul>
+        <li>Browsers automatically announce a <code>disabled</code> button as "unavailable" / "dimmed" / "grayed out" to screen readers — no <code>aria-disabled</code> is required.</li>
+        <li>Combining <code>aria-disabled="true"</code> with the native <code>disabled</code> attribute causes some assistive technologies to announce the state twice (double-announcement).</li>
+        <li><code>aria-disabled</code> is only necessary when an element must remain <em>focusable</em> despite being inactive — that is not the case here.</li>
+      </ul>
+      <h3 style="font-size:1rem;font-weight:700;margin-top:1rem;">Inspecting the DOM correctly</h3>
+      <p>The browser's <strong>Accessibility panel</strong> (Chrome DevTools / Firefox) displays <em>computed</em> accessibility properties. It will show <code>aria-disabled: true</code> derived from the native <code>disabled</code> attribute — this is <strong>not</strong> an actual DOM attribute. To verify whether <code>aria-disabled</code> is truly present in the HTML, use the <strong>Elements panel</strong> or run:</p>
+      <pre style="background:#F1F5F9;padding:0.75rem;border-radius:6px;font-size:0.8rem;overflow-x:auto;"><code>document.getElementById('submit-btn').hasAttribute('aria-disabled')
+// must return: false</code></pre>
+      <h3 style="font-size:1rem;font-weight:700;margin-top:1rem;">Expected states</h3>
+      <ul>
+        <li><strong>Form incomplete:</strong> button is <code>disabled</code> (native), no <code>aria-disabled</code>, screen reader announces "unavailable".</li>
+        <li><strong>Form complete:</strong> button is <code>enabled</code>, no <code>aria-disabled</code>, screen reader announces the button label normally.</li>
+        <li><strong>Analysing in progress:</strong> button is <code>disabled</code> (native), no <code>aria-disabled</code>, label changes to "Menganalisis CV kamu…".</li>
+      </ul>
+      <p style="margin-top:0.75rem;">These states are verified automatically by the <strong>Playwright e2e test</strong> (<code>tests/e2e/upload-button-a11y.spec.ts</code>) on every CI run.</p>
     </div>
 
     <div class="section">

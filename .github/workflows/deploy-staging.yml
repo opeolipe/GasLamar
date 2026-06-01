@@ -211,3 +211,11 @@ jobs:
           echo "STAGING URL: ${{ steps.pages.outputs.staging_url }}"
           echo "Staging worker: https://gaslamar-worker-staging.carolineratuolivia.workers.dev"
           echo "========================================="
+
+      # Verify the live staging page is serving bundles built from this commit,
+      # not a stale deployment. Catches the bundle/source divergence that caused
+      # QA false positive MEDIUM #1 (2026-06-01).
+      - name: Verify staging bundle fingerprints match current build
+        run: |
+          sleep 10
+          STAGING_URL="${{ steps.pages.outputs.staging_url }}" node dist/scripts/verify-staging-bundle.js
