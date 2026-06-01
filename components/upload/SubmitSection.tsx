@@ -17,7 +17,7 @@ export default function SubmitSection({ isLoading, hasCv = false, showJdHint, jd
         id="submit-btn"
         data-testid="submit-upload"
         onClick={onSubmit}
-        disabled={isLoading}
+        disabled={isLoading || !hasCv || showJdHint}
         className="min-h-[56px] w-full rounded-full px-6 py-4 text-white font-bold text-base border-0 transition-all hover:-translate-y-[2px] active:scale-[0.97] active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0 disabled:active:scale-100 flex items-center justify-center gap-2"
         style={{ background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', boxShadow: '0 8px 24px rgba(37,99,235,0.30)' }}
         aria-label="Mulai analisis CV kamu"
@@ -27,7 +27,8 @@ export default function SubmitSection({ isLoading, hasCv = false, showJdHint, jd
             <span className="inline-block w-5 h-5 border-[3px] border-white/30 border-t-white rounded-full animate-spin" />
             Menganalisis CV kamu...
           </>
-        ) : 'Cek peluang saya'}
+        ) : (!hasCv || showJdHint) ? 'Lengkapi CV & job description dulu'
+        : 'Cek peluang saya'}
       </button>
 
       {/* Pre-submit completion checklist — shown when multiple things are missing */}
