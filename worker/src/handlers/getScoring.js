@@ -4,7 +4,7 @@ import { checkRateLimit, checkRateLimitKVSession, rateLimitResponse } from '../r
 import { getCvKeyFromCookie } from '../cookies.js';
 
 /**
- * GET /get-scoring?key=cvtext_<token>
+ * GET /get-scoring
  *
  * Returns the scoring result that was stored alongside the cvtext_ entry at /analyze time.
  * This lets hasil.html fetch the analysis result from the server instead of relying on a
@@ -12,35 +12,31 @@ import { getCvKeyFromCookie } from '../cookies.js';
  * losing their data, as long as the 24h cvtext_ TTL has not expired.
  *
  * Security:
+ *  - Requires the HttpOnly cv_key cookie set by /analyze. No cookie → 401.
+ *  - ?key= query param is intentionally ignored — accepting caller-controlled keys
+ *    would allow unauthenticated enumeration of the scoring KV namespace.
  *  - Only the scoring portion is returned; cv_text and job_desc are never exposed.
- *  - The cvtext_ key is a 256-bit random token — unguessable by enumeration.
- *  - Rate-limited 10 req/min per IP (same window as /validate-session).
+ *  - Rate-limited: 20 req/min with a valid cv_key cookie, 10 req/min by IP otherwise.
  */
 export async function handleGetScoring(request, env) {
-  const ip     = clientIp(request);
-  const url    = new URL(request.url);
-  // The HttpOnly cookie is the rate limit identity (stronger binding than a query param).
-  // Query param is only used as a legacy fallback for the actual KV lookup below.
+  const ip         = clientIp(request);
   const cvKeyCookie = getCvKeyFromCookie(request);
-  const cvKey       = cvKeyCookie || url.searchParams.get('key') || '';
-  const userToken   = cvKeyCookie;
 
   // Atomic burst guard — CF native binding has no TOCTOU race, catches parallel floods.
   if (!await checkRateLimit(env, env.RATE_LIMITER_GET_SCORING, ip)) {
     return rateLimitResponse(request, env, 60);
   }
 
-  // KV sliding-window counter — users with a valid cv_key get 20 req/min (polling/retries);
+  // KV sliding-window counter — users with a valid cv_key cookie get 20 req/min;
   // unauthenticated IPs get 10 req/min.
-  const kvResult = await checkRateLimitKVSession(env, ip, userToken, 10, 20, 60, 'get_scoring');
+  const kvResult = await checkRateLimitKVSession(env, ip, cvKeyCookie, 10, 20, 60, 'get_scoring');
   if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60);
 
-  // cvKey already read above; use it directly.
-  const key = cvKey;
-
-  // Validate key format: exactly "cvtext_" (7 chars) + 64 lowercase hex chars = 71 chars total.
-  if (!/^cvtext_[0-9a-f]{64}$/.test(key)) {
-    return jsonResponse({ message: 'Key tidak valid', valid: false }, 400, request, env);
+  // Require the HttpOnly cv_key cookie set by /analyze. The ?key= query param is
+  // intentionally not accepted — it would let anyone enumerate arbitrary keys.
+  const key = cvKeyCookie;
+  if (!key) {
+    return jsonResponse({ valid: false }, 401, request, env);
   }
 
   let stored = await env.GASLAMAR_SESSIONS.get(key, { type: 'json' });
