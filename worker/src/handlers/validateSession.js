@@ -1,18 +1,20 @@
 import { jsonResponse } from '../cors.js';
 import { clientIp, log } from '../utils.js';
-import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
+import { checkRateLimitKVSession, rateLimitResponse } from '../rateLimit.js';
 import { getCvKeyFromCookie } from '../cookies.js';
 
 export async function handleValidateSession(request, env) {
-  const ip = clientIp(request);
-  const rl = await checkRateLimitKV(env, ip, 20, 60, 'validate_session');
-  if (!rl.allowed) return rateLimitResponse(request, env, rl.retryAfter ?? 60);
-
+  const ip  = clientIp(request);
   const url = new URL(request.url);
 
   // Prefer the HttpOnly cv_key cookie (set by /analyze after the cookie migration).
   // Fall back to the ?cvKey= query param for sessions established before the migration.
   const cvKey = getCvKeyFromCookie(request) || url.searchParams.get('cvKey') || '';
+
+  // Users with a valid cv_key token get 20 req/min; unauthenticated IPs get 10 req/min.
+  const userToken = /^cvtext_[0-9a-f]{64}$/.test(cvKey) ? cvKey : null;
+  const rl = await checkRateLimitKVSession(env, ip, userToken, 10, 20, 60, 'validate_session');
+  if (!rl.allowed) return rateLimitResponse(request, env, rl.retryAfter ?? 60);
 
   // Strict format: exactly "cvtext_" + 64 lowercase hex chars (256-bit random token).
   // Mirrors the validation in getScoring.js — prevents oversized KV key lookups.

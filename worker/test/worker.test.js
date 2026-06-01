@@ -1156,13 +1156,13 @@ describe('Rate limiting — Retry-After header', () => {
   // Use a unique IP so this suite never conflicts with others
   const RL_IP = '10.99.0.1';
 
-  it('returns 429 with Retry-After: 60 after exhausting /create-payment limit (5/min)', async () => {
-    // Exhaust the 5-req/min limit for RATE_LIMITER_PAYMENT using this IP.
+  it('returns 429 with Retry-After: 60 after exhausting /create-payment limit (15/min)', async () => {
+    // Exhaust the 15-req/min limit for RATE_LIMITER_PAYMENT using this IP.
     // Each call returns 400 (missing body) but still consumes a rate-limit slot.
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 15; i++) {
       await post('/create-payment', {}, {}, RL_IP);
     }
-    // 6th request must be rate-limited
+    // 16th request must be rate-limited
     const res = await post('/create-payment', {}, {}, RL_IP);
     expect(res.status).toBe(429);
     expect(res.headers.get('Retry-After')).toBe('60');
@@ -1171,17 +1171,17 @@ describe('Rate limiting — Retry-After header', () => {
   });
 });
 
-describe('Rate limiting — /analyze (3 req/min per IP)', () => {
+describe('Rate limiting — /analyze (10 req/min per IP)', () => {
   // Unique IP range to avoid cross-suite contamination
   const RL_ANALYZE_IP = '10.99.1.1';
 
-  it('allows first 3 requests and blocks the 4th with 429', async () => {
-    // First 3: rate-limit passes, body validation fails → 400
-    for (let i = 0; i < 3; i++) {
+  it('allows first 10 requests and blocks the 11th with 429', async () => {
+    // First 10: rate-limit passes, body validation fails → 400
+    for (let i = 0; i < 10; i++) {
       const r = await post('/analyze', {}, {}, RL_ANALYZE_IP);
       expect(r.status).toBe(400);
     }
-    // 4th must be blocked by KV rate limiter
+    // 11th must be blocked by KV rate limiter
     const res = await post('/analyze', {}, {}, RL_ANALYZE_IP);
     expect(res.status).toBe(429);
     expect(Number(res.headers.get('Retry-After'))).toBeGreaterThan(0);
@@ -1193,7 +1193,7 @@ describe('Rate limiting — /analyze (3 req/min per IP)', () => {
 
   it('counters are per-IP — a different IP is not affected', async () => {
     // Exhaust limit for one IP
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 10; i++) {
       await post('/analyze', {}, {}, '10.99.1.2');
     }
     // A different IP should still pass rate limiting (will get 400 from body validation)
@@ -1203,7 +1203,7 @@ describe('Rate limiting — /analyze (3 req/min per IP)', () => {
 
   it('response body contains error, message, and retryAfter fields', async () => {
     const BLOCK_IP = '10.99.1.4';
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 10; i++) {
       await post('/analyze', {}, {}, BLOCK_IP);
     }
     const res = await post('/analyze', {}, {}, BLOCK_IP);
@@ -1221,12 +1221,12 @@ describe('Rate limiting — /resend-access', () => {
   const RL_RESEND_IP_KV  = '10.99.5.2';
 
   it('CF native rate limiter returns 429 with Retry-After after burst (not 200)', async () => {
-    // Exhaust the 5-req/min native limit with distinct emails (avoid per-email KV limit)
-    for (let i = 0; i < 5; i++) {
+    // Exhaust the 10-req/min native limit with distinct emails (avoid per-email KV limit)
+    for (let i = 0; i < 10; i++) {
       const res = await post('/resend-access', { email: `rl-cf-burst-${i}@example.com` }, {}, RL_RESEND_IP_CF);
-      expect(res.status).toBe(200); // first 5 are allowed
+      expect(res.status).toBe(200); // first 10 are allowed
     }
-    // 6th request: CF rate limited → 429 with Retry-After
+    // 11th request: CF rate limited → 429 with Retry-After
     const res = await post('/resend-access', { email: `rl-cf-extra@example.com` }, {}, RL_RESEND_IP_CF);
     expect(res.status).toBe(429);
     expect(res.headers.get('Retry-After')).toBe('60');
@@ -1289,8 +1289,8 @@ describe('Rate limiting — /resend-access', () => {
   it('per-IP KV rate limit returns 429 when IP counter reaches 10', async () => {
     const RL_RESEND_IP_IP = '10.99.5.4';
     const now = Math.floor(Date.now() / 1000);
-    // Pre-seed the counter at 9 — avoids making 9 real requests that would
-    // exhaust the CF native rate limiter (5/60s) before the IP KV limit (10/hr) fires.
+    // Pre-seed the counter at 9 — avoids making 9 real requests before the
+    // IP KV limit (10/hr) fires.
     await env.GASLAMAR_SESSIONS.put(
       `rate_limit_resend_access_ip_${RL_RESEND_IP_IP}`,
       JSON.stringify({ start: now, count: 9 }),
@@ -1440,16 +1440,16 @@ describe('GET /check-session', () => {
     }
   });
 
-  it('rate-limits burst attempts (20/min per IP via CF binding + KV)', async () => {
+  it('rate-limits unauthenticated burst attempts (10/min per IP — no session cookie)', async () => {
     const ip = '10.88.0.99';
 
-    // First 20 requests are allowed — rate limiter has not triggered yet.
-    for (let i = 0; i < 20; i++) {
+    // First 10 unauthenticated requests are allowed — no session cookie → IP bucket.
+    for (let i = 0; i < 10; i++) {
       const res = await get('/check-session', {}, ip);
       expect(res.status).toBe(401); // no cookie → 401, not 429
     }
 
-    // 21st request is blocked by the rate limiter.
+    // 11th request is blocked by the rate limiter.
     const blocked = await get('/check-session', {}, ip);
     expect(blocked.status).toBe(429);
     expect(blocked.headers.get('Retry-After')).toBeTruthy();
@@ -1492,17 +1492,17 @@ describe('POST /exchange-token — abuse regression', () => {
     expect(await replay.json()).toEqual({ message: 'Token tidak valid atau sudah kedaluwarsa' });
   });
 
-  it('rate-limits burst attempts (reuses RATE_LIMITER_PAYMENT: 5/min per IP)', async () => {
+  it('rate-limits burst attempts (reuses RATE_LIMITER_PAYMENT: 15/min per IP)', async () => {
     const ip = '10.89.0.8';
     const fakeToken = 'ffffffffffffffffffffffffffffffff'; // 32 hex chars — valid format, won't exist in KV
 
-    // First 5 requests return 404 (token not found) — rate limiter allows them.
-    for (let i = 0; i < 5; i++) {
+    // First 15 requests return 404 (token not found) — rate limiter allows them.
+    for (let i = 0; i < 15; i++) {
       const res = await post('/exchange-token', { email_token: fakeToken }, {}, ip);
       expect(res.status).toBe(404);
     }
 
-    // 6th request is blocked by the rate limiter.
+    // 16th request is blocked by the rate limiter.
     const blocked = await post('/exchange-token', { email_token: fakeToken }, {}, ip);
     expect(blocked.status).toBe(429);
     expect(blocked.headers.get('Retry-After')).toBeTruthy();
@@ -1544,11 +1544,11 @@ describe('POST /resend-access — abuse regression', () => {
     expect(emailLimiter.count).toBe(3);
   });
 
-  it('CF burst guard blocks resend-access after 5 requests/min per IP', async () => {
+  it('CF burst guard blocks resend-access after 10 requests/min per IP', async () => {
     const ip = '10.90.0.5';
 
-    // CF rate limiter is 5/min — first 5 requests from the same IP pass.
-    for (let i = 0; i < 5; i++) {
+    // CF rate limiter is 10/min — first 10 requests from the same IP pass.
+    for (let i = 0; i < 10; i++) {
       const res = await post('/resend-access', { email: `ip-burst-${i}@example.com` }, {}, ip);
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({
@@ -1557,7 +1557,7 @@ describe('POST /resend-access — abuse regression', () => {
       });
     }
 
-    // 6th request hits the CF burst guard and returns 429.
+    // 11th request hits the CF burst guard and returns 429.
     const limited = await post('/resend-access', { email: 'ip-burst-final@example.com' }, {}, ip);
     expect(limited.status).toBe(429);
     expect(limited.headers.get('Retry-After')).toBeTruthy();
@@ -1639,10 +1639,10 @@ describe('GET /validate-session', () => {
     expect(body.valid).toBe(false);
   });
 
-  it('rate-limits after 20 requests per minute per IP → 429', async () => {
+  it('rate-limits after 10 requests per minute per IP (no valid cv_key token) → 429', async () => {
     const ip = '10.96.99.1';
-    // Exhaust the 20-request window
-    for (let i = 0; i < 20; i++) {
+    // Invalid key format → no session token → IP bucket (10/min)
+    for (let i = 0; i < 10; i++) {
       await get('/validate-session?cvKey=cvtext_missing', {}, ip);
     }
     const res = await get('/validate-session?cvKey=cvtext_missing', {}, ip);
@@ -1704,13 +1704,16 @@ describe('POST /get-session', () => {
 
   it('returns a normal 429 response when the get-session rate limit is exceeded', async () => {
     const ip = '10.96.9.1';
+    const sessionId = await seedSession('paid', 'single');
+
+    // With a session cookie, the rate limiter uses the session-keyed bucket (20/min).
+    // Seed that bucket at the limit so the next request is blocked.
     await env.GASLAMAR_SESSIONS.put(
-      `rate_limit_get_session_${ip}`,
-      JSON.stringify({ start: Math.floor(Date.now() / 1000), count: 10 }),
+      `rate_limit_get_session_sess_${sessionId}`,
+      JSON.stringify({ start: Math.floor(Date.now() / 1000), count: 20 }),
       { expirationTtl: 60 },
     );
 
-    const sessionId = await seedSession('paid', 'single');
     const res = await post('/get-session', {}, sessionCookie(sessionId), ip);
 
     expect(res.status).toBe(429);
@@ -4116,13 +4119,12 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
   });
 });
 
-describe('Rate limiting — GET /get-scoring (10 req/min per IP)', () => {
+describe('Rate limiting — GET /get-scoring (10 req/min per IP, 20/min with cookie)', () => {
   // Unique IP range to avoid cross-suite contamination
   const RL_GS_IP = '10.99.3.1';
 
   it('allows 10 requests and blocks the 11th with 429', async () => {
     // First 10: rate-limit passes, no cookie → 401 (auth check before KV lookup)
-    const token = '9'.repeat(64);
     for (let i = 0; i < 10; i++) {
       const r = await get('/get-scoring', {}, RL_GS_IP);
       expect(r.status).not.toBe(429);

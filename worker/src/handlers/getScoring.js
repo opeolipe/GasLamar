@@ -1,6 +1,6 @@
 import { jsonResponse } from '../cors.js';
 import { clientIp, log } from '../utils.js';
-import { checkRateLimit, checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
+import { checkRateLimit, checkRateLimitKVSession, rateLimitResponse } from '../rateLimit.js';
 import { getCvKeyFromCookie } from '../cookies.js';
 
 /**
@@ -16,24 +16,27 @@ import { getCvKeyFromCookie } from '../cookies.js';
  *  - ?key= query param is intentionally ignored — accepting caller-controlled keys
  *    would allow unauthenticated enumeration of the scoring KV namespace.
  *  - Only the scoring portion is returned; cv_text and job_desc are never exposed.
- *  - Rate-limited 10 req/min per IP.
+ *  - Rate-limited: 20 req/min with a valid cv_key cookie, 10 req/min by IP otherwise.
  */
 export async function handleGetScoring(request, env) {
-  const ip  = clientIp(request);
+  const ip          = clientIp(request);
+  const cvKeyCookie = getCvKeyFromCookie(request);
+
   // Atomic burst guard — CF native binding has no TOCTOU race, catches parallel floods.
   if (!await checkRateLimit(env, env.RATE_LIMITER_GET_SCORING, ip)) {
     return rateLimitResponse(request, env, 60);
   }
 
-  // KV sliding-window counter — secondary layer, survives CF binding absence.
-  const kvResult = await checkRateLimitKV(env, ip, 10, 60, 'get_scoring');
+  // KV sliding-window counter — users with a valid cv_key cookie get 20 req/min;
+  // unauthenticated IPs get 10 req/min.
+  const kvResult = await checkRateLimitKVSession(env, ip, cvKeyCookie, 10, 20, 60, 'get_scoring');
   if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60);
 
   // Require the HttpOnly cv_key cookie set by /analyze. The ?key= query param is
   // intentionally not accepted — it would let anyone enumerate arbitrary keys.
-  const key = getCvKeyFromCookie(request);
+  // Use the same generic body for all auth/not-found failures to prevent enumeration.
+  const key = cvKeyCookie;
   if (!key) {
-    // Use the same generic body for all auth/not-found failures to prevent enumeration.
     return jsonResponse({ valid: false }, 401, request, env);
   }
 

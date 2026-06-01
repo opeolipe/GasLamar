@@ -93,6 +93,33 @@ export async function checkRateLimitKV(env, ip, limit = 3, windowSecs = 60, pref
   }
 }
 
+/**
+ * Session-aware KV rate limiter.
+ *
+ * When the caller has a verified session ID (or any per-user token), rate limit
+ * by that token at `sessionLimit` requests/window — which is typically higher
+ * than the IP-based `limit` — so legitimate users doing client-side retries or
+ * polling are not blocked. Falls back to IP-based limiting when no session is
+ * present.
+ *
+ * Callers should pass the session ID only after confirming it exists (not null)
+ * so the session bucket reflects actual authenticated traffic.
+ */
+export async function checkRateLimitKVSession(
+  env,
+  ip,
+  sessionId,
+  limit,
+  sessionLimit,
+  windowSecs,
+  prefix
+) {
+  if (sessionId) {
+    return checkRateLimitKV(env, sessionId, sessionLimit, windowSecs, `${prefix}_sess`);
+  }
+  return checkRateLimitKV(env, ip, limit, windowSecs, prefix);
+}
+
 // Returns a properly-formed 429 with Retry-After header (RFC 7231 §7.1.3).
 // All rate-limited endpoints must use this instead of a plain jsonResponse 429.
 export function rateLimitResponse(request, env, retryAfter = 60) {
