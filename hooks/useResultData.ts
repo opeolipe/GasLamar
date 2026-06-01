@@ -41,9 +41,14 @@ export function useResultData(): ResultDataState {
         ? `${WORKER_URL}/get-scoring?key=${encodeURIComponent(cvKeyVal)}`
         : `${WORKER_URL}/get-scoring`;
 
+      // cancelled flag + timer ref for cleanup — prevents setState/fail on unmounted component.
+      let cancelled = false;
+      let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
       const fetchScoring = () =>
         fetch(scoringUrl, { credentials: 'include' })
           .then(async r => {
+            if (cancelled) return;
             if (r.status === 404) {
               // Key expired (cvtext_ deleted after payment, scoring_ also gone).
               // Clear local keys and send user to recovery page, not upload (implies start over).
@@ -60,17 +65,18 @@ export function useResultData(): ResultDataState {
             if (!body?.scoring) throw new Error('no_scoring_field');
             const s = body.scoring;
             const skor = parseInt(String(s?.skor));
-            if (isNaN(skor) || skor < 0 || skor > 100) { fail('missing'); return; }
-            if (time > 0 && (Date.now() - time) / 1000 > 86400) { fail('expired'); return; }
+            if (isNaN(skor) || skor < 0 || skor > 100) { if (!cancelled) fail('missing'); return; }
+            if (time > 0 && (Date.now() - time) / 1000 > 86400) { if (!cancelled) fail('expired'); return; }
             try { sessionStorage.setItem('gaslamar_scoring', JSON.stringify(s)); } catch (_) {}
-            setState({ data: s ?? null, cvKey: cvKeyVal, analyzeTime: time, loading: false, error: null, noSession: null });
+            if (!cancelled) setState({ data: s ?? null, cvKey: cvKeyVal, analyzeTime: time, loading: false, error: null, noSession: null });
           });
 
       // One automatic retry after a transient server/network error.
       fetchScoring().catch(() => {
-        setTimeout(() => fetchScoring().catch(() => fail('missing')), 1500);
+        if (cancelled) return;
+        retryTimer = setTimeout(() => fetchScoring().catch(() => { if (!cancelled) fail('missing'); }), 1500);
       });
-      return;
+      return () => { cancelled = true; if (retryTimer !== null) clearTimeout(retryTimer); };
     }
 
     let parsed: ScoringData;

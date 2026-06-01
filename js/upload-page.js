@@ -20,6 +20,7 @@ if (_analyzeErr) {
 
 // If a previous analysis session is still active, remind the user so they don't
 // accidentally abandon their existing results by starting a new upload.
+try {
 (function() {
   const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
   // cv_key is now an HttpOnly cookie — not readable from JS. Use analyze_time alone.
@@ -42,6 +43,7 @@ if (_analyzeErr) {
   const card = document.querySelector('.card');
   if (card) card.insertBefore(notice, card.firstChild);
 })();
+} catch (_) {}
 
 // Show informational notice when redirected from hasil.html or download.html.
 // Guard: if the active-session banner is already being shown (cv_key still valid),
