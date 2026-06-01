@@ -1175,13 +1175,13 @@ describe('Rate limiting — /analyze (10 req/min per IP)', () => {
   // Unique IP range to avoid cross-suite contamination
   const RL_ANALYZE_IP = '10.99.1.1';
 
-  it('allows first 10 requests and blocks the 11th with 429', async () => {
-    // First 10: rate-limit passes, body validation fails → 400
-    for (let i = 0; i < 10; i++) {
+  it('allows first 5 requests and blocks the 6th with 429', async () => {
+    // First 5: rate-limit passes, body validation fails → 400
+    for (let i = 0; i < 5; i++) {
       const r = await post('/analyze', {}, {}, RL_ANALYZE_IP);
       expect(r.status).toBe(400);
     }
-    // 11th must be blocked by KV rate limiter
+    // 6th must be blocked by KV rate limiter
     const res = await post('/analyze', {}, {}, RL_ANALYZE_IP);
     expect(res.status).toBe(429);
     expect(Number(res.headers.get('Retry-After'))).toBeGreaterThan(0);
@@ -1193,7 +1193,7 @@ describe('Rate limiting — /analyze (10 req/min per IP)', () => {
 
   it('counters are per-IP — a different IP is not affected', async () => {
     // Exhaust limit for one IP
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 5; i++) {
       await post('/analyze', {}, {}, '10.99.1.2');
     }
     // A different IP should still pass rate limiting (will get 400 from body validation)
@@ -1203,7 +1203,7 @@ describe('Rate limiting — /analyze (10 req/min per IP)', () => {
 
   it('response body contains error, message, and retryAfter fields', async () => {
     const BLOCK_IP = '10.99.1.4';
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 5; i++) {
       await post('/analyze', {}, {}, BLOCK_IP);
     }
     const res = await post('/analyze', {}, {}, BLOCK_IP);
