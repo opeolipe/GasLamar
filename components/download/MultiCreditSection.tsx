@@ -45,8 +45,14 @@ export default function MultiCreditSection({ creditsRemaining, totalCredits, onG
     setUrlStatus({ text: '⏳ Mengambil job description...', ok: true });
     try {
       const jd = await onUrlFetch(urlInput.trim());
-      setJobDesc(jd);
-      setUrlStatus({ text: '✅ Job description berhasil diambil. Periksa dan edit seperlunya.', ok: true });
+      const capped = jd.length > 5000 ? jd.slice(0, 5000) : jd;
+      setJobDesc(capped);
+      setUrlStatus({
+        text: jd.length > 5000
+          ? '✅ Job description diambil dan dipotong di 5.000 karakter. Periksa dan edit seperlunya.'
+          : '✅ Job description berhasil diambil. Periksa dan edit seperlunya.',
+        ok: true,
+      });
     } catch (err) {
       setUrlStatus({ text: `⚠️ ${(err as Error).message || 'Gagal mengambil. Coba copy-paste manual.'}`, ok: false });
     } finally {

@@ -365,6 +365,16 @@ The tester looked for a key named `session_token` or `server_session_id`. The ac
 
 ---
 
+## "Contoh" button must call onChange, not just show text (2026-06-01)
+
+Any UI element that inserts text into a React-controlled textarea must call the `onChange` prop (or the parent's state setter), not set `el.value` directly. A button that only toggles display of example text never touches the controlled value, so the character counter, validation state, and submit button never update. Pattern: `onClick={() => { onChange(JD_EXAMPLE); setShowExample(false); }}`. The same applies to URL fetch completion — always call `onChange(text.slice(0, MAX_CHARS))` rather than assigning `el.value` and relying on the input event.
+
+## URL-fetched text must be capped client-side before setJobDesc (2026-06-01)
+
+When an API returns job description text that may exceed the field limit, cap it in the success handler before setting React state. Relying on the `maxLength` HTML attribute does not prevent programmatic over-length assignments — `setJobDesc(jd)` with `jd.length > 5000` sets state to the full length, making `overLimit=true` and silently disabling the submit button. Always cap: `const capped = jd.length > MAX ? jd.slice(0, MAX) : jd` and show a truncation status message when the cap fires.
+
+---
+
 ## sessionStorage write order in useAnalysisPolling — critical keys must be written before large blobs
 
 **Pattern:** `gaslamar_cv_key` and `gaslamar_analyze_time` were written AFTER `gaslamar_scoring` (lines 181-183 in `hooks/useAnalysisPolling.ts`). `gaslamar_scoring` is the largest write (several KB of JSON). If it throws `QuotaExceededError` (iOS Safari, low-storage devices), the outer catch block fires before the two small critical keys are written. This prevents the redirect to `hasil.html` and shows a generic "Terjadi kesalahan" error instead.

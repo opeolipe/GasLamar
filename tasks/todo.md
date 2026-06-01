@@ -1,28 +1,52 @@
-# Audit Fix Plan — 2026-05-25
+# JD Counter Sync — Remaining Fix Plan (2026-06-01)
 
-## BLOCKER
-- none
+## Root Cause Summary
+React upload page (`JobDescriptionInput.tsx`) has NO "Gunakan contoh" insert button —
+clicking "Lihat contoh" only shows a static display panel, never calls `onChange`, so
+the character counter and validation state don't update. This is the one remaining
+broken path after PR #442.
 
-## HIGH
-- [x] H1: generate.js:319 — fix comment "60s KV TTL" → "120s KV TTL" (lock TTL is 120s at line 189, comment at line 331 correct)
-- [x] H2: router.js — document (or handle) /api/webhook/mayar 404 gap (lines 122-124 match both /webhook/mayar and /api/webhook/mayar)
-- [x] H3: resendEmail.js — remove SESSION_STATES.PAID from PAID_STATUSES (removed; comment explains PAID has no cv_result_)
+Download page `MultiCreditSection.tsx` URL fetch doesn't cap returned text to 5000
+chars, so the generate button silently disables with no truncation message.
 
-## MEDIUM
-- [x] M1: CLAUDE.md — change analysis_v16_ → analysis_v17_ (already v17 throughout CLAUDE.md)
-- [x] M2: router.js:50 — remove dead /bypass-payment from API_METHODS (already absent from API_METHODS map)
-- [x] M4: generate.js:249,274 — send CV-ready email unconditionally when session.email exists (both exhausted and ready branches call sendCVReadyEmail)
-- [x] M5: generate.js — add KV fallback rate-limiter (5 req/min per IP) matching analyze.js pattern (checkRateLimitKV at line 23)
+## Tasks
 
-## LOW
-- [x] L3: interviewKit.js:79 — log cache-read errors instead of swallowing (logError at line 92)
-- [x] L4: CLAUDE.md — fix truncation gotcha (threshold + strategy + corrected "no warning" claim)
-- [x] L5: router.js:240-245 — add comment about gaslamar_delivery being client-side only (comment at line 270)
+- [x] 1. `JobDescriptionInput.tsx` — add "Gunakan contoh" insert button inside the
+         example panel that calls `onChange(JD_EXAMPLE)` and collapses the panel
+- [x] 2. `MultiCreditSection.tsx` — cap URL-fetched JD to 5000 chars; show truncation
+         message when text is cut
+- [x] 3. Run `npm test` (worker) — 577/577 pass
+- [x] 4. Double audit — traced below
+- [ ] 5. Commit + push to claude/eloquent-dijkstra-CnDHx
 
-## SKIP (test-coverage gaps — deferred)
-- M3: resend-email tests (401, 403, 400, 200, 404)
-- generate.js multi-credit / rollback tests
-- webhook ENVIRONMENT=undefined test
+## Double Audit Results
+
+### Upload page (`JobDescriptionInput.tsx` + `Upload.tsx`)
+
+| Scenario | Path | Result |
+|---|---|---|
+| Manual typing | `onChange` event → `handleChange` → `syncTextareaValue` → `onChangeRef.current` → `handleJdChange` → `setJd` → re-render → `charCount`/`quality` derive from `value` | PASS |
+| Paste | Same `input` event path | PASS |
+| "Ambil via link" URL fetch | `UrlFetcher.onFetchSuccess` → `onChange(text.slice(0,5000))` → `handleJdChange` → `setJd` → re-render | PASS |
+| "Gunakan contoh" | Was broken (no insert). Now: `onClick={() => { onChange(JD_EXAMPLE); setShowExample(false); }}` → `handleJdChange` → `setJd` → re-render | FIXED |
+| Clear textarea | `input` event with `value=''` → `setJd('')` → `charCount=0`, success hides, hint shows | PASS |
+| Page load with draft | `useEffect` → `setJd(unescapeHtml(savedJd).slice(0,5000))` → re-render | PASS |
+| Conflicting messages | Ternary chain in `jd-feedback`; only one branch renders at a time | PASS |
+| Submit button state | `handleSubmit` validates `evaluateJDQuality(jd).isValid`; errors shown inline on attempt | PASS |
+| External `el.value = x` | `useEffect` setter override → `syncTextareaValue` → `onChangeRef.current` → `setJd` | PASS |
+| Char limit 5000 programmatic | `onFetchSuccess` caps with `.slice(0, MAX_JD_CHARS)`; setter also caps | PASS |
+| No console errors | Pure React state derivation; no DOM ID selectors; no legacy JS loaded | PASS |
+
+### Download page (`MultiCreditSection.tsx`)
+
+| Scenario | Path | Result |
+|---|---|---|
+| "Ambil dari URL Loker" | Was: no cap. Now: `capped = jd.slice(0,5000)` → `setJobDesc(capped)` → re-render | FIXED |
+| "Gunakan contoh" | `onClick={() => setJobDesc(EXAMPLE_JD)}` → re-render → `charCount` updates | PASS |
+| Manual typing | `onChange={e => setJobDesc(e.target.value)}` → re-render | PASS |
+| Char counter | `charCount = jobDesc.length` derived from state | PASS |
+| Submit button state | `disabled={generating \|\| !jobDesc.trim() \|\| underMin \|\| overLimit}` — all derived from state | PASS |
+| Truncation > 5000 | Now: capped + status message "...dipotong di 5.000 karakter" | FIXED |
 
 ---
 

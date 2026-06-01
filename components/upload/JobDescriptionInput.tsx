@@ -186,6 +186,13 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
         {showExample && (
           <div className="mt-2 p-3 bg-slate-50 rounded-xl text-xs text-slate-500 leading-relaxed border border-slate-100 font-mono max-w-full overflow-hidden" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
             {JD_EXAMPLE}
+            <button
+              type="button"
+              onClick={() => { onChange(JD_EXAMPLE); setShowExample(false); }}
+              className="mt-2 block text-xs text-blue-600 hover:text-blue-800 not-italic underline decoration-dotted transition-colors font-sans"
+            >
+              Gunakan contoh ini
+            </button>
           </div>
         )}
       </div>
