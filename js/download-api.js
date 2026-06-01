@@ -118,6 +118,13 @@ async function poll(sessionId) {
     const data     = await res.json();
     const { status } = data;
 
+    // 200 + authenticated:false means "no cookie" — redirect to access recovery.
+    if (data.authenticated === false && data.reason === 'no_session') {
+      clearClientSessionData(sessionId);
+      window.location.replace('access.html?expired=1&source=download');
+      return;
+    }
+
     // 'paid'       — payment confirmed, ready for first generation
     // 'ready'      — a previous generation succeeded; another can be triggered
     // 'generating' — generation already in progress (retry after failure)

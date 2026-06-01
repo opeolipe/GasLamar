@@ -42,7 +42,10 @@ export async function handleCheckSession(request, env) {
   });
 
   if (!sessionId || !sessionId.startsWith('sess_')) {
-    return jsonResponse({ message: 'Sesi tidak ditemukan. Pastikan browser mengizinkan cookies.', reason: 'no_session' }, 401, request, env);
+    // Return 200 (not 401) so browsers don't log a console error on pages where an
+    // unauthenticated check is expected (upload, hasil, analyzing). 401 is reserved
+    // for requests that supply a token that is invalid or expired.
+    return jsonResponse({ authenticated: false, reason: 'no_session', message: 'Sesi tidak ditemukan. Pastikan browser mengizinkan cookies.' }, 200, request, env);
   }
 
   const session = await getSession(env, sessionId);
