@@ -46,6 +46,13 @@ export default function SubmitSection({ isLoading, hasCv = false, showJdHint, jd
         ) : 'Mulai analisis CV kamu'}
       </button>
 
+      {/* Rate limit notice — always visible near the submit button */}
+      {!isFormIncomplete && (
+        <p className="text-center text-xs text-slate-400 mt-2">
+          Kamu bisa submit 1 analisis per menit.
+        </p>
+      )}
+
       {/* Pre-submit completion checklist — shown when multiple things are missing */}
       {showChecklist ? (
         <div className="mt-3 text-center">

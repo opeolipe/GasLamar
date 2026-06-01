@@ -33,6 +33,10 @@ const FAQ_ITEMS: { q: string; a: React.ReactNode }[] = [
     a: "Paket multi-CV memungkinkan kamu tailoring CV untuk beberapa posisi berbeda dengan harga lebih hemat. Setiap CV dianalisis dan disesuaikan dengan job description masing-masing loker.",
   },
   {
+    q: "Berapa kali saya bisa analisis CV?",
+    a: "Kamu bisa submit analisis baru setiap 1 menit. Batas ini berlaku per koneksi untuk menjaga kecepatan layanan bagi semua pengguna. Jika kamu menekan submit terlalu cepat, akan muncul pesan hitungan mundur — tunggu sebentar lalu coba lagi.",
+  },
+  {
     q: "Bagaimana jika tidak bisa download setelah bayar?",
     a: "Sistem akan otomatis menunggu konfirmasi pembayaran (biasanya 1–2 menit). Jika masih bermasalah, hubungi kami di support@gaslamar.com dengan bukti pembayaran dan kami bantu dalam 24 jam.",
   },

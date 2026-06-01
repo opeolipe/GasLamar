@@ -1,21 +1,30 @@
 import StateCard from '@/components/ui/StateCard';
 
 interface Props {
-  message:     string;
-  onRetry:     () => void;
-  isFileError?: boolean;
+  message:           string;
+  onRetry:           () => void;
+  isFileError?:      boolean;
+  isRateLimit?:      boolean;
+  rateLimitSecsLeft?: number;
 }
 
-export default function AnalysisError({ message, onRetry, isFileError = false }: Props) {
+export default function AnalysisError({ message, onRetry, isFileError = false, isRateLimit = false, rateLimitSecsLeft = 0 }: Props) {
+  const retryBlocked = isRateLimit && rateLimitSecsLeft > 0;
+
   const recoveryLine = isFileError
     ? 'Tenang, ini biasanya karena format file sulit dibaca.'
-    : 'Proses belum berhasil, tapi progres kamu aman dan bisa lanjut lagi.';
+    : isRateLimit
+      ? 'Tombol "Coba Lagi" akan aktif otomatis saat hitungan mundur selesai.'
+      : 'Proses belum berhasil, tapi progres kamu aman dan bisa lanjut lagi.';
+
+  const icon = isRateLimit ? <span className="text-3xl">⏳</span> : <span className="text-3xl">⚠️</span>;
+  const title = isRateLimit ? 'Terlalu Cepat' : 'Analisis Gagal';
 
   return (
     <StateCard
-      icon={<span className="text-3xl">⚠️</span>}
-      title="Analisis Gagal"
-      message={message}
+      icon={icon}
+      title={title}
+      message={isRateLimit && retryBlocked ? `⏳ Terlalu cepat. Coba lagi dalam ${rateLimitSecsLeft} detik.` : message}
       helper={recoveryLine}
       tone={isFileError ? 'warning' : 'danger'}
     >
@@ -27,11 +36,13 @@ export default function AnalysisError({ message, onRetry, isFileError = false }:
       <div className="flex gap-3 justify-center flex-wrap">
         {!isFileError && (
           <button
-            onClick={onRetry}
-            className="text-white font-semibold px-5 py-2.5 rounded-full transition-all hover:-translate-y-[1px] min-h-[44px] cursor-pointer border-0"
+            onClick={retryBlocked ? undefined : onRetry}
+            disabled={retryBlocked}
+            aria-label={retryBlocked ? `Coba lagi dalam ${rateLimitSecsLeft} detik` : 'Coba lagi'}
+            className={`text-white font-semibold px-5 py-2.5 rounded-full transition-all min-h-[44px] border-0 ${retryBlocked ? 'opacity-50 cursor-not-allowed' : 'hover:-translate-y-[1px] cursor-pointer'}`}
             style={{ background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', boxShadow: '0 8px 24px rgba(37,99,235,0.30)' }}
           >
-            Coba Lagi
+            {retryBlocked ? `Tunggu ${rateLimitSecsLeft}s...` : 'Coba Lagi'}
           </button>
         )}
         <a

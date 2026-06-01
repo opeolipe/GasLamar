@@ -34,7 +34,7 @@ interface ContentProps {
 }
 
 function AnalyzingContent({ cvData, jobDesc, filename }: ContentProps) {
-  const { progress, steps, timerText, error, isFileError, isComplete, retry, cancel } = useAnalysis(cvData, jobDesc);
+  const { progress, steps, timerText, error, isFileError, isRateLimit, rateLimitSecsLeft, isComplete, retry, cancel } = useAnalysis(cvData, jobDesc);
   const [showConfirm,       setShowConfirm]       = useState(false);
   const [showManualContinue, setShowManualContinue] = useState(false);
 
@@ -61,7 +61,7 @@ function AnalyzingContent({ cvData, jobDesc, filename }: ContentProps) {
       <UploadSteps currentStep={3} />
 
       {error
-        ? <AnalysisError message={error} onRetry={retry} isFileError={isFileError} />
+        ? <AnalysisError message={error} onRetry={retry} isFileError={isFileError} isRateLimit={isRateLimit} rateLimitSecsLeft={rateLimitSecsLeft} />
         : (
           <>
             <AnalysisProgress progress={progress} timerText={timerText} filename={filename} />
