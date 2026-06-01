@@ -362,3 +362,13 @@ The tester looked for a key named `session_token` or `server_session_id`. The ac
 - Check sessionStorage in the SAME tab the analysis ran in (not a new tab)
 - Confirm character count using `.trim().length`, not `.length` — whitespace-heavy text may count high but trim low
 - Paid session token is an HttpOnly cookie; check DevTools → Application → Cookies, not sessionStorage
+
+---
+
+## "Contoh" button must call onChange, not just show text (2026-06-01)
+
+Any UI element that inserts text into a React-controlled textarea must call the `onChange` prop (or the parent's state setter), not set `el.value` directly. A button that only toggles display of example text never touches the controlled value, so the character counter, validation state, and submit button never update. Pattern: `onClick={() => { onChange(JD_EXAMPLE); setShowExample(false); }}`. The same applies to URL fetch completion — always call `onChange(text.slice(0, MAX_CHARS))` rather than assigning `el.value` and relying on the input event.
+
+## URL-fetched text must be capped client-side before setJobDesc (2026-06-01)
+
+When an API returns job description text that may exceed the field limit, cap it in the success handler before setting React state. Relying on the `maxLength` HTML attribute does not prevent programmatic over-length assignments — `setJobDesc(jd)` with `jd.length > 5000` sets state to the full length, making `overLimit=true` and silently disabling the submit button. Always cap: `const capped = jd.length > MAX ? jd.slice(0, MAX) : jd` and show a truncation status message when the cap fires.
