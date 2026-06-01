@@ -57,6 +57,12 @@ type = "ratelimit"
 namespace_id = "1006"
 simple = { limit = 20, period = 60 }
 
+[[unsafe.bindings]]
+name = "RATE_LIMITER_GET_SCORING"
+type = "ratelimit"
+namespace_id = "1007"
+simple = { limit = 10, period = 60 }
+
 # Staging environment — uses Mayar sandbox (api.mayar.club) and staging frontend.
 #
 # Worker URL  : https://api-staging.gaslamar.com
@@ -129,6 +135,12 @@ type = "ratelimit"
 namespace_id = "1006"
 simple = { limit = 20, period = 60 }
 
+[[env.staging.unsafe.bindings]]
+name = "RATE_LIMITER_GET_SCORING"
+type = "ratelimit"
+namespace_id = "1007"
+simple = { limit = 10, period = 60 }
+
 [env.staging.observability]
 enabled = true
 head_sampling_rate = 1
@@ -189,6 +201,12 @@ name = "RATE_LIMITER_CHECK_SESSION"
 type = "ratelimit"
 namespace_id = "1006"
 simple = { limit = 20, period = 60 }
+
+[[env.production.unsafe.bindings]]
+name = "RATE_LIMITER_GET_SCORING"
+type = "ratelimit"
+namespace_id = "1007"
+simple = { limit = 10, period = 60 }
 
 [env.production.observability]
 enabled = true

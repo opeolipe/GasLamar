@@ -1,6 +1,6 @@
 import { jsonResponse } from '../cors.js';
 import { clientIp } from '../utils.js';
-import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
+import { checkRateLimit, checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
 import { getCvTextKeyFromCookie } from '../cookies.js';
 
 /**
@@ -21,7 +21,12 @@ export async function handleGetScoring(request, env) {
   const url = new URL(request.url);
   const key = url.searchParams.get('key') || getCvTextKeyFromCookie(request) || '';
 
-  // Rate limit before any KV reads.
+  // Atomic burst guard — CF native binding has no TOCTOU race, catches parallel floods.
+  if (!await checkRateLimit(env, env.RATE_LIMITER_GET_SCORING, ip)) {
+    return rateLimitResponse(request, env, 60);
+  }
+
+  // KV sliding-window counter — secondary layer, survives CF binding absence.
   const kvResult = await checkRateLimitKV(env, ip, 10, 60, 'get_scoring');
   if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60);
 

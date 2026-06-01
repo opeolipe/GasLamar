@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { MIN_JD_LENGTH } from '@/lib/uploadValidation';
 
 const SHADOW = '0 18px 44px rgba(15, 23, 42, 0.08)';
 
@@ -28,8 +29,10 @@ export default function MultiCreditSection({ creditsRemaining, totalCredits, onG
   const multiRef = useRef<HTMLDivElement>(null);
 
   const charCount    = jobDesc.length;
+  const trimmedCount = jobDesc.trim().length;
   const nearLimit    = charCount > 4500;
   const overLimit    = charCount > 5000;
+  const underMin     = trimmedCount > 0 && trimmedCount < MIN_JD_LENGTH;
 
   function setTextDir(el: HTMLTextAreaElement) {
     const RTL = /[\u0591-\u07FF\u200F\u202B\u202E\uFB1D-\uFDFD\uFE70-\uFEFC]/;
@@ -60,6 +63,10 @@ export default function MultiCreditSection({ creditsRemaining, totalCredits, onG
   async function handleGenerate() {
     const jd = jobDesc.trim();
     if (!jd) { return; }
+    if (jd.length < MIN_JD_LENGTH) {
+      alert(`Job description terlalu pendek. Minimal ${MIN_JD_LENGTH} karakter.`);
+      return;
+    }
     if (overLimit) { alert('Job description terlalu panjang (maks 5.000 karakter).'); return; }
     setGenerating(true);
     try {
@@ -187,6 +194,11 @@ export default function MultiCreditSection({ creditsRemaining, totalCredits, onG
           <div className={`text-right text-sm mt-1 ${nearLimit ? 'text-amber-600' : 'text-slate-400'}`}>
             {charCount.toLocaleString('id-ID')} / 5.000 karakter
           </div>
+          {underMin && (
+            <p className="text-sm text-amber-600 mt-0.5">
+              Minimal {MIN_JD_LENGTH.toLocaleString('id-ID')} karakter diperlukan
+            </p>
+          )}
           {nearLimit && (
             <p className="text-sm text-amber-600 mt-0.5">Mendekati batas karakter</p>
           )}
@@ -196,7 +208,7 @@ export default function MultiCreditSection({ creditsRemaining, totalCredits, onG
         <button
           type="button"
           onClick={handleGenerate}
-          disabled={generating || !jobDesc.trim() || overLimit}
+          disabled={generating || !jobDesc.trim() || underMin || overLimit}
           aria-label="Generate CV yang disesuaikan untuk loker berikutnya"
           className="mt-4 w-full min-h-[56px] rounded-[16px] font-bold text-white text-base transition-all hover:-translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0"
           style={{ background: 'linear-gradient(180deg,#2563eb,#1d4ed8)', boxShadow: SHADOW }}

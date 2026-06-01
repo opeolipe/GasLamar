@@ -235,9 +235,10 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         const expiresAt        = data.expires_at        ?? null;
 
         sessionStorage.setItem('gaslamar_tier', tier);
-        // Guard: skip cleanup when activeSessionId is unknown (cookie-only sessions don't
-        // use storage secrets; calling with null would wipe all gaslamar_secret_* entries).
-        if (activeSessionId) cleanupStaleSessionSecrets(activeSessionId);
+        // Pass null when activeSessionId is unknown (cookie-only) — cleanupStaleSessionSecrets
+        // handles null by clearing ALL gaslamar_secret_* entries, removing any stale secrets
+        // left over from a previous session stored locally in this browser.
+        cleanupStaleSessionSecrets(activeSessionId);
 
         ;(window as any).Analytics?.track?.('payment_confirmed', {
           tier,
@@ -264,7 +265,7 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         const totalCreds = data.total_credits     ?? 1;
         const expiresAt  = data.expires_at        ?? null;
         sessionStorage.setItem('gaslamar_tier', tier);
-        if (activeSessionId) cleanupStaleSessionSecrets(activeSessionId);
+        cleanupStaleSessionSecrets(activeSessionId);
         setSessionData({ tier, creditsRemaining: 0, totalCredits: totalCreds, expiresAt, sessionId: activeSessionId });
         setPhase('returning');
         return;
@@ -382,12 +383,14 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         const res = await fetch(`${WORKER_URL}/check-session`, { credentials: 'include' });
         if (!mountedRef.current) return;
 
-        if (!res.ok) {
+        // 401 = no session cookie at all — hard stop.
+        // All other non-ok codes (404 = session not yet created, 429 = rate-limited,
+        // 5xx = transient) are handled by the polling loop.
+        if (res.status === 401) {
           showError('Sesi tidak ditemukan', 'Link download tidak valid. Coba lagi dari awal.');
           return;
         }
 
-        await res.json().catch(() => ({}));
         setHasSession(true);
         startPolling();
       } catch (_) {

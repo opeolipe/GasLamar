@@ -178,9 +178,13 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
         sessionStorage.setItem('gaslamar_result_id', resultId);
       } catch (_) {}
 
-      sessionStorage.setItem('gaslamar_scoring',      JSON.stringify(scoringOnly));
+      // Critical writes first — hasil-guard.js requires both to pass.
+      // These are small strings; write them before the potentially-large scoring blob
+      // so a QuotaExceededError on the blob doesn't block the redirect.
       sessionStorage.setItem('gaslamar_cv_key',       cvKey || '');
       sessionStorage.setItem('gaslamar_analyze_time', String(Date.now()));
+      // Non-critical: useResultData falls back to GET /get-scoring when absent.
+      try { sessionStorage.setItem('gaslamar_scoring', JSON.stringify(scoringOnly)); } catch (_) {}
 
       (window as any).Analytics?.track?.('analysis_completed', {
         score:      result.skor        || null,
