@@ -31,7 +31,9 @@ export async function handleAnalyze(request, env) {
     return jsonResponse({ message: 'Request body tidak valid' }, 400, request, env);
   }
 
-  const { cv, job_desc: rawJobDesc } = body;
+  // Accept common aliases so direct API callers don't need to guess the canonical names.
+  const cv = body.cv ?? body.cv_text;
+  const rawJobDesc = body.job_desc ?? body.jd ?? body.job_description;
 
   if (!cv) {
     return jsonResponse({ message: 'CV wajib diisi' }, 400, request, env);
