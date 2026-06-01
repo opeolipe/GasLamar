@@ -11,9 +11,23 @@ interface Props {
 }
 
 const JD_EXAMPLE = `Posisi: Digital Marketing Specialist
+
+Tanggung Jawab:
+- Mengelola konten dan kampanye di Instagram, TikTok, dan LinkedIn
+- Menganalisis performa iklan melalui Google Analytics & Meta Ads Manager
+- Membuat laporan mingguan performa kampanye dan rekomendasi optimasi
+- Berkoordinasi dengan tim desain untuk materi konten
+
 Kualifikasi:
-- Social media marketing 2+ tahun
-- Google Analytics & Facebook Ads`;
+- Pengalaman minimal 2 tahun di bidang digital marketing
+- Mahir mengoperasikan Google Analytics, Facebook Ads, dan Google Ads
+- Familiar dengan tools SEO (SEMrush / Ahrefs) menjadi nilai plus
+- Kemampuan copywriting yang baik dalam Bahasa Indonesia dan Inggris
+- Berorientasi pada data dan target
+
+Info tambahan:
+- Lokasi: Jakarta Selatan (hybrid, 3x seminggu WFO)
+- Gaji: Rp 8–12 juta/bulan (sesuai pengalaman)`;
 
 const MIN_JD_CHARS = MIN_JD_LENGTH;
 
@@ -57,6 +71,8 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
   }, []);
 
   // Direct `textarea.value = x` does not fire an input event, so bridge that path too.
+  // Guard flag prevents re-entrant calls (React reconciler sets el.value on every render
+  // for controlled components, which would otherwise trigger onChange unnecessarily).
   useEffect(() => {
     const el = internalRef.current;
     if (!el) return;
@@ -66,16 +82,26 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
     const descriptor = ownDescriptor ?? protoDescriptor;
     if (!descriptor?.get || !descriptor?.set) return;
 
+    let setting = false;
+
     Object.defineProperty(el, 'value', {
       configurable: true,
       get() {
         return descriptor.get!.call(this);
       },
       set(next) {
-        const raw = String(next ?? '');
-        const capped = raw.length > MAX_JD_CHARS ? raw.slice(0, MAX_JD_CHARS) : raw;
-        descriptor.set!.call(this, capped);
-        syncTextareaValue(capped, this as HTMLTextAreaElement);
+        if (setting) { descriptor.set!.call(this, next); return; }
+        setting = true;
+        try {
+          const raw = String(next ?? '');
+          const capped = raw.length > MAX_JD_CHARS ? raw.slice(0, MAX_JD_CHARS) : raw;
+          const prev = descriptor.get!.call(this);
+          descriptor.set!.call(this, capped);
+          // Only propagate to React state when the value actually changed (not React reconciling).
+          if (capped !== prev) syncTextareaValue(capped, this as HTMLTextAreaElement);
+        } finally {
+          setting = false;
+        }
       },
     });
 
@@ -184,15 +210,30 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
           </span>
         </div>
         {showExample && (
-          <div className="mt-2 p-3 bg-slate-50 rounded-xl text-xs text-slate-500 leading-relaxed border border-slate-100 font-mono max-w-full overflow-hidden" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
-            {JD_EXAMPLE}
-            <button
-              type="button"
-              onClick={() => { onChange(JD_EXAMPLE); setShowExample(false); }}
-              className="mt-2 block text-xs text-blue-600 hover:text-blue-800 not-italic underline decoration-dotted transition-colors font-sans"
+          <div
+            className="mt-2 rounded-xl border border-slate-200 bg-slate-50 max-w-full overflow-hidden"
+            role="region"
+            aria-label="Contoh job description"
+          >
+            <div className="flex items-center justify-between px-3 pt-2.5 pb-1.5 border-b border-slate-100">
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Contoh format JD</span>
+              <span className="text-[11px] text-slate-400">Tidak mengubah isian kamu</span>
+            </div>
+            <pre
+              className="p-3 text-xs text-slate-600 leading-relaxed font-mono max-w-full overflow-x-auto"
+              style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word', margin: 0 }}
             >
-              Gunakan contoh ini
-            </button>
+              {JD_EXAMPLE}
+            </pre>
+            <div className="px-3 pb-3">
+              <button
+                type="button"
+                onClick={() => { onChange(JD_EXAMPLE); setShowExample(false); }}
+                className="text-xs text-blue-600 hover:text-blue-800 underline decoration-dotted transition-colors font-sans"
+              >
+                Gunakan contoh ini sebagai isian
+              </button>
+            </div>
           </div>
         )}
       </div>
