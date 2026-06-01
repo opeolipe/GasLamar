@@ -80,14 +80,20 @@ jobs:
       - name: Health check staging worker
         run: |
           sleep 8
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://gaslamar-worker-staging.carolineratuolivia.workers.dev/health)
+          # Staging worker is deployed via custom route (workers_dev = false in wrangler.toml).
+          # The *.workers.dev subdomain is disabled — use the canonical route instead.
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api-staging.gaslamar.com/health)
           echo "Staging worker health: HTTP $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "Health check failed: expected 200, got $STATUS"
+            exit 1
+          fi
 
       - name: CORS security header check (staging)
         run: |
           set -e
           ALLOWED_ORIGIN="https://staging.gaslamar.pages.dev"
-          WORKER="https://gaslamar-worker-staging.carolineratuolivia.workers.dev"
+          WORKER="https://api-staging.gaslamar.com"
           FAIL=0
 
           echo "--- [1] API: /health with allowlisted Origin must echo that origin (never *) ---"
