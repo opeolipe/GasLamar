@@ -10,6 +10,16 @@ export default function SubmitSection({ isLoading, hasCv = false, showJdHint, jd
   const showCvHint = !hasCv;
   const showChecklist = showCvHint && showJdHint;
 
+  // aria-disabled keeps the button focusable so keyboard/screen-reader users can
+  // press it and receive the scroll-to-error feedback from handleSubmit.
+  // HTML `disabled` would swallow those events entirely.
+  const isFormIncomplete = !hasCv || showJdHint;
+  const ariaLabel = isLoading
+    ? 'Sedang menganalisis CV kamu'
+    : isFormIncomplete
+      ? 'Lengkapi CV dan job description sebelum analisis dimulai'
+      : 'Mulai analisis CV kamu';
+
   return (
     <div className="mt-6">
       <button
@@ -17,17 +27,22 @@ export default function SubmitSection({ isLoading, hasCv = false, showJdHint, jd
         id="submit-btn"
         data-testid="submit-upload"
         onClick={onSubmit}
-        disabled={isLoading || !hasCv || showJdHint}
-        className="min-h-[56px] w-full rounded-full px-6 py-4 text-white font-bold text-base border-0 transition-all hover:-translate-y-[2px] active:scale-[0.97] active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0 disabled:active:scale-100 flex items-center justify-center gap-2"
+        disabled={isLoading}
+        aria-disabled={isLoading || isFormIncomplete}
+        aria-label={ariaLabel}
+        className={`min-h-[56px] w-full rounded-full px-6 py-4 text-white font-bold text-base border-0 transition-all flex items-center justify-center gap-2 ${
+          isLoading || isFormIncomplete
+            ? 'opacity-60 cursor-not-allowed'
+            : 'hover:-translate-y-[2px] active:scale-[0.97] active:translate-y-0 cursor-pointer'
+        }`}
         style={{ background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', boxShadow: '0 8px 24px rgba(37,99,235,0.30)' }}
-        aria-label="Mulai analisis CV kamu"
       >
         {isLoading ? (
           <>
             <span className="inline-block w-5 h-5 border-[3px] border-white/30 border-t-white rounded-full animate-spin" />
             Menganalisis CV kamu...
           </>
-        ) : (!hasCv || showJdHint) ? 'Lengkapi CV & job description dulu'
+        ) : isFormIncomplete ? 'Lengkapi CV & job description dulu'
         : 'Cek peluang saya'}
       </button>
 
