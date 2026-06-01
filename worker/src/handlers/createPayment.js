@@ -114,6 +114,8 @@ export async function handleCreatePayment(request, env) {
         job_desc: stored.job_desc,
         // Carry inferred_role through to /generate so it can choose tailoring mode.
         inferred_role: stored.inferred_role ?? null,
+        // Carry result_id so /generate can validate the client-supplied analytics ID.
+        ...(stored.result_id ? { result_id: stored.result_id } : {}),
         tier,
         status: SESSION_STATES.PENDING_PAYMENT,
         mayar_invoice_id: invoice_id,

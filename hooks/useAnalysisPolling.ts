@@ -175,12 +175,13 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
         }
       } catch (_) {}
 
-      // Generate a deterministic-ish resultId for analytics correlation
+      // Store server-generated result_id for analytics correlation.
+      // Never generate this client-side — server uses crypto.randomUUID() so it is
+      // unguessable and bound to the cv_key session.
       try {
-        const cvPrefix = (sessionStorage.getItem('gaslamar_cv_pending') || '')
-          .replace(/\W/g, '').slice(0, 8).toLowerCase();
-        const resultId = `res_${Date.now().toString(36)}_${cvPrefix}`;
-        sessionStorage.setItem('gaslamar_result_id', resultId);
+        if (result.result_id && typeof result.result_id === 'string') {
+          sessionStorage.setItem('gaslamar_result_id', result.result_id);
+        }
       } catch (_) {}
 
       // cv_key is now an HttpOnly cookie set by /analyze — not readable from JS.
