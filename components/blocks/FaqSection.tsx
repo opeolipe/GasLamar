@@ -33,6 +33,18 @@ const FAQ_ITEMS: { q: string; a: React.ReactNode }[] = [
     a: "Paket multi-CV memungkinkan kamu tailoring CV untuk beberapa posisi berbeda dengan harga lebih hemat. Setiap CV dianalisis dan disesuaikan dengan job description masing-masing loker.",
   },
   {
+    q: "Apakah bisa refund?",
+    a: (
+      <>
+        Tidak ada pengembalian dana setelah CV berhasil di-generate — proses komputasi dan LLM sudah berjalan pada saat itu. Namun, jika ada gangguan teknis dari sisi kami yang menyebabkan CV tidak bisa di-generate atau didownload dalam 24 jam setelah pembayaran, kami akan memproses refund penuh. Hubungi kami di{' '}
+        <a href="mailto:support@gaslamar.com" className="text-blue-600 hover:underline font-medium">support@gaslamar.com</a>{' '}
+        dengan bukti pembayaran. Lihat{' '}
+        <a href="terms.html" className="text-blue-600 hover:underline font-medium">Syarat Layanan</a>{' '}
+        untuk detail lengkap.
+      </>
+    ),
+  },
+  {
     q: "Bagaimana jika tidak bisa download setelah bayar?",
     a: "Sistem akan otomatis menunggu konfirmasi pembayaran (biasanya 1–2 menit). Jika masih bermasalah, hubungi kami di support@gaslamar.com dengan bukti pembayaran dan kami bantu dalam 24 jam.",
   },
