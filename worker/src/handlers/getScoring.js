@@ -1,7 +1,7 @@
 import { jsonResponse } from '../cors.js';
 import { clientIp } from '../utils.js';
 import { checkRateLimit, checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
-import { getCvTextKeyFromCookie } from '../cookies.js';
+import { getCvKeyFromCookie } from '../cookies.js';
 
 /**
  * GET /get-scoring?key=cvtext_<token>
@@ -19,8 +19,6 @@ import { getCvTextKeyFromCookie } from '../cookies.js';
 export async function handleGetScoring(request, env) {
   const ip  = clientIp(request);
   const url = new URL(request.url);
-  const key = url.searchParams.get('key') || getCvTextKeyFromCookie(request) || '';
-
   // Atomic burst guard — CF native binding has no TOCTOU race, catches parallel floods.
   if (!await checkRateLimit(env, env.RATE_LIMITER_GET_SCORING, ip)) {
     return rateLimitResponse(request, env, 60);
@@ -29,6 +27,10 @@ export async function handleGetScoring(request, env) {
   // KV sliding-window counter — secondary layer, survives CF binding absence.
   const kvResult = await checkRateLimitKV(env, ip, 10, 60, 'get_scoring');
   if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60);
+
+  // Prefer the HttpOnly cv_key cookie (set by /analyze after the cookie migration).
+  // Fall back to the ?key= query param for sessions established before the migration.
+  const key = getCvKeyFromCookie(request) || url.searchParams.get('key') || '';
 
   // Validate key format: exactly "cvtext_" (7 chars) + 64 lowercase hex chars = 71 chars total.
   if (!/^cvtext_[0-9a-f]{64}$/.test(key)) {

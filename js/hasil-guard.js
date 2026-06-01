@@ -1,15 +1,15 @@
 // Session guard — runs synchronously in <head> before body renders.
 // Expired sessions redirect to /access so the user can recover their paid CV link.
-// Missing/forged sessions redirect to upload.html for re-upload.
+// Missing/never-analyzed sessions redirect to upload.html.
 //
-// Scoring is now server-side (GET /get-scoring) so the guard no longer validates
-// the sessionStorage blob — it only checks the cv_text_key format and analyze_time.
-// scoring.js handles the async server fetch and its own expiry/error paths.
+// The cv_key is now an HttpOnly cookie set by /analyze — it cannot be read by JS.
+// This guard checks only gaslamar_analyze_time for freshness. Actual auth is
+// enforced server-side: /get-scoring returns 400/404 if no valid cv_key cookie exists.
 (function() {
-  var KEYS = ['gaslamar_cv_key', 'gaslamar_analyze_time'];
+  var CLEAR_KEYS = ['gaslamar_cv_key', 'gaslamar_analyze_time'];
 
   function redirect(reason) {
-    KEYS.forEach(function(k) { sessionStorage.removeItem(k); });
+    CLEAR_KEYS.forEach(function(k) { sessionStorage.removeItem(k); });
     window.location.replace('upload.html?reason=' + reason);
   }
 
@@ -22,29 +22,18 @@
     redirect('session_expired'); return;
   }
 
-  var cvKey       = sessionStorage.getItem('gaslamar_cv_key') || '';
+  // Check analyze_time is present and not stale (24h TTL matches cv_key cookie and cvtext_ KV TTL).
   var analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
   var SESSION_SECS = 86400;
 
-  // cv_key is normally available in sessionStorage. If it is missing, let
-  // scoring.js try the HttpOnly cv_text_key cookie set by /analyze.
-  if (cvKey && !cvKey.startsWith('cvtext_')) { redirect('no_session'); return; }
+  if (!analyzeTime) { redirect('no_session'); return; }
 
-  // Session must not be older than 24 hours — send to /access so returning
-  // paid users can recover their CV download link without re-uploading.
-  var isExpired = analyzeTime > 0 && (Date.now() - analyzeTime) / 1000 > SESSION_SECS;
+  var isExpired = (Date.now() - analyzeTime) / 1000 > SESSION_SECS;
   if (isExpired) {
-    KEYS.forEach(function(k) { sessionStorage.removeItem(k); });
+    CLEAR_KEYS.forEach(function(k) { sessionStorage.removeItem(k); });
     window.location.replace('access.html?expired=1&source=hasil');
     return;
   }
 
-  // analyze_time must be present when a client-visible key is present. Cookie-only
-  // recovery is validated server-side by /get-scoring.
-  if (cvKey && !analyzeTime) { redirect('no_session'); return; }
-
-  // If a valid cvtext_ key is in the URL, it must match what's in sessionStorage
-  if (urlSession && cvKey && urlSession !== cvKey) { redirect('session_expired'); return; }
-
-  // All checks passed — scoring.js will fetch from /get-scoring.
+  // All checks passed — scoring.js fetches from /get-scoring using the HttpOnly cv_key cookie.
 })();

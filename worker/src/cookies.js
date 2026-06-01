@@ -98,3 +98,25 @@ export function clearSessionCookie() {
   // Partitioned must match the original Set-Cookie to clear the same cookie bucket.
   return 'session_id=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0; Partitioned';
 }
+
+/**
+ * Build a Set-Cookie value for the cv_key cookie.
+ * Max-Age matches the cvtext_ KV entry expirationTtl in analyze.js (24h).
+ * HttpOnly prevents XSS from reading the analysis-session token.
+ *
+ * @param {string} cvKey — the cvtext_<64-hex> token returned by /analyze
+ */
+export function makeCvKeyCookie(cvKey) {
+  return `cv_key=${cvKey}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=86400; Partitioned`;
+}
+
+/**
+ * Extract and validate the cv_key cookie from a request.
+ * Returns the cv_key string (starting with "cvtext_" + 64 hex chars) or null.
+ */
+export function getCvKeyFromCookie(request) {
+  const cookies = parseCookies(request.headers.get('Cookie'));
+  const key = cookies.cv_key;
+  if (key && /^cvtext_[0-9a-f]{64}$/.test(key)) return key;
+  return null;
+}

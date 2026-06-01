@@ -47,6 +47,18 @@ function sessionIdFromSetCookie(res) {
   return match[1];
 }
 
+/** Extract the cv_key value from a Set-Cookie header returned by /analyze. */
+function cvKeyFromSetCookie(res) {
+  const match = (res.headers.get('set-cookie') || res.headers.get('Set-Cookie') || '').match(/cv_key=(cvtext_[0-9a-f]{64})/);
+  expect(match).not.toBeNull();
+  return match[1];
+}
+
+/** Build a Cookie header that carries both session_id and cv_key. */
+function cvKeyCookie(cvKey) {
+  return { Cookie: `cv_key=${cvKey}` };
+}
+
 /**
  * DOCX with bit 3 (data descriptor) set in general-purpose flags — the format
  * produced by Microsoft Word, LibreOffice, and Google Docs. The local file
@@ -843,7 +855,7 @@ describe('POST /analyze — happy path (mocked Claude)', () => {
   // skor is computed deterministically from MOCK_EXTRACT_JSON:
   //   skills_diminta: ['Node.js','React','SQL'], skills_mentah: 'Node.js React SQL'
   //   → matchRatio = 1.0 → total6D = 51 → skor = round(51/60*100) = 85
-  it('returns skor + cv_text_key when Claude succeeds', async () => {
+  it('returns skor and sets cv_key HttpOnly cookie when Claude succeeds', async () => {
     fetchMock
       .get('https://api.anthropic.com')
       .intercept({ path: '/v1/messages', method: 'POST' })
@@ -867,9 +879,15 @@ describe('POST /analyze — happy path (mocked Claude)', () => {
     // skor is now computed deterministically from extracted data (see comment above)
     expect(typeof body.skor).toBe('number');
     expect(body.skor).toBeGreaterThan(0);
-    expect(body.cv_text_key).toMatch(/^cvtext_/);
-    expect(res.headers.get('Set-Cookie')).toContain(`cv_text_key=${body.cv_text_key}`);
-    expect(res.headers.get('Set-Cookie')).toContain('HttpOnly');
+
+    // cv_text_key must NOT be in the response body — it is now an HttpOnly Set-Cookie.
+    expect(body.cv_text_key).toBeUndefined();
+
+    // cv_key must appear in the Set-Cookie header as an HttpOnly cookie.
+    const setCookie = res.headers.get('set-cookie') || res.headers.get('Set-Cookie') || '';
+    expect(setCookie).toMatch(/cv_key=cvtext_[0-9a-f]{64}/);
+    expect(setCookie).toContain('HttpOnly');
+    expect(setCookie).toContain('Secure');
 
     // Verify response shape matches the pre-refactor contract
     expect(body).toHaveProperty('skor_6d');
@@ -879,8 +897,9 @@ describe('POST /analyze — happy path (mocked Claude)', () => {
     expect(body).toHaveProperty('kekuatan');
     expect(body).toHaveProperty('archetype');
 
-    // Verify key is stored in KV with IP binding
-    const stored = await env.GASLAMAR_SESSIONS.get(body.cv_text_key, { type: 'json' });
+    // Verify key is stored in KV with IP binding (extract key from cookie header)
+    const cvKey = cvKeyFromSetCookie(res);
+    const stored = await env.GASLAMAR_SESSIONS.get(cvKey, { type: 'json' });
     expect(stored).not.toBeNull();
     expect(stored.text).toBeTruthy();
     expect(stored.ip).toBe('10.0.0.1');
@@ -915,12 +934,12 @@ describe('POST /analyze — DOCX data descriptor (mocked Claude)', () => {
 });
 
 describe('POST /create-payment — validation', () => {
-  it('rejects missing cv_text_key → 400', async () => {
+  it('rejects missing cv_text_key (no cookie, no body) → 400', async () => {
     const res = await post('/create-payment', { tier: 'single' });
     expect(res.status).toBe(400);
   });
 
-  it('rejects cv_text_key without cvtext_ prefix → 400', async () => {
+  it('rejects cv_text_key without cvtext_ prefix in body → 400', async () => {
     const res = await post('/create-payment', {
       tier: 'single',
       cv_text_key: 'sess_abc',
@@ -937,7 +956,7 @@ describe('POST /create-payment — validation', () => {
     expect(res.status).toBe(400);
   });
 
-  it('rejects expired / missing cv_text_key → 400', async () => {
+  it('rejects expired / missing cv_text_key in body → 400', async () => {
     // Use a valid-format key that simply does not exist in KV — tests the "expired" path
     const nonexistentKey = `cvtext_${cvHexToken()}`;
     const res = await post('/create-payment', {
@@ -947,6 +966,29 @@ describe('POST /create-payment — validation', () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.message).toContain('kedaluwarsa');
+  });
+
+  it('accepts cv_text_key from cv_key cookie (new session flow) → proceeds past key check', async () => {
+    // Seed a valid key bound to the default IP (1.2.3.4)
+    const key = await seedCVTextKey(undefined, '1.2.3.4');
+    // Pass the key only via cookie — body has no cv_text_key
+    const res = await post('/create-payment', { tier: 'single' }, { Cookie: `cv_key=${key}` }, '1.2.3.4');
+    // Reaches Mayar invoice creation (which fails without API key in test env) → not a 400 key error
+    expect(res.status).not.toBe(400);
+  });
+
+  it('cookie cv_key takes precedence over body cv_text_key', async () => {
+    const cookieKey = await seedCVTextKey(undefined, '1.2.3.4');
+    // Provide a valid but nonexistent key in the body; the cookie key should win
+    const bodyKey = `cvtext_${cvHexToken()}`;
+    const res = await post(
+      '/create-payment',
+      { tier: 'single', cv_text_key: bodyKey },
+      { Cookie: `cv_key=${cookieKey}` },
+      '1.2.3.4',
+    );
+    // Cookie key is valid and found in KV — should not return 400 for missing/expired key
+    expect(res.status).not.toBe(400);
   });
 
   it('rejects cv_text_key used from a different IP → 403', async () => {
@@ -1575,6 +1617,36 @@ describe('GET /validate-session', () => {
     }
     const res = await get('/validate-session?cvKey=cvtext_missing', {}, ip);
     expect(res.status).toBe(429);
+  });
+
+  it('returns valid:true via cv_key cookie (new session flow)', async () => {
+    const key = await seedCVTextKey(undefined, '10.96.2.1');
+    const res = await get('/validate-session', { Cookie: `cv_key=${key}` }, '10.96.2.1');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+  });
+
+  it('cookie cv_key takes precedence over query param', async () => {
+    const goodKey = await seedCVTextKey(undefined, '10.96.3.1');
+    const badKey  = `cvtext_${cvHexToken()}`;
+    // Cookie points to a valid key; query param points to a nonexistent one.
+    const res = await get(
+      `/validate-session?cvKey=${encodeURIComponent(badKey)}`,
+      { Cookie: `cv_key=${goodKey}` },
+      '10.96.3.1',
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+  });
+
+  it('returns 400 when neither cookie nor cvKey param is provided', async () => {
+    const res = await get('/validate-session');
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+    expect(body.reason).toBe('invalid_key');
   });
 });
 
@@ -3912,7 +3984,7 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
       scoring: mockScoring,
     }), { expirationTtl: 86400 });
 
-    const res = await get('/get-scoring', { Cookie: `cv_text_key=cvtext_${token}` }, '1.2.3.4');
+    const res = await get('/get-scoring', { Cookie: `cv_key=cvtext_${token}` }, '1.2.3.4');
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.valid).toBe(true);
@@ -3958,6 +4030,49 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
   it('rejects key without cvtext_ prefix', async () => {
     const res = await get('/get-scoring?key=badprefix_' + 'f'.repeat(64), {}, nextScoringIp());
     expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when neither cookie nor query param is provided', async () => {
+    const res = await get('/get-scoring', {}, nextScoringIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+  });
+
+  it('returns scoring via cv_key cookie (new session flow)', async () => {
+    const token = '1'.repeat(64);
+    const mockScoring = { skor: 77, verdict: 'DO', skor_6d: {} };
+    await env.GASLAMAR_SESSIONS.put(`cvtext_${token}`, JSON.stringify({
+      text: 'raw cv', job_desc: 'raw jd', ip: '1.2.3.4', scoring: mockScoring,
+    }), { expirationTtl: 86400 });
+
+    // Pass key via HttpOnly cookie — no query param; use same IP as stored entry
+    const res = await get('/get-scoring', { Cookie: `cv_key=cvtext_${token}` }, '1.2.3.4');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.scoring.skor).toBe(77);
+    // Must never expose raw fields
+    expect(body.text).toBeUndefined();
+    expect(body.cv_text).toBeUndefined();
+  });
+
+  it('cookie takes precedence over query param', async () => {
+    const goodToken = '2'.repeat(64);
+    const badToken  = '3'.repeat(64);
+    await env.GASLAMAR_SESSIONS.put(`cvtext_${goodToken}`, JSON.stringify({
+      text: 'cv', job_desc: 'jd', scoring: { skor: 55 },
+    }), { expirationTtl: 86400 });
+
+    // Cookie key is valid; query param points to a nonexistent key.
+    const res = await get(
+      `/get-scoring?key=cvtext_${badToken}`,
+      { Cookie: `cv_key=cvtext_${goodToken}` },
+      nextScoringIp(),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.scoring.skor).toBe(55);
   });
 });
 
