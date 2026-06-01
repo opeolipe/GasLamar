@@ -450,3 +450,27 @@ When an API returns job description text that may exceed the field limit, cap it
 - CORS wildcard → `CORS security header check` step in `deploy.yml` and `deploy-staging.yml`
 - Static asset CORS (no ACAO) → step [5] in both deploy workflows (upgraded from WARN to FAIL in prod)
 - Stale staging deploy → `scripts/verify-staging-bundle.js` + CI step in `deploy-staging.yml`
+
+## Removing all sensitive data from sessionStorage (2026-06-01)
+
+Pattern applied in the XSS/IDOR security fix:
+
+1. **Never write scoring blobs client-side.** `GET /get-scoring` (cookie-auth) is the single
+   source of truth. The fast-path sessionStorage cache saves one network round-trip but creates
+   XSS exposure for the entire scoring payload. Remove it.
+
+2. **result_id and cv_key stay in-memory.** analytics correlation across page loads is a
+   nice-to-have; XSS-proof storage is a must. Use local variables or skip cross-page correlation.
+
+3. **Raw CV text and extracted claims must never touch sessionStorage.** This includes:
+   `gaslamar_cv_paste_raw`, `gaslamar_entitas_klaim`, `gaslamar_sample*`, `gaslamar_preview_after`.
+   Accept the UX degradation (no paste draft persistence, no preview consistency).
+
+4. **Derived numbers are OK.** Plain integer scores (`skor`, `skor_6d`, `gap` as strings) contain
+   no CV content and no session token. These may be stored for the Download badge display.
+
+5. **Client cv_key check before payment is a false gate.** For cookie-based sessions it always
+   fails. Remove the check; the server already validates via the HttpOnly cookie.
+
+6. **STALE_KEYS in Upload.tsx must list all keys ever written** — including legacy ones that
+   are no longer written — so old-session data is swept on the next upload.
