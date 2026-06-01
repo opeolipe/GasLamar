@@ -10,15 +10,15 @@ export default function SubmitSection({ isLoading, hasCv = false, showJdHint, jd
   const showCvHint = !hasCv;
   const showChecklist = showCvHint && showJdHint;
 
-  // aria-disabled keeps the button focusable so keyboard/screen-reader users can
-  // press it and receive the scroll-to-error feedback from handleSubmit.
-  // HTML `disabled` would swallow those events entirely.
   const isFormIncomplete = !hasCv || showJdHint;
-  const ariaLabel = isLoading
-    ? 'Sedang menganalisis CV kamu'
-    : isFormIncomplete
-      ? 'Lengkapi CV dan job description sebelum analisis dimulai'
-      : 'Mulai analisis CV kamu';
+  const isDisabled = isLoading || isFormIncomplete;
+
+  function getButtonLabel() {
+    if (isLoading) return 'Sedang menganalisis CV kamu';
+    if (!hasCv)    return 'Upload CV kamu dulu sebelum analisis';
+    if (showJdHint) return 'Lengkapi CV & job description sebelum analisis dimulai';
+    return 'Mulai analisis CV kamu';
+  }
 
   return (
     <div className="mt-6">
@@ -27,11 +27,10 @@ export default function SubmitSection({ isLoading, hasCv = false, showJdHint, jd
         id="submit-btn"
         data-testid="submit-upload"
         onClick={onSubmit}
-        disabled={isLoading}
-        aria-disabled={isLoading || isFormIncomplete}
-        aria-label={ariaLabel}
+        disabled={isDisabled}
+        aria-label={getButtonLabel()}
         className={`min-h-[56px] w-full rounded-full px-6 py-4 text-white font-bold text-base border-0 transition-all flex items-center justify-center gap-2 ${
-          isLoading || isFormIncomplete
+          isDisabled
             ? 'opacity-60 cursor-not-allowed'
             : 'hover:-translate-y-[2px] active:scale-[0.97] active:translate-y-0 cursor-pointer'
         }`}
@@ -42,8 +41,9 @@ export default function SubmitSection({ isLoading, hasCv = false, showJdHint, jd
             <span className="inline-block w-5 h-5 border-[3px] border-white/30 border-t-white rounded-full animate-spin" />
             Menganalisis CV kamu...
           </>
-        ) : isFormIncomplete ? 'Lengkapi CV & job description dulu'
-        : 'Cek peluang saya'}
+        ) : isFormIncomplete ? (
+          !hasCv ? 'Upload CV kamu dulu' : 'Isi job description dulu (min. 100 karakter)'
+        ) : 'Mulai analisis CV kamu'}
       </button>
 
       {/* Pre-submit completion checklist — shown when multiple things are missing */}
