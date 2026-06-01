@@ -1,7 +1,7 @@
 import { jsonResponse } from '../cors.js';
 import { log, logError, clientIp } from '../utils.js';
 import { getSession, getSessionTtl } from '../sessions.js';
-import { getSessionIdFromCookie } from '../cookies.js';
+import { getSessionIdFromCookie, getCvKeyFromCookie } from '../cookies.js';
 import { checkRateLimit, checkRateLimitKVSession, rateLimitResponse } from '../rateLimit.js';
 
 export async function handleCheckSession(request, env) {
@@ -42,17 +42,36 @@ export async function handleCheckSession(request, env) {
   });
 
   if (!sessionId || !sessionId.startsWith('sess_')) {
+    // No payment session cookie — check for an active analysis session (cv_key cookie).
+    // This lets /hasil validate the HttpOnly cv_key without a separate endpoint.
+    const cvKey = getCvKeyFromCookie(request);
+    if (cvKey) {
+      const stored = await env.GASLAMAR_SESSIONS.get(cvKey, { type: 'json' });
+      if (stored?.scoring) {
+        log('check_session_analysis_valid', { ip });
+        return jsonResponse({ valid: true, authenticated: true, type: 'analysis' }, 200, request, env);
+      }
+      // cv_key cookie present but session gone from KV (expired or migrated to scoring_)
+      const fallbackKey = `scoring_${cvKey.slice('cvtext_'.length)}`;
+      const fallback = await env.GASLAMAR_SESSIONS.get(fallbackKey, { type: 'json' });
+      if (fallback?.scoring) {
+        log('check_session_analysis_valid_fallback', { ip });
+        return jsonResponse({ valid: true, authenticated: true, type: 'analysis' }, 200, request, env);
+      }
+      // cv_key cookie exists but data is gone — expired
+      return jsonResponse({ valid: false, authenticated: false, reason: 'expired', message: 'Sesi analisis sudah kedaluwarsa.' }, 200, request, env);
+    }
     // Return 200 (not 401) so browsers don't log a console error on pages where an
     // unauthenticated check is expected (upload, hasil, analyzing). 401 is reserved
     // for requests that supply a token that is invalid or expired.
-    return jsonResponse({ authenticated: false, reason: 'no_session', message: 'Sesi tidak ditemukan. Pastikan browser mengizinkan cookies.' }, 200, request, env);
+    return jsonResponse({ valid: false, authenticated: false, reason: 'no_session', message: 'Sesi tidak ditemukan. Pastikan browser mengizinkan cookies.' }, 200, request, env);
   }
 
   const session = await getSession(env, sessionId);
 
   if (!session) {
     logError('check_session_not_found', { session_id: sessionId });
-    return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa.', reason: 'expired' }, 404, request, env);
+    return jsonResponse({ valid: false, message: 'Sesi tidak ditemukan atau sudah kedaluwarsa.', reason: 'expired' }, 404, request, env);
   }
 
   // Return TTL remaining in seconds instead of an absolute timestamp to avoid
@@ -62,6 +81,7 @@ export async function handleCheckSession(request, env) {
     : null;
 
   return jsonResponse({
+    valid: true,
     status: session.status,
     credits_remaining: session.credits_remaining ?? 1,
     total_credits: session.total_credits ?? 1,

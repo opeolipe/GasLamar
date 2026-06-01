@@ -24,8 +24,11 @@
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg?v=2" />
   <link rel="alternate" type="application/ld+json" href="/assets/structured-data-hasil.json">
   <!-- Session guard — must run synchronously before body renders to prevent auth flash.
+       Auth is enforced via HttpOnly cv_key cookie (server-side in production via router.js;
+       async via /check-session in the page component for all environments).
+       This guard only rejects forged URL session parameters.
        Source of truth: js/hasil-guard.js — keep in sync when editing. -->
-  <script>(function(){var a=["gaslamar_cv_key","gaslamar_analyze_time"];function r(e){a.forEach(function(c){sessionStorage.removeItem(c)}),window.location.replace("upload.html?reason="+e)}var s=new URLSearchParams(location.search),n=s.get("session")||s.get("sessionId");if(n!==null&&!n.startsWith("cvtext_")){r("session_expired");return}var o=parseInt(sessionStorage.getItem("gaslamar_analyze_time")||"0"),t=86400;if(!o){r("no_session");return}var i=(Date.now()-o)/1e3>t;if(i){a.forEach(function(e){sessionStorage.removeItem(e)}),window.location.replace("access.html?expired=1&source=hasil");return}})();</script>
+  <script>(function(){var s=new URLSearchParams(location.search),n=s.get("session")||s.get("sessionId");if(n!==null&&!n.startsWith("cvtext_")){sessionStorage.removeItem("gaslamar_cv_key");window.location.replace("upload.html?reason=session_expired");}})();</script>
   <!-- Cloudflare Web Analytics -->
   <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "f9c97d82f2a04b9f95e051946eb0525e"}'></script>
   <link rel="stylesheet" href="css/tailwind.css">

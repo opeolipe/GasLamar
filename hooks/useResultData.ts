@@ -22,8 +22,10 @@ export function useResultData(): ResultDataState {
     const params     = new URLSearchParams(location.search);
     const urlSession = params.get('session') || params.get('sessionId');
     const rawScoring = sessionStorage.getItem('gaslamar_scoring');
+    // Legacy: old sessions may still have cv_key in sessionStorage — query param fallback only
     const cvKeyVal   = sessionStorage.getItem('gaslamar_cv_key') || '';
-    const time       = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
+    // analyzeTime is kept for countdown UX only — not used for auth decisions
+    const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
 
     const fail = (noSession: NoSessionReason) =>
       setState({ data: null, cvKey: '', analyzeTime: 0, loading: false, error: null, noSession });
@@ -41,40 +43,57 @@ export function useResultData(): ResultDataState {
         ? `${WORKER_URL}/get-scoring?key=${encodeURIComponent(cvKeyVal)}`
         : `${WORKER_URL}/get-scoring`;
 
-      // cancelled flag + timer ref for cleanup — prevents setState/fail on unmounted component.
       let cancelled = false;
       let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
-      const fetchScoring = () =>
-        fetch(scoringUrl, { credentials: 'include' })
+      // Validate session via HttpOnly cv_key cookie first, then fetch scoring data.
+      // /check-session returns {valid:true, type:'analysis'} for active analysis sessions.
+      const validateAndFetch = () =>
+        fetch(`${WORKER_URL}/check-session`, { credentials: 'include' })
           .then(async r => {
-            if (cancelled) return;
+            if (cancelled) return null;
+            const body = await r.json() as { valid?: boolean; authenticated?: boolean; reason?: string };
+            if (!body?.valid && !body?.authenticated) {
+              const reason = body?.reason;
+              fail(reason === 'expired' ? 'expired' : 'missing');
+              return null;
+            }
+            return fetch(scoringUrl, { credentials: 'include' });
+          })
+          .then(async r => {
+            if (!r || cancelled) return;
             if (r.status === 404) {
-              // Key expired (cvtext_ deleted after payment, scoring_ also gone).
-              // Clear local keys and send user to recovery page, not upload (implies start over).
-              try {
-                sessionStorage.removeItem('gaslamar_cv_key');
-                sessionStorage.removeItem('gaslamar_analyze_time');
-              } catch (_) {}
+              try { sessionStorage.removeItem('gaslamar_cv_key'); } catch (_) {}
               fail('expired');
               return;
             }
             if (!r.ok) throw new Error(`server_${r.status}`);
             const body = await r.json() as { scoring?: ScoringData; valid?: boolean };
-            // getScoring returns { valid: true, scoring: ... } on success.
             if (!body?.scoring) throw new Error('no_scoring_field');
             const s = body.scoring;
             const skor = parseInt(String(s?.skor));
             if (isNaN(skor) || skor < 0 || skor > 100) { if (!cancelled) fail('missing'); return; }
-            if (time > 0 && (Date.now() - time) / 1000 > 86400) { if (!cancelled) fail('expired'); return; }
             try { sessionStorage.setItem('gaslamar_scoring', JSON.stringify(s)); } catch (_) {}
-            if (!cancelled) setState({ data: s ?? null, cvKey: cvKeyVal, analyzeTime: time, loading: false, error: null, noSession: null });
+            if (!cancelled) setState({ data: s ?? null, cvKey: cvKeyVal, analyzeTime, loading: false, error: null, noSession: null });
           });
 
-      // One automatic retry after a transient server/network error.
-      fetchScoring().catch(() => {
+      // One automatic retry after transient error — skip check-session on retry
+      validateAndFetch().catch(() => {
         if (cancelled) return;
-        retryTimer = setTimeout(() => fetchScoring().catch(() => { if (!cancelled) fail('missing'); }), 1500);
+        retryTimer = setTimeout(() =>
+          fetch(scoringUrl, { credentials: 'include' })
+            .then(async r => {
+              if (cancelled) return;
+              if (!r.ok) { fail('missing'); return; }
+              const body = await r.json() as { scoring?: ScoringData };
+              if (!body?.scoring) { fail('missing'); return; }
+              const s = body.scoring;
+              try { sessionStorage.setItem('gaslamar_scoring', JSON.stringify(s)); } catch (_) {}
+              if (!cancelled) setState({ data: s ?? null, cvKey: cvKeyVal, analyzeTime, loading: false, error: null, noSession: null });
+            })
+            .catch(() => { if (!cancelled) fail('missing'); }),
+          1500,
+        );
       });
       return () => { cancelled = true; if (retryTimer !== null) clearTimeout(retryTimer); };
     }
@@ -85,14 +104,8 @@ export function useResultData(): ResultDataState {
     const skor = parseInt(String(parsed?.skor));
     if (isNaN(skor) || skor < 0 || skor > 100) { fail('missing'); return; }
 
-    // cv_key format check
+    // cv_key format check (legacy sessionStorage value — harmless if absent)
     if (cvKeyVal && !cvKeyVal.startsWith('cvtext_')) { fail('expired'); return; }
-
-    // Session must not be older than 24 hours (matches server-side cvtext_ TTL and hasil-guard.js)
-    if (time > 0 && (Date.now() - time) / 1000 > 86400) { fail('expired'); return; }
-
-    // Must have analyze_time
-    if (!time) { fail('missing'); return; }
 
     // URL session must match storage
     if (urlSession && urlSession !== cvKeyVal) { fail('expired'); return; }
@@ -127,25 +140,18 @@ export function useResultData(): ResultDataState {
       });
     } catch (_) {}
 
-    setState({ data: parsed, cvKey: cvKeyVal, analyzeTime: time, loading: false, error: null, noSession: null });
+    setState({ data: parsed, cvKey: cvKeyVal, analyzeTime, loading: false, error: null, noSession: null });
 
-    // Defense-in-depth: server-side session key validation (fail-open on network error).
-    // Cookie-based: cv_key cookie is sent automatically with credentials.
-    // Query param included as fallback for old sessions that still have the key in sessionStorage.
-    {
-      const validateUrl = cvKeyVal.startsWith('cvtext_')
-        ? `${WORKER_URL}/validate-session?cvKey=${encodeURIComponent(cvKeyVal)}`
-        : `${WORKER_URL}/validate-session`;
-      fetch(validateUrl, { credentials: 'include' })
-        .then(r => (r.ok ? r.json() : Promise.reject()))
-        .then((result: { valid: boolean }) => {
-          if (!result.valid) {
-            sessionStorage.removeItem('gaslamar_cv_key');
-            window.location.replace('access.html?expired=1&source=hasil');
-          }
-        })
-        .catch(() => {}); // network unavailable — fail open
-    }
+    // Defense-in-depth: validate cv_key cookie via /check-session (fail-open on network error).
+    fetch(`${WORKER_URL}/check-session`, { credentials: 'include' })
+      .then(r => (r.ok ? r.json() : Promise.reject()))
+      .then((result: { valid?: boolean; authenticated?: boolean }) => {
+        if (!result.valid && !result.authenticated) {
+          sessionStorage.removeItem('gaslamar_cv_key');
+          window.location.replace('access.html?expired=1&source=hasil');
+        }
+      })
+      .catch(() => {}); // network unavailable — fail open
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return state;

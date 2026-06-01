@@ -8,15 +8,11 @@ const cvData    = sessionStorage.getItem('gaslamar_cv_pending');
 const jobDesc   = _unescapeHtml(sessionStorage.getItem('gaslamar_jd_pending') || '');
 const filename  = sessionStorage.getItem('gaslamar_filename') || 'CV Kamu';
 
-// Redirect if no pending data (direct navigation or page refresh after completion)
+// Redirect if no pending data (direct navigation or page refresh after completion).
+// Auth is enforced server-side via cv_key cookie — hasil.html will redirect to upload
+// automatically if no active session exists.
 if (!cvData || !jobDesc) {
-  // cv_key is now an HttpOnly cookie (not in sessionStorage). Check only analyze_time freshness.
-  // SYNC: 86400000ms (24h) must match SESSION_SECS (86400) in hasil-page.js,
-  //       hasil-guard.js, and ANALYSIS_FRESHNESS_MS in session-controller.js.
-  //       Must also match the expirationTtl in worker/src/handlers/analyze.js.
-  const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
-  const isFresh = analyzeTime && (Date.now() - analyzeTime) < 86400000;
-  window.location.replace(isFresh ? 'hasil.html' : 'upload.html');
+  window.location.replace('hasil.html');
 }
 
 // Show filename

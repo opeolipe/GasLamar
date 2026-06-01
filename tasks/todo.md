@@ -1,21 +1,17 @@
-# Fix: router reads wrong cv_key cookie name
+# Fix: session not persisted across page navigation to /hasil
 
-## Root Cause
-`router.js` `getProtectedPageState` calls `getCvTextKeyFromCookie` (reads `cv_text_key`),
-but `analyze.js` now sets `cv_key` via `makeCvKeyCookie`. Name mismatch means
-`analysisActive` is always false in production → `/hasil.html` redirects to
-`upload.html?reason=no_session` even for valid fresh sessions.
+## Root cause
+`hasil-guard.js` blocks page load by checking `gaslamar_analyze_time` in sessionStorage.
+SessionStorage can be absent/cleared (privacy settings, new tab, iOS Safari ITP, or upstream page
+clearing it on upload page load). The fix moves session validation to the HttpOnly `cv_key` cookie.
 
 ## Changes
 
-- [x] `worker/src/router.js` — import `getCvKeyFromCookie`; check `cv_key` first,
-      fall back to `cv_text_key` for backward compat
-- [x] `worker/test/worker.test.js` — updated router tests now send `cv_key` cookie;
-      backward-compat test at line 442 still accepts `cv_text_key`. Verified with grep:
-      no remaining `cv_text_key` cookie sends in router test block except the compat test.
-- [x] Run `npm test` — all 589 tests pass
-
-## Verification
-After fix: test sending `cv_key` cookie → hasil.html proxied (200)
-After fix: test sending `cv_text_key` cookie → hasil.html still proxied (backward compat)
-After fix: no cookie → upload.html redirect (no_session)
+- [x] `worker/src/handlers/checkSession.js` — validate cv_key cookie; return `{valid:true, authenticated:true, type:'analysis'}` when analysis session is active
+- [x] `js/hasil-guard.js` — remove sessionStorage check; URL-param validation only
+- [x] `hasil.html` — rebuild minified inline guard to match
+- [x] `hooks/useResultData.ts` — remove `gaslamar_analyze_time` dependency; call /check-session for primary auth on fast path
+- [x] `hooks/useAnalysisPolling.ts` — remove `sessionStorage.setItem('gaslamar_analyze_time', ...)`
+- [x] `pages/Analyzing.tsx` — update refresh-redirect logic (no longer reads cv_key/analyze_time from sessionStorage)
+- [x] `js/analyzing-page.js` — same cleanup
+- [x] `worker/test/worker.test.js` — add tests for cv_key path in /check-session

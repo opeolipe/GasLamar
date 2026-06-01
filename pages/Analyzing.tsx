@@ -143,10 +143,10 @@ export default function Analyzing() {
 
   useEffect(() => {
     if (ready) return;
-    const cvKey       = sessionStorage.getItem('gaslamar_cv_key') || '';
-    const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
-    const isFresh     = !!(cvKey.startsWith('cvtext_') && analyzeTime && (Date.now() - analyzeTime) < 7_200_000);
-    window.location.replace(isFresh ? 'hasil.html' : 'upload.html?reason=missing_data');
+    // No CV/JD data — analysis done or direct navigation.
+    // Redirect to hasil.html; router.js/check-session will gate it via the cv_key cookie.
+    // If no active analysis session exists, hasil will redirect to upload automatically.
+    window.location.replace('hasil.html');
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!ready) return null;
