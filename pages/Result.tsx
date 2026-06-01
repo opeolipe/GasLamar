@@ -507,7 +507,7 @@ export default function Result() {
           <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem 2rem' }}>
             <div style={{ width: 28, height: 28, border: '3px solid #BFDBFE', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'gasResultSpin 0.8s linear infinite', display: 'inline-block', marginBottom: '1rem' }} />
             <p style={{ fontWeight: 600, fontSize: '1.1rem', margin: '0 0 0.5rem', fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>Memuat hasil analisis…</p>
-            <p style={{ color: '#94A3B8', fontSize: '0.875rem', margin: 0 }}>Sebentar lagi</p>
+            <p style={{ color: '#64748B', fontSize: '0.875rem', margin: 0 }}>Sebentar lagi</p>
           </div>
         )}
 
@@ -527,7 +527,7 @@ export default function Result() {
         {data && !loading && !error && (
           <>
             {/* Breadcrumb */}
-            <div style={{ textAlign: 'center', marginBottom: '0.75rem', fontSize: '0.8rem', color: '#94A3B8', fontWeight: 500 }}>
+            <div style={{ textAlign: 'center', marginBottom: '0.75rem', fontSize: '0.8rem', color: '#64748B', fontWeight: 500 }}>
               CV dianalisis berdasarkan posisi yang kamu incar
             </div>
 
@@ -591,6 +591,7 @@ export default function Result() {
                 <>
                   <button
                     onClick={() => setShowAllDimensions(d => !d)}
+                    aria-expanded={showAllDimensions}
                     style={{
                       width:          '100%',
                       background:     '#F8FAFC',
@@ -621,7 +622,7 @@ export default function Result() {
                     <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid rgba(148,163,184,0.14)' }}>
                       {priorityWeaknesses.length > 0 && (
                         <>
-                          <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 0.75rem' }}>
+                          <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 0.75rem' }}>
                             Yang paling bikin HR ragu
                           </p>
                           {priorityWeaknesses.map(dim => (
@@ -839,25 +840,25 @@ export default function Result() {
             </div>
 
             {/* Trust line */}
-            <div style={{ textAlign: 'center', padding: '0.5rem 0 0.5rem', fontSize: '0.8rem', color: '#94A3B8', lineHeight: 1.7 }}>
+            <div style={{ textAlign: 'center', padding: '0.5rem 0 0.5rem', fontSize: '0.8rem', color: '#64748B', lineHeight: 1.7 }}>
               <span aria-hidden="true">🔒</span><span className="sr-only">Aman: </span> Data kamu aman &nbsp;·&nbsp; Bayar via QRIS, VA, e-wallet
             </div>
 
             {/* Back link */}
             <div className="text-center mt-4 mb-2">
-              <a href="upload.html" className="text-sm text-slate-400 hover:text-slate-600 transition-colors no-underline">
+              <a href="upload.html" className="text-sm text-slate-500 hover:text-slate-700 transition-colors no-underline">
                 ← Upload CV lain
               </a>
             </div>
 
             {/* Legal footer */}
-            <footer className="text-center py-6 text-sm text-slate-400">
-              <p className="mb-3 text-slate-400">GasLamar · Karena nyari kerja udah cukup ribet</p>
-              <a href="privacy.html" className="text-slate-400 no-underline hover:underline mx-2">Kebijakan Privasi</a>
+            <footer className="text-center py-6 text-sm text-slate-500">
+              <p className="mb-3 text-slate-500">GasLamar · Karena nyari kerja udah cukup ribet</p>
+              <a href="privacy.html" className="text-slate-500 no-underline hover:underline mx-2">Kebijakan Privasi</a>
               ·
-              <a href="terms.html" className="text-slate-400 no-underline hover:underline mx-2">Syarat Layanan</a>
+              <a href="terms.html" className="text-slate-500 no-underline hover:underline mx-2">Syarat Layanan</a>
               ·
-              <a href="accessibility.html" className="text-slate-400 no-underline hover:underline mx-2">Aksesibilitas</a>
+              <a href="accessibility.html" className="text-slate-500 no-underline hover:underline mx-2">Aksesibilitas</a>
             </footer>
 
           </>

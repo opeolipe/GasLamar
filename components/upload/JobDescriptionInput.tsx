@@ -165,7 +165,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
             <button
               type="button"
               onClick={() => setShowFetcher(true)}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 active:bg-blue-200 border border-blue-200 text-blue-600 font-medium text-sm transition-colors min-h-[36px] leading-none"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 active:bg-blue-200 border border-blue-200 text-blue-600 font-medium text-sm transition-colors min-h-[44px] leading-none"
               aria-label="Ambil job description dari URL loker seperti LinkedIn, Glints, atau JobStreet"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

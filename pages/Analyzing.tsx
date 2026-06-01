@@ -39,6 +39,13 @@ function AnalyzingContent({ cvData, jobDesc, filename }: ContentProps) {
   const [showManualContinue, setShowManualContinue] = useState(false);
 
   useEffect(() => {
+    if (!showConfirm) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowConfirm(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [showConfirm]);
+
+  useEffect(() => {
     if (!isComplete) return;
     const redirect = setTimeout(() => { window.location.replace('hasil.html'); }, 800);
     // Fallback: if redirect hasn't fired within 3.5s, show a manual button
@@ -109,7 +116,7 @@ function AnalyzingContent({ cvData, jobDesc, filename }: ContentProps) {
               ) : (
                 <button
                   onClick={() => setShowConfirm(true)}
-                  className="text-slate-400 hover:text-slate-700 text-[0.8rem] inline-flex items-center gap-1.5 transition-colors min-h-[44px] px-3 cursor-pointer bg-transparent border-none font-[inherit]"
+                  className="text-slate-500 hover:text-slate-700 text-[0.8rem] inline-flex items-center gap-1.5 transition-colors min-h-[44px] px-3 cursor-pointer bg-transparent border-none font-[inherit]"
                 >
                   ← Ubah CV atau job
                 </button>
