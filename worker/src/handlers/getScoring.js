@@ -19,7 +19,7 @@ import { getCvKeyFromCookie } from '../cookies.js';
  *  - Rate-limited: 20 req/min with a valid cv_key cookie, 10 req/min by IP otherwise.
  */
 export async function handleGetScoring(request, env) {
-  const ip         = clientIp(request);
+  const ip          = clientIp(request);
   const cvKeyCookie = getCvKeyFromCookie(request);
 
   // Atomic burst guard — CF native binding has no TOCTOU race, catches parallel floods.
@@ -34,6 +34,7 @@ export async function handleGetScoring(request, env) {
 
   // Require the HttpOnly cv_key cookie set by /analyze. The ?key= query param is
   // intentionally not accepted — it would let anyone enumerate arbitrary keys.
+  // Use the same generic body for all auth/not-found failures to prevent enumeration.
   const key = cvKeyCookie;
   if (!key) {
     return jsonResponse({ valid: false }, 401, request, env);

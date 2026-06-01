@@ -4066,16 +4066,20 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
     expect(body.valid).toBe(false);
   });
 
-  it('returns 401 when no cv_key cookie is present (?key= query param is not accepted)', async () => {
-    // Both no-cookie and ?key= query-param-only requests must return 401 to prevent
-    // unauthenticated enumeration of the scoring KV namespace.
-    const token = 'f'.repeat(64);
-    const noParam  = await get('/get-scoring', {}, nextScoringIp());
-    const withParam = await get(`/get-scoring?key=cvtext_${token}`, {}, nextScoringIp());
-    expect(noParam.status).toBe(401);
-    expect(withParam.status).toBe(401);
-    expect((await noParam.json()).valid).toBe(false);
-    expect((await withParam.json()).valid).toBe(false);
+  it('returns 401 when no cv_key cookie is present', async () => {
+    const res = await get('/get-scoring', {}, nextScoringIp());
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+  });
+
+  it('returns 401 when only a ?key= query param is provided (no cookie)', async () => {
+    // The ?key= param is intentionally ignored — accepting it would allow unauthenticated enumeration.
+    const token = 'e1'.repeat(32);
+    const res = await get(`/get-scoring?key=cvtext_${token}`, {}, nextScoringIp());
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
   });
 
   it('returns scoring via cv_key cookie (new session flow)', async () => {
@@ -4119,8 +4123,8 @@ describe('Rate limiting — GET /get-scoring (10 req/min per IP, 20/min with coo
   // Unique IP range to avoid cross-suite contamination
   const RL_GS_IP = '10.99.3.1';
 
-  it('allows 10 requests and blocks the 11th with 429 (no cookie → IP bucket)', async () => {
-    // First 10: rate-limit passes, no cookie → 401
+  it('allows 10 requests and blocks the 11th with 429', async () => {
+    // First 10: rate-limit passes, no cookie → 401 (auth check before KV lookup)
     for (let i = 0; i < 10; i++) {
       const r = await get('/get-scoring', {}, RL_GS_IP);
       expect(r.status).not.toBe(429);
@@ -4136,20 +4140,24 @@ describe('Rate limiting — GET /get-scoring (10 req/min per IP, 20/min with coo
   });
 
   it('counters are per-IP — a different IP is not blocked', async () => {
-    // Exhaust IP limit for one IP (10.99.3.2) — no cookie, so IP bucket
+    // Exhaust limit for one IP (10.99.3.2)
     for (let i = 0; i < 10; i++) {
       await get('/get-scoring', {}, '10.99.3.2');
     }
-    // A different IP should still pass rate limiting (will get 401 — no cookie)
+    // A different IP should still pass rate limiting (will get 401 from missing cookie)
     const res = await get('/get-scoring', {}, '10.99.3.3');
     expect(res.status).toBe(401);
   });
 
-  it('?key= query param is ignored — no cookie always returns 401', async () => {
-    const token = 'a'.repeat(64);
-    const res = await get(`/get-scoring?key=cvtext_${token}`, {}, '10.99.3.4');
-    expect(res.status).toBe(401);
-    expect((await res.json()).valid).toBe(false);
+  it('missing cookie returns 401 — identical body prevents enumeration', async () => {
+    // Requests without a cookie return 401 before any KV lookup, preventing key enumeration.
+    const withQueryParam = await get('/get-scoring?key=notvalid_' + 'a'.repeat(64), {}, '10.99.3.4');
+    const noParams       = await get('/get-scoring', {}, '10.99.3.4');
+    expect(withQueryParam.status).toBe(401);
+    expect(noParams.status).toBe(401);
+    // Both produce identical 401 with no key-existence information
+    expect((await withQueryParam.json()).valid).toBe(false);
+    expect((await noParams.json()).valid).toBe(false);
   });
 });
 

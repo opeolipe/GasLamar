@@ -540,10 +540,10 @@ export default function Upload() {
           <SubmitSection
             isLoading={loading}
             hasCv={hasFile}
-            showJdHint={!jd.trim().length || !jdQuality.isValid}
-            jdHintText={!jd.trim().length
+            showJdHint={jd.trim().length < 100}
+            jdHintText={jd.trim().length === 0
               ? 'Job description wajib diisi agar analisis bisa dimulai.'
-              : (jdQuality.message || 'Lengkapi job description agar analisis lebih akurat.')}
+              : 'Job description terlalu pendek (min. 100 karakter).'}
             onSubmit={handleSubmit}
           />
         </div>
