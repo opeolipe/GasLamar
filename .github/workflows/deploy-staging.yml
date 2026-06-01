@@ -138,6 +138,16 @@ jobs:
             echo "  PASS: no wildcard"
           fi
 
+          echo "--- [5] API root path must have no ACAO header (non-API requests are not CORS-enabled) ---"
+          ROOT_ACAO=$(curl -s -I -H "Origin: $ALLOWED_ORIGIN" "$WORKER/" \
+            | grep -i "^access-control-allow-origin:" | tr -d '\r')
+          if [ -z "$ROOT_ACAO" ]; then
+            echo "  PASS: no ACAO on root path"
+          else
+            echo "  FAIL: root path returned ACAO '$ROOT_ACAO' — worker must not set CORS headers on non-API paths"
+            FAIL=1
+          fi
+
           if [ "$FAIL" -ne 0 ]; then
             echo ""
             echo "CORS security check FAILED — see above."

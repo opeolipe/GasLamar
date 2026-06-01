@@ -434,3 +434,19 @@ When an API returns job description text that may exceed the field limit, cap it
 2. `grep -rn "cv_text_key.*:" worker/src/handlers/analyze.js` → must return nothing (token not in response body)
 3. Check DevTools → Application → Cookies for `cv_key` after /analyze (not sessionStorage)
 4. Run `cd worker && npm test` — all tests must pass
+
+---
+
+## QA false positives require automated regression tests, not just documentation (2026-06-01)
+
+**Pattern:** Four false positives were filed in the same audit: aria-disabled on button, session token IDOR, JD maxlength bypass, CORS wildcard. Each was documented in lessons.md and the QA plan, but no automated test asserted the expected behavior. Documentation alone doesn't prevent the same finding being re-filed in a future audit.
+
+**Rule:** Every false-positive finding must be closed with an automated test (Playwright or CI check), not just a doc update. If the behavior can be asserted in a Playwright test, add it. If it requires a deployed environment, add a CI step. If neither is feasible, add a manual regression checklist to the QA guidelines.
+
+**Tests added (2026-06-01):**
+- `aria-disabled` → `tests/e2e/upload-button-a11y.spec.ts` (3 tests)
+- No auth tokens in client storage → `tests/e2e/security-invariants.spec.ts` (3 tests)
+- JD maxlength programmatic enforcement → `tests/e2e/cv-flow.spec.ts` ("job description counter" test)
+- CORS wildcard → `CORS security header check` step in `deploy.yml` and `deploy-staging.yml`
+- Static asset CORS (no ACAO) → step [5] in both deploy workflows (upgraded from WARN to FAIL in prod)
+- Stale staging deploy → `scripts/verify-staging-bundle.js` + CI step in `deploy-staging.yml`

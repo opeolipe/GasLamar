@@ -150,8 +150,8 @@ jobs:
           if [ -z "$STATIC_ACAO" ]; then
             echo "  PASS: no ACAO on static asset"
           else
-            echo "  WARN: static asset returned ACAO '$STATIC_ACAO' (worker should strip this)"
-            # Warn only — Pages may serve this directly in some paths
+            echo "  FAIL: static asset returned ACAO '$STATIC_ACAO' — worker must strip this header on non-API paths"
+            FAIL=1
           fi
 
           if [ "$FAIL" -ne 0 ]; then
