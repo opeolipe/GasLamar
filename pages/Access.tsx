@@ -470,10 +470,23 @@ export default function Access() {
                   <button
                     type="submit"
                     disabled={isSubmitDisabled}
-                    className="min-h-[48px] px-6 rounded-[16px] font-bold text-white text-sm transition-all hover:-translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="min-h-[48px] px-6 rounded-[16px] font-bold text-white text-sm transition-all hover:-translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
                     style={{ background: '#1B4FE8', boxShadow: SHADOW }}
                   >
-                    {status === 'loading' ? 'Mengirim link...' : 'Kirim ulang link'}
+                    {status === 'loading' && (
+                      <svg
+                        className="animate-spin"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        aria-hidden="true"
+                      >
+                        <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.3)" strokeWidth="3" />
+                        <path d="M12 2a10 10 0 0 1 10 10" stroke="white" strokeWidth="3" strokeLinecap="round" />
+                      </svg>
+                    )}
+                    {status === 'loading' ? 'Mengirim...' : 'Kirim ulang link'}
                   </button>
 
                   {status === 'error' && (
