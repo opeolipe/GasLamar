@@ -82,6 +82,17 @@ export default function Upload() {
   const hasFile: boolean = !!fileName && !!cvText;
   const jdQuality = evaluateJDQuality(jd);
 
+  // Context-aware CV hint text for the submit button — avoids "Upload CV kamu dulu"
+  // when user is actively pasting but hasn't reached the 1,500-char minimum yet.
+  const cvHintText: string = (() => {
+    if (cvTab === 'paste') {
+      const pasteLen = manualCvText.trim().length;
+      if (pasteLen === 0) return 'Paste isi CV kamu di kotak di atas';
+      return `Teks CV masih kurang panjang — tambahkan hingga min. ${MIN_CV_PASTE_LENGTH.toLocaleString('id-ID')} karakter`;
+    }
+    return 'Upload CV kamu untuk memulai analisis';
+  })();
+
   // Mount: read URL params + restore drafts
   useEffect(() => {
     const params     = new URLSearchParams(window.location.search);
@@ -544,6 +555,7 @@ export default function Upload() {
             jdHintText={jd.trim().length === 0
               ? 'Job description wajib diisi agar analisis bisa dimulai.'
               : 'Job description terlalu pendek (min. 100 karakter).'}
+            cvHintText={hasFile ? undefined : cvHintText}
             onSubmit={handleSubmit}
           />
         </div>

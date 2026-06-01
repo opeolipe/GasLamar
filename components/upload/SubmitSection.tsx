@@ -1,21 +1,24 @@
 interface Props {
-  isLoading:   boolean;
-  hasCv?:      boolean;
-  showJdHint:  boolean;
-  jdHintText?: string;
-  onSubmit:    () => void;
+  isLoading:    boolean;
+  hasCv?:       boolean;
+  showJdHint:   boolean;
+  jdHintText?:  string;
+  cvHintText?:  string;
+  onSubmit:     () => void;
 }
 
-export default function SubmitSection({ isLoading, hasCv = false, showJdHint, jdHintText, onSubmit }: Props) {
+export default function SubmitSection({ isLoading, hasCv = false, showJdHint, jdHintText, cvHintText, onSubmit }: Props) {
   const showCvHint = !hasCv;
   const showChecklist = showCvHint && showJdHint;
 
   const isFormIncomplete = !hasCv || showJdHint;
   const isDisabled = isLoading || isFormIncomplete;
 
+  const defaultCvHint = 'Upload atau paste CV kamu dulu';
+
   function getButtonLabel() {
     if (isLoading) return 'Sedang menganalisis CV kamu';
-    if (!hasCv)    return 'Upload CV kamu dulu sebelum analisis';
+    if (!hasCv)    return cvHintText ?? defaultCvHint;
     if (showJdHint) return 'Lengkapi CV & job description sebelum analisis dimulai';
     return 'Mulai analisis CV kamu';
   }
@@ -42,7 +45,7 @@ export default function SubmitSection({ isLoading, hasCv = false, showJdHint, jd
             Menganalisis CV kamu...
           </>
         ) : isFormIncomplete ? (
-          !hasCv ? 'Upload CV kamu dulu' : 'Isi job description dulu (min. 100 karakter)'
+          !hasCv ? (cvHintText ?? defaultCvHint) : 'Isi job description dulu (min. 100 karakter)'
         ) : 'Mulai analisis CV kamu'}
       </button>
 
@@ -71,7 +74,7 @@ export default function SubmitSection({ isLoading, hasCv = false, showJdHint, jd
         </div>
       ) : showCvHint ? (
         <p className="text-center text-sm text-slate-500 mt-3">
-          Upload atau paste CV kamu untuk memulai analisis.
+          {cvHintText ?? 'Upload atau paste CV kamu untuk memulai analisis.'}
         </p>
       ) : showJdHint ? (
         <p className="text-center text-sm text-slate-500 mt-3">
