@@ -10,10 +10,10 @@ but `analyze.js` now sets `cv_key` via `makeCvKeyCookie`. Name mismatch means
 
 - [x] `worker/src/router.js` — import `getCvKeyFromCookie`; check `cv_key` first,
       fall back to `cv_text_key` for backward compat
-- [ ] `worker/test/worker.test.js` — update 4 router tests that send `cv_text_key`
-      cookie to send `cv_key` (matching what analyze.js actually sets); add a backward-
-      compat test that still accepts `cv_text_key`
-- [ ] Run `npm test` — all tests pass
+- [x] `worker/test/worker.test.js` — updated router tests now send `cv_key` cookie;
+      backward-compat test at line 442 still accepts `cv_text_key`. Verified with grep:
+      no remaining `cv_text_key` cookie sends in router test block except the compat test.
+- [x] Run `npm test` — all 589 tests pass
 
 ## Verification
 After fix: test sending `cv_key` cookie → hasil.html proxied (200)

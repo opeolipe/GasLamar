@@ -415,3 +415,22 @@ When an API returns job description text that may exceed the field limit, cap it
 **Fix:** Always write small, guard-required keys first (`gaslamar_cv_key`, `gaslamar_analyze_time`), then wrap the large blob write in its own try-catch. The `gaslamar_scoring` write is non-critical — `useResultData.ts` already has a `GET /get-scoring` server-side fallback for exactly this scenario.
 
 **Rule:** In any success-path sessionStorage block, writes required to satisfy HTML inline guards or route conditions must come FIRST and must not be blocked by a preceding large write.
+
+---
+
+## "No session cookie after /analyze" is a false positive — the cookie is cv_key, not sessionToken (2026-06-01)
+
+**Pattern:** External audit tools and AI-generated task descriptions sometimes report "backend does not set an HttpOnly session cookie after analysis" or "frontend stores session token in sessionStorage." Both are false for this codebase.
+
+**Reality:**
+- `/analyze` sets `cv_key` as an HttpOnly, Secure, SameSite=None cookie via `makeCvKeyCookie()` in `cookies.js`
+- The frontend stores only `gaslamar_analyze_time` (a Unix timestamp, not a token) in sessionStorage
+- `hasil-guard.js` reads only the timestamp; real auth is via the HttpOnly `cv_key` cookie sent automatically with `credentials: 'include'`
+- SameSite=None is intentional — required for cross-origin staging (Pages → Worker subdomain); SameSite=Strict would break staging
+- `/check-session` is for *payment* sessions (`sess_`). Analysis sessions are validated by `/validate-session` and `/get-scoring` using the `cv_key` cookie
+
+**Verification when a report claims this bug:**
+1. `grep -rn "setItem.*gaslamar_cv_key"` in `js/` → must return nothing
+2. `grep -rn "cv_text_key.*:" worker/src/handlers/analyze.js` → must return nothing (token not in response body)
+3. Check DevTools → Application → Cookies for `cv_key` after /analyze (not sessionStorage)
+4. Run `cd worker && npm test` — all tests must pass
