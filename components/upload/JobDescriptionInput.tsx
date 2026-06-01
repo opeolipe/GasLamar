@@ -34,6 +34,7 @@ const MIN_JD_CHARS = MIN_JD_LENGTH;
 const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobDescriptionInput({ value, onChange, submitError, onSubmit }, ref) {
   const [showFetcher, setShowFetcher] = useState(false);
   const [showExample, setShowExample] = useState(false);
+  const [wasTruncated, setWasTruncated] = useState(false);
   const internalRef = useRef<HTMLTextAreaElement>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
@@ -49,8 +50,15 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
     ? 'text-xs text-amber-500'
     : 'text-xs text-slate-400';
 
+  // Clear truncation warning once user edits text below the limit
+  useEffect(() => {
+    if (wasTruncated && charCount < MAX_JD_CHARS) setWasTruncated(false);
+  }, [charCount, wasTruncated]);
+
   function syncTextareaValue(raw: string, el?: HTMLTextAreaElement | null) {
-    const capped = raw.length > MAX_JD_CHARS ? raw.slice(0, MAX_JD_CHARS) : raw;
+    const truncated = raw.length > MAX_JD_CHARS;
+    const capped = truncated ? raw.slice(0, MAX_JD_CHARS) : raw;
+    if (truncated) setWasTruncated(true);
     if (el && el.value !== capped) el.value = capped;
     onChangeRef.current(capped);
     if (el) {
@@ -205,7 +213,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
           </button>
           <span className={`${trimmed ? counterCls : 'text-xs text-slate-400'} flex-shrink-0`}>
             {trimmed
-              ? `${charCount.toLocaleString('id-ID')} / ${MAX_JD_CHARS.toLocaleString('id-ID')} karakter${atLimit ? ' — Maks 5.000 karakter (sisanya dipotong)' : ''}`
+              ? `${charCount.toLocaleString('id-ID')} / ${MAX_JD_CHARS.toLocaleString('id-ID')} karakter`
               : `min. ${MIN_JD_CHARS} karakter`}
           </span>
         </div>
@@ -248,6 +256,10 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
           >
             <span aria-hidden="true">⚠️</span> {submitError}
           </div>
+        ) : wasTruncated ? (
+          <p role="alert" className="text-sm text-red-600 mt-2 font-medium break-words" style={{ overflowWrap: 'anywhere' }}>
+            ⚠️ Maksimal 5.000 karakter — teks terpotong.
+          </p>
         ) : trimmed && quality.message ? (
           <p className="text-sm text-amber-700 mt-2 break-words" style={{ overflowWrap: 'anywhere' }}>
             <span aria-hidden="true">⚠️</span> {quality.message}
