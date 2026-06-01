@@ -183,14 +183,10 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
         sessionStorage.setItem('gaslamar_result_id', resultId);
       } catch (_) {}
 
-      // cv_key is now an HttpOnly cookie set by /analyze — not stored in sessionStorage.
+      // cv_key is now an HttpOnly cookie set by /analyze — not readable from JS.
       sessionStorage.setItem('gaslamar_analyze_time', String(Date.now()));
       // Non-critical: useResultData falls back to GET /get-scoring when absent.
-      // Only write when cvKey is valid — a malformed key would leave a stale scoring blob
-      // that useResultData would serve on the next load despite the guard redirect.
-      if (/^cvtext_[0-9a-f]{64}$/.test(cvKey || '')) {
-        try { sessionStorage.setItem('gaslamar_scoring', JSON.stringify(scoringOnly)); } catch (_) {}
-      }
+      try { sessionStorage.setItem('gaslamar_scoring', JSON.stringify(scoringOnly)); } catch (_) {}
 
       (window as any).Analytics?.track?.('analysis_completed', {
         score:      result.skor        || null,
