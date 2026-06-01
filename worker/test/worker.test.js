@@ -409,11 +409,41 @@ describe('protected state page routing', () => {
     expect(res.headers.get('Cache-Control')).toBe('no-store');
   });
 
-  it('production serves /hasil.html only when an active analysis cookie exists', async () => {
+  it('production serves /hasil.html only when an active analysis cookie exists (cv_key, current)', async () => {
     const cvTextKey = `cvtext_${'a'.repeat(64)}`;
     await env.GASLAMAR_SESSIONS.put(cvTextKey, JSON.stringify({
       ip: '1.2.3.4',
       scoring: { skor: 72, gap: [] },
+    }), { expirationTtl: 3600 });
+
+    fetchMock
+      .get('https://gaslamar.pages.dev')
+      .intercept({ path: () => true, method: 'GET' })
+      .reply(() => {
+        return {
+          statusCode: 200,
+          data: '<!doctype html><title>Hasil</title>',
+          responseOptions: { headers: { 'content-type': 'text/html' } },
+        };
+      })
+      .times(1);
+
+    const res = await route(new Request('https://gaslamar.com/hasil.html', {
+      method: 'GET',
+      headers: {
+        Cookie: `cv_key=${cvTextKey}`,
+        'CF-Connecting-IP': '1.2.3.4',
+      },
+    }), { ...env, ENVIRONMENT: 'production' }, {});
+
+    expect(res.status, res.headers.get('Location') || '').toBe(200);
+  });
+
+  it('production serves /hasil.html with legacy cv_text_key cookie (backward compat)', async () => {
+    const cvTextKey = `cvtext_${'c'.repeat(64)}`;
+    await env.GASLAMAR_SESSIONS.put(cvTextKey, JSON.stringify({
+      ip: '1.2.3.4',
+      scoring: { skor: 65, gap: [] },
     }), { expirationTtl: 3600 });
 
     fetchMock
@@ -443,7 +473,7 @@ describe('protected state page routing', () => {
     const res = await route(new Request('https://gaslamar.com/hasil.html', {
       method: 'GET',
       headers: {
-        Cookie: `cv_text_key=cvtext_${'b'.repeat(64)}`,
+        Cookie: `cv_key=cvtext_${'b'.repeat(64)}`,
         'CF-Connecting-IP': '1.2.3.4',
       },
     }), { ...env, ENVIRONMENT: 'production' }, {});
@@ -463,7 +493,7 @@ describe('protected state page routing', () => {
     const res = await route(new Request('https://gaslamar.com/hasil.html', {
       method: 'GET',
       headers: {
-        Cookie: `cv_text_key=${cvTextKey}`,
+        Cookie: `cv_key=${cvTextKey}`,
         'CF-Connecting-IP': '20.20.20.20',
       },
     }), { ...env, ENVIRONMENT: 'production' }, {});
@@ -483,7 +513,7 @@ describe('protected state page routing', () => {
     const res = await route(new Request('https://gaslamar.com/hasil.html', {
       method: 'GET',
       headers: {
-        Cookie: `cv_text_key=cvtext_${token}`,
+        Cookie: `cv_key=cvtext_${token}`,
         'CF-Connecting-IP': '20.20.20.20',
       },
     }), { ...env, ENVIRONMENT: 'production' }, {});

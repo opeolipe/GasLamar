@@ -20,7 +20,7 @@ import { handleGetResult } from './handlers/getResult.js';
 import { handleValidateCoupon } from './handlers/validateCoupon.js';
 import { handleGetScoring } from './handlers/getScoring.js';
 import { getSession } from './sessions.js';
-import { getCvTextKeyFromCookie, getSessionIdFromCookie } from './cookies.js';
+import { getCvTextKeyFromCookie, getCvKeyFromCookie, getSessionIdFromCookie } from './cookies.js';
 
 function noStoreRedirect(location) {
   return new Response(null, {
@@ -34,7 +34,9 @@ function noStoreRedirect(location) {
 
 async function getProtectedPageState(request, env) {
   const sessionId = getSessionIdFromCookie(request);
-  const cvTextKey = getCvTextKeyFromCookie(request);
+  // cv_key is the current cookie name (set by /analyze via makeCvKeyCookie).
+  // cv_text_key is the legacy name kept for backward compat with old sessions.
+  const cvTextKey = getCvKeyFromCookie(request) || getCvTextKeyFromCookie(request);
   const ip = clientIp(request);
   const state = {
     hasSessionCookie: !!sessionId,

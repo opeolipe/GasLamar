@@ -1,78 +1,21 @@
-# JD Counter Sync — Remaining Fix Plan (2026-06-01) (DONE)
+# Fix: router reads wrong cv_key cookie name
 
-## Root Cause Summary
-React upload page (`JobDescriptionInput.tsx`) has NO "Gunakan contoh" insert button —
-clicking "Lihat contoh" only shows a static display panel, never calls `onChange`, so
-the character counter and validation state don't update. This is the one remaining
-broken path after PR #442.
+## Root Cause
+`router.js` `getProtectedPageState` calls `getCvTextKeyFromCookie` (reads `cv_text_key`),
+but `analyze.js` now sets `cv_key` via `makeCvKeyCookie`. Name mismatch means
+`analysisActive` is always false in production → `/hasil.html` redirects to
+`upload.html?reason=no_session` even for valid fresh sessions.
 
-Download page `MultiCreditSection.tsx` URL fetch doesn't cap returned text to 5000
-chars, so the generate button silently disables with no truncation message.
+## Changes
 
-## Tasks
+- [x] `worker/src/router.js` — import `getCvKeyFromCookie`; check `cv_key` first,
+      fall back to `cv_text_key` for backward compat
+- [ ] `worker/test/worker.test.js` — update 4 router tests that send `cv_text_key`
+      cookie to send `cv_key` (matching what analyze.js actually sets); add a backward-
+      compat test that still accepts `cv_text_key`
+- [ ] Run `npm test` — all tests pass
 
-- [x] 1. `JobDescriptionInput.tsx` — add "Gunakan contoh" insert button inside the
-         example panel that calls `onChange(JD_EXAMPLE)` and collapses the panel
-- [x] 2. `MultiCreditSection.tsx` — cap URL-fetched JD to 5000 chars; show truncation
-         message when text is cut
-- [x] 3. Run `npm test` (worker) — 577/577 pass
-- [x] 4. Double audit — traced below
-- [x] 5. Commit + push to claude/eloquent-dijkstra-CnDHx
-
-## Double Audit Results
-
-### Upload page (`JobDescriptionInput.tsx` + `Upload.tsx`)
-
-| Scenario | Path | Result |
-|---|---|---|
-| Manual typing | `onChange` event → `handleChange` → `syncTextareaValue` → `onChangeRef.current` → `handleJdChange` → `setJd` → re-render → `charCount`/`quality` derive from `value` | PASS |
-| Paste | Same `input` event path | PASS |
-| "Ambil via link" URL fetch | `UrlFetcher.onFetchSuccess` → `onChange(text.slice(0,5000))` → `handleJdChange` → `setJd` → re-render | PASS |
-| "Gunakan contoh" | Was broken (no insert). Now: `onClick={() => { onChange(JD_EXAMPLE); setShowExample(false); }}` → `handleJdChange` → `setJd` → re-render | FIXED |
-| Clear textarea | `input` event with `value=''` → `setJd('')` → `charCount=0`, success hides, hint shows | PASS |
-| Page load with draft | `useEffect` → `setJd(unescapeHtml(savedJd).slice(0,5000))` → re-render | PASS |
-| Conflicting messages | Ternary chain in `jd-feedback`; only one branch renders at a time | PASS |
-| Submit button state | `handleSubmit` validates `evaluateJDQuality(jd).isValid`; errors shown inline on attempt | PASS |
-| External `el.value = x` | `useEffect` setter override → `syncTextareaValue` → `onChangeRef.current` → `setJd` | PASS |
-| Char limit 5000 programmatic | `onFetchSuccess` caps with `.slice(0, MAX_JD_CHARS)`; setter also caps | PASS |
-| No console errors | Pure React state derivation; no DOM ID selectors; no legacy JS loaded | PASS |
-
-### Download page (`MultiCreditSection.tsx`)
-
-| Scenario | Path | Result |
-|---|---|---|
-| "Ambil dari URL Loker" | Was: no cap. Now: `capped = jd.slice(0,5000)` → `setJobDesc(capped)` → re-render | FIXED |
-| "Gunakan contoh" | `onClick={() => setJobDesc(EXAMPLE_JD)}` → re-render → `charCount` updates | PASS |
-| Manual typing | `onChange={e => setJobDesc(e.target.value)}` → re-render | PASS |
-| Char counter | `charCount = jobDesc.length` derived from state | PASS |
-| Submit button state | `disabled={generating \|\| !jobDesc.trim() \|\| underMin \|\| overLimit}` — all derived from state | PASS |
-| Truncation > 5000 | Now: capped + status message "...dipotong di 5.000 karakter" | FIXED |
-
-## SKIP (test-coverage gaps — deferred)
-- M3: resend-email tests (401, 403, 400, 400, 200, 404)
-- generate.js multi-credit / rollback tests
-- webhook ENVIRONMENT=undefined test
-
-
----
-
-# /get-scoring atomic rate limit fix — 2026-05-31 (DONE)
-
-## Steps
-- [x] Add `RATE_LIMITER_GET_SCORING` CF native binding to wrangler.toml
-- [x] Update `getScoring.js` — import `checkRateLimit`, call CF binding first (atomic burst guard)
-
----
-
-# Security: cv_key → HttpOnly cookie — 2026-06-01 (DONE)
-
-## Frontend
-- [x] F1: `hooks/useAnalysisPolling.ts` — Add `credentials:'include'` to /analyze fetch; remove cv_key write to sessionStorage
-- [x] F2: `js/analyzing-page.js` — Same; update redirect check to use only analyze_time
-- [x] F3: `js/scoring.js` — Call /get-scoring with credentials; include key param only for old sessions
-- [x] F4: `hooks/useResultData.ts` — Same
-- [x] F5: `js/payment.js` — Remove required cv_key guard; send as optional body fallback only for old sessions
-- [x] F6: `js/hasil-guard.js` — Remove cv_key check; keep analyze_time freshness check only
-- [x] F7: `hasil.html` — Update inline minified guard to match new hasil-guard.js logic
-- [x] F8: `js/session-controller.js` — Update getAnalysisSession() docs; cv_key is now cookie-backed
-- [x] F9: `js/upload-page.js` — Update "active session" notice — only check analyze_time
+## Verification
+After fix: test sending `cv_key` cookie → hasil.html proxied (200)
+After fix: test sending `cv_text_key` cookie → hasil.html still proxied (backward compat)
+After fix: no cookie → upload.html redirect (no_session)
