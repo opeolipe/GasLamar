@@ -52,12 +52,12 @@ export default function ScoreDisplay({ score }: Props) {
           />
         </svg>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'center', marginBottom: '0.1rem', lineHeight: 1.2, maxWidth: 80 }}>
+          <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'center', marginBottom: '0.1rem', lineHeight: 1.2, maxWidth: 80 }}>
             Skor cocok
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
             <span style={{ fontSize: '2.6rem', fontWeight: 800, lineHeight: 1, color: '#111827' }}>{score}</span>
-            <span style={{ fontSize: '0.85rem', color: '#9CA3AF' }}>%</span>
+            <span style={{ fontSize: '0.85rem', color: '#6B7280' }}>%</span>
           </div>
         </div>
       </div>

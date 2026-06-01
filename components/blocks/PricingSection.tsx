@@ -80,7 +80,7 @@ export default function PricingSection() {
                   {copy.outcome}
                 </p>
 
-                <p style={{ fontSize: '0.72rem', color: '#94A3B8', margin: 0, fontWeight: 500, overflowWrap: 'break-word' }}>
+                <p style={{ fontSize: '0.72rem', color: '#64748B', margin: 0, fontWeight: 500, overflowWrap: 'break-word' }}>
                   {copy.diff}
                 </p>
               </a>

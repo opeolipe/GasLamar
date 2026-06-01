@@ -68,7 +68,7 @@ function DownloadButton({ label, sublabel, ariaLabel, onClick }: DownloadButtonP
       }}
     >
       <span className="min-w-0 truncate">{label}</span>
-      <span className="text-xs flex-shrink-0 ml-3 font-medium" style={{ color: '#94A3B8' }}>{sublabel}</span>
+      <span className="text-xs flex-shrink-0 ml-3 font-medium" style={{ color: '#64748B' }}>{sublabel}</span>
     </button>
   );
 }
@@ -211,7 +211,7 @@ export default function DownloadReady({
       `}</style>
       <pre data-testid="cv-content" className="sr-only" aria-hidden="true">{cvTextId}</pre>
 
-      <div style={{ textAlign: 'center', marginBottom: '0.9rem', fontSize: '0.8rem', color: '#94A3B8', fontWeight: 500 }}>
+      <div style={{ textAlign: 'center', marginBottom: '0.9rem', fontSize: '0.8rem', color: '#64748B', fontWeight: 500 }}>
         CV dianalisis dan dioptimasi untuk posisi yang kamu incar
       </div>
 
