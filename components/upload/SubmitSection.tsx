@@ -10,10 +10,8 @@ export default function SubmitSection({ isLoading, hasCv = false, showJdHint, jd
   const showCvHint = !hasCv;
   const showChecklist = showCvHint && showJdHint;
 
-  // aria-disabled keeps the button focusable so keyboard/screen-reader users can
-  // press it and receive the scroll-to-error feedback from handleSubmit.
-  // HTML `disabled` would swallow those events entirely.
   const isFormIncomplete = !hasCv || showJdHint;
+  const isDisabled = isLoading || isFormIncomplete;
   const ariaLabel = isLoading
     ? 'Sedang menganalisis CV kamu'
     : isFormIncomplete
@@ -27,11 +25,10 @@ export default function SubmitSection({ isLoading, hasCv = false, showJdHint, jd
         id="submit-btn"
         data-testid="submit-upload"
         onClick={onSubmit}
-        disabled={isLoading}
-        aria-disabled={isLoading || isFormIncomplete}
+        disabled={isDisabled}
         aria-label={ariaLabel}
         className={`min-h-[56px] w-full rounded-full px-6 py-4 text-white font-bold text-base border-0 transition-all flex items-center justify-center gap-2 ${
-          isLoading || isFormIncomplete
+          isDisabled
             ? 'opacity-60 cursor-not-allowed'
             : 'hover:-translate-y-[2px] active:scale-[0.97] active:translate-y-0 cursor-pointer'
         }`}
@@ -42,7 +39,7 @@ export default function SubmitSection({ isLoading, hasCv = false, showJdHint, jd
             <span className="inline-block w-5 h-5 border-[3px] border-white/30 border-t-white rounded-full animate-spin" />
             Menganalisis CV kamu...
           </>
-        ) : isFormIncomplete ? 'Lengkapi CV & job description dulu'
+        ) : isDisabled ? 'Lengkapi CV & job description dulu'
         : 'Cek peluang saya'}
       </button>
 
