@@ -133,14 +133,7 @@ export default function Result() {
     trackExperimentExposure(stickyFlagKey, stickyNormalized);
   }, []);
 
-  useEffect(() => {
-    if (!noSession) return;
-    if (noSession === 'expired') {
-      window.location.replace('access.html?expired=1&source=hasil');
-      return;
-    }
-    window.location.replace('upload.html?reason=no_session');
-  }, [noSession]);
+  // noSession errors are rendered inline — no redirect needed.
 
   useEffect(() => {
     if (countdown.isExpiringSoon && !toastShownRef.current) {
@@ -508,6 +501,40 @@ export default function Result() {
             <div style={{ width: 28, height: 28, border: '3px solid #BFDBFE', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'gasResultSpin 0.8s linear infinite', display: 'inline-block', marginBottom: '1rem' }} />
             <p style={{ fontWeight: 600, fontSize: '1.1rem', margin: '0 0 0.5rem', fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>Memuat hasil analisis…</p>
             <p style={{ color: '#64748B', fontSize: '0.875rem', margin: 0 }}>Sebentar lagi</p>
+          </div>
+        )}
+
+        {/* ── Session error states ── */}
+        {noSession === 'missing' && !loading && (
+          <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem 2rem' }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }} aria-hidden="true">📄</div>
+            <h2 style={{ fontWeight: 600, fontSize: '1.2rem', margin: '0 0 0.75rem', fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>Tidak ada sesi aktif</h2>
+            <p style={{ color: '#64748B', fontSize: '0.9rem', margin: '0 0 1.5rem', lineHeight: 1.6 }}>Silakan upload CV untuk memulai analisis baru.</p>
+            <a href="upload.html" style={{ display: 'inline-block', background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', fontWeight: 700, padding: '0.75rem 1.75rem', borderRadius: 60, textDecoration: 'none', fontSize: '0.95rem', boxShadow: '0 8px 24px rgba(37,99,235,0.25)' }}>
+              Upload CV
+            </a>
+          </div>
+        )}
+
+        {noSession === 'expired' && !loading && (
+          <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem 2rem' }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }} aria-hidden="true">⏰</div>
+            <h2 style={{ fontWeight: 600, fontSize: '1.2rem', margin: '0 0 0.75rem', fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>Sesi analisis sudah berakhir</h2>
+            <p style={{ color: '#64748B', fontSize: '0.9rem', margin: '0 0 1.5rem', lineHeight: 1.6 }}>Sesi analisis kamu sudah berakhir (setelah 24 jam). Upload CV lagi untuk analisis baru.</p>
+            <a href="upload.html" style={{ display: 'inline-block', background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', fontWeight: 700, padding: '0.75rem 1.75rem', borderRadius: 60, textDecoration: 'none', fontSize: '0.95rem', boxShadow: '0 8px 24px rgba(37,99,235,0.25)' }}>
+              Upload CV Lagi
+            </a>
+          </div>
+        )}
+
+        {noSession === 'data_missing' && !loading && (
+          <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem 2rem' }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }} aria-hidden="true">⚠️</div>
+            <h2 style={{ fontWeight: 600, fontSize: '1.2rem', margin: '0 0 0.75rem', fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>Data hasil tidak ditemukan</h2>
+            <p style={{ color: '#64748B', fontSize: '0.9rem', margin: '0 0 1.5rem', lineHeight: 1.6 }}>Data hasil tidak ditemukan. Silakan hubungi support.</p>
+            <a href="mailto:halo@gaslamar.com" style={{ display: 'inline-block', background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', fontWeight: 700, padding: '0.75rem 1.75rem', borderRadius: 60, textDecoration: 'none', fontSize: '0.95rem', boxShadow: '0 8px 24px rgba(37,99,235,0.25)' }}>
+              Hubungi Support
+            </a>
           </div>
         )}
 
