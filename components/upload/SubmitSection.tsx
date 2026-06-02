@@ -1,5 +1,6 @@
 interface Props {
   isLoading:    boolean;
+  isSubmitted?: boolean;
   hasCv?:       boolean;
   showJdHint:   boolean;
   jdHintText?:  string;
@@ -7,16 +8,17 @@ interface Props {
   onSubmit:     () => void;
 }
 
-export default function SubmitSection({ isLoading, hasCv = false, showJdHint, jdHintText, cvHintText, onSubmit }: Props) {
+export default function SubmitSection({ isLoading, isSubmitted = false, hasCv = false, showJdHint, jdHintText, cvHintText, onSubmit }: Props) {
   const showCvHint = !hasCv;
   const showChecklist = showCvHint && showJdHint;
 
   const isFormIncomplete = !hasCv || showJdHint;
-  const isDisabled = isLoading || isFormIncomplete;
+  const isDisabled = isLoading || isSubmitted || isFormIncomplete;
 
   const defaultCvHint = 'Upload atau paste CV kamu dulu';
 
   function getButtonLabel() {
+    if (isSubmitted) return 'CV berhasil dikirim, mengarahkan ke analisis';
     if (isLoading) return 'Sedang menganalisis CV kamu';
     if (!hasCv)    return cvHintText ?? defaultCvHint;
     if (showJdHint) return 'Lengkapi CV & job description sebelum analisis dimulai';
@@ -25,6 +27,18 @@ export default function SubmitSection({ isLoading, hasCv = false, showJdHint, jd
 
   return (
     <div className="mt-6">
+      {/* Success toast */}
+      {isSubmitted && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="mb-3 flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium text-emerald-800 bg-emerald-50 border border-emerald-200"
+        >
+          <span aria-hidden="true">✅</span>
+          CV berhasil dikirim! Analisis sedang dimulai...
+        </div>
+      )}
+
       <button
         type="button"
         id="submit-btn"
@@ -37,9 +51,17 @@ export default function SubmitSection({ isLoading, hasCv = false, showJdHint, jd
             ? 'opacity-60 cursor-not-allowed'
             : 'hover:-translate-y-[2px] active:scale-[0.97] active:translate-y-0 cursor-pointer'
         }`}
-        style={{ background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', boxShadow: '0 8px 24px rgba(37,99,235,0.30)' }}
+        style={isSubmitted
+          ? { background: 'linear-gradient(180deg,#10b981,#059669)', boxShadow: '0 8px 24px rgba(5,150,105,0.30)' }
+          : { background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', boxShadow: '0 8px 24px rgba(37,99,235,0.30)' }
+        }
       >
-        {isLoading ? (
+        {isSubmitted ? (
+          <>
+            <span aria-hidden="true">✅</span>
+            Terkirim! Mengarahkan ke analisis...
+          </>
+        ) : isLoading ? (
           <>
             <span className="inline-block w-5 h-5 border-[3px] border-white/30 border-t-white rounded-full animate-spin" />
             Menganalisis CV kamu...

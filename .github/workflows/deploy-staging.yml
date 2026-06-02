@@ -156,6 +156,42 @@ jobs:
           echo ""
           echo "All CORS security checks passed."
 
+      - name: Security headers check (staging)
+        run: |
+          set -e
+          WORKER="https://api-staging.gaslamar.com"
+          FAIL=0
+
+          check_header() {
+            local ENDPOINT="$1"
+            local HEADER="$2"
+            local EXPECTED="$3"
+            local ACTUAL
+            ACTUAL=$(curl -s -I "$WORKER$ENDPOINT" | grep -i "^${HEADER}:" | tr -d '\r' | sed 's/^[^:]*: //')
+            if [ "$ACTUAL" = "$EXPECTED" ]; then
+              echo "  PASS [$ENDPOINT] $HEADER: $ACTUAL"
+            else
+              echo "  FAIL [$ENDPOINT] $HEADER: expected '$EXPECTED', got '$ACTUAL'"
+              FAIL=1
+            fi
+          }
+
+          for ENDPOINT in /health /check-session; do
+            echo "--- $ENDPOINT ---"
+            check_header "$ENDPOINT" "content-security-policy" "default-src 'none'; frame-ancestors 'none'"
+            check_header "$ENDPOINT" "x-frame-options"         "DENY"
+            check_header "$ENDPOINT" "x-content-type-options"  "nosniff"
+            check_header "$ENDPOINT" "strict-transport-security" "max-age=31536000; includeSubDomains"
+          done
+
+          if [ "$FAIL" -ne 0 ]; then
+            echo ""
+            echo "Security headers check FAILED — see above."
+            exit 1
+          fi
+          echo ""
+          echo "All security header checks passed."
+
   build-frontend:
     name: Build Frontend
     runs-on: ubuntu-latest
