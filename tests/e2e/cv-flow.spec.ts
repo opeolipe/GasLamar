@@ -516,6 +516,11 @@ test.describe('GasLamar CV Flow', () => {
   test('hasil page shows no-session message when sessionStorage is empty', async ({ page }) => {
     // Result.tsx renders an inline "Tidak ada sesi aktif" panel when no session is found
     // (useResultData sets noSession='missing'). There is no redirect.
+    // Override the beforeEach /get-scoring mock: a 500 makes fetchScoring throw, exhaust
+    // its single retry, and call fail('missing') — which renders the no-session panel.
+    await page.route('**/get-scoring**', (route) =>
+      route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'no session' }) }),
+    );
     await page.goto('/hasil');
     await expect(page.getByText('Tidak ada sesi aktif')).toBeVisible({ timeout: 15000 });
   });
