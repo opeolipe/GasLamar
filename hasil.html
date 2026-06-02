@@ -24,8 +24,12 @@
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg?v=2" />
   <link rel="alternate" type="application/ld+json" href="/assets/structured-data-hasil.json">
   <!-- Session guard — must run synchronously before body renders to prevent auth flash.
+       Auth is enforced via HttpOnly cv_key cookie (server-side in production via router.js;
+       async via /check-session in the page component for all environments).
+       This guard only rejects forged URL session parameters; sets window.__hasilSessionError
+       so the React app can render inline error states without a hard redirect.
        Source of truth: js/hasil-guard.js — keep in sync when editing. -->
-  <script>(function(){var r=["gaslamar_cv_key","gaslamar_analyze_time"],a=new URLSearchParams(location.search),s=a.get("session")||a.get("sessionId");if(s!==null&&!s.startsWith("cvtext_")){r.forEach(function(e){sessionStorage.removeItem(e)}),window.__hasilSessionError="expired";return}var i=parseInt(sessionStorage.getItem("gaslamar_analyze_time")||"0"),n=86400;if(!i){window.__hasilSessionError="no_session";return}var o=(Date.now()-i)/1e3>n;if(o){r.forEach(function(e){sessionStorage.removeItem(e)}),window.__hasilSessionError="expired";return}})();</script>
+  <script>(function(){var s=new URLSearchParams(location.search),n=s.get("session")||s.get("sessionId");if(n!==null&&!n.startsWith("cvtext_")){sessionStorage.removeItem("gaslamar_cv_key");window.__hasilSessionError="expired";}})();</script>
   <!-- Cloudflare Web Analytics -->
   <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "f9c97d82f2a04b9f95e051946eb0525e"}'></script>
   <link rel="stylesheet" href="css/tailwind.css">

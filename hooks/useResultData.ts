@@ -21,6 +21,7 @@ export function useResultData(): ResultDataState {
   useEffect(() => {
     const params     = new URLSearchParams(location.search);
     const urlSession = params.get('session') || params.get('sessionId');
+    // analyzeTime kept for countdown UX only — not used for auth decisions
     const time       = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
 
     const fail = (noSession: NoSessionReason) =>
@@ -78,7 +79,6 @@ export function useResultData(): ResultDataState {
             try { sessionStorage.setItem('gaslamar_gap', JSON.stringify((s.gap as string[]).slice(0, 5))); } catch (_) {}
           }
 
-          // Analytics
           try {
             sessionStorage.setItem('gaslamar_score_displayed_at', String(Date.now()));
             (window as any).Analytics?.track?.('score_displayed', {
@@ -91,11 +91,13 @@ export function useResultData(): ResultDataState {
 
           if (!cancelled) setState({ data: s ?? null, cvKey: '', analyzeTime: time, loading: false, error: null, noSession: null });
 
-          // Defence-in-depth: verify server-side session validity (cookie-based, fail-open).
-          fetch(`${WORKER_URL}/validate-session`, { credentials: 'include' })
+          // Defense-in-depth: validate cv_key cookie via /check-session.
+          // /check-session validates both analysis (cv_key) and payment (sess_) sessions.
+          // Fail-open on network error — session is already displayed.
+          fetch(`${WORKER_URL}/check-session`, { credentials: 'include' })
             .then(r => (r.ok ? r.json() : Promise.reject()))
-            .then((result: { valid: boolean }) => {
-              if (!result.valid) {
+            .then((result: { valid?: boolean; authenticated?: boolean }) => {
+              if (!result.valid && !result.authenticated) {
                 try { sessionStorage.removeItem('gaslamar_analyze_time'); } catch (_) {}
                 if (!cancelled) setState(prev => ({ ...prev, data: null, loading: false, noSession: 'expired' }));
               }

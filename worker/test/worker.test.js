@@ -1557,6 +1557,65 @@ describe('GET /check-session', () => {
     expect(blocked.headers.get('Retry-After')).toBeTruthy();
   });
 
+  it('returns valid:true for a cv_key cookie with active analysis session in KV', async () => {
+    const key = `cvtext_${cvHexToken()}`;
+    await env.GASLAMAR_SESSIONS.put(key, JSON.stringify({
+      text: 'CV text',
+      job_desc: 'Job desc',
+      ip: '1.2.3.4',
+      scoring: { skor: 75, gap: [], kekuatan: [] },
+    }), { expirationTtl: 86400 });
+    const res = await get('/check-session', { Cookie: `cv_key=${key}` });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.authenticated).toBe(true);
+    expect(body.type).toBe('analysis');
+  });
+
+  it('returns valid:false with reason expired when cv_key cookie exists but KV entry is gone', async () => {
+    const missingKey = `cvtext_${cvHexToken()}`;
+    const res = await get('/check-session', { Cookie: `cv_key=${missingKey}` });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+    expect(body.reason).toBe('expired');
+  });
+
+  it('falls back to scoring_ key when cvtext_ is absent but scoring_ exists', async () => {
+    const token = cvHexToken();
+    const cvKey = `cvtext_${token}`;
+    await env.GASLAMAR_SESSIONS.put(`scoring_${token}`, JSON.stringify({
+      scoring: { skor: 60, gap: [], kekuatan: [] },
+    }), { expirationTtl: 86400 });
+    const res = await get('/check-session', { Cookie: `cv_key=${cvKey}` });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.authenticated).toBe(true);
+    expect(body.type).toBe('analysis');
+  });
+
+  it('cv_key cookie without sess_ prefix does not bleed into payment session path', async () => {
+    const key = `cvtext_${cvHexToken()}`;
+    // No KV entry — expired cv_key should not trigger session path
+    const res = await get('/check-session', { Cookie: `cv_key=${key}` });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).not.toHaveProperty('status'); // payment session fields absent
+    expect(body).not.toHaveProperty('credits_remaining');
+  });
+
+  it('payment session cookie (sess_) still returns full session fields', async () => {
+    const sessionId = await seedSession('paid', 'single');
+    const res = await get('/check-session', sessionCookie(sessionId));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.status).toBe('paid');
+    expect(body.credits_remaining).toBeDefined();
+  });
+
 });
 
 describe('POST /exchange-token — abuse regression', () => {

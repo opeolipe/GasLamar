@@ -451,6 +451,14 @@ When an API returns job description text that may exceed the field limit, cap it
 - Static asset CORS (no ACAO) → step [5] in both deploy workflows (upgraded from WARN to FAIL in prod)
 - Stale staging deploy → `scripts/verify-staging-bundle.js` + CI step in `deploy-staging.yml`
 
+## Session guard must not block on sessionStorage (2026-06-01)
+- **Problem**: `hasil-guard.js` checked `gaslamar_analyze_time` in sessionStorage synchronously before page load. This is tab-scoped and can be absent (privacy modes, new tab, iOS Safari ITP, cleared by upload page).
+- **Fix**: Remove the sessionStorage auth check from the guard. Auth is enforced via:
+  1. Server-side: `router.js` checks `cv_key` HttpOnly cookie before serving `hasil.html` in production.
+  2. Async: `/check-session` now validates `cv_key` cookie and returns `{valid:true, type:"analysis"}` for active analysis sessions; `useResultData` calls this as defense-in-depth.
+- **Rule**: Never use sessionStorage as a gate for page access. Use HttpOnly cookies (server-side) or async API calls. The guard exists only to block forged URL parameters and sets `window.__hasilSessionError` for inline React error states.
+- **Countdown UX**: `gaslamar_analyze_time` is still written to sessionStorage for the payment countdown timer — it is not a security token and its absence does not block access.
+
 ## Removing all sensitive data from sessionStorage (2026-06-01)
 
 Pattern applied in the XSS/IDOR security fix:
