@@ -207,7 +207,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
           role="tab"
           aria-selected={tab === 'upload'}
           onClick={() => switchTab('upload')}
-          className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+          className={`flex-1 min-h-[44px] text-sm font-medium rounded-lg transition-all ${
             tab === 'upload'
               ? 'bg-white shadow-sm text-slate-900'
               : 'text-slate-500 hover:text-slate-700'
@@ -221,7 +221,7 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
           role="tab"
           aria-selected={tab === 'paste'}
           onClick={() => switchTab('paste')}
-          className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+          className={`flex-1 min-h-[44px] text-sm font-medium rounded-lg transition-all ${
             tab === 'paste'
               ? 'bg-white shadow-sm text-slate-900'
               : 'text-slate-500 hover:text-slate-700'

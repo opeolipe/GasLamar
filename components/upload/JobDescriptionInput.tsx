@@ -207,7 +207,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
           <button
             type="button"
             onClick={() => setShowExample(s => !s)}
-            className="text-xs text-slate-400 hover:text-slate-600 underline decoration-dotted transition-colors"
+            className="inline-flex items-center min-h-[44px] min-w-[44px] text-xs text-slate-400 hover:text-slate-600 underline decoration-dotted transition-colors"
           >
             {showExample ? 'Sembunyikan contoh' : 'Lihat contoh job description'}
           </button>
