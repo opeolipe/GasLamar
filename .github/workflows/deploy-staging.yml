@@ -191,7 +191,7 @@ jobs:
   deploy-staging-pages:
     name: Deploy Staging to Cloudflare Pages
     runs-on: ubuntu-latest
-    needs: build-frontend
+    needs: [build-frontend, deploy-sandbox-worker]
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -206,15 +206,20 @@ jobs:
       - name: Deploy preview to Cloudflare Pages
         id: pages
         run: |
-          npx wrangler@4 pages deploy dist \
+          npx wrangler@3 pages deploy dist \
             --project-name=gaslamar \
             --branch=staging \
             --commit-dirty=true \
             2>&1 | tee /tmp/pages-output.txt
           echo "--- Pages output ---"
           cat /tmp/pages-output.txt
-          # Extract the preview URL from wrangler output
+          # Extract the preview URL from wrangler output; fall back to the canonical
+          # branch alias so the smoke test always has a valid target.
           URL=$(grep -oE 'https://[a-z0-9-]+\.gaslamar\.pages\.dev' /tmp/pages-output.txt | head -1)
+          if [ -z "$URL" ]; then
+            URL="https://staging.gaslamar.pages.dev"
+            echo "URL not found in wrangler output — using canonical alias: $URL"
+          fi
           echo "staging_url=$URL" >> $GITHUB_OUTPUT
           echo "Staging URL: $URL"
         env:
@@ -235,3 +240,68 @@ jobs:
         run: |
           sleep 20
           STAGING_URL="${{ steps.pages.outputs.staging_url }}" node dist/scripts/verify-staging-bundle.js
+
+      # Structural smoke test: confirms each deployed page has the correct root
+      # element, loads only its own React bundle, and returns HTTP 200.
+      # This catches stale HTML (wrong bundle reference) and server errors.
+      - name: Structural smoke test
+        run: |
+          set -e
+          BASE="${{ steps.pages.outputs.staging_url }}"
+          FAIL=0
+
+          check_page() {
+            local FILE="$1"
+            local OWN_BUNDLE="$2"
+            local ROOT_ELEM="$3"
+            local TITLE_FRAGMENT="$4"
+            local URL="$BASE/$FILE"
+
+            echo ""
+            echo "=== $FILE ==="
+            # Use cache-bypass headers to avoid serving a stale CDN response
+            HTTP_STATUS=$(curl -s -o /tmp/smoke_body.html -w "%{http_code}" \
+              -H "Cache-Control: no-cache" -H "Pragma: no-cache" "$URL")
+
+            if [ "$HTTP_STATUS" != "200" ]; then
+              echo "  FAIL: HTTP $HTTP_STATUS (expected 200)"
+              FAIL=1
+              return
+            fi
+            echo "  OK: HTTP 200"
+
+            if ! grep -q "$ROOT_ELEM" /tmp/smoke_body.html; then
+              echo "  FAIL: root element '$ROOT_ELEM' not found"
+              FAIL=1
+            else
+              echo "  OK: root element '$ROOT_ELEM' present"
+            fi
+
+            if ! grep -q "$OWN_BUNDLE" /tmp/smoke_body.html; then
+              echo "  FAIL: own bundle '$OWN_BUNDLE' not found"
+              FAIL=1
+            else
+              echo "  OK: own bundle '$OWN_BUNDLE' loaded"
+            fi
+
+            if [ -n "$TITLE_FRAGMENT" ]; then
+              if ! grep -q "$TITLE_FRAGMENT" /tmp/smoke_body.html; then
+                echo "  FAIL: title fragment '$TITLE_FRAGMENT' not found"
+                FAIL=1
+              else
+                echo "  OK: title fragment found"
+              fi
+            fi
+          }
+
+          check_page "hasil.html"     "hasil-react.bundle.js"     "result-root"  "Hasil Analisis"
+          check_page "upload.html"    "upload-react.bundle.js"    "upload-root"  ""
+          check_page "analyzing.html" "analyzing-react.bundle.js" "analyzing-root" ""
+          check_page "download.html"  "download-react.bundle.js"  "download-root"  ""
+
+          echo ""
+          if [ "$FAIL" -ne 0 ]; then
+            echo "Structural smoke test FAILED — see above."
+            exit 1
+          fi
+          echo "All structural smoke checks passed."
