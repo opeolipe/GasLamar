@@ -114,7 +114,6 @@ async function checkPage(base, file, ownBundle, localVers) {
     // pages (e.g. /hasil.html → /hasil → upload.html).  Fall back to verifying
     // the JS bundle asset directly so the build is still confirmed correct.
     if (err.message.startsWith('Redirected to ')) {
-      redirected = true;
       console.log(`  (redirected — verifying bundle asset directly)`);
       const expectedV = localVers[ownBundle];
       if (!expectedV) return [`No local version found for ${ownBundle}`];
