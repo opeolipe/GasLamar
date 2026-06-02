@@ -26,6 +26,7 @@ function noStoreRedirect(location) {
   return new Response(null, {
     status: 302,
     headers: {
+      ...SECURITY_HEADERS,
       Location: location,
       'Cache-Control': 'no-store',
     },
