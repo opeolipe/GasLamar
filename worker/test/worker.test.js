@@ -65,11 +65,27 @@ function cvKeyCookie(cvKey) {
  * header has compressedSz=0; the real size follows in a PK\x07\x08 record.
  */
 function makeDOCXDataDescriptorBase64() {
+  const cvContent = [
+    'Budi Santoso — Software Engineer | budi@email.com | +62 812 3456 7890 | Jakarta, Indonesia',
+    'Ringkasan: Software Engineer berpengalaman 5 tahun dalam pengembangan backend dan frontend menggunakan Node.js React TypeScript.',
+    'Terbiasa membangun sistem berskala besar dengan arsitektur microservices dan pola event-driven untuk keandalan tinggi.',
+    'Keahlian utama: Node.js, React, TypeScript, AWS, GCP, PostgreSQL, Redis, Docker, Kubernetes, Jest, REST API, GraphQL.',
+    'Senior Developer — PT Teknologi Maju, Jakarta (2019–2024).',
+    'Memimpin tim 5 orang dalam migrasi arsitektur monolith ke microservices untuk platform e-commerce 500k pengguna aktif.',
+    'Membangun REST API Node.js yang menangani 30.000 request per menit dengan SLA uptime 99.9% dan p99 latency di bawah 50ms.',
+    'Mengembangkan dashboard analytics real-time dengan React D3.js dan Redis Pub/Sub untuk notifikasi 200k subscriber.',
+    'Meningkatkan performa query PostgreSQL sebesar 40% melalui indexing partitioning dan optimasi eksekusi query kompleks.',
+    'Merancang dan mengimplementasikan sistem CI/CD berbasis GitHub Actions dan Docker yang memangkas waktu deploy dari 30 menit menjadi 5 menit.',
+    'Junior Developer — PT Digital Kreatif (2017–2019).',
+    'Membangun fitur CRUD Node.js PostgreSQL untuk aplikasi manajemen inventori dan sistem pelaporan internal.',
+    'Menulis unit test Jest dan integration test dengan coverage 80 persen untuk backend services produksi.',
+    'Berkolaborasi dalam tim Agile Scrum sprint dua mingguan code review dan onboarding developer baru.',
+    'Pendidikan: S1 Teknik Informatika Universitas Indonesia IPK 3.7/4.0 2013–2017.',
+    'Sertifikat: AWS Certified Developer Associate 2022 dan Google Cloud Professional Data Engineer 2023.',
+  ].join(' ');
   const xml = '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
     + '<w:body>'
-    + '<w:p><w:r><w:t>Budi Santoso — Software Engineer</w:t></w:r></w:p>'
-    + '<w:p><w:r><w:t>Pengalaman 5 tahun React Node.js TypeScript AWS PostgreSQL Redis</w:t></w:r></w:p>'
-    + '<w:p><w:r><w:t>PT Teknologi Maju 2019-2024 membangun REST API microservices dashboard analytics</w:t></w:r></w:p>'
+    + '<w:p><w:r><w:t>' + cvContent + '</w:t></w:r></w:p>'
     + '</w:body></w:document>';
   const xmlBytes = new TextEncoder().encode(xml);
   const filenameBytes = new TextEncoder().encode('word/document.xml');
@@ -103,6 +119,41 @@ function makeDOCXDataDescriptorBase64() {
 
   let bin = '';
   for (const b of out) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+
+/** DOCX with valid structure but only ~300 chars of text content — tests the 1500-char floor. */
+function makeShortDOCXBase64() {
+  // 500 chars — above the 100-char minimum in extractCVText but below the 1500-char gate in analyze.js
+  const shortText = 'Budi Santoso, Software Engineer. Skills: React, Node.js, SQL. '
+    + 'Pengalaman 2 tahun di PT XYZ Jakarta sebagai junior developer. '
+    + 'Membangun fitur CRUD dan REST API sederhana untuk aplikasi internal perusahaan. '
+    + 'Pendidikan S1 Teknik Informatika Universitas Indonesia lulus 2020. '
+    + 'Terbiasa dengan Git workflow dan metodologi Agile dasar dalam tim kecil. '
+    + 'Familiar dengan deployment ke server Linux dan penggunaan Docker untuk lingkungan pengembangan lokal.';
+  const xml = '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+    + '<w:body><w:p><w:r><w:t>' + shortText + '</w:t></w:r></w:p></w:body></w:document>';
+  const xmlBytes = new TextEncoder().encode(xml);
+  const filenameBytes = new TextEncoder().encode('word/document.xml');
+  const u32le = n => [n & 0xFF, (n >> 8) & 0xFF, (n >> 16) & 0xFF, (n >> 24) & 0xFF];
+  const header = new Uint8Array([
+    0x50, 0x4B, 0x03, 0x04, 0x14, 0x00,
+    0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00,
+    filenameBytes.length & 0xFF, 0x00, 0x00, 0x00,
+  ]);
+  const descriptor = new Uint8Array([
+    0x50, 0x4B, 0x07, 0x08, 0x00, 0x00, 0x00, 0x00,
+    ...u32le(xmlBytes.length), ...u32le(xmlBytes.length),
+  ]);
+  const out = new Uint8Array(header.length + filenameBytes.length + xmlBytes.length + descriptor.length);
+  let off = 0;
+  out.set(header, off); off += header.length;
+  out.set(filenameBytes, off); off += filenameBytes.length;
+  out.set(xmlBytes, off); off += xmlBytes.length;
+  out.set(descriptor, off);
+  let bin = ''; for (const b of out) bin += String.fromCharCode(b);
   return btoa(bin);
 }
 
@@ -213,7 +264,40 @@ async function seedLegacySession(status = 'paid', tier = 'single') {
 
 /** Call 1 (PDF only): raw CV text extracted from the PDF document */
 const MOCK_PDF_EXTRACTION = {
-  content: [{ text: 'Budi Santoso\nSoftware Engineer\n\nPENGALAMAN\nDeveloper PT XYZ 2020-2024\n- Node.js REST API development\n- React dashboard\n\nPENDIDIKAN\nS1 Teknik Informatika UI 2020' }],
+  content: [{ text: [
+    'Budi Santoso',
+    'Software Engineer | budi@email.com | +62 812 3456 7890 | Jakarta, Indonesia',
+    '',
+    'RINGKASAN',
+    'Software Engineer berpengalaman 5 tahun dalam pengembangan backend dan frontend menggunakan Node.js, React, dan SQL.',
+    'Berpengalaman membangun REST API yang skalabel, dashboard analytics interaktif, dan sistem manajemen data.',
+    'Terbiasa bekerja dalam tim kecil maupun besar dengan metodologi Agile dan pengiriman fitur berbasis sprint dua mingguan.',
+    '',
+    'PENGALAMAN',
+    'Senior Developer — PT XYZ Teknologi, Jakarta (2022–2024)',
+    '- Memimpin migrasi arsitektur monolith ke microservices untuk platform e-commerce dengan 500k pengguna aktif.',
+    '- Membangun REST API dengan Node.js dan Express yang menangani 30.000 request/menit dengan SLA 99.9%.',
+    '- Mengembangkan dashboard analytics real-time menggunakan React dan D3.js untuk tim business intelligence.',
+    '- Meningkatkan performa query database PostgreSQL sebesar 40% melalui indexing, partitioning, dan optimasi query.',
+    '- Merancang sistem antrian pesan menggunakan Redis Pub/Sub untuk notifikasi real-time kepada 200k subscriber.',
+    '- Memimpin code review mingguan dan onboarding 3 junior developer baru ke dalam tim.',
+    '',
+    'Junior Developer — PT ABC Digital (2020–2022)',
+    '- Membangun fitur CRUD menggunakan Node.js dan PostgreSQL untuk aplikasi manajemen inventori internal.',
+    '- Menulis unit test dengan Jest dan integration test untuk backend services dengan coverage 80%.',
+    '- Berkolaborasi dalam tim 5 orang menggunakan metodologi Agile/Scrum dan sprint planning dua mingguan.',
+    '- Mengimplementasikan sistem autentikasi JWT dan OAuth2 untuk API internal perusahaan.',
+    '',
+    'PENDIDIKAN',
+    'S1 Teknik Informatika — Universitas Indonesia (2016–2020)',
+    'IPK: 3.7/4.0 | Skripsi: Optimasi Query pada Database Terdistribusi menggunakan Algoritma Genetika',
+    '',
+    'SERTIFIKAT',
+    'AWS Certified Developer Associate (2022) | Google Cloud Professional Data Engineer (2023)',
+    '',
+    'KEAHLIAN',
+    'Node.js, React, TypeScript, SQL, PostgreSQL, Redis, REST API, Docker, Git, Jest, Express, AWS, GCP',
+  ].join('\n') }],
 };
 
 /** Call 2: SKILL_EXTRACT output — verbatim structured data from CV + JD */
@@ -820,6 +904,17 @@ describe('POST /analyze — validation', () => {
 
   it('rejects pasted text CV under 1500 chars → 422', async () => {
     const cv = JSON.stringify({ type: 'txt', data: 'A'.repeat(1499) });
+    const res = await post('/analyze', { cv, job_desc: JOB_DESC }, {}, nextIp());
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.message).toMatch(/minimal 1\.500 karakter/i);
+  });
+
+  it('rejects DOCX CV with extracted text under 1500 chars → 422', async () => {
+    // makeShortDOCXBase64 builds a structurally valid DOCX with only ~85 chars of
+    // text content — passes the 100-char floor in extractCVText but hits the
+    // universal 1500-char gate added to analyze.js.
+    const cv = JSON.stringify({ type: 'docx', data: makeShortDOCXBase64() });
     const res = await post('/analyze', { cv, job_desc: JOB_DESC }, {}, nextIp());
     expect(res.status).toBe(422);
     const body = await res.json();
