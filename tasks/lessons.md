@@ -523,3 +523,19 @@ The `cv_key` is the raw cvtext_ key (points to the full CV+scoring blob).
 
 Lookup order: `sessionToken` → `analysis_session_` → `{ resultId, cvKey }` → return resultId.
 Legacy fallback: `cv_key` → `cvtext_` KV direct lookup (old sessions, no analysis_session_ entry).
+
+---
+
+## `_redirects` unconditional rules break Cloudflare Pages Clean URL canonicalization (2026-06-02)
+
+Cloudflare Pages "Clean URLs" feature canonicalizes `/foo.html` → `/foo` via a 301 redirect.
+If `_redirects` has a rule for `/foo` (e.g. `/hasil /upload.html?reason=no_session 302`),
+the chain becomes: `/hasil.html` → 301 `/hasil` → 302 `/upload.html` — all users are blocked,
+authenticated or not.
+
+`verify-staging-bundle.js` already detects this via `res.redirected && res.url !== url`.
+
+**Pattern:** Never put unconditional `_redirects` rules for pages that the app guards internally.
+The React app already handles unauthenticated access inline (shows "Tidak ada sesi aktif" UI).
+Client-side or worker-side guards are sufficient; `_redirects` rules for the same path are dead
+code in production (worker intercepts first) and harmful in staging.
