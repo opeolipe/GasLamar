@@ -244,12 +244,20 @@ jobs:
       # Structural smoke test: confirms each deployed page has the correct root
       # element, loads only its own React bundle, and returns HTTP 200.
       # This catches stale HTML (wrong bundle reference) and server errors.
+      #
+      # NOTE: hasil.html and download.html are session-protected pages. Cloudflare
+      # Pages "Clean URLs" strips .html → redirects /hasil.html → /hasil, which
+      # then hits the _redirects rule and sends unauthenticated users to upload.html.
+      # We cannot check their HTML content without auth, so we verify their JS
+      # bundle assets directly instead (same strategy as verify-staging-bundle.js).
       - name: Structural smoke test
         run: |
           set -e
           BASE="${{ steps.pages.outputs.staging_url }}"
           FAIL=0
 
+          # check_page: fetch the HTML page (without following redirects) and
+          # verify it contains the expected root element and bundle reference.
           check_page() {
             local FILE="$1"
             local OWN_BUNDLE="$2"
@@ -259,8 +267,9 @@ jobs:
 
             echo ""
             echo "=== $FILE ==="
-            # Use cache-bypass headers to avoid serving a stale CDN response
-            HTTP_STATUS=$(curl -s -L -o /tmp/smoke_body.html -w "%{http_code}" \
+            # Do NOT follow redirects (-L omitted): session-protected pages redirect
+            # unauthenticated requests and we must not read the redirect destination.
+            HTTP_STATUS=$(curl -s -o /tmp/smoke_body.html -w "%{http_code}" \
               -H "Cache-Control: no-cache" -H "Pragma: no-cache" "$URL")
 
             if [ "$HTTP_STATUS" != "200" ]; then
@@ -294,10 +303,36 @@ jobs:
             fi
           }
 
-          check_page "hasil.html"     "hasil-react.bundle.js"     "result-root"  "Hasil Analisis"
-          check_page "upload.html"    "upload-react.bundle.js"    "upload-root"  ""
+          # check_bundle_asset: for session-protected pages that always redirect
+          # unauthenticated requests, verify the JS bundle file itself is deployed
+          # and returns HTTP 200. The bundle content hash was already confirmed by
+          # the "Verify staging bundle fingerprints" step above.
+          check_bundle_asset() {
+            local LABEL="$1"
+            local BUNDLE_PATH="$2"
+            local URL="$BASE/$BUNDLE_PATH"
+
+            echo ""
+            echo "=== $LABEL (bundle asset check) ==="
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              -H "Cache-Control: no-cache" -H "Pragma: no-cache" "$URL")
+
+            if [ "$HTTP_STATUS" = "200" ]; then
+              echo "  OK: HTTP 200 — bundle deployed"
+            else
+              echo "  FAIL: HTTP $HTTP_STATUS (expected 200) — bundle missing or not served"
+              FAIL=1
+            fi
+          }
+
+          # Public pages: check HTML content directly.
+          check_page "upload.html"    "upload-react.bundle.js"    "upload-root"    ""
           check_page "analyzing.html" "analyzing-react.bundle.js" "analyzing-root" ""
-          check_page "download.html"  "download-react.bundle.js"  "download-root"  ""
+
+          # Session-protected pages redirect unauthenticated requests via Clean URLs
+          # + _redirects. Verify their JS bundles are deployed instead.
+          check_bundle_asset "hasil.html"    "js/dist/hasil-react.bundle.js"
+          check_bundle_asset "download.html" "js/dist/download-react.bundle.js"
 
           echo ""
           if [ "$FAIL" -ne 0 ]; then
