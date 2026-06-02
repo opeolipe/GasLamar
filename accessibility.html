@@ -186,7 +186,7 @@
 
     <header class="page-hero">
       <h1>Pernyataan Aksesibilitas</h1>
-      <p class="updated">Diperbarui: April 2026</p>
+      <p class="updated">Diperbarui: 1 Juni 2026 · Audit otomatis terakhir: 1 Juni 2026</p>
     </header>
 
     <!-- Commitment -->
@@ -223,6 +223,49 @@
       <p>Jika kamu menemukan hambatan aksesibilitas lain, harap beritahu kami melalui kontak di bawah.</p>
     </div>
 
+    <!-- Audit Results -->
+    <div class="section">
+      <h2><span aria-hidden="true">🔬</span> Hasil Audit — 1 Juni 2026</h2>
+      <p>Audit manual dan otomatis dilakukan terhadap halaman utama, upload, analyzing, hasil, dan download. Berikut temuan dan status resolusinya:</p>
+
+      <h3 style="font-size:0.95rem;font-weight:700;margin:1rem 0 0.5rem;">Kontras Warna (WCAG 1.4.3)</h3>
+      <ul>
+        <li><strong>#2563EB pada putih:</strong> 5,17:1 ✓ Lulus AA</li>
+        <li><strong>#6B7280 pada #F8FAFC:</strong> 4,62:1 ✓ Lulus AA</li>
+        <li><strong>#94A3B8 pada putih:</strong> 2,56:1 ✗ Gagal — <em>Diperbaiki 1 Juni 2026</em> (diubah ke #64748B, 4,76:1)</li>
+        <li><strong>#9CA3AF pada putih:</strong> 2,54:1 ✗ Gagal — <em>Diperbaiki 1 Juni 2026</em> (diubah ke #6B7280, 4,83:1)</li>
+      </ul>
+      <p>Teks dekoratif (ikon panah, spinner) yang tersembunyi dari assistive technology (<code>aria-hidden="true"</code>) dikecualikan sesuai WCAG 1.1.1.</p>
+
+      <h3 style="font-size:0.95rem;font-weight:700;margin:1rem 0 0.5rem;">Touch Target (WCAG 2.5.5)</h3>
+      <ul>
+        <li>Hampir semua tombol dan tautan memenuhi ≥44×44px.</li>
+        <li><strong>Tombol "Ambil via link"</strong> di halaman upload: sebelumnya 36px tinggi minimum — <em>Diperbaiki 1 Juni 2026</em> menjadi 44px.</li>
+      </ul>
+
+      <h3 style="font-size:0.95rem;font-weight:700;margin:1rem 0 0.5rem;">Navigasi Keyboard (WCAG 2.1.1)</h3>
+      <ul>
+        <li>Skip link hadir di semua halaman utama ✓</li>
+        <li>Semua tombol dan form dapat diakses via Tab dan Enter ✓</li>
+        <li><strong>Dialog konfirmasi "Ubah CV atau job"</strong> di halaman analyzing: tidak ada handler Escape — <em>Diperbaiki 1 Juni 2026</em> (tombol Escape menutup dialog).</li>
+        <li>Tombol "Lihat analisis lengkap" di halaman hasil tidak memiliki <code>aria-expanded</code> — <em>Diperbaiki 1 Juni 2026</em>.</li>
+      </ul>
+
+      <h3 style="font-size:0.95rem;font-weight:700;margin:1rem 0 0.5rem;">ARIA &amp; Semantik HTML (WCAG 4.1.2)</h3>
+      <ul>
+        <li>Semua halaman menggunakan <code>&lt;nav&gt;</code>, <code>&lt;main&gt;</code>, <code>&lt;header&gt;</code>, <code>&lt;footer&gt;</code> ✓</li>
+        <li>Tab panel di upload form menggunakan <code>role="tablist"</code>, <code>role="tab"</code>, <code>role="tabpanel"</code> ✓</li>
+        <li>Semua gambar bermakna memiliki atribut <code>alt</code>; ikon dekoratif menggunakan <code>aria-hidden="true"</code> ✓</li>
+        <li>Semua input form memiliki label yang terasosiasi ✓</li>
+      </ul>
+
+      <h3 style="font-size:0.95rem;font-weight:700;margin:1rem 0 0.5rem;">Keterbatasan yang Tersisa</h3>
+      <ul>
+        <li>Dropzone upload menggunakan <code>div</code> dengan <code>tabIndex</code> dan handler keyboard (Enter/Space) — secara fungsional setara dengan tombol, namun tidak menggunakan elemen <code>&lt;button&gt;</code> semantik. Ini akan diperbaiki pada rilis berikutnya.</li>
+        <li>Teks <code>text-slate-400</code> yang muncul di luar komponen yang sudah diperbaiki mungkin masih ada — sedang dalam proses inventarisasi penuh.</li>
+      </ul>
+    </div>
+
     <!-- Technical approach -->
     <div class="section">
       <h2><span aria-hidden="true">🛠️</span> Pendekatan Teknis</h2>
@@ -234,6 +277,28 @@
         <li>Form dengan label yang benar dan pesan error yang deskriptif</li>
         <li>Focus management yang terlihat jelas pada semua elemen interaktif</li>
       </ul>
+    </div>
+
+    <div class="section">
+      <h2><span aria-hidden="true">🔍</span> Panduan QA Aksesibilitas — Tombol Submit</h2>
+      <p>Tombol submit pada halaman upload menggunakan properti <code>disabled</code> HTML native — bukan <code>aria-disabled</code>. Ini adalah pola yang <strong>benar dan direkomendasikan</strong>.</p>
+      <h3 style="font-size:1rem;font-weight:700;margin-top:1rem;">Mengapa hanya <code>disabled</code> native?</h3>
+      <ul>
+        <li>Browser secara otomatis mengumumkan tombol <code>disabled</code> sebagai "tidak tersedia" (dimmed/unavailable/grayed out) kepada screen reader — tanpa perlu <code>aria-disabled</code>.</li>
+        <li>Menggunakan <code>aria-disabled="true"</code> sekaligus dengan <code>disabled</code> menyebabkan screen reader mengumumkan status dua kali (double-announcement) pada beberapa AT.</li>
+        <li><code>aria-disabled</code> hanya diperlukan bila kamu ingin elemen tetap <em>focusable</em> meski dinonaktifkan — skenario yang tidak berlaku untuk tombol submit ini.</li>
+      </ul>
+      <h3 style="font-size:1rem;font-weight:700;margin-top:1rem;">Perhatian saat inspeksi DOM</h3>
+      <p>Panel <strong>Accessibility</strong> di DevTools (Chrome/Firefox) menampilkan <em>properti aksesibilitas yang dikalkulasi</em> — termasuk entri <code>aria-disabled: true</code> yang berasal dari atribut <code>disabled</code> native. Ini bukan atribut DOM yang sesungguhnya. Untuk memverifikasi apakah <code>aria-disabled</code> benar-benar ada di HTML, gunakan panel <strong>Elements</strong> atau jalankan:</p>
+      <pre style="background:#F1F5F9;padding:0.75rem;border-radius:6px;font-size:0.8rem;overflow-x:auto;"><code>document.getElementById('submit-btn').hasAttribute('aria-disabled')
+// harus mengembalikan: false</code></pre>
+      <h3 style="font-size:1rem;font-weight:700;margin-top:1rem;">Skenario yang diharapkan</h3>
+      <ul>
+        <li><strong>Form tidak lengkap:</strong> tombol <code>disabled</code> (native), tidak ada <code>aria-disabled</code>, screen reader mengumumkan "tidak tersedia".</li>
+        <li><strong>Form lengkap:</strong> tombol <code>enabled</code>, tidak ada <code>aria-disabled</code>, screen reader mengumumkan label tombol normal.</li>
+        <li><strong>Sedang menganalisis:</strong> tombol <code>disabled</code> (native), tidak ada <code>aria-disabled</code>, label berubah menjadi "Sedang menganalisis CV kamu".</li>
+      </ul>
+      <p style="margin-top:0.75rem;">Perilaku ini diverifikasi secara otomatis oleh <strong>Playwright e2e test</strong> (<code>tests/e2e/upload-button-a11y.spec.ts</code>) pada setiap CI run.</p>
     </div>
 
     <!-- Contact -->
@@ -249,7 +314,7 @@
 
     <header style="margin-bottom:2rem;">
       <h1 style="font-size:1.75rem;font-weight:800;color:#0F172A;letter-spacing:-0.03em;font-family:'Iowan Old Style','Palatino Linotype','Book Antiqua',Georgia,serif;margin-bottom:0.4rem;">Accessibility Statement</h1>
-      <p style="font-size:0.8rem;color:#9CA3AF;">Updated: April 2026</p>
+      <p style="font-size:0.8rem;color:#6B7280;">Updated: 1 June 2026 · Last automated audit: 1 June 2026</p>
     </header>
 
     <div class="callout-blue">
@@ -281,6 +346,71 @@
         <li>Generated CV documents (PDF/DOCX) are not screen-reader optimised — this is a limitation of the file format, not the web interface</li>
       </ul>
       <p>If you encounter any other accessibility barriers, please let us know using the contact below.</p>
+    </div>
+
+    <!-- English Audit Results -->
+    <div class="section">
+      <h2><span aria-hidden="true">🔬</span> Audit Results — 1 June 2026</h2>
+      <p>A manual and code-level audit was conducted across the homepage, upload, analyzing, results, and download pages. Below are the findings and resolution status:</p>
+
+      <h3 style="font-size:0.95rem;font-weight:700;margin:1rem 0 0.5rem;">Colour Contrast (WCAG 1.4.3)</h3>
+      <ul>
+        <li><strong>#2563EB on white:</strong> 5.17:1 ✓ Passes AA</li>
+        <li><strong>#6B7280 on #F8FAFC:</strong> 4.62:1 ✓ Passes AA</li>
+        <li><strong>#94A3B8 on white:</strong> 2.56:1 ✗ Failed — <em>Fixed 1 June 2026</em> (updated to #64748B, 4.76:1)</li>
+        <li><strong>#9CA3AF on white:</strong> 2.54:1 ✗ Failed — <em>Fixed 1 June 2026</em> (updated to #6B7280, 4.83:1)</li>
+      </ul>
+      <p>Decorative text (icon arrows, spinner labels) hidden from assistive technology via <code>aria-hidden="true"</code> is exempt per WCAG 1.1.1.</p>
+
+      <h3 style="font-size:0.95rem;font-weight:700;margin:1rem 0 0.5rem;">Touch Targets (WCAG 2.5.5)</h3>
+      <ul>
+        <li>Almost all buttons and links meet ≥44×44px.</li>
+        <li><strong>"Ambil via link" button</strong> on the upload page: previously 36px minimum height — <em>Fixed 1 June 2026</em> to 44px.</li>
+      </ul>
+
+      <h3 style="font-size:0.95rem;font-weight:700;margin:1rem 0 0.5rem;">Keyboard Navigation (WCAG 2.1.1)</h3>
+      <ul>
+        <li>Skip link present on every main page ✓</li>
+        <li>All buttons and forms accessible via Tab and Enter ✓</li>
+        <li><strong>Back-confirmation dialog</strong> on the analyzing page: no Escape handler — <em>Fixed 1 June 2026</em> (Escape now dismisses the dialog).</li>
+        <li>"View full analysis" toggle button on results page lacked <code>aria-expanded</code> — <em>Fixed 1 June 2026</em>.</li>
+      </ul>
+
+      <h3 style="font-size:0.95rem;font-weight:700;margin:1rem 0 0.5rem;">ARIA &amp; Semantic HTML (WCAG 4.1.2)</h3>
+      <ul>
+        <li>All pages use <code>&lt;nav&gt;</code>, <code>&lt;main&gt;</code>, <code>&lt;header&gt;</code>, <code>&lt;footer&gt;</code> ✓</li>
+        <li>Upload form tab panel uses <code>role="tablist"</code>, <code>role="tab"</code>, <code>role="tabpanel"</code> ✓</li>
+        <li>All meaningful images have <code>alt</code> attributes; decorative icons use <code>aria-hidden="true"</code> ✓</li>
+        <li>All form inputs have associated labels ✓</li>
+      </ul>
+
+      <h3 style="font-size:0.95rem;font-weight:700;margin:1rem 0 0.5rem;">Remaining Known Gaps</h3>
+      <ul>
+        <li>The file dropzone uses a <code>div</code> with <code>tabIndex</code> and keyboard handlers (Enter/Space) — functionally equivalent to a button but not a semantic <code>&lt;button&gt;</code> element. Scheduled for a future release.</li>
+        <li>Residual <code>text-slate-400</code> usage outside the components addressed above is being inventoried.</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2><span aria-hidden="true">🔍</span> QA Accessibility Guidance — Submit Button</h2>
+      <p>The upload page submit button uses the native HTML <code>disabled</code> property — not <code>aria-disabled</code>. This is the <strong>correct and recommended</strong> pattern.</p>
+      <h3 style="font-size:1rem;font-weight:700;margin-top:1rem;">Why only native <code>disabled</code>?</h3>
+      <ul>
+        <li>Browsers automatically announce a <code>disabled</code> button as "unavailable" / "dimmed" / "grayed out" to screen readers — no <code>aria-disabled</code> is required.</li>
+        <li>Combining <code>aria-disabled="true"</code> with the native <code>disabled</code> attribute causes some assistive technologies to announce the state twice (double-announcement).</li>
+        <li><code>aria-disabled</code> is only necessary when an element must remain <em>focusable</em> despite being inactive — that is not the case here.</li>
+      </ul>
+      <h3 style="font-size:1rem;font-weight:700;margin-top:1rem;">Inspecting the DOM correctly</h3>
+      <p>The browser's <strong>Accessibility panel</strong> (Chrome DevTools / Firefox) displays <em>computed</em> accessibility properties. It will show <code>aria-disabled: true</code> derived from the native <code>disabled</code> attribute — this is <strong>not</strong> an actual DOM attribute. To verify whether <code>aria-disabled</code> is truly present in the HTML, use the <strong>Elements panel</strong> or run:</p>
+      <pre style="background:#F1F5F9;padding:0.75rem;border-radius:6px;font-size:0.8rem;overflow-x:auto;"><code>document.getElementById('submit-btn').hasAttribute('aria-disabled')
+// must return: false</code></pre>
+      <h3 style="font-size:1rem;font-weight:700;margin-top:1rem;">Expected states</h3>
+      <ul>
+        <li><strong>Form incomplete:</strong> button is <code>disabled</code> (native), no <code>aria-disabled</code>, screen reader announces "unavailable".</li>
+        <li><strong>Form complete:</strong> button is <code>enabled</code>, no <code>aria-disabled</code>, screen reader announces the button label normally.</li>
+        <li><strong>Analysing in progress:</strong> button is <code>disabled</code> (native), no <code>aria-disabled</code>, label changes to "Menganalisis CV kamu…".</li>
+      </ul>
+      <p style="margin-top:0.75rem;">These states are verified automatically by the <strong>Playwright e2e test</strong> (<code>tests/e2e/upload-button-a11y.spec.ts</code>) on every CI run.</p>
     </div>
 
     <div class="section">

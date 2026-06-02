@@ -38,12 +38,15 @@ function prioritizeNotices(items: Notice[]): Notice[] {
 }
 
 const STALE_KEYS = [
-  'gaslamar_scoring', 'gaslamar_cv_key', 'gaslamar_cv_pending', 'gaslamar_jd_pending',
+  'gaslamar_cv_key', 'gaslamar_cv_pending', 'gaslamar_jd_pending',
   'gaslamar_filename', 'gaslamar_tier', 'gaslamar_analyze_time',
-  'gaslamar_cv_draft', 'gaslamar_filename_draft', 'gaslamar_cv_paste_raw',
+  'gaslamar_cv_draft', 'gaslamar_filename_draft',
   'gaslamar_6d_scores', 'gaslamar_skor', 'gaslamar_skor_sesudah', 'gaslamar_gap',
-  'gaslamar_sample_line', 'gaslamar_sample_context',
-  'gaslamar_sample_fallback', 'gaslamar_entitas_klaim', 'gaslamar_result_id',
+  // Legacy keys cleared for backward compat — no longer written
+  'gaslamar_scoring', 'gaslamar_cv_paste_raw', 'gaslamar_result_id',
+  'gaslamar_candidate_name', 'gaslamar_entitas_klaim',
+  'gaslamar_sample', 'gaslamar_sample_line', 'gaslamar_sample_context',
+  'gaslamar_sample_fallback', 'gaslamar_preview_after',
 ];
 
 export default function Upload() {
@@ -54,15 +57,8 @@ export default function Upload() {
   const [manualCvText, setManualCvText] = useState('');
   const [fileError,   setFileError]   = useState('');
   const [scanWarning, setScanWarning] = useState(false);
-  // Start on "Paste CV" tab if the last session had partial paste text with no
-  // full CV draft — reads synchronously so CvDropzone gets the right initial tab.
-  const [cvTab, setCvTab] = useState<'upload' | 'paste'>(() => {
-    try {
-      return !sessionStorage.getItem('gaslamar_cv_draft')
-          && !!sessionStorage.getItem('gaslamar_cv_paste_raw')
-        ? 'paste' : 'upload';
-    } catch (_) { return 'upload'; }
-  });
+  // Raw CV paste text is not persisted to sessionStorage (security: no CV content in storage).
+  const [cvTab, setCvTab] = useState<'upload' | 'paste'>('upload');
 
   // JD state
   const [jd, setJd] = useState('');
@@ -81,6 +77,17 @@ export default function Upload() {
   // Derived — JD is mandatory and must pass basic structure checks.
   const hasFile: boolean = !!fileName && !!cvText;
   const jdQuality = evaluateJDQuality(jd);
+
+  // Context-aware CV hint text for the submit button — avoids "Upload CV kamu dulu"
+  // when user is actively pasting but hasn't reached the 1,500-char minimum yet.
+  const cvHintText: string = (() => {
+    if (cvTab === 'paste') {
+      const pasteLen = manualCvText.trim().length;
+      if (pasteLen === 0) return 'Paste isi CV kamu di kotak di atas';
+      return `Teks CV masih kurang panjang — tambahkan hingga min. ${MIN_CV_PASTE_LENGTH.toLocaleString('id-ID')} karakter`;
+    }
+    return 'Upload CV kamu untuk memulai analisis';
+  })();
 
   // Mount: read URL params + restore drafts
   useEffect(() => {
@@ -143,21 +150,17 @@ export default function Upload() {
 
     if (!isNewPackage && !hasPaidSession) {
       const reason = params.get('reason');
-      if (reason === 'no_session') {
-        history.replaceState(null, '', location.pathname);
-        newNotices.push({ type: 'info', text: 'Sesi tidak ditemukan atau sudah kedaluwarsa (hasil analisis aktif 24 jam). Silakan upload CV kembali untuk memulai analisis baru.' });
-      } else if (reason === 'missing_data') {
+      // Only show actionable redirect context — expiry notices belong on hasil.html.
+      if (reason === 'missing_data') {
         history.replaceState(null, '', location.pathname);
         newNotices.push({ type: 'warning', text: 'Data sesi tidak lengkap. Silakan upload CV kamu untuk memulai.' });
       } else if (reason === 'interrupted') {
         history.replaceState(null, '', location.pathname);
         newNotices.push({ type: 'warning', text: 'Analisis terputus — silakan upload ulang CV kamu untuk memulai.' });
-      } else if (reason === 'session_expired') {
+      } else if (reason) {
+        // Discard all other reason codes (session_expired, cv_expired, no_session, etc.)
+        // so no contradictory message appears alongside the server-checked active-results banner.
         history.replaceState(null, '', location.pathname);
-        newNotices.push({ type: 'info', text: 'Sesi analisis sudah berakhir. Silakan upload CV kembali untuk analisis baru.' });
-      } else if (reason === 'cv_expired') {
-        history.replaceState(null, '', location.pathname);
-        newNotices.push({ type: 'info', text: 'Waktu analisis sudah habis. Upload CV kembali untuk melanjutkan pembayaran.' });
       }
 
       const uploadErr = sessionStorage.getItem('gaslamar_upload_error');
@@ -165,21 +168,8 @@ export default function Upload() {
         sessionStorage.removeItem('gaslamar_upload_error');
         newNotices.push({ type: 'error', text: 'Analisis gagal: ' + uploadErr });
       }
-
-      const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
-      const cvKey = sessionStorage.getItem('gaslamar_cv_key') || '';
-      if (analyzeTime && cvKey.startsWith('cvtext_')) {
-        const remaining = 86400 - Math.floor((Date.now() - analyzeTime) / 1000);
-        if (remaining > 0) {
-          const h = Math.floor(remaining / 3600);
-          const m = Math.floor((remaining % 3600) / 60);
-          newNotices.push({
-            type: 'info',
-            text: `Kamu masih punya hasil analisis aktif (${h > 0 ? `${h}j ${m}m` : `${m} menit`} tersisa).`,
-            link: { href: 'hasil.html', label: 'Lihat hasil →' },
-          });
-        }
-      }
+      // Active analysis notice is now populated by the /check-session effect below,
+      // not from sessionStorage, to avoid contradictions with server state.
     }
 
     if (newNotices.length) setNotices(prioritizeNotices(newNotices));
@@ -204,30 +194,37 @@ export default function Upload() {
         const parsed = JSON.parse(restoreCv);
         if (parsed?.type === 'txt' && typeof parsed.data === 'string') setManualCvText(parsed.data);
       } catch (_) {}
-    } else {
-      // No full CV draft — restore partial paste text if present (< MIN_CV_PASTE_LENGTH).
-      // The initial tab is already set to 'paste' by the cvTab lazy initializer above.
-      const rawPaste = sessionStorage.getItem('gaslamar_cv_paste_raw');
-      if (rawPaste) setManualCvText(rawPaste);
     }
   }, []);
 
-  // Validate any paid session cookie — dismiss banner if session is explicitly deleted/pending.
-  // Only act on a successful (200) response with a terminal status; HTTP errors (401 = no cookie,
-  // 5xx = server fault) leave the banner so download.html can handle the state gracefully.
+  // Single server-side session check — drives both the "active analysis" notice and
+  // the payment session cleanup. Replaces all sessionStorage-based state detection
+  // to prevent contradictory messages.
   useEffect(() => {
     (async () => {
       try {
         const res = await fetch(`${WORKER_URL}/check-session`, { credentials: 'include' });
-        if (!res.ok) return; // 401 = no cookie, 5xx = server error — leave banner as-is
-        const data = await res.json() as { status?: string };
-        const isTerminal = data?.status === 'deleted' || data?.status === 'pending';
-        if (isTerminal) {
+        if (!res.ok) return; // non-200 = server error — leave banners as-is
+        const data = await res.json() as { valid?: boolean; status?: string; type?: string };
+
+        if (data?.valid && data?.type === 'analysis') {
+          // cv_key cookie is live and KV entry exists — show the single active-results prompt.
+          setNotices(prev => {
+            if (prev.some(n => n.link?.href === 'hasil.html')) return prev; // deduplicate
+            return [...prev, {
+              type: 'info',
+              text: 'Anda memiliki hasil analisis aktif.',
+              link: { href: 'hasil.html', label: 'Lihat hasil →' },
+            }];
+          });
+        } else if (data?.status === 'deleted' || data?.status === 'pending') {
+          // Payment session is terminal — clear stale client storage and dismiss download banner.
           clearClientSessionData(null);
           setNotices(prev => prev.filter(n => !n.link?.href.includes('download.html')));
         }
+        // valid: false for analysis (expired/absent) → show no message; user is on the upload form.
       } catch (_) {
-        // Network error — leave banner; download.html will handle the expired state
+        // Network error — leave banners as-is; respective pages handle their own state.
       }
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -308,7 +305,6 @@ export default function Upload() {
     try {
       sessionStorage.removeItem('gaslamar_cv_draft');
       sessionStorage.removeItem('gaslamar_filename_draft');
-      sessionStorage.removeItem('gaslamar_cv_paste_raw');
     } catch (_) {}
     // JD is intentionally preserved — user is only changing their CV, not starting over.
   }
@@ -319,15 +315,7 @@ export default function Upload() {
     setScanWarning(false);
     setFileError('');
 
-    // Always persist raw paste text so it survives a page refresh, even when
-    // too short to qualify as a valid CV (< MIN_CV_PASTE_LENGTH).
-    try {
-      if (next.trim().length > 0) {
-        sessionStorage.setItem('gaslamar_cv_paste_raw', next);
-      } else {
-        sessionStorage.removeItem('gaslamar_cv_paste_raw');
-      }
-    } catch (_) {}
+    // Raw paste text is held only in React state — not persisted to sessionStorage.
 
     if (next.trim().length >= MIN_CV_PASTE_LENGTH) {
       const encoded = JSON.stringify({ type: 'txt', data: next });
@@ -540,10 +528,11 @@ export default function Upload() {
           <SubmitSection
             isLoading={loading}
             hasCv={hasFile}
-            showJdHint={!jd.trim().length || !jdQuality.isValid}
-            jdHintText={!jd.trim().length
+            showJdHint={jd.trim().length < 100}
+            jdHintText={jd.trim().length === 0
               ? 'Job description wajib diisi agar analisis bisa dimulai.'
-              : (jdQuality.message || 'Lengkapi job description agar analisis lebih akurat.')}
+              : 'Job description terlalu pendek (min. 100 karakter).'}
+            cvHintText={hasFile ? undefined : cvHintText}
             onSubmit={handleSubmit}
           />
         </div>

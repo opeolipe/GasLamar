@@ -80,8 +80,81 @@ jobs:
       - name: Health check staging worker
         run: |
           sleep 8
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://gaslamar-worker-staging.carolineratuolivia.workers.dev/health)
+          # Staging worker is deployed via custom route (workers_dev = false in wrangler.toml).
+          # The *.workers.dev subdomain is disabled — use the canonical route instead.
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api-staging.gaslamar.com/health)
           echo "Staging worker health: HTTP $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "Health check failed: expected 200, got $STATUS"
+            exit 1
+          fi
+
+      - name: CORS security header check (staging)
+        run: |
+          set -e
+          ALLOWED_ORIGIN="https://staging.gaslamar.pages.dev"
+          WORKER="https://api-staging.gaslamar.com"
+          FAIL=0
+
+          echo "--- [1] API: /health with allowlisted Origin must echo that origin (never *) ---"
+          ACAO=$(curl -s -I -H "Origin: $ALLOWED_ORIGIN" "$WORKER/health" \
+            | grep -i "^access-control-allow-origin:" | tr -d '\r' | awk '{print $2}')
+          echo "  Access-Control-Allow-Origin: '$ACAO'"
+          if [ "$ACAO" = "$ALLOWED_ORIGIN" ]; then
+            echo "  PASS: origin echoed correctly"
+          else
+            echo "  FAIL: expected '$ALLOWED_ORIGIN', got '$ACAO'"
+            FAIL=1
+          fi
+
+          echo "--- [2] API: /health with allowlisted Origin must include credentials header ---"
+          ACAC=$(curl -s -I -H "Origin: $ALLOWED_ORIGIN" "$WORKER/health" \
+            | grep -i "^access-control-allow-credentials:" | tr -d '\r' | awk '{print $2}')
+          echo "  Access-Control-Allow-Credentials: '$ACAC'"
+          if [ "$ACAC" = "true" ]; then
+            echo "  PASS"
+          else
+            echo "  FAIL: expected 'true', got '$ACAC'"
+            FAIL=1
+          fi
+
+          echo "--- [3] API: /health with unknown Origin must NOT return any ACAO header ---"
+          ACAO_UNKNOWN=$(curl -s -I -H "Origin: https://evil.example.com" "$WORKER/health" \
+            | grep -i "^access-control-allow-origin:" | tr -d '\r')
+          if [ -z "$ACAO_UNKNOWN" ]; then
+            echo "  PASS: no ACAO header for unknown origin"
+          else
+            echo "  FAIL: got ACAO header for unknown origin: '$ACAO_UNKNOWN'"
+            FAIL=1
+          fi
+
+          echo "--- [4] API: /health must never return wildcard * ---"
+          ACAO_ANY=$(curl -s -I -H "Origin: $ALLOWED_ORIGIN" "$WORKER/health" \
+            | grep -i "^access-control-allow-origin:" | tr -d '\r' | awk '{print $2}')
+          if [ "$ACAO_ANY" = "*" ]; then
+            echo "  FAIL: wildcard * returned — this must never happen on authenticated endpoints"
+            FAIL=1
+          else
+            echo "  PASS: no wildcard"
+          fi
+
+          echo "--- [5] API root path must have no ACAO header (non-API requests are not CORS-enabled) ---"
+          ROOT_ACAO=$(curl -s -I -H "Origin: $ALLOWED_ORIGIN" "$WORKER/" \
+            | grep -i "^access-control-allow-origin:" | tr -d '\r')
+          if [ -z "$ROOT_ACAO" ]; then
+            echo "  PASS: no ACAO on root path"
+          else
+            echo "  FAIL: root path returned ACAO '$ROOT_ACAO' — worker must not set CORS headers on non-API paths"
+            FAIL=1
+          fi
+
+          if [ "$FAIL" -ne 0 ]; then
+            echo ""
+            echo "CORS security check FAILED — see above."
+            exit 1
+          fi
+          echo ""
+          echo "All CORS security checks passed."
 
   build-frontend:
     name: Build Frontend
@@ -154,3 +227,11 @@ jobs:
           echo "STAGING URL: ${{ steps.pages.outputs.staging_url }}"
           echo "Staging worker: https://gaslamar-worker-staging.carolineratuolivia.workers.dev"
           echo "========================================="
+
+      # Verify the live staging page is serving bundles built from this commit,
+      # not a stale deployment. Catches the bundle/source divergence that caused
+      # QA false positive MEDIUM #1 (2026-06-01).
+      - name: Verify staging bundle fingerprints match current build
+        run: |
+          sleep 10
+          STAGING_URL="${{ steps.pages.outputs.staging_url }}" node dist/scripts/verify-staging-bundle.js

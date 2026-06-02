@@ -1,8 +1,8 @@
 import { jsonResponse } from '../cors.js';
 import { log, logError, clientIp } from '../utils.js';
 import { getSession, getSessionTtl } from '../sessions.js';
-import { getSessionIdFromCookie } from '../cookies.js';
-import { checkRateLimit, checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
+import { getSessionIdFromCookie, getCvKeyFromCookie, getSessionTokenFromCookie } from '../cookies.js';
+import { checkRateLimit, checkRateLimitKVSession, rateLimitResponse } from '../rateLimit.js';
 
 export async function handleCheckSession(request, env) {
   const cookieSessionId = getSessionIdFromCookie(request);
@@ -20,11 +20,11 @@ export async function handleCheckSession(request, env) {
         ? 'firefox'
         : 'other';
 
-  // Primary: CF native binding (atomic, no TOCTOU). Secondary: KV-based counter as backup.
-  // Both must allow the request — 20 req/min per IP.
+  // Primary: CF native binding (atomic, no TOCTOU). Secondary: KV sliding window.
+  // Authenticated callers (valid session cookie) get 30 req/min; IP-only get 10 req/min.
   const [cfAllowed, kvResult] = await Promise.all([
     checkRateLimit(env, env.RATE_LIMITER_CHECK_SESSION, ip),
-    checkRateLimitKV(env, ip, 20, 60, 'check_session'),
+    checkRateLimitKVSession(env, ip, cookieSessionId, 10, 30, 60, 'check_session'),
   ]);
   if (!cfAllowed || !kvResult.allowed) {
     const retryAfter = !kvResult.allowed ? (kvResult.retryAfter ?? 60) : 60;
@@ -42,14 +42,73 @@ export async function handleCheckSession(request, env) {
   });
 
   if (!sessionId || !sessionId.startsWith('sess_')) {
-    return jsonResponse({ message: 'Sesi tidak ditemukan. Pastikan browser mengizinkan cookies.', reason: 'no_session' }, 401, request, env);
+    // No payment session cookie — check for an active analysis session.
+    // Prefer the newer sessionToken cookie (UUID → analysis_session_ KV entry);
+    // fall back to the legacy cv_key cookie for sessions created before this change.
+
+    const sessionToken = getSessionTokenFromCookie(request);
+    if (sessionToken) {
+      const session = await env.GASLAMAR_SESSIONS.get(
+        `analysis_session_${sessionToken}`,
+        { type: 'json' },
+      );
+      if (session?.resultId) {
+        log('check_session_analysis_valid_token', { ip });
+        return jsonResponse(
+          { valid: true, authenticated: true, type: 'analysis', resultId: session.resultId },
+          200,
+          request,
+          env,
+        );
+      }
+      // sessionToken cookie exists but the session record is gone (expired)
+      return jsonResponse(
+        { valid: false, authenticated: false, reason: 'expired', message: 'Sesi analisis sudah kedaluwarsa.' },
+        401,
+        request,
+        env,
+      );
+    }
+
+    // Legacy: cv_key cookie (sessions created before sessionToken was introduced).
+    const cvKey = getCvKeyFromCookie(request);
+    if (cvKey) {
+      const stored = await env.GASLAMAR_SESSIONS.get(cvKey, { type: 'json' });
+      if (stored?.scoring) {
+        log('check_session_analysis_valid', { ip });
+        return jsonResponse(
+          { valid: true, authenticated: true, type: 'analysis', resultId: stored.result_id ?? null },
+          200,
+          request,
+          env,
+        );
+      }
+      // cv_key cookie present but session gone from KV (expired or migrated to scoring_)
+      const fallbackKey = `scoring_${cvKey.slice('cvtext_'.length)}`;
+      const fallback = await env.GASLAMAR_SESSIONS.get(fallbackKey, { type: 'json' });
+      if (fallback?.scoring) {
+        log('check_session_analysis_valid_fallback', { ip });
+        return jsonResponse(
+          { valid: true, authenticated: true, type: 'analysis', resultId: fallback.result_id ?? null },
+          200,
+          request,
+          env,
+        );
+      }
+      // cv_key cookie exists but data is gone — expired
+      return jsonResponse({ valid: false, authenticated: false, reason: 'expired', message: 'Sesi analisis sudah kedaluwarsa.' }, 200, request, env);
+    }
+    // Return 200 (not 401) so browsers don't log a console error on pages where an
+    // unauthenticated check is expected (upload, hasil, analyzing). 401 is reserved
+    // for requests that supply a token that is invalid or expired.
+    return jsonResponse({ valid: false, authenticated: false, reason: 'no_session', message: 'Sesi tidak ditemukan. Pastikan browser mengizinkan cookies.' }, 200, request, env);
   }
 
   const session = await getSession(env, sessionId);
 
   if (!session) {
     logError('check_session_not_found', { session_id: sessionId });
-    return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa.', reason: 'expired' }, 404, request, env);
+    return jsonResponse({ valid: false, message: 'Sesi tidak ditemukan atau sudah kedaluwarsa.', reason: 'expired' }, 404, request, env);
   }
 
   // Return TTL remaining in seconds instead of an absolute timestamp to avoid
@@ -59,6 +118,7 @@ export async function handleCheckSession(request, env) {
     : null;
 
   return jsonResponse({
+    valid: true,
     status: session.status,
     credits_remaining: session.credits_remaining ?? 1,
     total_credits: session.total_credits ?? 1,

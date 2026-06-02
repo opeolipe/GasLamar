@@ -83,13 +83,17 @@ export default function PricingSelector({ selectedTier, onSelect, score, hasErro
                 {copy.outcome}
               </p>
 
-              <p style={{ fontSize: '0.75rem', color: selected ? '#3B82F6' : '#94A3B8', margin: 0, fontWeight: 500 }}>
+              <p style={{ fontSize: '0.75rem', color: selected ? '#3B82F6' : '#64748B', margin: 0, fontWeight: 500 }}>
                 {copy.diff}
               </p>
             </button>
           );
         })}
       </div>
+      <p style={{ fontSize: '0.72rem', color: '#94A3B8', margin: '0.75rem 0 0', textAlign: 'center' }}>
+        Tidak ada refund setelah CV di-generate.{' '}
+        <a href="terms.html" style={{ color: '#64748B', textDecoration: 'underline' }}>Lihat Syarat Layanan</a>.
+      </p>
     </div>
   );
 }

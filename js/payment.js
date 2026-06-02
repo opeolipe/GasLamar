@@ -326,12 +326,10 @@ function showPaymentTransitionOverlay({ tier, invoiceUrl }) {
 async function proceedToPayment() {
   if (!selectedTier || paymentInProgress) return;
 
-  const cvTextKey = sessionStorage.getItem('gaslamar_cv_key');
-
-  if (!cvTextKey) {
-    showPaymentError('Data CV tidak ditemukan. Mohon upload CV kamu kembali.');
-    return;
-  }
+  // For new sessions the cv_key is an HttpOnly cookie — not in sessionStorage.
+  // For old sessions (analyzed before the cookie migration) it is still in sessionStorage
+  // and sent in the request body as a fallback. The server prefers the cookie.
+  const legacyCvKey = sessionStorage.getItem('gaslamar_cv_key') || null;
 
   // Email required for all tiers
   const emailInput = document.getElementById('email-input');
@@ -385,7 +383,9 @@ async function proceedToPayment() {
       credentials: 'include',
       body: JSON.stringify({
         tier: selectedTier,
-        cv_text_key: cvTextKey,
+        // Include cv_text_key only for old sessions that still have it in sessionStorage.
+        // New sessions rely on the cv_key HttpOnly cookie sent automatically with credentials.
+        ...(legacyCvKey ? { cv_text_key: legacyCvKey } : {}),
         ...(capturedEmail ? { email: capturedEmail } : {}),
       }),
       signal: controller.signal

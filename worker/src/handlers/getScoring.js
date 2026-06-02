@@ -1,10 +1,10 @@
 import { jsonResponse } from '../cors.js';
-import { clientIp } from '../utils.js';
-import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
-import { getCvTextKeyFromCookie } from '../cookies.js';
+import { clientIp, log } from '../utils.js';
+import { checkRateLimit, checkRateLimitKVSession, rateLimitResponse } from '../rateLimit.js';
+import { getCvKeyFromCookie, getSessionTokenFromCookie } from '../cookies.js';
 
 /**
- * GET /get-scoring?key=cvtext_<token>
+ * GET /get-scoring
  *
  * Returns the scoring result that was stored alongside the cvtext_ entry at /analyze time.
  * This lets hasil.html fetch the analysis result from the server instead of relying on a
@@ -12,29 +12,53 @@ import { getCvTextKeyFromCookie } from '../cookies.js';
  * losing their data, as long as the 24h cvtext_ TTL has not expired.
  *
  * Security:
+ *  - Requires the HttpOnly cv_key cookie set by /analyze. No cookie → 401.
+ *  - ?key= query param is intentionally ignored — accepting caller-controlled keys
+ *    would allow unauthenticated enumeration of the scoring KV namespace.
  *  - Only the scoring portion is returned; cv_text and job_desc are never exposed.
- *  - The cvtext_ key is a 256-bit random token — unguessable by enumeration.
- *  - Rate-limited 10 req/min per IP (same window as /validate-session).
+ *  - Rate-limited: 20 req/min with a valid cv_key cookie, 10 req/min by IP otherwise.
  */
 export async function handleGetScoring(request, env) {
-  const ip  = clientIp(request);
-  const url = new URL(request.url);
-  const key = url.searchParams.get('key') || getCvTextKeyFromCookie(request) || '';
+  const ip             = clientIp(request);
+  const sessionToken   = getSessionTokenFromCookie(request);
+  const cvKeyCookie    = getCvKeyFromCookie(request);
+  // Use either token for the rate-limit bucket (authenticated callers get higher limit).
+  const authToken      = sessionToken ?? cvKeyCookie;
 
-  // Rate limit before any KV reads.
-  const kvResult = await checkRateLimitKV(env, ip, 10, 60, 'get_scoring');
+  // Atomic burst guard — CF native binding has no TOCTOU race, catches parallel floods.
+  if (!await checkRateLimit(env, env.RATE_LIMITER_GET_SCORING, ip)) {
+    return rateLimitResponse(request, env, 60);
+  }
+
+  // KV sliding-window counter — authenticated callers get 20 req/min; unauthenticated IPs get 10/min.
+  const kvResult = await checkRateLimitKVSession(env, ip, authToken, 10, 20, 60, 'get_scoring');
   if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60);
 
-  // Validate key format: exactly "cvtext_" (7 chars) + 64 lowercase hex chars = 71 chars total.
-  if (!/^cvtext_[0-9a-f]{64}$/.test(key)) {
-    return jsonResponse({ message: 'Key tidak valid', valid: false }, 400, request, env);
+  if (!sessionToken && !cvKeyCookie) {
+    return jsonResponse({ valid: false }, 401, request, env);
+  }
+
+  // Resolve the cvtext_ KV key from whichever cookie is present.
+  // New path: sessionToken → analysis_session_ → cvKey
+  // Legacy path: cv_key cookie contains the cvtext_ key directly.
+  let key;
+  if (sessionToken) {
+    const session = await env.GASLAMAR_SESSIONS.get(
+      `analysis_session_${sessionToken}`,
+      { type: 'json' },
+    );
+    if (!session?.cvKey) {
+      return jsonResponse({ valid: false }, 401, request, env);
+    }
+    key = session.cvKey;
+  } else {
+    key = cvKeyCookie;
   }
 
   let stored = await env.GASLAMAR_SESSIONS.get(key, { type: 'json' });
   if (!stored || !stored.scoring) {
     // cvtext_ entry may have been deleted after payment creation. Fall back to the
-    // scoring snapshot preserved by /create-payment so hasil.html can still render
-    // if the user returns to /hasil after a Mayar redirect (cancel or back-navigation).
+    // scoring snapshot preserved by /create-payment.
     const fallbackKey = `scoring_${key.slice('cvtext_'.length)}`;
     stored = await env.GASLAMAR_SESSIONS.get(fallbackKey, { type: 'json' });
   }
@@ -42,7 +66,7 @@ export async function handleGetScoring(request, env) {
     return jsonResponse({ valid: false }, 404, request, env);
   }
   if (stored.ip && stored.ip !== ip) {
-    return jsonResponse({ valid: false, reason: 'ip_mismatch' }, 403, request, env);
+    log('get_scoring_ip_mismatch', { ip, stored_ip: stored.ip });
   }
 
   // Return scoring only — never cv_text, job_desc, ip, or inferred_role raw data.

@@ -8,17 +8,11 @@ const cvData    = sessionStorage.getItem('gaslamar_cv_pending');
 const jobDesc   = _unescapeHtml(sessionStorage.getItem('gaslamar_jd_pending') || '');
 const filename  = sessionStorage.getItem('gaslamar_filename') || 'CV Kamu';
 
-// Redirect if no pending data (direct navigation or page refresh after completion)
+// Redirect if no pending data (direct navigation or page refresh after completion).
+// Auth is enforced server-side via cv_key cookie — hasil.html will redirect to upload
+// automatically if no active session exists.
 if (!cvData || !jobDesc) {
-  // If a fresh cv_key exists, the user already completed analysis — send them to hasil.html.
-  // Scoring is now server-side so we only need the key + timestamp (no scoring blob check).
-  const existingKey = sessionStorage.getItem('gaslamar_cv_key');
-  const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
-  // SYNC: 86400000ms (24h) must match SESSION_SECS (86400) in hasil-page.js,
-  //       hasil-guard.js, and ANALYSIS_FRESHNESS_MS in session-controller.js.
-  //       Must also match the expirationTtl in worker/src/handlers/analyze.js.
-  const isFresh = existingKey && analyzeTime && (Date.now() - analyzeTime) < 86400000;
-  window.location.replace(isFresh ? 'hasil.html' : 'upload.html');
+  window.location.replace('hasil.html');
 }
 
 // Show filename
@@ -139,10 +133,12 @@ async function runAnalysis() {
 
   try {
     const response = await fetch(WORKER_URL + '/analyze', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cv: cvData, job_desc: jobDesc }),
-      signal: abortController.signal
+      method:      'POST',
+      headers:     { 'Content-Type': 'application/json' },
+      body:        JSON.stringify({ cv: cvData, job_desc: jobDesc }),
+      signal:      abortController.signal,
+      // credentials:'include' saves the HttpOnly cv_key cookie returned in Set-Cookie.
+      credentials: 'include',
     });
 
     clearTimeout(analysisTimeoutId);
@@ -153,17 +149,15 @@ async function runAnalysis() {
       // Surface rate limit with retry guidance
       if (response.status === 429) {
         const retryAfter = err.retryAfter || 60;
-        throw new Error(`Terlalu banyak permintaan. Coba lagi dalam ${retryAfter} detik.`);
+        throw new Error(`Terlalu banyak permintaan. Silakan tunggu ${retryAfter} detik.`);
       }
       throw new Error(msg || 'Server error: ' + response.status);
     }
 
     const result = await response.json();
 
-    // Store only the cv_text_key and timestamp — scoring is now fetched server-side by
-    // scoring.js via GET /get-scoring so hasil.html is not lost on tab reopen or refresh.
-    const { cv_text_key: _cvKey } = result;
-    sessionStorage.setItem('gaslamar_cv_key', _cvKey || '');
+    // cv_text_key is now an HttpOnly cookie set by the server — not stored in sessionStorage.
+    // Only the timestamp is kept so hasil-guard.js can check session freshness client-side.
     sessionStorage.setItem('gaslamar_analyze_time', String(Date.now()));
     // Remove any leftover scoring blob from a previous analysis (defensive cleanup).
     sessionStorage.removeItem('gaslamar_scoring');
@@ -178,6 +172,15 @@ async function runAnalysis() {
       confidence: result.konfidensitas || null,
       time_ms: (() => { const t = sessionStorage.getItem('gaslamar_upload_start'); return t ? Date.now() - parseInt(t, 10) : undefined; })(),
     });
+
+    // Persist best bullet for preview/download consistency (B1 fix) before clearing cv_pending
+    try {
+      if (cvData) {
+        const lines = cvData.split('\n').map(l => l.trim()).filter(l => l.length > 20);
+        const bullet = lines.find(l => /^[-•*]/.test(l)) || lines.reduce((a, b) => b.length > a.length ? b : a, '');
+        if (bullet) sessionStorage.setItem('gaslamar_sample_line', bullet);
+      }
+    } catch (_) {}
 
     // Clear pending data — analysis succeeded, draft no longer needed
     sessionStorage.removeItem('gaslamar_cv_pending');

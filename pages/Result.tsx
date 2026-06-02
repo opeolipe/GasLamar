@@ -92,10 +92,9 @@ function buildSnippetPreview(raw: string | null | undefined): string | null {
 export default function Result() {
   const { data, analyzeTime, loading, error, noSession } = useResultData();
   const countdown = useSessionCountdown(analyzeTime);
-  const [cvText]  = useState(() =>
-    sessionStorage.getItem('gaslamar_cv_pending') ||
-    sessionStorage.getItem('gaslamar_sample_line') || '',
-  );
+  // cv_pending is cleared by Analyzing before navigation — read only the pre-extracted
+  // sample line (a single bullet/action verb, no raw CV text).
+  const [cvText]  = useState(() => sessionStorage.getItem('gaslamar_sample_line') || '');
 
   const [showAllDimensions,     setShowAllDimensions]     = useState(false);
   const [resultFlowVariant,     setResultFlowVariant]     = useState<'on' | 'control'>('on');
@@ -133,14 +132,7 @@ export default function Result() {
     trackExperimentExposure(stickyFlagKey, stickyNormalized);
   }, []);
 
-  useEffect(() => {
-    if (!noSession) return;
-    if (noSession === 'expired') {
-      window.location.replace('access.html?expired=1&source=hasil');
-      return;
-    }
-    window.location.replace('upload.html?reason=no_session');
-  }, [noSession]);
+  // noSession errors are rendered inline — no redirect needed.
 
   useEffect(() => {
     if (countdown.isExpiringSoon && !toastShownRef.current) {
@@ -233,7 +225,6 @@ export default function Result() {
     if (paymentInProgress) return;
     if (!selectedTier) return;
 
-    const currentCvKey = sessionStorage.getItem('gaslamar_cv_key');
     const pendingRaw = sessionStorage.getItem('gaslamar_pending_invoice');
     if (pendingRaw) {
       try {
@@ -241,50 +232,40 @@ export default function Result() {
           invoice_url: string;
           created_at:  number;
           tier?:       string;
-          cv_key?:     string;
         };
         const notExpired  = (Date.now() - (pending.created_at || 0)) < 7200000;
         const tierMatches = !pending.tier || pending.tier === selectedTier;
-        const noNewUpload = !currentCvKey || !pending.cv_key || pending.cv_key === currentCvKey;
 
-        if (pending.invoice_url && notExpired) {
-          if (tierMatches && noNewUpload) {
-            let urlSafe = false;
-            try {
-              const p = new URL(pending.invoice_url);
-              const h = p.hostname;
-              urlSafe = p.protocol === 'https:' && (
-                h === 'mayar.id' || h.endsWith('.mayar.id') ||
-                h === 'mayar.club' || h.endsWith('.mayar.club')
-              );
-            } catch (_) {}
-            if (!urlSafe) throw new Error('invalid_invoice_url');
-            setPaymentInProgress(true);
-            setPayBtnOverride('Mengalihkan ke halaman pembayaran...');
-            setTransitionInvoiceUrl(pending.invoice_url);
-            return;
-          }
-          if (!tierMatches && !currentCvKey) {
-            const origLabel = (pending.tier && TIER_CONFIG[pending.tier])
-              ? TIER_CONFIG[pending.tier].label
-              : 'paket sebelumnya';
-            setPaymentError(
-              `Invoice sudah dibuat untuk "${origLabel}". Pilih paket itu untuk melanjutkan, ` +
-              `atau klik "Upload CV lain" di bawah untuk memilih paket lain.`
+        if (pending.invoice_url && notExpired && tierMatches) {
+          let urlSafe = false;
+          try {
+            const p = new URL(pending.invoice_url);
+            const h = p.hostname;
+            urlSafe = p.protocol === 'https:' && (
+              h === 'mayar.id' || h.endsWith('.mayar.id') ||
+              h === 'mayar.club' || h.endsWith('.mayar.club')
             );
-            setPaymentInProgress(false);
-            setPayBtnOverride(null);
-            return;
-          }
+          } catch (_) {}
+          if (!urlSafe) throw new Error('invalid_invoice_url');
+          setPaymentInProgress(true);
+          setPayBtnOverride('Mengalihkan ke halaman pembayaran...');
+          setTransitionInvoiceUrl(pending.invoice_url);
+          return;
+        }
+        if (pending.invoice_url && notExpired && !tierMatches) {
+          const origLabel = (pending.tier && TIER_CONFIG[pending.tier])
+            ? TIER_CONFIG[pending.tier].label
+            : 'paket sebelumnya';
+          setPaymentError(
+            `Invoice sudah dibuat untuk "${origLabel}". Pilih paket itu untuk melanjutkan, ` +
+            `atau klik "Upload CV lain" di bawah untuk memilih paket lain.`
+          );
+          setPaymentInProgress(false);
+          setPayBtnOverride(null);
+          return;
         }
       } catch (_) {}
       sessionStorage.removeItem('gaslamar_pending_invoice');
-    }
-
-    const cvTextKey = sessionStorage.getItem('gaslamar_cv_key');
-    if (!cvTextKey) {
-      setPaymentError('Data CV tidak ditemukan. Silakan upload CV kamu kembali.');
-      return;
     }
 
     const emailValidation = validateEmail(email);
@@ -327,9 +308,8 @@ export default function Result() {
         headers:     { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          tier:           selectedTier,
-          cv_text_key:    cvTextKey,
-          email:          capturedEmail,
+          tier:  selectedTier,
+          email: capturedEmail,
         }),
         signal: controller.signal,
       });
@@ -367,18 +347,13 @@ export default function Result() {
         sessionStorage.setItem('gaslamar_pending_invoice', JSON.stringify({
           invoice_url,
           created_at: Date.now(),
-          tier:   selectedTier,
-          cv_key: cvTextKey,
+          tier: selectedTier,
         }));
       } catch (storageErr) {
         // Non-fatal: invoice already created server-side. Pending-invoice reuse
         // (cancel-and-return) won't work but the user can still complete payment.
         console.warn('[GasLamar] sessionStorage write failed (quota?):', storageErr);
       }
-
-      // gaslamar_cv_key intentionally kept — hasil-guard.js needs it if user
-      // returns from Mayar (cancel/back). Server already deleted cvtext_ KV;
-      // /get-scoring falls back to the scoring_ snapshot from createPayment.
       setPayBtnOverride('Mengalihkan ke halaman pembayaran...');
       setTransitionInvoiceUrl(invoice_url);
 
@@ -399,10 +374,6 @@ export default function Result() {
     ? buildResultData({
         skor6d:       data.skor_6d!,
         cvText:       cvText || undefined,
-        entitasKlaim: (() => {
-          try { const raw = sessionStorage.getItem('gaslamar_entitas_klaim'); return raw ? JSON.parse(raw) as string[] : undefined; }
-          catch { return undefined; }
-        })(),
       })
     : null;
 
@@ -447,16 +418,8 @@ export default function Result() {
         .slice(0, 2)
     : [];
 
-  const snippetPreviewText = (() => {
-    const primary = buildSnippetPreview(result6d?.rewritePreview?.after);
-    if (primary) return primary;
-    try {
-      const fromSession = sessionStorage.getItem('gaslamar_preview_after');
-      return buildSnippetPreview(fromSession);
-    } catch (_) {
-      return null;
-    }
-  })();
+  // Preview text comes only from the in-memory scoring result — never from sessionStorage.
+  const snippetPreviewText = buildSnippetPreview(result6d?.rewritePreview?.after) ?? null;
 
   function scrollToPricing() {
     const el = document.getElementById('pricing-section');
@@ -507,7 +470,41 @@ export default function Result() {
           <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem 2rem' }}>
             <div style={{ width: 28, height: 28, border: '3px solid #BFDBFE', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'gasResultSpin 0.8s linear infinite', display: 'inline-block', marginBottom: '1rem' }} />
             <p style={{ fontWeight: 600, fontSize: '1.1rem', margin: '0 0 0.5rem', fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>Memuat hasil analisis…</p>
-            <p style={{ color: '#94A3B8', fontSize: '0.875rem', margin: 0 }}>Sebentar lagi</p>
+            <p style={{ color: '#64748B', fontSize: '0.875rem', margin: 0 }}>Sebentar lagi</p>
+          </div>
+        )}
+
+        {/* ── Session error states ── */}
+        {noSession === 'missing' && !loading && (
+          <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem 2rem' }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }} aria-hidden="true">📄</div>
+            <h2 style={{ fontWeight: 600, fontSize: '1.2rem', margin: '0 0 0.75rem', fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>Tidak ada sesi aktif</h2>
+            <p style={{ color: '#64748B', fontSize: '0.9rem', margin: '0 0 1.5rem', lineHeight: 1.6 }}>Silakan upload CV untuk memulai analisis baru.</p>
+            <a href="upload.html" style={{ display: 'inline-block', background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', fontWeight: 700, padding: '0.75rem 1.75rem', borderRadius: 60, textDecoration: 'none', fontSize: '0.95rem', boxShadow: '0 8px 24px rgba(37,99,235,0.25)' }}>
+              Upload CV
+            </a>
+          </div>
+        )}
+
+        {noSession === 'expired' && !loading && (
+          <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem 2rem' }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }} aria-hidden="true">⏰</div>
+            <h2 style={{ fontWeight: 600, fontSize: '1.2rem', margin: '0 0 0.75rem', fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>Sesi analisis sudah berakhir</h2>
+            <p style={{ color: '#64748B', fontSize: '0.9rem', margin: '0 0 1.5rem', lineHeight: 1.6 }}>Sesi analisis kamu sudah berakhir (setelah 24 jam). Upload CV lagi untuk analisis baru.</p>
+            <a href="upload.html" style={{ display: 'inline-block', background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', fontWeight: 700, padding: '0.75rem 1.75rem', borderRadius: 60, textDecoration: 'none', fontSize: '0.95rem', boxShadow: '0 8px 24px rgba(37,99,235,0.25)' }}>
+              Upload CV Lagi
+            </a>
+          </div>
+        )}
+
+        {noSession === 'data_missing' && !loading && (
+          <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem 2rem' }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }} aria-hidden="true">⚠️</div>
+            <h2 style={{ fontWeight: 600, fontSize: '1.2rem', margin: '0 0 0.75rem', fontFamily: '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif', letterSpacing: '-0.02em' }}>Data hasil tidak ditemukan</h2>
+            <p style={{ color: '#64748B', fontSize: '0.9rem', margin: '0 0 1.5rem', lineHeight: 1.6 }}>Data hasil tidak ditemukan. Silakan hubungi support.</p>
+            <a href="mailto:halo@gaslamar.com" style={{ display: 'inline-block', background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', color: 'white', fontWeight: 700, padding: '0.75rem 1.75rem', borderRadius: 60, textDecoration: 'none', fontSize: '0.95rem', boxShadow: '0 8px 24px rgba(37,99,235,0.25)' }}>
+              Hubungi Support
+            </a>
           </div>
         )}
 
@@ -527,7 +524,7 @@ export default function Result() {
         {data && !loading && !error && (
           <>
             {/* Breadcrumb */}
-            <div style={{ textAlign: 'center', marginBottom: '0.75rem', fontSize: '0.8rem', color: '#94A3B8', fontWeight: 500 }}>
+            <div style={{ textAlign: 'center', marginBottom: '0.75rem', fontSize: '0.8rem', color: '#64748B', fontWeight: 500 }}>
               CV dianalisis berdasarkan posisi yang kamu incar
             </div>
 
@@ -591,6 +588,7 @@ export default function Result() {
                 <>
                   <button
                     onClick={() => setShowAllDimensions(d => !d)}
+                    aria-expanded={showAllDimensions}
                     style={{
                       width:          '100%',
                       background:     '#F8FAFC',
@@ -621,7 +619,7 @@ export default function Result() {
                     <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid rgba(148,163,184,0.14)' }}>
                       {priorityWeaknesses.length > 0 && (
                         <>
-                          <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 0.75rem' }}>
+                          <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 0.75rem' }}>
                             Yang paling bikin HR ragu
                           </p>
                           {priorityWeaknesses.map(dim => (
@@ -839,25 +837,25 @@ export default function Result() {
             </div>
 
             {/* Trust line */}
-            <div style={{ textAlign: 'center', padding: '0.5rem 0 0.5rem', fontSize: '0.8rem', color: '#94A3B8', lineHeight: 1.7 }}>
+            <div style={{ textAlign: 'center', padding: '0.5rem 0 0.5rem', fontSize: '0.8rem', color: '#64748B', lineHeight: 1.7 }}>
               <span aria-hidden="true">🔒</span><span className="sr-only">Aman: </span> Data kamu aman &nbsp;·&nbsp; Bayar via QRIS, VA, e-wallet
             </div>
 
             {/* Back link */}
             <div className="text-center mt-4 mb-2">
-              <a href="upload.html" className="text-sm text-slate-400 hover:text-slate-600 transition-colors no-underline">
+              <a href="upload.html" className="text-sm text-slate-500 hover:text-slate-700 transition-colors no-underline">
                 ← Upload CV lain
               </a>
             </div>
 
             {/* Legal footer */}
-            <footer className="text-center py-6 text-sm text-slate-400">
-              <p className="mb-3 text-slate-400">GasLamar · Karena nyari kerja udah cukup ribet</p>
-              <a href="privacy.html" className="text-slate-400 no-underline hover:underline mx-2">Kebijakan Privasi</a>
+            <footer className="text-center py-6 text-sm text-slate-500">
+              <p className="mb-3 text-slate-500">GasLamar · Karena nyari kerja udah cukup ribet</p>
+              <a href="privacy.html" className="text-slate-500 no-underline hover:underline mx-2">Kebijakan Privasi</a>
               ·
-              <a href="terms.html" className="text-slate-400 no-underline hover:underline mx-2">Syarat Layanan</a>
+              <a href="terms.html" className="text-slate-500 no-underline hover:underline mx-2">Syarat Layanan</a>
               ·
-              <a href="accessibility.html" className="text-slate-400 no-underline hover:underline mx-2">Aksesibilitas</a>
+              <a href="accessibility.html" className="text-slate-500 no-underline hover:underline mx-2">Aksesibilitas</a>
             </footer>
 
           </>

@@ -4,6 +4,18 @@ import { getSession, updateSession } from '../sessions.js';
 import { sendPaymentConfirmationEmail } from '../email.js';
 import { SESSION_STATES, PENDING_LEGACY } from '../sessionStates.js';
 
+const WEBHOOK_SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+  'Cache-Control': 'no-store',
+};
+
+function webhookResponse(body, status) {
+  return new Response(body, { status, headers: WEBHOOK_SECURITY_HEADERS });
+}
+
 export async function handleMayarWebhook(request, env, ctx) {
   const { valid, body } = await verifyMayarWebhook(request, env);
 
@@ -15,14 +27,14 @@ export async function handleMayarWebhook(request, env, ctx) {
       has_callback_token: !!request.headers.get('x-callback-token'),
       has_secret: !!env.MAYAR_WEBHOOK_SECRET,
     }));
-    return new Response('Unauthorized', { status: 401 });
+    return webhookResponse('Unauthorized', 401);
   }
 
   let payload;
   try {
     payload = JSON.parse(body);
   } catch (e) {
-    return new Response('Bad Request', { status: 400 });
+    return webhookResponse('Bad Request', 400);
   }
 
   // Extract session ID from Mayar's invoice data.
@@ -66,7 +78,7 @@ export async function handleMayarWebhook(request, env, ctx) {
       topLevelKeys: Object.keys(payload),
       dataKeys: payload.data ? Object.keys(payload.data) : null,
     }));
-    return new Response('Bad Request: missing invoiceId and redirectUrl', { status: 400 });
+    return webhookResponse('Bad Request: missing invoiceId and redirectUrl', 400);
   }
 
   // Primary: KV secondary index (set by /create-payment).
@@ -94,7 +106,7 @@ export async function handleMayarWebhook(request, env, ctx) {
     // Cannot recover — log all tried IDs so the operator can compare against the KV index
     // stored by /create-payment (logged as mayar_session_index_stored at payment creation).
     console.error(JSON.stringify({ event: 'webhook_no_session', triedIds: candidateInvoiceIds, status, redirectUrl }));
-    return new Response('OK', { status: 200 });
+    return webhookResponse('OK', 200);
   }
 
   // Check if payment is successful — case-insensitive to handle all Mayar status variants
@@ -115,7 +127,7 @@ export async function handleMayarWebhook(request, env, ctx) {
     const alreadyProcessed = await env.GASLAMAR_SESSIONS.get(processedKey);
     if (alreadyProcessed) {
       log('webhook_duplicate_skipped', { sessionId, invoiceId });
-      return new Response('OK', { status: 200 });
+      return webhookResponse('OK', 200);
     }
 
     // Belt-and-suspenders: also check session status (catches retries after KV propagates).
@@ -124,7 +136,7 @@ export async function handleMayarWebhook(request, env, ctx) {
     const isPendingPayment = existing &&
       (existing.status === SESSION_STATES.PENDING_PAYMENT || existing.status === PENDING_LEGACY);
     if (existing && !isPendingPayment) {
-      return new Response('OK', { status: 200 });
+      return webhookResponse('OK', 200);
     }
 
     // Write the sentinel BEFORE updating session and sending the email.
@@ -139,13 +151,13 @@ export async function handleMayarWebhook(request, env, ctx) {
       // Transient KV error — remove the sentinel so Mayar's next retry can succeed.
       await env.GASLAMAR_SESSIONS.delete(processedKey).catch(() => {});
       logError('webhook_update_threw', { sessionId, invoiceId, error: e.message });
-      return new Response('Internal Error', { status: 500 });
+      return webhookResponse('Internal Error', 500);
     }
     if (!updated) {
       // Session is permanently gone (expired/deleted before payment confirmed).
       // Keep the sentinel to stop infinite Mayar retries; log for operator.
       console.error(JSON.stringify({ event: 'webhook_session_update_failed', sessionId, invoiceId, environment: env.ENVIRONMENT ?? 'sandbox' }));
-      return new Response('OK', { status: 200 });
+      return webhookResponse('OK', 200);
     }
     log('payment_confirmed', { sessionId, invoiceId });
     // Email: use ctx.waitUntil so CF Worker doesn't kill the Resend fetch before it completes
@@ -156,5 +168,5 @@ export async function handleMayarWebhook(request, env, ctx) {
     );
   }
 
-  return new Response('OK', { status: 200 });
+  return webhookResponse('OK', 200);
 }

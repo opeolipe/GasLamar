@@ -31,6 +31,7 @@ const MOCK_ANALYZE_RESPONSE = {
   skor_sesudah: 85,
   timebox_weeks: 4,
   cv_text_key: 'cvtext_test-key-e2e',
+  sample_line: '• Mengelola kampanye digital dengan ROI 3x target perusahaan',
 };
 
 const SAMPLE_CV_PATH = path.resolve('tests/fixtures/sample-cv.pdf');
@@ -157,6 +158,26 @@ test.describe('GasLamar CV Flow', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ valid: true }),
+      }),
+    );
+
+    // Mock /check-session so useResultData authenticates the analysis session cookie.
+    // useResultData calls this before /get-scoring; without this mock the real server
+    // returns 401 (no HttpOnly cookie) and the hasil page shows an expired-session state.
+    await page.route('**/check-session**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ valid: true, authenticated: true, type: 'analysis' }),
+      }),
+    );
+
+    // Mock /get-scoring so hasil page renders without a live worker
+    await page.route('**/get-scoring**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ scoring: MOCK_ANALYZE_RESPONSE }),
       }),
     );
 
@@ -505,30 +526,24 @@ test.describe('GasLamar CV Flow', () => {
   // ── NO SESSION ON HASIL PAGE ──────────────────────────────────────────────
 
   test('hasil page shows no-session message when sessionStorage is empty', async ({ page }) => {
-    // Result.tsx calls window.location.replace('upload.html?reason=no_session') when
-    // no session is found. waitForRequest fires when the browser initiates the request,
-    // before it resolves — avoiding ERR_ABORTED from the location.replace() abort.
-    const redirectRequest = page.waitForRequest(
-      (req) => req.url().includes('upload') && req.url().includes('reason='),
-      { timeout: 15000 },
+    // Result.tsx renders an inline "Tidak ada sesi aktif" panel when no session is found
+    // (useResultData sets noSession='missing'). There is no redirect.
+    // Override the beforeEach /get-scoring mock: a 500 makes fetchScoring throw, exhaust
+    // its single retry, and call fail('missing') — which renders the no-session panel.
+    await page.route('**/get-scoring**', (route) =>
+      route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'no session' }) }),
     );
     await page.goto('/hasil');
-    const req = await redirectRequest;
-    expect(req.url()).toContain('no_session');
+    await expect(page.getByText('Tidak ada sesi aktif')).toBeVisible({ timeout: 15000 });
   });
 
   // ── PAYMENT BUTTON TRIGGERS MAYAR REDIRECT ────────────────────────────────
 
   test('payment CTA button attempts redirect to mayar.id', async ({ page }) => {
-    // Use addInitScript (scoped to this test's page) to inject session data BEFORE
-    // /hasil page scripts run. page.evaluate() from /upload doesn't guarantee sessionStorage
-    // persistence across the page.goto() navigation.
-    await page.addInitScript((scoring) => {
-      sessionStorage.setItem('gaslamar_scoring', JSON.stringify(scoring));
-      sessionStorage.setItem('gaslamar_cv_key', 'cvtext_test-key-e2e');
-      sessionStorage.setItem('gaslamar_analyze_time', String(Date.now()));
-      sessionStorage.setItem('gaslamar_tier', 'single');
-    }, MOCK_ANALYZE_RESPONSE);
+    // Auth is now entirely cookie-based (HttpOnly sessionToken set by /analyze).
+    // The beforeEach /check-session mock returns { valid: true, type: 'analysis' } so
+    // useResultData loads scoring from the mocked /get-scoring without any sessionStorage.
+    // gaslamar_scoring / gaslamar_result_id must NOT be seeded — they are no longer used.
 
     let paymentUrl = '';
     await page.route('**/create-payment**', (route) =>
@@ -645,7 +660,7 @@ test.describe('GasLamar CV Flow', () => {
     });
 
     expect(jdLength).toBe(4871);
-    await expect(page.locator('text=4.871 / 5.000 karakter')).toBeVisible();
+    await expect(page.locator('text=4.871 / 5.000')).toBeVisible();
     await expect(page.locator('[data-testid="submit-upload"]')).toBeEnabled();
 
     const cappedLength = await page.evaluate(() => {
@@ -657,7 +672,7 @@ test.describe('GasLamar CV Flow', () => {
     });
 
     expect(cappedLength).toBe(5000);
-    await expect(page.locator('text=5.000 / 5.000 karakter')).toBeVisible();
+    await expect(page.locator('text=5.000 / 5.000')).toBeVisible();
   });
 
   // ── MOBILE VIEWPORT ───────────────────────────────────────────────────────

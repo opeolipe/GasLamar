@@ -52,14 +52,13 @@ export function getCorsHeaders(request, env) {
   return headers;
 }
 
-const SECURITY_HEADERS = {
+export const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
-  // Deny framing by any origin — prevents clickjacking against API responses
   'X-Frame-Options': 'DENY',
-  // Restrict browser feature access — API worker has no need for any of these
+  'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
-  // Prevent proxies and browsers from caching API responses that contain session data
   'Cache-Control': 'no-store',
 };
 
@@ -89,4 +88,21 @@ export function jsonResponseWithCookie(data, status, cookieHeader, request, env)
     request,
     env
   );
+}
+
+/**
+ * Like jsonResponseWithCookie but sets multiple Set-Cookie headers.
+ * Plain-object header spreading loses duplicate keys, so we use Headers.append.
+ *
+ * @param {string[]} cookieHeaders — array of Set-Cookie values
+ */
+export function jsonResponseWithCookies(data, status, cookieHeaders, request, env) {
+  const corsHeaders = getCorsHeaders(request, env);
+  const headers = new Headers({
+    ...SECURITY_HEADERS,
+    ...corsHeaders,
+    'Content-Type': 'application/json',
+  });
+  for (const c of cookieHeaders) headers.append('Set-Cookie', c);
+  return new Response(JSON.stringify(data), { status, headers });
 }

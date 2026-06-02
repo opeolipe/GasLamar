@@ -20,10 +20,12 @@ if (_analyzeErr) {
 
 // If a previous analysis session is still active, remind the user so they don't
 // accidentally abandon their existing results by starting a new upload.
+try {
 (function() {
   const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
-  const cvKey = sessionStorage.getItem('gaslamar_cv_key') || '';
-  if (!analyzeTime || !cvKey.startsWith('cvtext_')) return;
+  // cv_key is now an HttpOnly cookie — not readable from JS. Use analyze_time alone.
+  // Old sessions may still have the key in sessionStorage (treated as equivalent).
+  if (!analyzeTime) return;
   const remaining = 86400 - Math.floor((Date.now() - analyzeTime) / 1000);
   if (remaining <= 0) return; // already expired — no stale results to surface
   const h = Math.floor(remaining / 3600);
@@ -41,20 +43,29 @@ if (_analyzeErr) {
   const card = document.querySelector('.card');
   if (card) card.insertBefore(notice, card.firstChild);
 })();
+} catch (_) {}
 
-// Show informational notice when redirected from hasil.html or download.html
+// Show informational notice when redirected from hasil.html or download.html.
+// When the server tells us there is no valid session, clear analyze_time so the
+// "Lihat hasil" banner above does not contradict the no-session message — showing
+// both simultaneously creates a redirect loop (user clicks "Lihat hasil" →
+// server redirects back here with no_session → same contradiction repeats).
 const _redirectParams = new URLSearchParams(window.location.search);
 const _redirectReason = _redirectParams.get('reason');
 if (_redirectReason === 'session_expired' || _redirectReason === 'no_session' || _redirectReason === 'cv_expired') {
+  if (_redirectReason === 'no_session' || _redirectReason === 'session_expired') {
+    try { sessionStorage.removeItem('gaslamar_analyze_time'); } catch (_) {}
+  }
   history.replaceState(null, '', window.location.pathname);
   const _noticeEl = document.createElement('div');
   _noticeEl.className = 'session-notice-banner';
   _noticeEl.textContent = _redirectReason === 'no_session'
-    ? 'Sesi tidak ditemukan. Silakan upload CV dan selesaikan pembayaran.'
+    ? '📄 Tidak ada sesi aktif. Silakan upload CV untuk memulai analisis baru.'
     : _redirectReason === 'cv_expired'
-    ? 'Waktu analisis sudah habis. Upload CV kembali untuk melanjutkan pembayaran.'
-    : 'Sesi analisis tidak ditemukan atau sudah kedaluwarsa. Silakan upload ulang CV kamu.';
-  document.querySelector('.card').insertBefore(_noticeEl, document.querySelector('.card').firstChild);
+    ? '⏰ Waktu analisis sudah habis. Upload CV kembali untuk melanjutkan.'
+    : '⏰ Sesi analisis kamu sudah berakhir (setelah 24 jam). Upload CV lagi untuk analisis baru.';
+  const _card = document.querySelector('.card');
+  if (_card) _card.insertBefore(_noticeEl, _card.firstChild);
 }
 
 // Hide scroll hint once submit button scrolls into view

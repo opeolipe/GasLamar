@@ -11,15 +11,30 @@ interface Props {
 }
 
 const JD_EXAMPLE = `Posisi: Digital Marketing Specialist
+
+Tanggung Jawab:
+- Mengelola konten dan kampanye di Instagram, TikTok, dan LinkedIn
+- Menganalisis performa iklan melalui Google Analytics & Meta Ads Manager
+- Membuat laporan mingguan performa kampanye dan rekomendasi optimasi
+- Berkoordinasi dengan tim desain untuk materi konten
+
 Kualifikasi:
-- Social media marketing 2+ tahun
-- Google Analytics & Facebook Ads`;
+- Pengalaman minimal 2 tahun di bidang digital marketing
+- Mahir mengoperasikan Google Analytics, Facebook Ads, dan Google Ads
+- Familiar dengan tools SEO (SEMrush / Ahrefs) menjadi nilai plus
+- Kemampuan copywriting yang baik dalam Bahasa Indonesia dan Inggris
+- Berorientasi pada data dan target
+
+Info tambahan:
+- Lokasi: Jakarta Selatan (hybrid, 3x seminggu WFO)
+- Gaji: Rp 8–12 juta/bulan (sesuai pengalaman)`;
 
 const MIN_JD_CHARS = MIN_JD_LENGTH;
 
 const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobDescriptionInput({ value, onChange, submitError, onSubmit }, ref) {
   const [showFetcher, setShowFetcher] = useState(false);
   const [showExample, setShowExample] = useState(false);
+  const [wasTruncated, setWasTruncated] = useState(false);
   const internalRef = useRef<HTMLTextAreaElement>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
@@ -28,15 +43,22 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
 
   const charCount = value.length;
   const atLimit   = charCount >= MAX_JD_CHARS;
-  const nearLimit = charCount >= 4500 && !atLimit;
+  const nearLimit = charCount >= 4800 && !atLimit;
   const counterCls = atLimit
     ? 'text-xs text-red-600 font-medium'
     : nearLimit
     ? 'text-xs text-amber-500'
     : 'text-xs text-slate-400';
 
+  // Clear truncation warning once user edits text below the limit
+  useEffect(() => {
+    if (wasTruncated && charCount < MAX_JD_CHARS) setWasTruncated(false);
+  }, [charCount, wasTruncated]);
+
   function syncTextareaValue(raw: string, el?: HTMLTextAreaElement | null) {
-    const capped = raw.length > MAX_JD_CHARS ? raw.slice(0, MAX_JD_CHARS) : raw;
+    const truncated = raw.length > MAX_JD_CHARS;
+    const capped = truncated ? raw.slice(0, MAX_JD_CHARS) : raw;
+    if (truncated) setWasTruncated(true);
     if (el && el.value !== capped) el.value = capped;
     onChangeRef.current(capped);
     if (el) {
@@ -57,6 +79,8 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
   }, []);
 
   // Direct `textarea.value = x` does not fire an input event, so bridge that path too.
+  // Guard flag prevents re-entrant calls (React reconciler sets el.value on every render
+  // for controlled components, which would otherwise trigger onChange unnecessarily).
   useEffect(() => {
     const el = internalRef.current;
     if (!el) return;
@@ -66,16 +90,26 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
     const descriptor = ownDescriptor ?? protoDescriptor;
     if (!descriptor?.get || !descriptor?.set) return;
 
+    let setting = false;
+
     Object.defineProperty(el, 'value', {
       configurable: true,
       get() {
         return descriptor.get!.call(this);
       },
       set(next) {
-        const raw = String(next ?? '');
-        const capped = raw.length > MAX_JD_CHARS ? raw.slice(0, MAX_JD_CHARS) : raw;
-        descriptor.set!.call(this, capped);
-        syncTextareaValue(capped, this as HTMLTextAreaElement);
+        if (setting) { descriptor.set!.call(this, next); return; }
+        setting = true;
+        try {
+          const raw = String(next ?? '');
+          const capped = raw.length > MAX_JD_CHARS ? raw.slice(0, MAX_JD_CHARS) : raw;
+          const prev = descriptor.get!.call(this);
+          descriptor.set!.call(this, capped);
+          // Only propagate to React state when the value actually changed (not React reconciling).
+          if (capped !== prev) syncTextareaValue(capped, this as HTMLTextAreaElement);
+        } finally {
+          setting = false;
+        }
       },
     });
 
@@ -131,7 +165,7 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
             <button
               type="button"
               onClick={() => setShowFetcher(true)}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 active:bg-blue-200 border border-blue-200 text-blue-600 font-medium text-sm transition-colors min-h-[36px] leading-none"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 active:bg-blue-200 border border-blue-200 text-blue-600 font-medium text-sm transition-colors min-h-[44px] leading-none"
               aria-label="Ambil job description dari URL loker seperti LinkedIn, Glints, atau JobStreet"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -177,15 +211,35 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
           >
             {showExample ? 'Sembunyikan contoh' : 'Lihat contoh job description'}
           </button>
-          <span className={`${trimmed ? counterCls : 'text-xs text-slate-400'} flex-shrink-0`}>
-            {trimmed
-              ? `${charCount.toLocaleString('id-ID')} / ${MAX_JD_CHARS.toLocaleString('id-ID')} karakter${atLimit ? ' — Maks 5.000 karakter (sisanya dipotong)' : ''}`
-              : `min. ${MIN_JD_CHARS} karakter`}
+          <span className={`${counterCls} flex-shrink-0`}>
+            {charCount.toLocaleString('id-ID')} / {MAX_JD_CHARS.toLocaleString('id-ID')}
           </span>
         </div>
         {showExample && (
-          <div className="mt-2 p-3 bg-slate-50 rounded-xl text-xs text-slate-500 leading-relaxed border border-slate-100 font-mono max-w-full overflow-hidden" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
-            {JD_EXAMPLE}
+          <div
+            className="mt-2 rounded-xl border border-slate-200 bg-slate-50 max-w-full overflow-hidden"
+            role="region"
+            aria-label="Contoh job description"
+          >
+            <div className="flex items-center justify-between px-3 pt-2.5 pb-1.5 border-b border-slate-100">
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Contoh format JD</span>
+              <span className="text-[11px] text-slate-400">Tidak mengubah isian kamu</span>
+            </div>
+            <pre
+              className="p-3 text-xs text-slate-600 leading-relaxed font-mono max-w-full overflow-x-auto"
+              style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word', margin: 0 }}
+            >
+              {JD_EXAMPLE}
+            </pre>
+            <div className="px-3 pb-3">
+              <button
+                type="button"
+                onClick={() => { onChange(JD_EXAMPLE); setShowExample(false); }}
+                className="text-xs text-blue-600 hover:text-blue-800 underline decoration-dotted transition-colors font-sans"
+              >
+                Gunakan contoh ini sebagai isian
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -200,6 +254,14 @@ const JobDescriptionInput = forwardRef<HTMLTextAreaElement, Props>(function JobD
           >
             <span aria-hidden="true">⚠️</span> {submitError}
           </div>
+        ) : wasTruncated ? (
+          <p role="alert" className="text-sm text-red-600 mt-2 font-medium break-words" style={{ overflowWrap: 'anywhere' }}>
+            ⚠️ Teks dipotong ke 5.000 karakter.
+          </p>
+        ) : atLimit ? (
+          <p role="alert" className="text-sm text-red-600 mt-2 font-medium break-words" style={{ overflowWrap: 'anywhere' }}>
+            ⚠️ Maksimal 5.000 karakter tercapai. Teks tambahan tidak akan disimpan.
+          </p>
         ) : trimmed && quality.message ? (
           <p className="text-sm text-amber-700 mt-2 break-words" style={{ overflowWrap: 'anywhere' }}>
             <span aria-hidden="true">⚠️</span> {quality.message}

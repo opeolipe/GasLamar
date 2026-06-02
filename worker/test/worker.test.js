@@ -11,6 +11,7 @@ import { route } from '../src/router.js';
 import { verifyMayarWebhook } from '../src/mayar.js';
 import { GEN_KEY_PREFIX_ID, GEN_KEY_PREFIX_EN } from '../src/cacheVersions.js';
 import { handleResendAccess } from '../src/handlers/resendAccess.js';
+import { makeCvKeyCookie } from '../src/cookies.js';
 
 // ---- Test helpers ----
 
@@ -42,9 +43,21 @@ function makeDOCXBase64() {
 }
 
 function sessionIdFromSetCookie(res) {
-  const match = (res.headers.get('set-cookie') || res.headers.get('Set-Cookie') || '').match(/session_id=(sess_[^;]+)/);
+  const match = (res.headers.get('set-cookie') || res.headers.get('Set-Cookie') || '').match(/__Host-session_id=(sess_[^;]+)/);
   expect(match).not.toBeNull();
   return match[1];
+}
+
+/** Extract the cv_key value from a Set-Cookie header returned by /analyze. */
+function cvKeyFromSetCookie(res) {
+  const match = (res.headers.get('set-cookie') || res.headers.get('Set-Cookie') || '').match(/__Host-cv_key=(cvtext_[0-9a-f]{64})/);
+  expect(match).not.toBeNull();
+  return match[1];
+}
+
+/** Build a Cookie header that carries both session_id and cv_key. */
+function cvKeyCookie(cvKey) {
+  return { Cookie: `__Host-cv_key=${cvKey}` };
 }
 
 /**
@@ -53,11 +66,27 @@ function sessionIdFromSetCookie(res) {
  * header has compressedSz=0; the real size follows in a PK\x07\x08 record.
  */
 function makeDOCXDataDescriptorBase64() {
+  const cvContent = [
+    'Budi Santoso — Software Engineer | budi@email.com | +62 812 3456 7890 | Jakarta, Indonesia',
+    'Ringkasan: Software Engineer berpengalaman 5 tahun dalam pengembangan backend dan frontend menggunakan Node.js React TypeScript.',
+    'Terbiasa membangun sistem berskala besar dengan arsitektur microservices dan pola event-driven untuk keandalan tinggi.',
+    'Keahlian utama: Node.js, React, TypeScript, AWS, GCP, PostgreSQL, Redis, Docker, Kubernetes, Jest, REST API, GraphQL.',
+    'Senior Developer — PT Teknologi Maju, Jakarta (2019–2024).',
+    'Memimpin tim 5 orang dalam migrasi arsitektur monolith ke microservices untuk platform e-commerce 500k pengguna aktif.',
+    'Membangun REST API Node.js yang menangani 30.000 request per menit dengan SLA uptime 99.9% dan p99 latency di bawah 50ms.',
+    'Mengembangkan dashboard analytics real-time dengan React D3.js dan Redis Pub/Sub untuk notifikasi 200k subscriber.',
+    'Meningkatkan performa query PostgreSQL sebesar 40% melalui indexing partitioning dan optimasi eksekusi query kompleks.',
+    'Merancang dan mengimplementasikan sistem CI/CD berbasis GitHub Actions dan Docker yang memangkas waktu deploy dari 30 menit menjadi 5 menit.',
+    'Junior Developer — PT Digital Kreatif (2017–2019).',
+    'Membangun fitur CRUD Node.js PostgreSQL untuk aplikasi manajemen inventori dan sistem pelaporan internal.',
+    'Menulis unit test Jest dan integration test dengan coverage 80 persen untuk backend services produksi.',
+    'Berkolaborasi dalam tim Agile Scrum sprint dua mingguan code review dan onboarding developer baru.',
+    'Pendidikan: S1 Teknik Informatika Universitas Indonesia IPK 3.7/4.0 2013–2017.',
+    'Sertifikat: AWS Certified Developer Associate 2022 dan Google Cloud Professional Data Engineer 2023.',
+  ].join(' ');
   const xml = '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
     + '<w:body>'
-    + '<w:p><w:r><w:t>Budi Santoso — Software Engineer</w:t></w:r></w:p>'
-    + '<w:p><w:r><w:t>Pengalaman 5 tahun React Node.js TypeScript AWS PostgreSQL Redis</w:t></w:r></w:p>'
-    + '<w:p><w:r><w:t>PT Teknologi Maju 2019-2024 membangun REST API microservices dashboard analytics</w:t></w:r></w:p>'
+    + '<w:p><w:r><w:t>' + cvContent + '</w:t></w:r></w:p>'
     + '</w:body></w:document>';
   const xmlBytes = new TextEncoder().encode(xml);
   const filenameBytes = new TextEncoder().encode('word/document.xml');
@@ -91,6 +120,41 @@ function makeDOCXDataDescriptorBase64() {
 
   let bin = '';
   for (const b of out) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+
+/** DOCX with valid structure but only ~300 chars of text content — tests the 1500-char floor. */
+function makeShortDOCXBase64() {
+  // 500 chars — above the 100-char minimum in extractCVText but below the 1500-char gate in analyze.js
+  const shortText = 'Budi Santoso, Software Engineer. Skills: React, Node.js, SQL. '
+    + 'Pengalaman 2 tahun di PT XYZ Jakarta sebagai junior developer. '
+    + 'Membangun fitur CRUD dan REST API sederhana untuk aplikasi internal perusahaan. '
+    + 'Pendidikan S1 Teknik Informatika Universitas Indonesia lulus 2020. '
+    + 'Terbiasa dengan Git workflow dan metodologi Agile dasar dalam tim kecil. '
+    + 'Familiar dengan deployment ke server Linux dan penggunaan Docker untuk lingkungan pengembangan lokal.';
+  const xml = '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+    + '<w:body><w:p><w:r><w:t>' + shortText + '</w:t></w:r></w:p></w:body></w:document>';
+  const xmlBytes = new TextEncoder().encode(xml);
+  const filenameBytes = new TextEncoder().encode('word/document.xml');
+  const u32le = n => [n & 0xFF, (n >> 8) & 0xFF, (n >> 16) & 0xFF, (n >> 24) & 0xFF];
+  const header = new Uint8Array([
+    0x50, 0x4B, 0x03, 0x04, 0x14, 0x00,
+    0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00,
+    filenameBytes.length & 0xFF, 0x00, 0x00, 0x00,
+  ]);
+  const descriptor = new Uint8Array([
+    0x50, 0x4B, 0x07, 0x08, 0x00, 0x00, 0x00, 0x00,
+    ...u32le(xmlBytes.length), ...u32le(xmlBytes.length),
+  ]);
+  const out = new Uint8Array(header.length + filenameBytes.length + xmlBytes.length + descriptor.length);
+  let off = 0;
+  out.set(header, off); off += header.length;
+  out.set(filenameBytes, off); off += filenameBytes.length;
+  out.set(xmlBytes, off); off += xmlBytes.length;
+  out.set(descriptor, off);
+  let bin = ''; for (const b of out) bin += String.fromCharCode(b);
   return btoa(bin);
 }
 
@@ -201,7 +265,40 @@ async function seedLegacySession(status = 'paid', tier = 'single') {
 
 /** Call 1 (PDF only): raw CV text extracted from the PDF document */
 const MOCK_PDF_EXTRACTION = {
-  content: [{ text: 'Budi Santoso\nSoftware Engineer\n\nPENGALAMAN\nDeveloper PT XYZ 2020-2024\n- Node.js REST API development\n- React dashboard\n\nPENDIDIKAN\nS1 Teknik Informatika UI 2020' }],
+  content: [{ text: [
+    'Budi Santoso',
+    'Software Engineer | budi@email.com | +62 812 3456 7890 | Jakarta, Indonesia',
+    '',
+    'RINGKASAN',
+    'Software Engineer berpengalaman 5 tahun dalam pengembangan backend dan frontend menggunakan Node.js, React, dan SQL.',
+    'Berpengalaman membangun REST API yang skalabel, dashboard analytics interaktif, dan sistem manajemen data.',
+    'Terbiasa bekerja dalam tim kecil maupun besar dengan metodologi Agile dan pengiriman fitur berbasis sprint dua mingguan.',
+    '',
+    'PENGALAMAN',
+    'Senior Developer — PT XYZ Teknologi, Jakarta (2022–2024)',
+    '- Memimpin migrasi arsitektur monolith ke microservices untuk platform e-commerce dengan 500k pengguna aktif.',
+    '- Membangun REST API dengan Node.js dan Express yang menangani 30.000 request/menit dengan SLA 99.9%.',
+    '- Mengembangkan dashboard analytics real-time menggunakan React dan D3.js untuk tim business intelligence.',
+    '- Meningkatkan performa query database PostgreSQL sebesar 40% melalui indexing, partitioning, dan optimasi query.',
+    '- Merancang sistem antrian pesan menggunakan Redis Pub/Sub untuk notifikasi real-time kepada 200k subscriber.',
+    '- Memimpin code review mingguan dan onboarding 3 junior developer baru ke dalam tim.',
+    '',
+    'Junior Developer — PT ABC Digital (2020–2022)',
+    '- Membangun fitur CRUD menggunakan Node.js dan PostgreSQL untuk aplikasi manajemen inventori internal.',
+    '- Menulis unit test dengan Jest dan integration test untuk backend services dengan coverage 80%.',
+    '- Berkolaborasi dalam tim 5 orang menggunakan metodologi Agile/Scrum dan sprint planning dua mingguan.',
+    '- Mengimplementasikan sistem autentikasi JWT dan OAuth2 untuk API internal perusahaan.',
+    '',
+    'PENDIDIKAN',
+    'S1 Teknik Informatika — Universitas Indonesia (2016–2020)',
+    'IPK: 3.7/4.0 | Skripsi: Optimasi Query pada Database Terdistribusi menggunakan Algoritma Genetika',
+    '',
+    'SERTIFIKAT',
+    'AWS Certified Developer Associate (2022) | Google Cloud Professional Data Engineer (2023)',
+    '',
+    'KEAHLIAN',
+    'Node.js, React, TypeScript, SQL, PostgreSQL, Redis, REST API, Docker, Git, Jest, Express, AWS, GCP',
+  ].join('\n') }],
 };
 
 /** Call 2: SKILL_EXTRACT output — verbatim structured data from CV + JD */
@@ -254,6 +351,25 @@ const MOCK_CV_EN = { content: [{ text: 'PROFESSIONAL SUMMARY\nExperienced develo
 // ============================================================
 // Test suites
 // ============================================================
+
+describe('makeCvKeyCookie — cookie format', () => {
+  const TOKEN = `cvtext_${'a'.repeat(64)}`;
+
+  it('uses __Host- prefix, SameSite=Strict, HttpOnly, Secure', () => {
+    const cookie = makeCvKeyCookie(TOKEN);
+    expect(cookie).toContain('__Host-cv_key=' + TOKEN);
+    expect(cookie).toContain('HttpOnly');
+    expect(cookie).toContain('Secure');
+    expect(cookie).toContain('SameSite=Strict');
+    expect(cookie).not.toContain('Partitioned');
+    expect(cookie).not.toContain('SameSite=None');
+  });
+
+  it('Max-Age is 86400 (24h)', () => {
+    const cookie = makeCvKeyCookie(TOKEN);
+    expect(cookie).toContain('Max-Age=86400');
+  });
+});
 
 describe('/health', () => {
   it('returns 200 with status and timestamp', async () => {
@@ -373,7 +489,7 @@ describe('protected state page routing', () => {
     const res = await route(new Request('https://gaslamar.com/hasil', {
       method: 'GET',
       headers: {
-        Cookie: `session_id=${sessionId}`,
+        Cookie: `__Host-session_id=${sessionId}`,
         'CF-Connecting-IP': '1.2.3.4',
       },
     }), { ...env, ENVIRONMENT: 'production' }, {});
@@ -387,7 +503,7 @@ describe('protected state page routing', () => {
     const res = await route(new Request('https://gaslamar.com/download.html', {
       method: 'GET',
       headers: {
-        Cookie: 'session_id=sess_nonexistent',
+        Cookie: '__Host-session_id=sess_nonexistent',
         'CF-Connecting-IP': '1.2.3.4',
       },
     }), { ...env, ENVIRONMENT: 'production' }, {});
@@ -397,11 +513,41 @@ describe('protected state page routing', () => {
     expect(res.headers.get('Cache-Control')).toBe('no-store');
   });
 
-  it('production serves /hasil.html only when an active analysis cookie exists', async () => {
+  it('production serves /hasil.html only when an active analysis cookie exists (cv_key, current)', async () => {
     const cvTextKey = `cvtext_${'a'.repeat(64)}`;
     await env.GASLAMAR_SESSIONS.put(cvTextKey, JSON.stringify({
       ip: '1.2.3.4',
       scoring: { skor: 72, gap: [] },
+    }), { expirationTtl: 3600 });
+
+    fetchMock
+      .get('https://gaslamar.pages.dev')
+      .intercept({ path: () => true, method: 'GET' })
+      .reply(() => {
+        return {
+          statusCode: 200,
+          data: '<!doctype html><title>Hasil</title>',
+          responseOptions: { headers: { 'content-type': 'text/html' } },
+        };
+      })
+      .times(1);
+
+    const res = await route(new Request('https://gaslamar.com/hasil.html', {
+      method: 'GET',
+      headers: {
+        Cookie: `__Host-cv_key=${cvTextKey}`,
+        'CF-Connecting-IP': '1.2.3.4',
+      },
+    }), { ...env, ENVIRONMENT: 'production' }, {});
+
+    expect(res.status, res.headers.get('Location') || '').toBe(200);
+  });
+
+  it('production serves /hasil.html with legacy cv_text_key cookie (backward compat)', async () => {
+    const cvTextKey = `cvtext_${'c'.repeat(64)}`;
+    await env.GASLAMAR_SESSIONS.put(cvTextKey, JSON.stringify({
+      ip: '1.2.3.4',
+      scoring: { skor: 65, gap: [] },
     }), { expirationTtl: 3600 });
 
     fetchMock
@@ -431,7 +577,7 @@ describe('protected state page routing', () => {
     const res = await route(new Request('https://gaslamar.com/hasil.html', {
       method: 'GET',
       headers: {
-        Cookie: `cv_text_key=cvtext_${'b'.repeat(64)}`,
+        Cookie: `__Host-cv_key=cvtext_${'b'.repeat(64)}`,
         'CF-Connecting-IP': '1.2.3.4',
       },
     }), { ...env, ENVIRONMENT: 'production' }, {});
@@ -451,7 +597,7 @@ describe('protected state page routing', () => {
     const res = await route(new Request('https://gaslamar.com/hasil.html', {
       method: 'GET',
       headers: {
-        Cookie: `cv_text_key=${cvTextKey}`,
+        Cookie: `__Host-cv_key=${cvTextKey}`,
         'CF-Connecting-IP': '20.20.20.20',
       },
     }), { ...env, ENVIRONMENT: 'production' }, {});
@@ -471,7 +617,7 @@ describe('protected state page routing', () => {
     const res = await route(new Request('https://gaslamar.com/hasil.html', {
       method: 'GET',
       headers: {
-        Cookie: `cv_text_key=cvtext_${token}`,
+        Cookie: `__Host-cv_key=cvtext_${token}`,
         'CF-Connecting-IP': '20.20.20.20',
       },
     }), { ...env, ENVIRONMENT: 'production' }, {});
@@ -500,7 +646,7 @@ describe('protected state page routing', () => {
     const res = await route(new Request('https://gaslamar.com/download.html?token=0123456789abcdef0123456789abcdef', {
       method: 'GET',
       headers: {
-        Cookie: `session_id=${sessionId}; other=value`,
+        Cookie: `__Host-session_id=${sessionId}; other=value`,
         'CF-Connecting-IP': '1.2.3.4',
       },
     }), { ...env, ENVIRONMENT: 'production' }, {});
@@ -510,6 +656,26 @@ describe('protected state page routing', () => {
     const upstreamHeaders = upstreamRequest?.headers;
     const cookieHeader = upstreamHeaders?.cookie ?? upstreamHeaders?.Cookie;
     expect(cookieHeader).toBeUndefined();
+  });
+
+  it('production: cv_key cookie present but KV entry missing → access.html (not /upload)', async () => {
+    // Cookie is present but the cvtext_ KV entry has expired/been deleted.
+    // Must redirect to access.html, NOT /upload.html, to avoid contradicting any
+    // "Lihat hasil" banner that Upload.tsx might show based on gaslamar_analyze_time.
+    const staleKey = `cvtext_${'e'.repeat(64)}`;
+    // Deliberately do NOT seed a KV entry — simulates an expired session.
+
+    const res = await route(new Request('https://gaslamar.com/hasil.html', {
+      method: 'GET',
+      headers: {
+        Cookie: `__Host-cv_key=${staleKey}`,
+        'CF-Connecting-IP': '1.2.3.4',
+      },
+    }), { ...env, ENVIRONMENT: 'production' }, {});
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get('Location')).toBe('/access.html?expired=1&source=hasil');
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
   });
 });
 
@@ -566,7 +732,7 @@ describe('CORS', () => {
       headers: {
         'Content-Type': 'text/plain',
         Origin: 'https://evil.com',
-        Cookie: `session_id=${sessionId}`,
+        Cookie: `__Host-session_id=${sessionId}`,
       },
       body: '{}',
     });
@@ -784,6 +950,17 @@ describe('POST /analyze — validation', () => {
     expect(body.message).toMatch(/minimal 1\.500 karakter/i);
   });
 
+  it('rejects DOCX CV with extracted text under 1500 chars → 422', async () => {
+    // makeShortDOCXBase64 builds a structurally valid DOCX with only ~85 chars of
+    // text content — passes the 100-char floor in extractCVText but hits the
+    // universal 1500-char gate added to analyze.js.
+    const cv = JSON.stringify({ type: 'docx', data: makeShortDOCXBase64() });
+    const res = await post('/analyze', { cv, job_desc: JOB_DESC }, {}, nextIp());
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.message).toMatch(/minimal 1\.500 karakter/i);
+  });
+
   it('accepts job_desc with exactly 100 trimmed chars — passes min-length check', async () => {
     // Should fail later (DOCX extraction → 422 "rusak") but NOT on the JD length check (400).
     // Using DOCX avoids a Claude API call (PDF path) that would time out without a mock.
@@ -843,7 +1020,7 @@ describe('POST /analyze — happy path (mocked Claude)', () => {
   // skor is computed deterministically from MOCK_EXTRACT_JSON:
   //   skills_diminta: ['Node.js','React','SQL'], skills_mentah: 'Node.js React SQL'
   //   → matchRatio = 1.0 → total6D = 51 → skor = round(51/60*100) = 85
-  it('returns skor + cv_text_key when Claude succeeds', async () => {
+  it('returns skor and sets cv_key HttpOnly cookie when Claude succeeds', async () => {
     fetchMock
       .get('https://api.anthropic.com')
       .intercept({ path: '/v1/messages', method: 'POST' })
@@ -867,9 +1044,18 @@ describe('POST /analyze — happy path (mocked Claude)', () => {
     // skor is now computed deterministically from extracted data (see comment above)
     expect(typeof body.skor).toBe('number');
     expect(body.skor).toBeGreaterThan(0);
-    expect(body.cv_text_key).toMatch(/^cvtext_/);
-    expect(res.headers.get('Set-Cookie')).toContain(`cv_text_key=${body.cv_text_key}`);
-    expect(res.headers.get('Set-Cookie')).toContain('HttpOnly');
+
+    // cv_text_key must NOT be in the response body — it is now an HttpOnly Set-Cookie.
+    expect(body.cv_text_key).toBeUndefined();
+
+    // cv_key must appear in the Set-Cookie header as an HttpOnly cookie.
+    // sandbox env → SameSite=None; Partitioned (cross-site CHIPS for staging)
+    const setCookie = res.headers.get('set-cookie') || res.headers.get('Set-Cookie') || '';
+    expect(setCookie).toMatch(/__Host-cv_key=cvtext_[0-9a-f]{64}/);
+    expect(setCookie).toContain('HttpOnly');
+    expect(setCookie).toContain('Secure');
+    expect(setCookie).toContain('SameSite=None');
+    expect(setCookie).toContain('Partitioned');
 
     // Verify response shape matches the pre-refactor contract
     expect(body).toHaveProperty('skor_6d');
@@ -879,11 +1065,26 @@ describe('POST /analyze — happy path (mocked Claude)', () => {
     expect(body).toHaveProperty('kekuatan');
     expect(body).toHaveProperty('archetype');
 
-    // Verify key is stored in KV with IP binding
-    const stored = await env.GASLAMAR_SESSIONS.get(body.cv_text_key, { type: 'json' });
+    // Verify key is stored in KV with IP binding (extract key from cookie header)
+    const cvKey = cvKeyFromSetCookie(res);
+    const stored = await env.GASLAMAR_SESSIONS.get(cvKey, { type: 'json' });
     expect(stored).not.toBeNull();
     expect(stored.text).toBeTruthy();
     expect(stored.ip).toBe('10.0.0.1');
+
+    // sessionToken cookie must also be present and point to a valid analysis_session_ KV entry.
+    const setCookieFull = res.headers.get('set-cookie') || res.headers.get('Set-Cookie') || '';
+    const sessionTokenMatch = setCookieFull.match(/sessionToken=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/);
+    expect(sessionTokenMatch).not.toBeNull();
+    const sessionId = sessionTokenMatch?.[1];
+    expect(sessionId).toBeTruthy();
+
+    const analysisSession = await env.GASLAMAR_SESSIONS.get(`analysis_session_${sessionId}`, { type: 'json' });
+    expect(analysisSession).not.toBeNull();
+    expect(analysisSession.resultId).toBeTruthy();
+    expect(analysisSession.cvKey).toMatch(/^cvtext_/);
+    expect(typeof analysisSession.createdAt).toBe('number');
+    expect(typeof analysisSession.expiresAt).toBe('number');
   });
 });
 
@@ -915,12 +1116,12 @@ describe('POST /analyze — DOCX data descriptor (mocked Claude)', () => {
 });
 
 describe('POST /create-payment — validation', () => {
-  it('rejects missing cv_text_key → 400', async () => {
+  it('rejects missing cv_text_key (no cookie, no body) → 400', async () => {
     const res = await post('/create-payment', { tier: 'single' });
     expect(res.status).toBe(400);
   });
 
-  it('rejects cv_text_key without cvtext_ prefix → 400', async () => {
+  it('rejects cv_text_key without cvtext_ prefix in body → 400', async () => {
     const res = await post('/create-payment', {
       tier: 'single',
       cv_text_key: 'sess_abc',
@@ -937,7 +1138,7 @@ describe('POST /create-payment — validation', () => {
     expect(res.status).toBe(400);
   });
 
-  it('rejects expired / missing cv_text_key → 400', async () => {
+  it('rejects expired / missing cv_text_key in body → 400', async () => {
     // Use a valid-format key that simply does not exist in KV — tests the "expired" path
     const nonexistentKey = `cvtext_${cvHexToken()}`;
     const res = await post('/create-payment', {
@@ -947,6 +1148,29 @@ describe('POST /create-payment — validation', () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.message).toContain('kedaluwarsa');
+  });
+
+  it('accepts cv_text_key from cv_key cookie (new session flow) → proceeds past key check', async () => {
+    // Seed a valid key bound to the default IP (1.2.3.4)
+    const key = await seedCVTextKey(undefined, '1.2.3.4');
+    // Pass the key only via cookie — body has no cv_text_key
+    const res = await post('/create-payment', { tier: 'single' }, { Cookie: `__Host-cv_key=${key}` }, '1.2.3.4');
+    // Reaches Mayar invoice creation (which fails without API key in test env) → not a 400 key error
+    expect(res.status).not.toBe(400);
+  });
+
+  it('cookie cv_key takes precedence over body cv_text_key', async () => {
+    const cookieKey = await seedCVTextKey(undefined, '1.2.3.4');
+    // Provide a valid but nonexistent key in the body; the cookie key should win
+    const bodyKey = `cvtext_${cvHexToken()}`;
+    const res = await post(
+      '/create-payment',
+      { tier: 'single', cv_text_key: bodyKey },
+      { Cookie: `__Host-cv_key=${cookieKey}` },
+      '1.2.3.4',
+    );
+    // Cookie key is valid and found in KV — should not return 400 for missing/expired key
+    expect(res.status).not.toBe(400);
   });
 
   it('rejects cv_text_key used from a different IP → 403', async () => {
@@ -1084,13 +1308,13 @@ describe('Rate limiting — Retry-After header', () => {
   // Use a unique IP so this suite never conflicts with others
   const RL_IP = '10.99.0.1';
 
-  it('returns 429 with Retry-After: 60 after exhausting /create-payment limit (5/min)', async () => {
-    // Exhaust the 5-req/min limit for RATE_LIMITER_PAYMENT using this IP.
+  it('returns 429 with Retry-After: 60 after exhausting /create-payment limit (15/min)', async () => {
+    // Exhaust the 15-req/min limit for RATE_LIMITER_PAYMENT using this IP.
     // Each call returns 400 (missing body) but still consumes a rate-limit slot.
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 15; i++) {
       await post('/create-payment', {}, {}, RL_IP);
     }
-    // 6th request must be rate-limited
+    // 16th request must be rate-limited
     const res = await post('/create-payment', {}, {}, RL_IP);
     expect(res.status).toBe(429);
     expect(res.headers.get('Retry-After')).toBe('60');
@@ -1099,17 +1323,17 @@ describe('Rate limiting — Retry-After header', () => {
   });
 });
 
-describe('Rate limiting — /analyze (3 req/min per IP)', () => {
+describe('Rate limiting — /analyze (10 req/min per IP)', () => {
   // Unique IP range to avoid cross-suite contamination
   const RL_ANALYZE_IP = '10.99.1.1';
 
-  it('allows first 3 requests and blocks the 4th with 429', async () => {
-    // First 3: rate-limit passes, body validation fails → 400
-    for (let i = 0; i < 3; i++) {
+  it('allows first 5 requests and blocks the 6th with 429', async () => {
+    // First 5: rate-limit passes, body validation fails → 400
+    for (let i = 0; i < 5; i++) {
       const r = await post('/analyze', {}, {}, RL_ANALYZE_IP);
       expect(r.status).toBe(400);
     }
-    // 4th must be blocked by KV rate limiter
+    // 6th must be blocked by KV rate limiter
     const res = await post('/analyze', {}, {}, RL_ANALYZE_IP);
     expect(res.status).toBe(429);
     expect(Number(res.headers.get('Retry-After'))).toBeGreaterThan(0);
@@ -1121,7 +1345,7 @@ describe('Rate limiting — /analyze (3 req/min per IP)', () => {
 
   it('counters are per-IP — a different IP is not affected', async () => {
     // Exhaust limit for one IP
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 5; i++) {
       await post('/analyze', {}, {}, '10.99.1.2');
     }
     // A different IP should still pass rate limiting (will get 400 from body validation)
@@ -1131,7 +1355,7 @@ describe('Rate limiting — /analyze (3 req/min per IP)', () => {
 
   it('response body contains error, message, and retryAfter fields', async () => {
     const BLOCK_IP = '10.99.1.4';
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 5; i++) {
       await post('/analyze', {}, {}, BLOCK_IP);
     }
     const res = await post('/analyze', {}, {}, BLOCK_IP);
@@ -1149,12 +1373,12 @@ describe('Rate limiting — /resend-access', () => {
   const RL_RESEND_IP_KV  = '10.99.5.2';
 
   it('CF native rate limiter returns 429 with Retry-After after burst (not 200)', async () => {
-    // Exhaust the 5-req/min native limit with distinct emails (avoid per-email KV limit)
-    for (let i = 0; i < 5; i++) {
+    // Exhaust the 10-req/min native limit with distinct emails (avoid per-email KV limit)
+    for (let i = 0; i < 10; i++) {
       const res = await post('/resend-access', { email: `rl-cf-burst-${i}@example.com` }, {}, RL_RESEND_IP_CF);
-      expect(res.status).toBe(200); // first 5 are allowed
+      expect(res.status).toBe(200); // first 10 are allowed
     }
-    // 6th request: CF rate limited → 429 with Retry-After
+    // 11th request: CF rate limited → 429 with Retry-After
     const res = await post('/resend-access', { email: `rl-cf-extra@example.com` }, {}, RL_RESEND_IP_CF);
     expect(res.status).toBe(429);
     expect(res.headers.get('Retry-After')).toBe('60');
@@ -1217,8 +1441,8 @@ describe('Rate limiting — /resend-access', () => {
   it('per-IP KV rate limit returns 429 when IP counter reaches 10', async () => {
     const RL_RESEND_IP_IP = '10.99.5.4';
     const now = Math.floor(Date.now() / 1000);
-    // Pre-seed the counter at 9 — avoids making 9 real requests that would
-    // exhaust the CF native rate limiter (5/60s) before the IP KV limit (10/hr) fires.
+    // Pre-seed the counter at 9 — avoids making 9 real requests before the
+    // IP KV limit (10/hr) fires.
     await env.GASLAMAR_SESSIONS.put(
       `rate_limit_resend_access_ip_${RL_RESEND_IP_IP}`,
       JSON.stringify({ start: now, count: 9 }),
@@ -1246,12 +1470,12 @@ describe('POST /session/ping', () => {
   });
 
   it('returns 401 for invalid session_id in cookie (not sess_ prefix)', async () => {
-    const res = await post('/session/ping', {}, { Cookie: 'session_id=invalid' });
+    const res = await post('/session/ping', {}, { Cookie: '__Host-session_id=invalid' });
     expect(res.status).toBe(401);
   });
 
   it('returns 404 for unknown session', async () => {
-    const res = await post('/session/ping', {}, { Cookie: 'session_id=sess_nonexistent' });
+    const res = await post('/session/ping', {}, { Cookie: '__Host-session_id=sess_nonexistent' });
     expect(res.status).toBe(404);
     const body = await res.json();
     expect(body.expired).toBe(true);
@@ -1268,40 +1492,44 @@ describe('POST /session/ping', () => {
 });
 
 describe('GET /check-session', () => {
-  it('returns 401 when no session cookie and no ?session= param', async () => {
+  it('returns 200+authenticated:false when no session cookie and no ?session= param', async () => {
     const res = await get('/check-session');
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200);
     const body = await res.json();
+    expect(body.authenticated).toBe(false);
     expect(body.reason).toBe('no_session');
   });
 
-  it('returns 401 when ?session= param lacks sess_ prefix (invalid format)', async () => {
+  it('returns 200+authenticated:false when ?session= param lacks sess_ prefix (invalid format)', async () => {
     // Non-sess_ values are not accepted even as fallback
     const res = await get('/check-session?session=invalid_id');
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200);
     const body = await res.json();
+    expect(body.authenticated).toBe(false);
     expect(body.reason).toBe('no_session');
   });
 
   it('ignores valid ?session= when no cookie is present', async () => {
     const res = await get('/check-session?session=sess_some_valid_looking_id');
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200);
     const body = await res.json();
+    expect(body.authenticated).toBe(false);
     expect(body.reason).toBe('no_session');
   });
 
   it('does not authenticate an existing session from the query string alone', async () => {
     const sessionId = await seedSession('paid', 'single');
     const res = await get(`/check-session?session=${sessionId}`);
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200);
     const body = await res.json();
+    expect(body.authenticated).toBe(false);
     expect(body.reason).toBe('no_session');
   });
 
   it('does not leak reduced metadata for query-only sessions', async () => {
     const sessionId = await seedSession('ready', '3pack');
     const res = await get(`/check-session?session=${sessionId}`);
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).not.toHaveProperty('status', 'ready');
     expect(body).not.toHaveProperty('tier', '3pack');
@@ -1354,9 +1582,12 @@ describe('GET /check-session', () => {
 
   it('rejects X-Session-Id header alone when no cookie is present (no URL fallback)', async () => {
     const sessionId = await seedSession('paid', 'single');
-    // Staging removed the URL/header fallback — X-Session-Id without a cookie must be rejected.
+    // Staging removed the URL/header fallback — X-Session-Id without a cookie must return no_session.
     const res = await get('/check-session', { 'X-Session-Id': sessionId });
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.authenticated).toBe(false);
+    expect(body.reason).toBe('no_session');
   });
 
   it('cookie path is not affected by stale X-Session-Secret headers', async () => {
@@ -1368,19 +1599,120 @@ describe('GET /check-session', () => {
     }
   });
 
-  it('rate-limits burst attempts (20/min per IP via CF binding + KV)', async () => {
+  it('rate-limits unauthenticated burst attempts (10/min per IP — no session cookie)', async () => {
     const ip = '10.88.0.99';
 
-    // First 20 requests are allowed — rate limiter has not triggered yet.
-    for (let i = 0; i < 20; i++) {
+    // First 10 unauthenticated requests are allowed — no session cookie → IP bucket.
+    for (let i = 0; i < 10; i++) {
       const res = await get('/check-session', {}, ip);
-      expect(res.status).toBe(401); // no cookie → 401, not 429
+      expect(res.status).toBe(200); // no cookie → 200+authenticated:false, not 429
     }
 
-    // 21st request is blocked by the rate limiter.
+    // 11th request is blocked by the rate limiter.
     const blocked = await get('/check-session', {}, ip);
     expect(blocked.status).toBe(429);
     expect(blocked.headers.get('Retry-After')).toBeTruthy();
+  });
+
+  it('returns valid:true for a cv_key cookie with active analysis session in KV', async () => {
+    const key = `cvtext_${cvHexToken()}`;
+    await env.GASLAMAR_SESSIONS.put(key, JSON.stringify({
+      text: 'CV text',
+      job_desc: 'Job desc',
+      ip: '1.2.3.4',
+      scoring: { skor: 75, gap: [], kekuatan: [] },
+    }), { expirationTtl: 86400 });
+    const res = await get('/check-session', { Cookie: `__Host-cv_key=${key}` });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.authenticated).toBe(true);
+    expect(body.type).toBe('analysis');
+  });
+
+  it('returns valid:false with reason expired when cv_key cookie exists but KV entry is gone', async () => {
+    const missingKey = `cvtext_${cvHexToken()}`;
+    const res = await get('/check-session', { Cookie: `__Host-cv_key=${missingKey}` });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+    expect(body.reason).toBe('expired');
+  });
+
+  it('falls back to scoring_ key when cvtext_ is absent but scoring_ exists', async () => {
+    const token = cvHexToken();
+    const cvKey = `cvtext_${token}`;
+    await env.GASLAMAR_SESSIONS.put(`scoring_${token}`, JSON.stringify({
+      scoring: { skor: 60, gap: [], kekuatan: [] },
+    }), { expirationTtl: 86400 });
+    const res = await get('/check-session', { Cookie: `__Host-cv_key=${cvKey}` });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.authenticated).toBe(true);
+    expect(body.type).toBe('analysis');
+  });
+
+  it('cv_key cookie without sess_ prefix does not bleed into payment session path', async () => {
+    const key = `cvtext_${cvHexToken()}`;
+    // No KV entry — expired cv_key should not trigger session path
+    const res = await get('/check-session', { Cookie: `__Host-cv_key=${key}` });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).not.toHaveProperty('status'); // payment session fields absent
+    expect(body).not.toHaveProperty('credits_remaining');
+  });
+
+  it('payment session cookie (sess_) still returns full session fields', async () => {
+    const sessionId = await seedSession('paid', 'single');
+    const res = await get('/check-session', sessionCookie(sessionId));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.status).toBe('paid');
+    expect(body.credits_remaining).toBeDefined();
+  });
+
+  it('returns valid:true + resultId for a valid sessionToken cookie', async () => {
+    const sessionId = crypto.randomUUID();
+    const resultId  = crypto.randomUUID();
+    const cvKey     = `cvtext_${cvHexToken()}`;
+    await env.GASLAMAR_SESSIONS.put(`analysis_session_${sessionId}`, JSON.stringify({
+      sessionId, resultId, cvKey, createdAt: Date.now(), expiresAt: Date.now() + 86400000,
+    }), { expirationTtl: 86400 });
+    const res = await get('/check-session', { Cookie: `sessionToken=${sessionId}` });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.authenticated).toBe(true);
+    expect(body.type).toBe('analysis');
+    expect(body.resultId).toBe(resultId);
+  });
+
+  it('returns 401 when sessionToken cookie exists but analysis_session_ KV entry is gone', async () => {
+    const sessionId = crypto.randomUUID();
+    const res = await get('/check-session', { Cookie: `sessionToken=${sessionId}` });
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+    expect(body.reason).toBe('expired');
+  });
+
+  it('sessionToken takes precedence over cv_key when both are present', async () => {
+    const sessionId = crypto.randomUUID();
+    const resultId  = crypto.randomUUID();
+    const cvKey     = `cvtext_${cvHexToken()}`;
+    await env.GASLAMAR_SESSIONS.put(`analysis_session_${sessionId}`, JSON.stringify({
+      sessionId, resultId, cvKey, createdAt: Date.now(), expiresAt: Date.now() + 86400000,
+    }), { expirationTtl: 86400 });
+    // cv_key present but no matching KV — sessionToken should win
+    const res = await get('/check-session', {
+      Cookie: `sessionToken=${sessionId}; cv_key=cvtext_${'a'.repeat(64)}`,
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.resultId).toBe(resultId);
   });
 
 });
@@ -1412,7 +1744,7 @@ describe('POST /exchange-token — abuse regression', () => {
     expect(first.status).toBe(200);
     const firstBody = await first.json();
     expect(firstBody).toEqual({ ok: true });
-    expect(first.headers.get('Set-Cookie')).toContain(`session_id=${sessionId}`);
+    expect(first.headers.get('Set-Cookie')).toContain(`__Host-session_id=${sessionId}`);
     expect(await env.GASLAMAR_SESSIONS.get(`email_token_${token}`)).toBeNull();
 
     const replay = await post('/exchange-token', { email_token: token }, {}, '10.89.0.7');
@@ -1420,17 +1752,17 @@ describe('POST /exchange-token — abuse regression', () => {
     expect(await replay.json()).toEqual({ message: 'Token tidak valid atau sudah kedaluwarsa' });
   });
 
-  it('rate-limits burst attempts (reuses RATE_LIMITER_PAYMENT: 5/min per IP)', async () => {
+  it('rate-limits burst attempts (reuses RATE_LIMITER_PAYMENT: 15/min per IP)', async () => {
     const ip = '10.89.0.8';
     const fakeToken = 'ffffffffffffffffffffffffffffffff'; // 32 hex chars — valid format, won't exist in KV
 
-    // First 5 requests return 404 (token not found) — rate limiter allows them.
-    for (let i = 0; i < 5; i++) {
+    // First 15 requests return 404 (token not found) — rate limiter allows them.
+    for (let i = 0; i < 15; i++) {
       const res = await post('/exchange-token', { email_token: fakeToken }, {}, ip);
       expect(res.status).toBe(404);
     }
 
-    // 6th request is blocked by the rate limiter.
+    // 16th request is blocked by the rate limiter.
     const blocked = await post('/exchange-token', { email_token: fakeToken }, {}, ip);
     expect(blocked.status).toBe(429);
     expect(blocked.headers.get('Retry-After')).toBeTruthy();
@@ -1472,11 +1804,11 @@ describe('POST /resend-access — abuse regression', () => {
     expect(emailLimiter.count).toBe(3);
   });
 
-  it('CF burst guard blocks resend-access after 5 requests/min per IP', async () => {
+  it('CF burst guard blocks resend-access after 10 requests/min per IP', async () => {
     const ip = '10.90.0.5';
 
-    // CF rate limiter is 5/min — first 5 requests from the same IP pass.
-    for (let i = 0; i < 5; i++) {
+    // CF rate limiter is 10/min — first 10 requests from the same IP pass.
+    for (let i = 0; i < 10; i++) {
       const res = await post('/resend-access', { email: `ip-burst-${i}@example.com` }, {}, ip);
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({
@@ -1485,7 +1817,7 @@ describe('POST /resend-access — abuse regression', () => {
       });
     }
 
-    // 6th request hits the CF burst guard and returns 429.
+    // 11th request hits the CF burst guard and returns 429.
     const limited = await post('/resend-access', { email: 'ip-burst-final@example.com' }, {}, ip);
     expect(limited.status).toBe(429);
     expect(limited.headers.get('Retry-After')).toBeTruthy();
@@ -1567,14 +1899,44 @@ describe('GET /validate-session', () => {
     expect(body.valid).toBe(false);
   });
 
-  it('rate-limits after 20 requests per minute per IP → 429', async () => {
+  it('rate-limits after 10 requests per minute per IP (no valid cv_key token) → 429', async () => {
     const ip = '10.96.99.1';
-    // Exhaust the 20-request window
-    for (let i = 0; i < 20; i++) {
+    // Invalid key format → no session token → IP bucket (10/min)
+    for (let i = 0; i < 10; i++) {
       await get('/validate-session?cvKey=cvtext_missing', {}, ip);
     }
     const res = await get('/validate-session?cvKey=cvtext_missing', {}, ip);
     expect(res.status).toBe(429);
+  });
+
+  it('returns valid:true via cv_key cookie (new session flow)', async () => {
+    const key = await seedCVTextKey(undefined, '10.96.2.1');
+    const res = await get('/validate-session', { Cookie: `__Host-cv_key=${key}` }, '10.96.2.1');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+  });
+
+  it('cookie cv_key takes precedence over query param', async () => {
+    const goodKey = await seedCVTextKey(undefined, '10.96.3.1');
+    const badKey  = `cvtext_${cvHexToken()}`;
+    // Cookie points to a valid key; query param points to a nonexistent one.
+    const res = await get(
+      `/validate-session?cvKey=${encodeURIComponent(badKey)}`,
+      { Cookie: `__Host-cv_key=${goodKey}` },
+      '10.96.3.1',
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+  });
+
+  it('returns 400 when neither cookie nor cvKey param is provided', async () => {
+    const res = await get('/validate-session');
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+    expect(body.reason).toBe('invalid_key');
   });
 });
 
@@ -1585,12 +1947,12 @@ describe('POST /get-session', () => {
   });
 
   it('returns 401 when cookie session_id lacks sess_ prefix', async () => {
-    const res = await post('/get-session', {}, { Cookie: 'session_id=abc123' });
+    const res = await post('/get-session', {}, { Cookie: '__Host-session_id=abc123' });
     expect(res.status).toBe(401);
   });
 
   it('returns 404 for unknown session', async () => {
-    const res = await post('/get-session', {}, { Cookie: 'session_id=sess_nonexistent' });
+    const res = await post('/get-session', {}, { Cookie: '__Host-session_id=sess_nonexistent' });
     expect(res.status).toBe(404);
   });
 
@@ -1602,13 +1964,16 @@ describe('POST /get-session', () => {
 
   it('returns a normal 429 response when the get-session rate limit is exceeded', async () => {
     const ip = '10.96.9.1';
+    const sessionId = await seedSession('paid', 'single');
+
+    // With a session cookie, the rate limiter uses the session-keyed bucket (20/min).
+    // Seed that bucket at the limit so the next request is blocked.
     await env.GASLAMAR_SESSIONS.put(
-      `rate_limit_get_session_${ip}`,
-      JSON.stringify({ start: Math.floor(Date.now() / 1000), count: 10 }),
+      `rate_limit_get_session_sess_${sessionId}`,
+      JSON.stringify({ start: Math.floor(Date.now() / 1000), count: 20 }),
       { expirationTtl: 60 },
     );
 
-    const sessionId = await seedSession('paid', 'single');
     const res = await post('/get-session', {}, sessionCookie(sessionId), ip);
 
     expect(res.status).toBe(429);
@@ -1712,12 +2077,12 @@ describe('POST /generate — validation', () => {
   });
 
   it('returns 401 when cookie session_id lacks sess_ prefix', async () => {
-    const res = await post('/generate', {}, { Cookie: 'session_id=invalid' });
+    const res = await post('/generate', {}, { Cookie: '__Host-session_id=invalid' });
     expect(res.status).toBe(401);
   });
 
   it('returns 404 for unknown session', async () => {
-    const res = await post('/generate', {}, { Cookie: 'session_id=sess_nonexistent' });
+    const res = await post('/generate', {}, { Cookie: '__Host-session_id=sess_nonexistent' });
     expect(res.status).toBe(404);
   });
 
@@ -1957,8 +2322,9 @@ describe('POST /webhook/mayar', () => {
   it('rejects request to GET /check-session with no cookie and invalid session param', async () => {
     // ?session= without sess_ prefix is rejected (no fallback for malformed IDs)
     const res = await SELF.fetch('https://gaslamar.com/check-session?session=invalid_id');
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200);
     const body = await res.json();
+    expect(body.authenticated).toBe(false);
     expect(body.reason).toBe('no_session');
   });
 
@@ -2526,7 +2892,7 @@ async function preTailorCache(cvText, jobDesc) {
  * instead of the request body or query params.
  */
 function sessionCookie(sessionId) {
-  return { Cookie: `session_id=${sessionId}` };
+  return { Cookie: `__Host-session_id=${sessionId}` };
 }
 
 /** Seed a session with a bound secret hash. Returns { sessionId, secret }. */
@@ -2725,7 +3091,7 @@ describe('POST /exchange-token — single-use enforcement', () => {
     const body = await res.json();
     expect(body.ok).toBe(true);
     expect(body).not.toHaveProperty('session_id');
-    expect(res.headers.get('Set-Cookie')).toMatch(/session_id=/);
+    expect(res.headers.get('Set-Cookie')).toMatch(/__Host-session_id=/);
   });
 
   it('returns 404 on second use of the same token (single-use enforcement)', async () => {
@@ -2839,7 +3205,7 @@ describe('Session token non-disclosure', () => {
 
     const body = await res.json();
     expect(body).toEqual({ ok: true });
-    expect(res.headers.get('Set-Cookie')).toMatch(/session_id=sess_/);
+    expect(res.headers.get('Set-Cookie')).toMatch(/__Host-session_id=sess_/);
   });
 
 });
@@ -3528,7 +3894,7 @@ describe('POST /interview-kit', () => {
   });
 
   it('returns 404 for unknown session', async () => {
-    const res = await post('/interview-kit', {}, { Cookie: 'session_id=sess_nonexistent' }, nextKitIp());
+    const res = await post('/interview-kit', {}, { Cookie: '__Host-session_id=sess_nonexistent' }, nextKitIp());
     expect(res.status).toBe(404);
     const body = await res.json();
     expect(body.message).toMatch(/sesi/i);
@@ -3875,7 +4241,7 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
       scoring: mockScoring,
     }), { expirationTtl: 86400 });
 
-    const res = await get(`/get-scoring?key=cvtext_${token}`, {}, '1.2.3.4');
+    const res = await get('/get-scoring', { Cookie: `__Host-cv_key=cvtext_${token}` }, '1.2.3.4');
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.valid).toBe(true);
@@ -3894,7 +4260,7 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
     await env.GASLAMAR_SESSIONS.delete(`cvtext_${token}`);
     await env.GASLAMAR_SESSIONS.put(`scoring_${token}`, JSON.stringify({ scoring: mockScoring }), { expirationTtl: 86400 });
 
-    const res = await get(`/get-scoring?key=cvtext_${token}`, {}, nextScoringIp());
+    const res = await get('/get-scoring', { Cookie: `__Host-cv_key=cvtext_${token}` }, nextScoringIp());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.valid).toBe(true);
@@ -3912,14 +4278,17 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
       scoring: mockScoring,
     }), { expirationTtl: 86400 });
 
-    const res = await get('/get-scoring', { Cookie: `cv_text_key=cvtext_${token}` }, '1.2.3.4');
+    const res = await get('/get-scoring', { Cookie: `__Host-cv_key=cvtext_${token}` }, '1.2.3.4');
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.valid).toBe(true);
     expect(body.scoring.skor).toBe(78);
   });
 
-  it('rejects scoring lookups when the cvtext_ key belongs to a different IP', async () => {
+  it('allows scoring lookups when the cvtext_ key was stored from a different IP (log-only)', async () => {
+    // IP mismatch is intentionally non-blocking on /get-scoring — same rationale as
+    // validateSession.js: mobile users and VPN users legitimately change IPs between
+    // /analyze and /get-scoring. The 256-bit random key is already unguessable.
     const token = 'a1'.repeat(32);
     await env.GASLAMAR_SESSIONS.put(`cvtext_${token}`, JSON.stringify({
       text: 'raw cv',
@@ -3928,36 +4297,154 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
       scoring: { skor: 51, verdict: 'TIMED', skor_6d: {} },
     }), { expirationTtl: 86400 });
 
-    const res = await get(`/get-scoring?key=cvtext_${token}`, {}, '10.221.99.2');
-    expect(res.status).toBe(403);
+    const res = await get('/get-scoring', { Cookie: `__Host-cv_key=cvtext_${token}` }, '10.221.99.2');
+    expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.valid).toBe(false);
+    expect(body.valid).toBe(true);
+    expect(body.scoring.skor).toBe(51);
   });
 
-  it('rejects scoring fallback snapshots when the preserved key belongs to a different IP', async () => {
+  it('allows scoring fallback snapshots even when the preserved key belongs to a different IP', async () => {
+    // IP mismatch is log-only on /get-scoring — see above.
     const token = 'b1'.repeat(32);
     await env.GASLAMAR_SESSIONS.put(`scoring_${token}`, JSON.stringify({
       ip: '10.221.88.1',
       scoring: { skor: 61, verdict: 'TIMED', skor_6d: {} },
     }), { expirationTtl: 86400 });
 
-    const res = await get(`/get-scoring?key=cvtext_${token}`, {}, '10.221.88.2');
-    expect(res.status).toBe(403);
+    const res = await get('/get-scoring', { Cookie: `__Host-cv_key=cvtext_${token}` }, '10.221.88.2');
+    expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.valid).toBe(false);
+    expect(body.valid).toBe(true);
+    expect(body.scoring.skor).toBe(61);
   });
 
   it('returns 404 when both cvtext_ and scoring_ keys are absent', async () => {
     const token = 'e'.repeat(64);
-    const res = await get(`/get-scoring?key=cvtext_${token}`, {}, nextScoringIp());
+    const res = await get('/get-scoring', { Cookie: `__Host-cv_key=cvtext_${token}` }, nextScoringIp());
     expect(res.status).toBe(404);
     const body = await res.json();
     expect(body.valid).toBe(false);
   });
 
-  it('rejects key without cvtext_ prefix', async () => {
-    const res = await get('/get-scoring?key=badprefix_' + 'f'.repeat(64), {}, nextScoringIp());
-    expect(res.status).toBe(400);
+  it('returns 401 when no cv_key cookie is present', async () => {
+    const res = await get('/get-scoring', {}, nextScoringIp());
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+  });
+
+  it('returns scoring via sessionToken cookie (new session flow)', async () => {
+    const sessionId = crypto.randomUUID();
+    const cvToken   = 'f1'.repeat(32);
+    const cvKey     = `cvtext_${cvToken}`;
+    const mockScoring = { skor: 82, verdict: 'DO', skor_6d: {} };
+    await env.GASLAMAR_SESSIONS.put(`analysis_session_${sessionId}`, JSON.stringify({
+      sessionId, resultId: crypto.randomUUID(), cvKey, createdAt: Date.now(), expiresAt: Date.now() + 86400000,
+    }), { expirationTtl: 86400 });
+    await env.GASLAMAR_SESSIONS.put(cvKey, JSON.stringify({
+      text: 'cv text', job_desc: 'jd', ip: '1.2.3.4', scoring: mockScoring,
+    }), { expirationTtl: 86400 });
+
+    const res = await get('/get-scoring', { Cookie: `sessionToken=${sessionId}` }, '1.2.3.4');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.scoring.skor).toBe(82);
+    expect(body.text).toBeUndefined();
+  });
+
+  it('returns 401 via sessionToken when analysis_session_ KV entry is missing', async () => {
+    const sessionId = crypto.randomUUID();
+    const res = await get('/get-scoring', { Cookie: `sessionToken=${sessionId}` }, nextScoringIp());
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 401 when only a ?key= query param is provided (no cookie)', async () => {
+    // The ?key= param is intentionally ignored — accepting it would allow unauthenticated enumeration.
+    const token = 'e1'.repeat(32);
+    const res = await get(`/get-scoring?key=cvtext_${token}`, {}, nextScoringIp());
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+  });
+
+  it('returns scoring via cv_key cookie (new session flow)', async () => {
+    const token = '1'.repeat(64);
+    const mockScoring = { skor: 77, verdict: 'DO', skor_6d: {} };
+    await env.GASLAMAR_SESSIONS.put(`cvtext_${token}`, JSON.stringify({
+      text: 'raw cv', job_desc: 'raw jd', ip: '1.2.3.4', scoring: mockScoring,
+    }), { expirationTtl: 86400 });
+
+    // Pass key via HttpOnly cookie — no query param; use same IP as stored entry
+    const res = await get('/get-scoring', { Cookie: `__Host-cv_key=cvtext_${token}` }, '1.2.3.4');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.scoring.skor).toBe(77);
+    // Must never expose raw fields
+    expect(body.text).toBeUndefined();
+    expect(body.cv_text).toBeUndefined();
+  });
+
+  it('cookie takes precedence over query param', async () => {
+    const goodToken = '2'.repeat(64);
+    const badToken  = '3'.repeat(64);
+    await env.GASLAMAR_SESSIONS.put(`cvtext_${goodToken}`, JSON.stringify({
+      text: 'cv', job_desc: 'jd', scoring: { skor: 55 },
+    }), { expirationTtl: 86400 });
+
+    // Cookie key is valid; query param points to a nonexistent key.
+    const res = await get(
+      `/get-scoring?key=cvtext_${badToken}`,
+      { Cookie: `__Host-cv_key=cvtext_${goodToken}` },
+      nextScoringIp(),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.scoring.skor).toBe(55);
+  });
+});
+
+describe('Rate limiting — GET /get-scoring (10 req/min per IP, 20/min with cookie)', () => {
+  // Unique IP range to avoid cross-suite contamination
+  const RL_GS_IP = '10.99.3.1';
+
+  it('allows 10 requests and blocks the 11th with 429', async () => {
+    // First 10: rate-limit passes, no cookie → 401 (auth check before KV lookup)
+    for (let i = 0; i < 10; i++) {
+      const r = await get('/get-scoring', {}, RL_GS_IP);
+      expect(r.status).not.toBe(429);
+    }
+    // 11th must be blocked
+    const res = await get('/get-scoring', {}, RL_GS_IP);
+    expect(res.status).toBe(429);
+    expect(Number(res.headers.get('Retry-After'))).toBeGreaterThan(0);
+    const body = await res.json();
+    expect(body.error).toBe('Too many requests');
+    expect(body.retryAfter).toBeGreaterThan(0);
+    expect(body.message).toContain('Terlalu banyak');
+  });
+
+  it('counters are per-IP — a different IP is not blocked', async () => {
+    // Exhaust limit for one IP (10.99.3.2)
+    for (let i = 0; i < 10; i++) {
+      await get('/get-scoring', {}, '10.99.3.2');
+    }
+    // A different IP should still pass rate limiting (will get 401 from missing cookie)
+    const res = await get('/get-scoring', {}, '10.99.3.3');
+    expect(res.status).toBe(401);
+  });
+
+  it('missing cookie returns 401 — identical body prevents enumeration', async () => {
+    // Requests without a cookie return 401 before any KV lookup, preventing key enumeration.
+    const withQueryParam = await get('/get-scoring?key=notvalid_' + 'a'.repeat(64), {}, '10.99.3.4');
+    const noParams       = await get('/get-scoring', {}, '10.99.3.4');
+    expect(withQueryParam.status).toBe(401);
+    expect(noParams.status).toBe(401);
+    // Both produce identical 401 with no key-existence information
+    expect((await withQueryParam.json()).valid).toBe(false);
+    expect((await noParams.json()).valid).toBe(false);
   });
 });
 
@@ -4106,7 +4593,7 @@ describe('POST /get-result — exhausted field', () => {
     }), { expirationTtl: 600 });
     await env.GASLAMAR_SESSIONS.put(`cv_result_${sessionId}`, JSON.stringify(CV_RESULT), { expirationTtl: 600 });
 
-    const res = await post('/get-result', {}, { Cookie: `session_id=${sessionId}` });
+    const res = await post('/get-result', {}, { Cookie: `__Host-session_id=${sessionId}` });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.exhausted).toBe(true);
@@ -4120,7 +4607,7 @@ describe('POST /get-result — exhausted field', () => {
     }), { expirationTtl: 600 });
     await env.GASLAMAR_SESSIONS.put(`cv_result_${sessionId}`, JSON.stringify({ ...CV_RESULT, tier: '3pack' }), { expirationTtl: 600 });
 
-    const res = await post('/get-result', {}, { Cookie: `session_id=${sessionId}` });
+    const res = await post('/get-result', {}, { Cookie: `__Host-session_id=${sessionId}` });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.exhausted).toBe(false);
@@ -4131,7 +4618,7 @@ describe('POST /get-result — exhausted field', () => {
     // No session entry — only the cv_result_ entry remains
     await env.GASLAMAR_SESSIONS.put(`cv_result_${sessionId}`, JSON.stringify(CV_RESULT), { expirationTtl: 600 });
 
-    const res = await post('/get-result', {}, { Cookie: `session_id=${sessionId}` });
+    const res = await post('/get-result', {}, { Cookie: `__Host-session_id=${sessionId}` });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.exhausted).toBe(true);
@@ -4144,7 +4631,57 @@ describe('POST /get-result — exhausted field', () => {
 
   it('returns 404 when cv_result_ entry is absent', async () => {
     const sessionId = `sess_${crypto.randomUUID()}`;
-    const res = await post('/get-result', {}, { Cookie: `session_id=${sessionId}` });
+    const res = await post('/get-result', {}, { Cookie: `__Host-session_id=${sessionId}` });
     expect(res.status).toBe(404);
   });
 });
+
+describe('Security headers', () => {
+  const REQUIRED = [
+    ['content-security-policy', "default-src 'none'; frame-ancestors 'none'"],
+    ['x-frame-options', 'DENY'],
+    ['x-content-type-options', 'nosniff'],
+    ['strict-transport-security', 'max-age=31536000; includeSubDomains'],
+  ];
+
+  async function assertSecurityHeaders(res) {
+    for (const [header, expected] of REQUIRED) {
+      expect(res.headers.get(header), `Missing ${header}`).toBe(expected);
+    }
+  }
+
+  it('GET /health returns all four security headers', async () => {
+    const res = await get('/health');
+    await assertSecurityHeaders(res);
+  });
+
+  it('OPTIONS preflight returns CORS Allow-Origin header', async () => {
+    const res = await SELF.fetch('https://gaslamar.com/analyze', {
+      method: 'OPTIONS',
+      headers: { Origin: GASLAMAR_ORIGIN, 'CF-Connecting-IP': '1.2.3.4' },
+    });
+    expect(res.status).toBe(204);
+    expect(res.headers.get('access-control-allow-origin')).toBe(GASLAMAR_ORIGIN);
+  });
+
+  it('GET /check-session returns all four security headers', async () => {
+    const res = await get('/check-session');
+    await assertSecurityHeaders(res);
+  });
+
+  it('GET /get-scoring returns all four security headers (even on error)', async () => {
+    const res = await get('/get-scoring?key=cvtext_abc');
+    await assertSecurityHeaders(res);
+  });
+
+  it('POST /analyze validation error returns all four security headers', async () => {
+    const res = await post('/analyze', {});
+    await assertSecurityHeaders(res);
+  });
+
+  it('404 response returns all four security headers', async () => {
+    const res = await get('/nonexistent-endpoint-xyz');
+    await assertSecurityHeaders(res);
+  });
+});
+

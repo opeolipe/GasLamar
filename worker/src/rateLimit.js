@@ -45,7 +45,7 @@ export async function checkRateLimitKV(env, ip, limit = 3, windowSecs = 60, pref
         if (data.count >= limit) {
           const retryAfter = windowSecs - (now - data.start);
           log('rate_limit_kv_hit', { prefix, ip, count: data.count, limit, retryAfter });
-          return { allowed: false, retryAfter };
+          return { allowed: false, retryAfter, remaining: 0, reset: data.start + windowSecs, limit };
         }
         // Increment counter, preserving the original window start.
         // H1 FIX: Use remaining time clamped to KV's 60s minimum.
@@ -55,15 +55,15 @@ export async function checkRateLimitKV(env, ip, limit = 3, windowSecs = 60, pref
         // document the intent: we want the entry to expire at data.start + windowSecs,
         // and the 60s minimum is only a KV floor. Window correctness is enforced by
         // the (now - data.start < windowSecs) check on every read.
-        const remaining = windowSecs - (now - data.start);
+        const timeRemaining = windowSecs - (now - data.start);
         const newCount = data.count + 1;
         await env.GASLAMAR_SESSIONS.put(
           key,
           JSON.stringify({ start: data.start, count: newCount }),
-          { expirationTtl: Math.max(60, remaining) }
+          { expirationTtl: Math.max(60, timeRemaining) }
         );
         log('rate_limit_kv_count', { prefix, ip, count: newCount, limit });
-        return { allowed: true };
+        return { allowed: true, remaining: limit - newCount, reset: data.start + windowSecs, limit };
       }
     }
 
@@ -71,10 +71,10 @@ export async function checkRateLimitKV(env, ip, limit = 3, windowSecs = 60, pref
     await env.GASLAMAR_SESSIONS.put(
       key,
       JSON.stringify({ start: now, count: 1 }),
-      { expirationTtl: windowSecs }
+      { expirationTtl: Math.max(60, windowSecs) }
     );
     log('rate_limit_kv_count', { prefix, ip, count: 1, limit });
-    return { allowed: true };
+    return { allowed: true, remaining: limit - 1, reset: now + windowSecs, limit };
   } catch (e) {
     logError('rate_limit_kv_error', { prefix, ip, error: e.message });
     // Fallback to in-memory counter — survives KV outages within the same isolate.
@@ -83,21 +83,54 @@ export async function checkRateLimitKV(env, ip, limit = 3, windowSecs = 60, pref
     const entry  = _memRateLimit.get(memKey);
     if (entry && now - entry.start < windowSecs) {
       if (entry.count >= limit) {
-        return { allowed: false, retryAfter: windowSecs - (now - entry.start) };
+        return { allowed: false, retryAfter: windowSecs - (now - entry.start), remaining: 0, reset: entry.start + windowSecs, limit };
       }
       entry.count++;
+      return { allowed: true, remaining: limit - entry.count, reset: entry.start + windowSecs, limit };
     } else {
       _memRateLimit.set(memKey, { start: now, count: 1 });
+      return { allowed: true, remaining: limit - 1, reset: now + windowSecs, limit };
     }
-    return { allowed: true };
   }
 }
 
-// Returns a properly-formed 429 with Retry-After header (RFC 7231 §7.1.3).
+/**
+ * Session-aware KV rate limiter.
+ *
+ * When the caller has a verified session ID (or any per-user token), rate limit
+ * by that token at `sessionLimit` requests/window — which is typically higher
+ * than the IP-based `limit` — so legitimate users doing client-side retries or
+ * polling are not blocked. Falls back to IP-based limiting when no session is
+ * present.
+ *
+ * Callers should pass the session ID only after confirming it exists (not null)
+ * so the session bucket reflects actual authenticated traffic.
+ */
+export async function checkRateLimitKVSession(
+  env,
+  ip,
+  sessionId,
+  limit,
+  sessionLimit,
+  windowSecs,
+  prefix
+) {
+  if (sessionId) {
+    return checkRateLimitKV(env, sessionId, sessionLimit, windowSecs, `${prefix}_sess`);
+  }
+  return checkRateLimitKV(env, ip, limit, windowSecs, prefix);
+}
+
+// Returns a properly-formed 429 with Retry-After and X-RateLimit-* headers (RFC 7231 §7.1.3).
 // All rate-limited endpoints must use this instead of a plain jsonResponse 429.
-export function rateLimitResponse(request, env, retryAfter = 60) {
+// rlInfo: optional { limit, remaining, reset } to populate X-RateLimit-* headers.
+export function rateLimitResponse(request, env, retryAfter = 60, rlInfo = {}) {
   const mins    = Math.ceil(retryAfter / 60);
   const waitStr = retryAfter <= 90 ? `${retryAfter} detik` : `${mins} menit`;
+  const rlHeaders = { 'Retry-After': String(retryAfter) };
+  if (rlInfo.limit     !== undefined) rlHeaders['X-RateLimit-Limit']     = String(rlInfo.limit);
+  rlHeaders['X-RateLimit-Remaining'] = String(rlInfo.remaining ?? 0);
+  if (rlInfo.reset     !== undefined) rlHeaders['X-RateLimit-Reset']     = String(rlInfo.reset);
   return corsResponse(
     JSON.stringify({
       error: 'Too many requests',
@@ -105,7 +138,7 @@ export function rateLimitResponse(request, env, retryAfter = 60) {
       retryAfter,
     }),
     429,
-    { 'Content-Type': 'application/json', 'Retry-After': String(retryAfter) },
+    { 'Content-Type': 'application/json', ...rlHeaders },
     request,
     env
   );

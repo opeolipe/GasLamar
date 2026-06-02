@@ -1,50 +1,16 @@
 // Session guard — runs synchronously in <head> before body renders.
-// Expired sessions redirect to /access so the user can recover their paid CV link.
-// Missing/forged sessions redirect to upload.html for re-upload.
+// Auth is enforced server-side via the HttpOnly cv_key cookie:
+//   - Production: router.js gates /hasil.html before serving it
+//   - All environments: /check-session validates the cookie asynchronously in the page component
 //
-// Scoring is now server-side (GET /get-scoring) so the guard no longer validates
-// the sessionStorage blob — it only checks the cv_text_key format and analyze_time.
-// scoring.js handles the async server fetch and its own expiry/error paths.
+// This guard only rejects URL-level session parameters that don't match our format,
+// preventing link-sharing and URL-forging attacks. It sets window.__hasilSessionError
+// so the React app can render contextual error states without a hard redirect.
 (function() {
-  var KEYS = ['gaslamar_cv_key', 'gaslamar_analyze_time'];
-
-  function redirect(reason) {
-    KEYS.forEach(function(k) { sessionStorage.removeItem(k); });
-    window.location.replace('upload.html?reason=' + reason);
-  }
-
-  // --- Security: reject any URL-level session parameter that doesn't match our format ---
-  // hasil.html is a server-fetch page; a foreign sessionId in the URL means
-  // someone is sharing/forging a link.
   var params = new URLSearchParams(location.search);
   var urlSession = params.get('session') || params.get('sessionId');
   if (urlSession !== null && !urlSession.startsWith('cvtext_')) {
-    redirect('session_expired'); return;
+    sessionStorage.removeItem('gaslamar_cv_key');
+    window.__hasilSessionError = 'expired';
   }
-
-  var cvKey       = sessionStorage.getItem('gaslamar_cv_key') || '';
-  var analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
-  var SESSION_SECS = 86400;
-
-  // cv_key is normally available in sessionStorage. If it is missing, let
-  // scoring.js try the HttpOnly cv_text_key cookie set by /analyze.
-  if (cvKey && !cvKey.startsWith('cvtext_')) { redirect('no_session'); return; }
-
-  // Session must not be older than 24 hours — send to /access so returning
-  // paid users can recover their CV download link without re-uploading.
-  var isExpired = analyzeTime > 0 && (Date.now() - analyzeTime) / 1000 > SESSION_SECS;
-  if (isExpired) {
-    KEYS.forEach(function(k) { sessionStorage.removeItem(k); });
-    window.location.replace('access.html?expired=1&source=hasil');
-    return;
-  }
-
-  // analyze_time must be present when a client-visible key is present. Cookie-only
-  // recovery is validated server-side by /get-scoring.
-  if (cvKey && !analyzeTime) { redirect('no_session'); return; }
-
-  // If a valid cvtext_ key is in the URL, it must match what's in sessionStorage
-  if (urlSession && cvKey && urlSession !== cvKey) { redirect('session_expired'); return; }
-
-  // All checks passed — scoring.js will fetch from /get-scoring.
 })();

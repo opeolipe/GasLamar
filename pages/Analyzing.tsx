@@ -34,9 +34,16 @@ interface ContentProps {
 }
 
 function AnalyzingContent({ cvData, jobDesc, filename }: ContentProps) {
-  const { progress, steps, timerText, error, isFileError, isComplete, retry, cancel } = useAnalysis(cvData, jobDesc);
+  const { progress, steps, timerText, error, isFileError, isRateLimit, rateLimitSecsLeft, isComplete, retry, cancel } = useAnalysis(cvData, jobDesc);
   const [showConfirm,       setShowConfirm]       = useState(false);
   const [showManualContinue, setShowManualContinue] = useState(false);
+
+  useEffect(() => {
+    if (!showConfirm) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowConfirm(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [showConfirm]);
 
   useEffect(() => {
     if (!isComplete) return;
@@ -61,7 +68,7 @@ function AnalyzingContent({ cvData, jobDesc, filename }: ContentProps) {
       <UploadSteps currentStep={3} />
 
       {error
-        ? <AnalysisError message={error} onRetry={retry} isFileError={isFileError} />
+        ? <AnalysisError message={error} onRetry={retry} isFileError={isFileError} isRateLimit={isRateLimit} rateLimitSecsLeft={rateLimitSecsLeft} />
         : (
           <>
             <AnalysisProgress progress={progress} timerText={timerText} filename={filename} />
@@ -109,7 +116,7 @@ function AnalyzingContent({ cvData, jobDesc, filename }: ContentProps) {
               ) : (
                 <button
                   onClick={() => setShowConfirm(true)}
-                  className="text-slate-400 hover:text-slate-700 text-[0.8rem] inline-flex items-center gap-1.5 transition-colors min-h-[44px] px-3 cursor-pointer bg-transparent border-none font-[inherit]"
+                  className="text-slate-500 hover:text-slate-700 text-[0.8rem] inline-flex items-center gap-1.5 transition-colors min-h-[44px] px-3 cursor-pointer bg-transparent border-none font-[inherit]"
                 >
                   ← Ubah CV atau job
                 </button>
@@ -136,9 +143,9 @@ export default function Analyzing() {
 
   useEffect(() => {
     if (ready) return;
-    const cvKey       = sessionStorage.getItem('gaslamar_cv_key') || '';
+    // cv_key is now an HttpOnly cookie — check analyze_time only for freshness.
     const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
-    const isFresh     = !!(cvKey.startsWith('cvtext_') && analyzeTime && (Date.now() - analyzeTime) < 7_200_000);
+    const isFresh     = !!(analyzeTime && (Date.now() - analyzeTime) < 7_200_000);
     window.location.replace(isFresh ? 'hasil.html' : 'upload.html?reason=missing_data');
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

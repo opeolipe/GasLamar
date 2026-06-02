@@ -1,4 +1,4 @@
-import { forbiddenOriginResponse, isUnsafeOrigin, jsonResponse, corsResponse } from './cors.js';
+import { forbiddenOriginResponse, isUnsafeOrigin, jsonResponse, corsResponse, SECURITY_HEADERS } from './cors.js';
 import { clientIp, log, logError } from './utils.js';
 import { checkRateLimitKV, rateLimitResponse } from './rateLimit.js';
 import { sanitizeLogValue } from './sanitize.js';
@@ -20,7 +20,7 @@ import { handleGetResult } from './handlers/getResult.js';
 import { handleValidateCoupon } from './handlers/validateCoupon.js';
 import { handleGetScoring } from './handlers/getScoring.js';
 import { getSession } from './sessions.js';
-import { getCvTextKeyFromCookie, getSessionIdFromCookie } from './cookies.js';
+import { getCvTextKeyFromCookie, getCvKeyFromCookie, getSessionIdFromCookie } from './cookies.js';
 
 function noStoreRedirect(location) {
   return new Response(null, {
@@ -34,7 +34,9 @@ function noStoreRedirect(location) {
 
 async function getProtectedPageState(request, env) {
   const sessionId = getSessionIdFromCookie(request);
-  const cvTextKey = getCvTextKeyFromCookie(request);
+  // cv_key is the current cookie name (set by /analyze via makeCvKeyCookie).
+  // cv_text_key is the legacy name kept for backward compat with old sessions.
+  const cvTextKey = getCvKeyFromCookie(request) || getCvTextKeyFromCookie(request);
   const ip = clientIp(request);
   const state = {
     hasSessionCookie: !!sessionId,
@@ -288,15 +290,24 @@ export async function route(request, env, ctx) {
   if ((method === 'GET' || method === 'HEAD') && env.ENVIRONMENT === 'production') {
     if (pathname === '/hasil' || pathname === '/hasil.html') {
       const state = await getProtectedPageState(request, env);
+      // Active analysis session — serve the page (falls through to Pages proxy below).
       if (state.analysisActive && pathname === '/hasil') {
+        // Canonical path: /hasil (no extension) → redirect to /hasil.html
         return noStoreRedirect('/hasil.html');
       }
+      // Paid session but no active analysis (user already paid and is returning).
       if (!state.analysisActive && state.sessionActive) {
         return noStoreRedirect('/download.html');
       }
+      // Cookie present but session expired or IP-mismatched — do NOT send to /upload
+      // (that would contradict the "you have active results" banner). Use access.html
+      // so the user sees a proper explanation and can re-authenticate via email link.
       if (!state.analysisActive && (state.hasAnalysisCookie || state.hasSessionCookie)) {
         return noStoreRedirect('/access.html?expired=1&source=hasil');
       }
+      // Truly no session at all — no cookie, no token. Upload.tsx will clear
+      // gaslamar_analyze_time on this reason so the "Lihat hasil" banner does not
+      // contradict this message and create a redirect loop.
       if (!state.analysisActive && pathname === '/hasil.html') {
         return noStoreRedirect('/upload.html?reason=no_session');
       }
@@ -358,5 +369,9 @@ export async function route(request, env, ctx) {
     }
   }
 
-  return jsonResponse({ message: 'Not found' }, 404, request, env);
+  // No CORS headers on unknown paths — only defined API endpoints are CORS-enabled.
+  return new Response(JSON.stringify({ message: 'Not found' }), {
+    status: 404,
+    headers: { ...SECURITY_HEADERS, 'Content-Type': 'application/json' },
+  });
 }

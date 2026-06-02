@@ -5,7 +5,7 @@ import { checkRateLimit, rateLimitResponse } from '../rateLimit.js';
 import { TIER_CREDITS, SESSION_TTL_MULTI, VALID_TIERS } from '../constants.js';
 import { createMayarInvoice, logMayarEnvironment } from '../mayar.js';
 import { createSession } from '../sessions.js';
-import { makeSessionCookie } from '../cookies.js';
+import { makeSessionCookie, getCvKeyFromCookie } from '../cookies.js';
 import { SESSION_STATES } from '../sessionStates.js';
 
 export async function handleCreatePayment(request, env) {
@@ -23,7 +23,10 @@ export async function handleCreatePayment(request, env) {
     return jsonResponse({ message: 'Request body tidak valid' }, 400, request, env);
   }
 
-  const { tier, cv_text_key, email: rawEmail, coupon_code: rawCoupon } = body;
+  const { tier, cv_text_key: cv_text_key_body, email: rawEmail, coupon_code: rawCoupon } = body;
+  // Prefer the HttpOnly cv_key cookie (new sessions). Fall back to the request body
+  // (old sessions that analyzed before the cookie migration and still have the key stored).
+  const cv_text_key = getCvKeyFromCookie(request) || cv_text_key_body;
 
   // Sanitize coupon code — uppercase, strip non-alphanumeric, max 64 chars
   const couponCode = (rawCoupon && typeof rawCoupon === 'string')
@@ -111,6 +114,8 @@ export async function handleCreatePayment(request, env) {
         job_desc: stored.job_desc,
         // Carry inferred_role through to /generate so it can choose tailoring mode.
         inferred_role: stored.inferred_role ?? null,
+        // Carry result_id so /generate can validate the client-supplied analytics ID.
+        ...(stored.result_id ? { result_id: stored.result_id } : {}),
         tier,
         status: SESSION_STATES.PENDING_PAYMENT,
         mayar_invoice_id: invoice_id,

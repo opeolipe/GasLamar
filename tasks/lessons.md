@@ -1,3 +1,36 @@
+## Moving sessionStorage tokens to HttpOnly cookies: transition checklist (2026-06-01)
+
+When migrating a client-readable token (e.g. `gaslamar_cv_key`) to an HttpOnly cookie:
+
+1. **Backend first**: add `makeFooCookie()` / `getfooFromCookie()` helpers in `cookies.js`.
+   Each endpoint that used the token must: read cookie first → fall back to old param/body.
+   This keeps old sessions working until their TTL expires.
+
+2. **Server response change**: stop returning the token in the JSON body — set it via
+   `Set-Cookie` instead. This is the main XSS-prevention step.
+
+3. **Frontend analyze call**: add `credentials:'include'` so the browser saves the cookie
+   from the cross-origin response. Without this, Set-Cookie is silently discarded.
+
+4. **Remove storage writes**: delete every `sessionStorage.setItem('gaslamar_cv_key', ...)`.
+   Keep the key in the storage CLEAR list so stale legacy values are cleaned up on new uploads.
+
+5. **Guards that check the token synchronously** (inline `<script>` in `<head>`) cannot read
+   httpOnly cookies. Simplify them to check only the non-sensitive timestamp (`analyze_time`);
+   real auth is now server-side. Update both the source file AND the minified inline copy.
+
+6. **Backward compat**: frontend should include the legacy key from storage as a query/body
+   fallback for endpoints that still support it. New sessions send nothing — just the cookie.
+
+7. **Tests**: parse the cv_key from the `Set-Cookie` header (not the response body) to use in
+   subsequent KV lookups. Add new tests for the cookie path alongside existing param-path tests.
+
+8. **Grep check before shipping**:
+   `grep -r "setItem.*gaslamar_cv_key"` — must return nothing.
+   `grep -r "cv_text_key.*:" worker/src/handlers/analyze.js` — must return nothing in return value.
+
+---
+
 ## cvtext_ key format must be `cvtext_[0-9a-f]{64}` everywhere (2026-05-23)
 
 Any code path that accepts a user-supplied `cvtext_*` key must validate the strict format `^cvtext_[0-9a-f]{64}$` — not just `startsWith('cvtext_')` or a length cap. The production `/analyze` handler generates these keys with `hexToken(32)` (64 lowercase hex chars). Three endpoints (`createPayment`, `validateSession`, `bypassPayment`) previously accepted arbitrary strings, which could silently fail at Cloudflare KV's 512-byte key limit or accept malformed keys. Test helpers that seed `cvtext_` keys must also use the correct format (32 random bytes as hex) — never `crypto.randomUUID()`, which produces a UUID with hyphens that breaks the validation.
@@ -362,3 +395,131 @@ The tester looked for a key named `session_token` or `server_session_id`. The ac
 - Check sessionStorage in the SAME tab the analysis ran in (not a new tab)
 - Confirm character count using `.trim().length`, not `.length` — whitespace-heavy text may count high but trim low
 - Paid session token is an HttpOnly cookie; check DevTools → Application → Cookies, not sessionStorage
+
+---
+
+## "Contoh" button must call onChange, not just show text (2026-06-01)
+
+Any UI element that inserts text into a React-controlled textarea must call the `onChange` prop (or the parent's state setter), not set `el.value` directly. A button that only toggles display of example text never touches the controlled value, so the character counter, validation state, and submit button never update. Pattern: `onClick={() => { onChange(JD_EXAMPLE); setShowExample(false); }}`. The same applies to URL fetch completion — always call `onChange(text.slice(0, MAX_CHARS))` rather than assigning `el.value` and relying on the input event.
+
+## URL-fetched text must be capped client-side before setJobDesc (2026-06-01)
+
+When an API returns job description text that may exceed the field limit, cap it in the success handler before setting React state. Relying on the `maxLength` HTML attribute does not prevent programmatic over-length assignments — `setJobDesc(jd)` with `jd.length > 5000` sets state to the full length, making `overLimit=true` and silently disabling the submit button. Always cap: `const capped = jd.length > MAX ? jd.slice(0, MAX) : jd` and show a truncation status message when the cap fires.
+
+---
+
+## sessionStorage write order in useAnalysisPolling — critical keys must be written before large blobs
+
+**Pattern:** `gaslamar_cv_key` and `gaslamar_analyze_time` were written AFTER `gaslamar_scoring` (lines 181-183 in `hooks/useAnalysisPolling.ts`). `gaslamar_scoring` is the largest write (several KB of JSON). If it throws `QuotaExceededError` (iOS Safari, low-storage devices), the outer catch block fires before the two small critical keys are written. This prevents the redirect to `hasil.html` and shows a generic "Terjadi kesalahan" error instead.
+
+**Fix:** Always write small, guard-required keys first (`gaslamar_cv_key`, `gaslamar_analyze_time`), then wrap the large blob write in its own try-catch. The `gaslamar_scoring` write is non-critical — `useResultData.ts` already has a `GET /get-scoring` server-side fallback for exactly this scenario.
+
+**Rule:** In any success-path sessionStorage block, writes required to satisfy HTML inline guards or route conditions must come FIRST and must not be blocked by a preceding large write.
+
+---
+
+## "No session cookie after /analyze" is a false positive — the cookie is cv_key, not sessionToken (2026-06-01)
+
+**Pattern:** External audit tools and AI-generated task descriptions sometimes report "backend does not set an HttpOnly session cookie after analysis" or "frontend stores session token in sessionStorage." Both are false for this codebase.
+
+**Reality:**
+- `/analyze` sets `cv_key` as an HttpOnly, Secure, SameSite=None cookie via `makeCvKeyCookie()` in `cookies.js`
+- The frontend stores only `gaslamar_analyze_time` (a Unix timestamp, not a token) in sessionStorage
+- `hasil-guard.js` reads only the timestamp; real auth is via the HttpOnly `cv_key` cookie sent automatically with `credentials: 'include'`
+- SameSite=None is intentional — required for cross-origin staging (Pages → Worker subdomain); SameSite=Strict would break staging
+- `/check-session` is for *payment* sessions (`sess_`). Analysis sessions are validated by `/validate-session` and `/get-scoring` using the `cv_key` cookie
+
+**Verification when a report claims this bug:**
+1. `grep -rn "setItem.*gaslamar_cv_key"` in `js/` → must return nothing
+2. `grep -rn "cv_text_key.*:" worker/src/handlers/analyze.js` → must return nothing (token not in response body)
+3. Check DevTools → Application → Cookies for `cv_key` after /analyze (not sessionStorage)
+4. Run `cd worker && npm test` — all tests must pass
+
+---
+
+## QA false positives require automated regression tests, not just documentation (2026-06-01)
+
+**Pattern:** Four false positives were filed in the same audit: aria-disabled on button, session token IDOR, JD maxlength bypass, CORS wildcard. Each was documented in lessons.md and the QA plan, but no automated test asserted the expected behavior. Documentation alone doesn't prevent the same finding being re-filed in a future audit.
+
+**Rule:** Every false-positive finding must be closed with an automated test (Playwright or CI check), not just a doc update. If the behavior can be asserted in a Playwright test, add it. If it requires a deployed environment, add a CI step. If neither is feasible, add a manual regression checklist to the QA guidelines.
+
+**Tests added (2026-06-01):**
+- `aria-disabled` → `tests/e2e/upload-button-a11y.spec.ts` (3 tests)
+- No auth tokens in client storage → `tests/e2e/security-invariants.spec.ts` (3 tests)
+- JD maxlength programmatic enforcement → `tests/e2e/cv-flow.spec.ts` ("job description counter" test)
+- CORS wildcard → `CORS security header check` step in `deploy.yml` and `deploy-staging.yml`
+- Static asset CORS (no ACAO) → step [5] in both deploy workflows (upgraded from WARN to FAIL in prod)
+- Stale staging deploy → `scripts/verify-staging-bundle.js` + CI step in `deploy-staging.yml`
+
+## Session guard must not block on sessionStorage (2026-06-01)
+- **Problem**: `hasil-guard.js` checked `gaslamar_analyze_time` in sessionStorage synchronously before page load. This is tab-scoped and can be absent (privacy modes, new tab, iOS Safari ITP, cleared by upload page).
+- **Fix**: Remove the sessionStorage auth check from the guard. Auth is enforced via:
+  1. Server-side: `router.js` checks `cv_key` HttpOnly cookie before serving `hasil.html` in production.
+  2. Async: `/check-session` now validates `cv_key` cookie and returns `{valid:true, type:"analysis"}` for active analysis sessions; `useResultData` calls this as defense-in-depth.
+- **Rule**: Never use sessionStorage as a gate for page access. Use HttpOnly cookies (server-side) or async API calls. The guard exists only to block forged URL parameters and sets `window.__hasilSessionError` for inline React error states.
+- **Countdown UX**: `gaslamar_analyze_time` is still written to sessionStorage for the payment countdown timer — it is not a security token and its absence does not block access.
+
+## Removing all sensitive data from sessionStorage (2026-06-01)
+
+Pattern applied in the XSS/IDOR security fix:
+
+1. **Never write scoring blobs client-side.** `GET /get-scoring` (cookie-auth) is the single
+   source of truth. The fast-path sessionStorage cache saves one network round-trip but creates
+   XSS exposure for the entire scoring payload. Remove it.
+
+2. **result_id and cv_key stay in-memory.** analytics correlation across page loads is a
+   nice-to-have; XSS-proof storage is a must. Use local variables or skip cross-page correlation.
+
+3. **Raw CV text and extracted claims must never touch sessionStorage.** This includes:
+   `gaslamar_cv_paste_raw`, `gaslamar_entitas_klaim`, `gaslamar_sample*`, `gaslamar_preview_after`.
+   Accept the UX degradation (no paste draft persistence, no preview consistency).
+
+4. **Derived numbers are OK.** Plain integer scores (`skor`, `skor_6d`, `gap` as strings) contain
+   no CV content and no session token. These may be stored for the Download badge display.
+
+5. **Client cv_key check before payment is a false gate.** For cookie-based sessions it always
+   fails. Remove the check; the server already validates via the HttpOnly cookie.
+
+6. **STALE_KEYS in Upload.tsx must list all keys ever written** — including legacy ones that
+   are no longer written — so old-session data is swept on the next upload.
+
+---
+
+## Setting multiple Set-Cookie headers requires Headers.append, not plain object spread (2026-06-02)
+
+`new Response(body, { headers: { 'Set-Cookie': v1, 'Set-Cookie': v2 } })` silently drops the
+first cookie — plain JS objects have unique keys. Only the last `Set-Cookie` value survives.
+
+**Fix:** Build a `Headers` instance and use `.append()`:
+```js
+const headers = new Headers({ ...BASE_HEADERS, 'Content-Type': 'application/json' });
+for (const c of cookieHeaders) headers.append('Set-Cookie', c);
+return new Response(JSON.stringify(data), { status, headers });
+```
+
+Added `jsonResponseWithCookies(data, status, cookieHeaders[], request, env)` to `cors.js`.
+
+---
+
+## Upload.tsx "active results" notice must not show when session is already expired (2026-06-02)
+
+The "Kamu masih punya hasil analisis aktif" banner is driven by `gaslamar_analyze_time` in
+sessionStorage. If the cv_key/sessionToken cookie has expired (user was redirected here via
+`?reason=no_session`), both messages appear simultaneously — a contradiction.
+
+**Pattern:**
+- Skip the "active results" notice entirely when `params.get('reason')` is in the set
+  `{'no_session', 'session_expired', 'cv_expired', 'missing_data'}`.
+- Also confirm via `/check-session` asynchronously: if the server says no valid analysis
+  session, remove the notice and clear `gaslamar_analyze_time` from sessionStorage.
+
+---
+
+## /check-session: sessionToken (UUID) takes precedence over cv_key (cvtext_ hex) (2026-06-02)
+
+After `/analyze` sets BOTH cookies, `checkSession.js` must prefer `sessionToken` when present.
+The `sessionToken` is a UUID pointing to `analysis_session_<uuid>` KV record (lightweight).
+The `cv_key` is the raw cvtext_ key (points to the full CV+scoring blob).
+
+Lookup order: `sessionToken` → `analysis_session_` → `{ resultId, cvKey }` → return resultId.
+Legacy fallback: `cv_key` → `cvtext_` KV direct lookup (old sessions, no analysis_session_ entry).

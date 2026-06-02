@@ -19,7 +19,7 @@ export default function BeforeAfterProjection({ beforeScore, afterScore }: Props
           <div style={{ fontSize: '2.2rem', fontWeight: 800, color: '#10B981' }}>{afterScore}%</div>
         </div>
       </div>
-      <p style={{ fontSize: '0.875rem', color: '#9CA3AF', marginTop: '0.5rem', margin: '0.5rem 0 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+      <p style={{ fontSize: '0.875rem', color: '#6B7280', marginTop: '0.5rem', margin: '0.5rem 0 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
         Estimasi jika semua rekomendasi di atas diikuti
         <Tooltip text="Ini estimasi — hasil aktual bergantung pada implementasi dan rekruter yang membaca CV-mu." />
       </p>

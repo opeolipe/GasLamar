@@ -7,9 +7,7 @@ import {
   STEP_INTERVAL,
   STEP_DEFS,
   getTimerText,
-  extractCandidateDisplayName,
 } from '@/lib/analysisUtils';
-import { buildResultData } from '@/lib/resultUtils';
 import { extractSampleLine } from '@/lib/cvUtils';
 
 export type StepStatus = 'pending' | 'active' | 'done';
@@ -23,14 +21,16 @@ export interface AnalysisStep {
 }
 
 export interface UseAnalysisResult {
-  progress:    number;
-  steps:       AnalysisStep[];
-  timerText:   string;
-  error:       string | null;
-  isFileError: boolean;
-  isComplete:  boolean;
-  retry:       () => void;
-  cancel:      () => void;
+  progress:              number;
+  steps:                 AnalysisStep[];
+  timerText:             string;
+  error:                 string | null;
+  isFileError:           boolean;
+  isRateLimit:           boolean;
+  rateLimitSecsLeft:     number;
+  isComplete:            boolean;
+  retry:                 () => void;
+  cancel:                () => void;
 }
 
 const INIT_TIMER = `⏱️ Estimasi selesai: sekitar ${Math.ceil(ESTIMATED_MS / 1000)} detik`;
@@ -39,9 +39,13 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
   const [activeStep,  setActiveStep]  = useState(0);
   const [progress,    setProgress]    = useState(0);
   const [timerText,   setTimerText]   = useState(INIT_TIMER);
-  const [error,       setError]       = useState<string | null>(null);
-  const [isFileError, setIsFileError] = useState(false);
-  const [isComplete,  setIsComplete]  = useState(false);
+  const [error,            setError]            = useState<string | null>(null);
+  const [isFileError,      setIsFileError]      = useState(false);
+  const [isRateLimit,      setIsRateLimit]      = useState(false);
+  const [rateLimitSecsLeft, setRateLimitSecsLeft] = useState(0);
+  const [isComplete,       setIsComplete]       = useState(false);
+
+  const rateLimitTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Refs for mutable values accessed inside timer callbacks (avoids stale closures)
   const doneRef         = useRef(false);
@@ -65,8 +69,9 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
   );
 
   function clearAllTimers() {
-    if (timerRef.current)        { clearInterval(timerRef.current);       timerRef.current = null; }
-    if (fetchTimeoutRef.current) { clearTimeout(fetchTimeoutRef.current);  fetchTimeoutRef.current = null; }
+    if (timerRef.current)          { clearInterval(timerRef.current);        timerRef.current = null; }
+    if (fetchTimeoutRef.current)   { clearTimeout(fetchTimeoutRef.current);   fetchTimeoutRef.current = null; }
+    if (rateLimitTimerRef.current) { clearInterval(rateLimitTimerRef.current); rateLimitTimerRef.current = null; }
     stepTimeoutsRef.current.forEach(clearTimeout);
     stepTimeoutsRef.current = [];
   }
@@ -113,18 +118,27 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
       });
 
       const res = await fetch(`${WORKER_URL}/analyze`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ cv: cvData, job_desc: jobDesc }),
-        signal:  abortRef.current.signal,
+        method:      'POST',
+        headers:     { 'Content-Type': 'application/json' },
+        body:        JSON.stringify({ cv: cvData, job_desc: jobDesc }),
+        signal:      abortRef.current.signal,
+        // credentials:'include' is required so the browser saves the HttpOnly cv_key cookie
+        // returned in the Set-Cookie header. Without this, cross-origin cookies are discarded.
+        credentials: 'include',
       });
 
       if (fetchTimeoutRef.current) { clearTimeout(fetchTimeoutRef.current); fetchTimeoutRef.current = null; }
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        if (res.status === 429)
-          throw new Error(`Terlalu banyak permintaan. Coba lagi dalam ${err.retryAfter || 60} detik.`);
+        if (res.status === 429) {
+          const secs = err.retryAfter || 900;
+          const waitText = secs >= 60 ? `${Math.ceil(secs / 60)} menit` : `${secs} detik`;
+          const rlErr = new Error(`Terlalu banyak permintaan. Silakan coba lagi dalam ${waitText}.`);
+          (rlErr as any).isRateLimit  = true;
+          (rlErr as any).retryAfter   = secs;
+          throw rlErr;
+        }
         if (res.status === 422) {
           const fileErr = new Error(err.message || 'CV tidak bisa dibaca. Coba konversi ke format DOCX atau TXT terlebih dahulu.');
           (fileErr as any).isFileError = true;
@@ -134,95 +148,43 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
       }
 
       const result = await res.json();
-      const { cv_text_key: cvKey, ...scoringOnly } = result;
+      // cv_text_key is no longer returned in the response body — it is sent as an HttpOnly
+      // cookie (cv_key) by the server, preventing XSS from reading the analysis token.
+      const { ...scoringOnly } = result;
 
-      // Extract sample context from cv_pending BEFORE clearing it (synchronous)
-      try {
-        const cvPending = sessionStorage.getItem('gaslamar_cv_pending') || '';
-        if (cvPending) {
-          const lines = cvPending.split('\n').map((text, index) => ({ text: text.trim(), index }));
-          const longLines = lines.filter(l => l.text.length > 20);
-          const bulletLine = longLines.find(({ text }) =>
-            text.startsWith('•') || text.startsWith('-') ||
-            /^(manage|develop|create|mengelola|membuat|mengembangkan)/i.test(text),
-          );
-          const target = bulletLine ?? longLines[0] ?? null;
-          if (target) {
-            const contextStart = Math.max(0, target.index - 1);
-            const contextEnd   = Math.min(lines.length - 1, target.index + 1);
-            const originalBlock = lines.slice(contextStart, contextEnd + 1).map(l => l.text).join('\n');
-            const sampleContext = { line: target.text, index: target.index, originalBlock };
-            sessionStorage.setItem('gaslamar_sample_context', JSON.stringify(sampleContext));
-            sessionStorage.setItem('gaslamar_sample_line', target.text);
-          }
-          // Fallback: store first 500 chars in case no bullet line was found
-          if (!bulletLine) {
-            sessionStorage.setItem('gaslamar_sample_fallback', cvPending.slice(0, 500));
-          }
-        }
-      } catch (_) {}
-
-      // Persist entitas_klaim for the /generate request
-      try {
-        const klaim = result.entitas_klaim;
-        if (Array.isArray(klaim)) {
-          sessionStorage.setItem('gaslamar_entitas_klaim', JSON.stringify(klaim));
-        }
-      } catch (_) {}
-
-      // Generate a deterministic-ish resultId for analytics correlation
-      try {
-        const cvPrefix = (sessionStorage.getItem('gaslamar_cv_pending') || '')
-          .replace(/\W/g, '').slice(0, 8).toLowerCase();
-        const resultId = `res_${Date.now().toString(36)}_${cvPrefix}`;
-        sessionStorage.setItem('gaslamar_result_id', resultId);
-      } catch (_) {}
-
-      sessionStorage.setItem('gaslamar_scoring',      JSON.stringify(scoringOnly));
-      sessionStorage.setItem('gaslamar_cv_key',       cvKey || '');
+      // cv_key is now an HttpOnly cookie set by /analyze — not readable from JS.
       sessionStorage.setItem('gaslamar_analyze_time', String(Date.now()));
+
+      // result_id is used inline for analytics only — never written to sessionStorage.
+      const resultId = (result.result_id && typeof result.result_id === 'string')
+        ? result.result_id : undefined;
 
       (window as any).Analytics?.track?.('analysis_completed', {
         score:      result.skor        || null,
         confidence: result.konfidensitas || null,
-        resultId:   sessionStorage.getItem('gaslamar_result_id') || undefined,
+        resultId,
         time_ms: (() => {
           const t = sessionStorage.getItem('gaslamar_upload_start');
           return t ? Date.now() - parseInt(t, 10) : undefined;
         })(),
       });
 
-      // Persist sample line + preview_after BEFORE clearing cv_pending.
-      // useGenerateCV reads these on the Download page to inject the exact
-      // preview rewrite the user saw, ensuring preview = download consistency.
+      // Persist a non-PII sample line before clearing cv_pending. Prefer the server-returned
+      // sample_line (works for all CV types including PDF/DOCX). Fall back to client-side
+      // extraction for txt-type CVs (backward compat for mocked/offline flows).
       try {
-        const cvText = sessionStorage.getItem('gaslamar_cv_pending') || '';
-        if (cvText && scoringOnly.skor_6d) {
-          const rd = buildResultData({ skor6d: scoringOnly.skor_6d as Record<string, number>, cvText });
-          if (rd.sampleLine) {
-            const lines = cvText.split('\n');
-            const idx   = lines.findIndex(l => l.includes(rd.sampleLine!));
-            sessionStorage.setItem('gaslamar_sample', JSON.stringify({
-              text:  rd.sampleLine,
-              index: idx,
-            }));
+        const serverSample = (result as Record<string, unknown>).sample_line;
+        if (serverSample && typeof serverSample === 'string') {
+          sessionStorage.setItem('gaslamar_sample_line', serverSample);
+        } else {
+          const cvPending = sessionStorage.getItem('gaslamar_cv_pending');
+          if (cvPending) {
+            const parsed = JSON.parse(cvPending);
+            if (parsed?.type === 'txt' && typeof parsed.data === 'string') {
+              const sample = extractSampleLine(parsed.data);
+              if (sample) sessionStorage.setItem('gaslamar_sample_line', sample);
+            }
           }
-          if (rd.rewritePreview?.after && !rd.rewritePreview.after.includes('[')) {
-            sessionStorage.setItem('gaslamar_preview_after', rd.rewritePreview.after);
-          }
-        }
-      } catch (e) {
-        console.warn('[GasLamar] Failed to persist sample line for preview consistency:', e);
-      }
-
-      // Persist candidate display name before clearing cv_pending — used by the
-      // download page generating badge (gaslamar_cv_pending is gone by then).
-      try {
-        const cvPending    = sessionStorage.getItem('gaslamar_cv_pending') || '';
-        const rawFilename  = sessionStorage.getItem('gaslamar_filename')   || '';
-        const candidateName = extractCandidateDisplayName(cvPending, rawFilename);
-        if (candidateName && candidateName !== 'CV Kamu') {
-          sessionStorage.setItem('gaslamar_candidate_name', candidateName);
         }
       } catch (_) {}
 
@@ -251,7 +213,9 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
       });
 
       let msg = e.message || 'Terjadi kesalahan. Coba lagi.';
-      let fileError = !!(e as any).isFileError;
+      let fileError  = !!(e as any).isFileError;
+      let rateLimit  = !!(e as any).isRateLimit;
+      let retryAfterSecs: number = (e as any).retryAfter || 0;
       if (e.name === 'TypeError') {
         msg = 'Tidak bisa terhubung ke server. Periksa koneksi internet kamu, lalu coba lagi.';
       } else if (timedOutRef.current || e.name === 'AbortError') {
@@ -259,6 +223,21 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
       }
 
       setIsFileError(fileError);
+      setIsRateLimit(rateLimit);
+
+      if (rateLimit && retryAfterSecs > 0) {
+        setRateLimitSecsLeft(retryAfterSecs);
+        rateLimitTimerRef.current = setInterval(() => {
+          setRateLimitSecsLeft(prev => {
+            if (prev <= 1) {
+              if (rateLimitTimerRef.current) { clearInterval(rateLimitTimerRef.current); rateLimitTimerRef.current = null; }
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      }
+
       setError(msg);
     }
   }
@@ -268,6 +247,9 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
     startRef.current = Date.now();
     setError(null);
     setIsFileError(false);
+    setIsRateLimit(false);
+    setRateLimitSecsLeft(0);
+    if (rateLimitTimerRef.current) { clearInterval(rateLimitTimerRef.current); rateLimitTimerRef.current = null; }
     setIsComplete(false);
     setProgress(0);
     setActiveStep(0);
@@ -290,5 +272,5 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
     return clearAllTimers;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { progress, steps, timerText, error, isFileError, isComplete, retry, cancel };
+  return { progress, steps, timerText, error, isFileError, isRateLimit, rateLimitSecsLeft, isComplete, retry, cancel };
 }

@@ -68,7 +68,7 @@ POST /analyze
   │    6-dimension scoring: north_star, recruiter_signal, effort,
   │    opportunity_cost, risk, portfolio.
   │    Outputs: total score, verdict (DO / TIMED / DO NOT), timebox_weeks.
-  │    Cached: analysis_v15_<hash> — 48h TTL
+  │    Cached: analysis_v18_<hash> — 48h TTL
   │
   ├─ Stage 4: DIAGNOSE (LLM — claude-haiku-4-5)
   │    Receives gap list + scores from Stages 2/3. Writes human-readable
@@ -77,7 +77,7 @@ POST /analyze
   │
   ├─ Stage 5: REWRITE (LLM — called from POST /generate)
   │    tailorCVID / tailorCVEN: rewrites CV to match JD in ID and EN.
-  │    Cached: gen_id_v4_<hash> / gen_en_v4_<hash> — 48h TTL
+  │    Cached: gen_id_v13_<hash> / gen_en_v13_<hash> — 48h TTL
   │
   └─ Stage 6: VALIDATE (code — pipeline/validate.js)
        Schema validation embedded after every LLM call.
@@ -105,20 +105,20 @@ POST /analyze
 | Method | Path | File | Notes |
 |---|---|---|---|
 | GET | /health | inline in router.js | No auth, no rate limit |
-| POST | /analyze | handlers/analyze.js | Rate: 3/min (native binding + KV fallback) |
+| POST | /analyze | handlers/analyze.js | Rate: 5/min (native binding + KV fallback) |
 | POST | /create-payment | handlers/createPayment.js | Rate: 5/min |
 | POST | /webhook/mayar | handlers/mayarWebhook.js | HMAC-SHA256 verified |
-| GET, POST | /session/ping (alias: /api/session/ping) | handlers/sessionPing.js | Keepalive |
+| GET, POST | /session/ping (alias: /api/session/ping) | handlers/sessionPing.js | Keepalive. Rate: 10/min (unauthenticated), 60/min (authenticated) |
 | GET | /check-session | handlers/checkSession.js | |
 | GET | /validate-session | handlers/validateSession.js | |
 | GET | /get-scoring | handlers/getScoring.js | Returns scoring snapshot for a cvtext_ key; rate: 10/min |
 | POST | /get-session | handlers/getSession.js | Requires `paid` or `ready` status |
-| POST | /generate | handlers/generate.js | Rate: 5/min |
+| POST | /generate | handlers/generate.js | Rate: 10/min (KV) + 15/min (native binding); both must allow |
 | POST | /get-result | handlers/getResult.js | |
 | POST | /submit-email | handlers/submitEmail.js | |
 | POST | /fetch-job-url | handlers/fetchJobUrl.js | Rate: 5/min |
 | POST | /exchange-token | handlers/exchangeToken.js | Single-use email token → session cookie |
-| POST | /resend-email | handlers/resendEmail.js | |
+| POST | /resend-email | handlers/resendEmail.js | Rate: 5/min per IP |
 | POST | /resend-access | handlers/resendAccess.js | Rate: 10/min per IP |
 | POST | /interview-kit (alias: /api/interview-kit) | handlers/interviewKit.js | |
 | POST | /validate-coupon | handlers/validateCoupon.js | Rate: 10/min per IP |

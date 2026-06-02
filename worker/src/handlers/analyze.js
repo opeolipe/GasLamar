@@ -1,27 +1,41 @@
-import { jsonResponse, jsonResponseWithCookie } from '../cors.js';
+import { jsonResponse, getCorsHeaders, SECURITY_HEADERS } from '../cors.js';
 import { clientIp, hexToken, logError } from '../utils.js';
-import { checkRateLimit, checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
+import { makeCvKeyCookie, makeSessionTokenCookie } from '../cookies.js';
+import { getSessionIdFromCookie } from '../cookies.js';
+import { checkRateLimit, checkRateLimitKVSession, rateLimitResponse } from '../rateLimit.js';
 import { validateFileData, extractCVText } from '../fileExtraction.js';
 import { analyzeCV } from '../analysis.js';
 import { sanitizeForLLM, hasPromptInjection } from '../sanitize.js';
-import { makeCvTextKeyCookie } from '../cookies.js';
+
+function extractSampleLineFromText(text) {
+  if (!text) return null;
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 20);
+  const bullet = lines.find(l =>
+    l.startsWith('•') || l.startsWith('-') ||
+    /^(manage|develop|create|mengelola|membuat|mengembangkan)/i.test(l)
+  );
+  return bullet || lines[0] || null;
+}
+
+const ANALYZE_WINDOW_SECS = 900;  // 15-minute sliding window
+const ANALYZE_IP_LIMIT    = 5;    // unauthenticated: 5 requests per 15 min
+const ANALYZE_SESS_LIMIT  = 10;   // paying session: 10 requests per 15 min
 
 export async function handleAnalyze(request, env) {
-  const ip = clientIp(request);
+  const ip        = clientIp(request);
+  const sessionId = getSessionIdFromCookie(request);
 
   // Primary: Cloudflare native binding (atomic, no TOCTOU). Falls through if binding absent.
-  // Secondary: KV-based counter — reliable even when the binding is misconfigured.
-  // Both must allow the request for it to proceed.
+  // Secondary: KV-based sliding-window counter — authoritative 15-minute gate.
+  // Authenticated sessions (paying users) get a higher limit than anonymous IPs.
+  // Both layers must allow the request to proceed.
   const [bindingOk, kvResult] = await Promise.all([
     checkRateLimit(env, env.RATE_LIMITER_ANALYZE, ip),
-    checkRateLimitKV(env, ip, 3, 60, 'analyze'),
+    checkRateLimitKVSession(env, ip, sessionId, ANALYZE_IP_LIMIT, ANALYZE_SESS_LIMIT, ANALYZE_WINDOW_SECS, 'analyze'),
   ]);
   if (!bindingOk || !kvResult.allowed) {
-    // Use the KV-computed remaining seconds when KV is the blocker; fall back to
-    // the window length when the native binding is the blocker (it doesn't expose
-    // a remaining-time API).
-    const retryAfter = !kvResult.allowed ? (kvResult.retryAfter ?? 60) : 60;
-    return rateLimitResponse(request, env, retryAfter);
+    const retryAfter = !kvResult.allowed ? (kvResult.retryAfter ?? ANALYZE_WINDOW_SECS) : ANALYZE_WINDOW_SECS;
+    return rateLimitResponse(request, env, retryAfter, kvResult);
   }
 
   let body;
@@ -31,7 +45,9 @@ export async function handleAnalyze(request, env) {
     return jsonResponse({ message: 'Request body tidak valid' }, 400, request, env);
   }
 
-  const { cv, job_desc: rawJobDesc } = body;
+  // Accept common aliases so direct API callers don't need to guess the canonical names.
+  const cv = body.cv ?? body.cv_text;
+  const rawJobDesc = body.job_desc ?? body.jd ?? body.job_description;
 
   if (!cv) {
     return jsonResponse({ message: 'CV wajib diisi' }, 400, request, env);
@@ -93,6 +109,17 @@ export async function handleAnalyze(request, env) {
     return jsonResponse({ message: extraction.error }, 422, request, env);
   }
 
+  // Universal minimum-length gate — covers PDF and DOCX paths that only check >100 chars
+  // internally. txt already rejects below 1500 in extractCVText, so this is a safety net.
+  if (extraction.text.trim().length < 1500) {
+    return jsonResponse(
+      { message: 'CV kamu terlalu singkat. Pastikan CV lengkap dikirim — minimal 1.500 karakter.' },
+      422,
+      request,
+      env,
+    );
+  }
+
   // Run scoring and store extracted text under a short-lived key
   // so /create-payment can reuse it without re-extracting the file
   try {
@@ -101,6 +128,10 @@ export async function handleAnalyze(request, env) {
     // targeted enumeration. Also bind to the requesting IP so the key cannot be
     // used from a different network if leaked from client storage.
     const cvTextKey = `cvtext_${hexToken(32)}`;
+
+    // Cryptographically random ID for analytics correlation across analyze→generate.
+    // Generated server-side so clients cannot forge or enumerate other users' IDs.
+    const resultId = crypto.randomUUID();
 
     // Store the full scoring result alongside cv_text so GET /get-scoring can serve
     // it to hasil.html without the client carrying the entire blob in sessionStorage.
@@ -112,16 +143,44 @@ export async function handleAnalyze(request, env) {
       // enabling /generate to switch between targeted and inferred tailoring mode.
       inferred_role: scoring.inferred_role ?? null,
       ip,
+      result_id: resultId,
       scoring, // used by GET /get-scoring; cv_text is never exposed via that endpoint
     }), { expirationTtl: 86400 }); // 24 hours — gives users time to review hasil before paying
 
-    return jsonResponseWithCookie(
-      { ...scoring, cv_text_key: cvTextKey },
-      200,
-      makeCvTextKeyCookie(cvTextKey),
-      request,
-      env,
+    // Create a lightweight analysis session record. The sessionToken cookie carries the
+    // UUID; the cvtext_ entry is never exposed directly to the browser.
+    const analysisSessionId = crypto.randomUUID();
+    const now = Date.now();
+    await env.GASLAMAR_SESSIONS.put(
+      `analysis_session_${analysisSessionId}`,
+      JSON.stringify({
+        sessionId:  analysisSessionId,
+        resultId,
+        cvKey:      cvTextKey,
+        createdAt:  now,
+        expiresAt:  now + 86400 * 1000,
+      }),
+      { expirationTtl: 86400 },
     );
+
+    // Build response with both cookies (cv_key + sessionToken) and X-RateLimit-* headers.
+    // Headers API is used directly so multiple Set-Cookie values are preserved — plain
+    // object spreading collapses duplicate keys and loses the second cookie.
+    const corsHeaders = getCorsHeaders(request, env);
+    const rlHeaders = {};
+    if (kvResult.limit     !== undefined) rlHeaders['X-RateLimit-Limit']     = String(kvResult.limit);
+    if (kvResult.remaining !== undefined) rlHeaders['X-RateLimit-Remaining'] = String(kvResult.remaining);
+    if (kvResult.reset     !== undefined) rlHeaders['X-RateLimit-Reset']     = String(kvResult.reset);
+    const responseHeaders = new Headers({
+      ...SECURITY_HEADERS,
+      ...corsHeaders,
+      'Content-Type': 'application/json',
+      ...rlHeaders,
+    });
+    responseHeaders.append('Set-Cookie', makeCvKeyCookie(cvTextKey));
+    responseHeaders.append('Set-Cookie', makeSessionTokenCookie(analysisSessionId));
+    const sampleLine = extractSampleLineFromText(extraction.text);
+    return new Response(JSON.stringify({ ...scoring, result_id: resultId, ...(sampleLine ? { sample_line: sampleLine } : {}) }), { status: 200, headers: responseHeaders });
   } catch (e) {
     logError('analyze_failed', {
       reason: e.message,

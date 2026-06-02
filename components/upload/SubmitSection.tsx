@@ -1,14 +1,27 @@
 interface Props {
-  isLoading:   boolean;
-  hasCv?:      boolean;
-  showJdHint:  boolean;
-  jdHintText?: string;
-  onSubmit:    () => void;
+  isLoading:    boolean;
+  hasCv?:       boolean;
+  showJdHint:   boolean;
+  jdHintText?:  string;
+  cvHintText?:  string;
+  onSubmit:     () => void;
 }
 
-export default function SubmitSection({ isLoading, hasCv = false, showJdHint, jdHintText, onSubmit }: Props) {
+export default function SubmitSection({ isLoading, hasCv = false, showJdHint, jdHintText, cvHintText, onSubmit }: Props) {
   const showCvHint = !hasCv;
   const showChecklist = showCvHint && showJdHint;
+
+  const isFormIncomplete = !hasCv || showJdHint;
+  const isDisabled = isLoading || isFormIncomplete;
+
+  const defaultCvHint = 'Upload atau paste CV kamu dulu';
+
+  function getButtonLabel() {
+    if (isLoading) return 'Sedang menganalisis CV kamu';
+    if (!hasCv)    return cvHintText ?? defaultCvHint;
+    if (showJdHint) return 'Lengkapi CV & job description sebelum analisis dimulai';
+    return 'Mulai analisis CV kamu';
+  }
 
   return (
     <div className="mt-6">
@@ -17,18 +30,31 @@ export default function SubmitSection({ isLoading, hasCv = false, showJdHint, jd
         id="submit-btn"
         data-testid="submit-upload"
         onClick={onSubmit}
-        disabled={isLoading}
-        className="min-h-[56px] w-full rounded-full px-6 py-4 text-white font-bold text-base border-0 transition-all hover:-translate-y-[2px] active:scale-[0.97] active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0 disabled:active:scale-100 flex items-center justify-center gap-2"
+        disabled={isDisabled}
+        aria-label={getButtonLabel()}
+        className={`min-h-[56px] w-full rounded-full px-6 py-4 text-white font-bold text-base border-0 transition-all flex items-center justify-center gap-2 ${
+          isDisabled
+            ? 'opacity-60 cursor-not-allowed'
+            : 'hover:-translate-y-[2px] active:scale-[0.97] active:translate-y-0 cursor-pointer'
+        }`}
         style={{ background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', boxShadow: '0 8px 24px rgba(37,99,235,0.30)' }}
-        aria-label="Mulai analisis CV kamu"
       >
         {isLoading ? (
           <>
             <span className="inline-block w-5 h-5 border-[3px] border-white/30 border-t-white rounded-full animate-spin" />
             Menganalisis CV kamu...
           </>
-        ) : 'Cek peluang saya'}
+        ) : isFormIncomplete ? (
+          !hasCv ? (cvHintText ?? defaultCvHint) : 'Isi job description dulu (min. 100 karakter)'
+        ) : 'Mulai analisis CV kamu'}
       </button>
+
+      {/* Rate limit notice — always visible near the submit button */}
+      {!isFormIncomplete && (
+        <p className="text-center text-xs text-slate-400 mt-2">
+          Kamu bisa submit 1 analisis per menit.
+        </p>
+      )}
 
       {/* Pre-submit completion checklist — shown when multiple things are missing */}
       {showChecklist ? (
@@ -48,7 +74,7 @@ export default function SubmitSection({ isLoading, hasCv = false, showJdHint, jd
         </div>
       ) : showCvHint ? (
         <p className="text-center text-sm text-slate-500 mt-3">
-          Upload atau paste CV kamu untuk memulai analisis.
+          {cvHintText ?? 'Upload atau paste CV kamu untuk memulai analisis.'}
         </p>
       ) : showJdHint ? (
         <p className="text-center text-sm text-slate-500 mt-3">
