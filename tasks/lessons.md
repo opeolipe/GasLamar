@@ -482,3 +482,44 @@ Pattern applied in the XSS/IDOR security fix:
 
 6. **STALE_KEYS in Upload.tsx must list all keys ever written** — including legacy ones that
    are no longer written — so old-session data is swept on the next upload.
+
+---
+
+## Setting multiple Set-Cookie headers requires Headers.append, not plain object spread (2026-06-02)
+
+`new Response(body, { headers: { 'Set-Cookie': v1, 'Set-Cookie': v2 } })` silently drops the
+first cookie — plain JS objects have unique keys. Only the last `Set-Cookie` value survives.
+
+**Fix:** Build a `Headers` instance and use `.append()`:
+```js
+const headers = new Headers({ ...BASE_HEADERS, 'Content-Type': 'application/json' });
+for (const c of cookieHeaders) headers.append('Set-Cookie', c);
+return new Response(JSON.stringify(data), { status, headers });
+```
+
+Added `jsonResponseWithCookies(data, status, cookieHeaders[], request, env)` to `cors.js`.
+
+---
+
+## Upload.tsx "active results" notice must not show when session is already expired (2026-06-02)
+
+The "Kamu masih punya hasil analisis aktif" banner is driven by `gaslamar_analyze_time` in
+sessionStorage. If the cv_key/sessionToken cookie has expired (user was redirected here via
+`?reason=no_session`), both messages appear simultaneously — a contradiction.
+
+**Pattern:**
+- Skip the "active results" notice entirely when `params.get('reason')` is in the set
+  `{'no_session', 'session_expired', 'cv_expired', 'missing_data'}`.
+- Also confirm via `/check-session` asynchronously: if the server says no valid analysis
+  session, remove the notice and clear `gaslamar_analyze_time` from sessionStorage.
+
+---
+
+## /check-session: sessionToken (UUID) takes precedence over cv_key (cvtext_ hex) (2026-06-02)
+
+After `/analyze` sets BOTH cookies, `checkSession.js` must prefer `sessionToken` when present.
+The `sessionToken` is a UUID pointing to `analysis_session_<uuid>` KV record (lightweight).
+The `cv_key` is the raw cvtext_ key (points to the full CV+scoring blob).
+
+Lookup order: `sessionToken` → `analysis_session_` → `{ resultId, cvKey }` → return resultId.
+Legacy fallback: `cv_key` → `cvtext_` KV direct lookup (old sessions, no analysis_session_ entry).

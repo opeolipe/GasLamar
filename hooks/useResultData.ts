@@ -35,74 +35,88 @@ export function useResultData(): ResultDataState {
     // Reject foreign URL session parameters
     if (urlSession !== null && !urlSession.startsWith('cvtext_')) { fail('expired'); return; }
 
-    // Always fetch from server using the HttpOnly cv_key cookie set by /analyze.
-    // sessionStorage is never used as a fast path — scoring data must not persist
-    // client-side where XSS can read it.
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
+    // Step 1: validate the analysis session cookie via /check-session.
+    // Accepts both sessionToken (new) and cv_key (legacy) cookies.
+    // Returns { valid: true, resultId } on success; 401 / valid:false on failure.
     const fetchScoring = () =>
-      fetch(`${WORKER_URL}/get-scoring`, { credentials: 'include' })
-        .then(async r => {
+      fetch(`${WORKER_URL}/check-session`, { credentials: 'include' })
+        .then(async checkRes => {
           if (cancelled) return;
-          if (r.status === 404) {
-            // Cookie exists (guard passed) but KV entry is gone — data not found.
-            try { sessionStorage.removeItem('gaslamar_analyze_time'); } catch (_) {}
-            fail('data_missing');
-            return;
-          }
-          if (r.status === 401) {
+
+          if (checkRes.status === 401) {
             try { sessionStorage.removeItem('gaslamar_analyze_time'); } catch (_) {}
             fail('expired');
             return;
           }
-          if (!r.ok) throw new Error(`server_${r.status}`);
-          const body = await r.json() as { scoring?: ScoringData; valid?: boolean };
-          if (!body?.scoring) throw new Error('no_scoring_field');
-          const s = body.scoring;
-          const skor = parseInt(String(s?.skor));
-          if (isNaN(skor) || skor < 0 || skor > 100) { if (!cancelled) fail('missing'); return; }
-          if (time > 0 && (Date.now() - time) / 1000 > 86400) { if (!cancelled) fail('expired'); return; }
 
-          // Persist minimal derived numbers for the Download page score badge.
-          // These are plain numbers, not the full scoring blob or any CV content.
-          if (s.skor_6d) {
-            try { sessionStorage.setItem('gaslamar_6d_scores', JSON.stringify(s.skor_6d)); } catch (_) {}
-          }
-          if (typeof s.skor === 'number') {
-            try { sessionStorage.setItem('gaslamar_skor', String(s.skor)); } catch (_) {}
-          }
-          if (typeof s.skor_sesudah === 'number') {
-            try { sessionStorage.setItem('gaslamar_skor_sesudah', String(s.skor_sesudah)); } catch (_) {}
-          }
-          if (Array.isArray(s.gap) && s.gap.length > 0) {
-            try { sessionStorage.setItem('gaslamar_gap', JSON.stringify((s.gap as string[]).slice(0, 5))); } catch (_) {}
+          const checkBody = await checkRes.json() as {
+            valid?: boolean;
+            authenticated?: boolean;
+            reason?: string;
+            type?: string;
+          };
+
+          // Payment session — don't interfere with the download flow.
+          if (checkBody?.valid && checkBody?.type !== 'analysis') return;
+
+          if (!checkBody?.valid && !checkBody?.authenticated) {
+            try { sessionStorage.removeItem('gaslamar_analyze_time'); } catch (_) {}
+            const reason = checkBody?.reason;
+            fail(reason === 'expired' ? 'expired' : 'missing');
+            return;
           }
 
-          try {
-            sessionStorage.setItem('gaslamar_score_displayed_at', String(Date.now()));
-            (window as any).Analytics?.track?.('score_displayed', {
-              score:        skor,
-              score_bucket: skor >= 70 ? 'high' : skor >= 50 ? 'medium' : 'low',
-              has_jd:       sessionStorage.getItem('gaslamar_had_jd') === '1',
-              gap_count:    (s.gap || []).length,
-            });
-          } catch (_) {}
-
-          if (!cancelled) setState({ data: s ?? null, cvKey: '', analyzeTime: time, loading: false, error: null, noSession: null });
-
-          // Defense-in-depth: validate cv_key cookie via /check-session.
-          // /check-session validates both analysis (cv_key) and payment (sess_) sessions.
-          // Fail-open on network error — session is already displayed.
-          fetch(`${WORKER_URL}/check-session`, { credentials: 'include' })
-            .then(r => (r.ok ? r.json() : Promise.reject()))
-            .then((result: { valid?: boolean; authenticated?: boolean }) => {
-              if (!result.valid && !result.authenticated) {
+          // Step 2: fetch the scoring data using the same cookie.
+          return fetch(`${WORKER_URL}/get-scoring`, { credentials: 'include' })
+            .then(async r => {
+              if (cancelled) return;
+              if (r.status === 404) {
                 try { sessionStorage.removeItem('gaslamar_analyze_time'); } catch (_) {}
-                if (!cancelled) setState(prev => ({ ...prev, data: null, loading: false, noSession: 'expired' }));
+                fail('data_missing');
+                return;
               }
-            })
-            .catch(() => {}); // network unavailable — fail open
+              if (r.status === 401) {
+                try { sessionStorage.removeItem('gaslamar_analyze_time'); } catch (_) {}
+                fail('expired');
+                return;
+              }
+              if (!r.ok) throw new Error(`server_${r.status}`);
+              const body = await r.json() as { scoring?: ScoringData; valid?: boolean };
+              if (!body?.scoring) throw new Error('no_scoring_field');
+              const s = body.scoring;
+              const skor = parseInt(String(s?.skor));
+              if (isNaN(skor) || skor < 0 || skor > 100) { if (!cancelled) fail('missing'); return; }
+
+              // Persist minimal derived numbers for the Download page score badge.
+              // These are plain numbers, not the full scoring blob or any CV content.
+              if (s.skor_6d) {
+                try { sessionStorage.setItem('gaslamar_6d_scores', JSON.stringify(s.skor_6d)); } catch (_) {}
+              }
+              if (typeof s.skor === 'number') {
+                try { sessionStorage.setItem('gaslamar_skor', String(s.skor)); } catch (_) {}
+              }
+              if (typeof s.skor_sesudah === 'number') {
+                try { sessionStorage.setItem('gaslamar_skor_sesudah', String(s.skor_sesudah)); } catch (_) {}
+              }
+              if (Array.isArray(s.gap) && s.gap.length > 0) {
+                try { sessionStorage.setItem('gaslamar_gap', JSON.stringify((s.gap as string[]).slice(0, 5))); } catch (_) {}
+              }
+
+              try {
+                sessionStorage.setItem('gaslamar_score_displayed_at', String(Date.now()));
+                (window as any).Analytics?.track?.('score_displayed', {
+                  score:        skor,
+                  score_bucket: skor >= 70 ? 'high' : skor >= 50 ? 'medium' : 'low',
+                  has_jd:       sessionStorage.getItem('gaslamar_had_jd') === '1',
+                  gap_count:    (s.gap || []).length,
+                });
+              } catch (_) {}
+
+              if (!cancelled) setState({ data: s ?? null, cvKey: '', analyzeTime: time, loading: false, error: null, noSession: null });
+            });
         });
 
     // One automatic retry after a transient server/network error.

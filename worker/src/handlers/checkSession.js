@@ -1,7 +1,7 @@
 import { jsonResponse } from '../cors.js';
 import { log, logError, clientIp } from '../utils.js';
 import { getSession, getSessionTtl } from '../sessions.js';
-import { getSessionIdFromCookie, getCvKeyFromCookie } from '../cookies.js';
+import { getSessionIdFromCookie, getCvKeyFromCookie, getSessionTokenFromCookie } from '../cookies.js';
 import { checkRateLimit, checkRateLimitKVSession, rateLimitResponse } from '../rateLimit.js';
 
 export async function handleCheckSession(request, env) {
@@ -42,21 +42,58 @@ export async function handleCheckSession(request, env) {
   });
 
   if (!sessionId || !sessionId.startsWith('sess_')) {
-    // No payment session cookie — check for an active analysis session (cv_key cookie).
-    // This lets /hasil validate the HttpOnly cv_key without a separate endpoint.
+    // No payment session cookie — check for an active analysis session.
+    // Prefer the newer sessionToken cookie (UUID → analysis_session_ KV entry);
+    // fall back to the legacy cv_key cookie for sessions created before this change.
+
+    const sessionToken = getSessionTokenFromCookie(request);
+    if (sessionToken) {
+      const session = await env.GASLAMAR_SESSIONS.get(
+        `analysis_session_${sessionToken}`,
+        { type: 'json' },
+      );
+      if (session?.resultId) {
+        log('check_session_analysis_valid_token', { ip });
+        return jsonResponse(
+          { valid: true, authenticated: true, type: 'analysis', resultId: session.resultId },
+          200,
+          request,
+          env,
+        );
+      }
+      // sessionToken cookie exists but the session record is gone (expired)
+      return jsonResponse(
+        { valid: false, authenticated: false, reason: 'expired', message: 'Sesi analisis sudah kedaluwarsa.' },
+        401,
+        request,
+        env,
+      );
+    }
+
+    // Legacy: cv_key cookie (sessions created before sessionToken was introduced).
     const cvKey = getCvKeyFromCookie(request);
     if (cvKey) {
       const stored = await env.GASLAMAR_SESSIONS.get(cvKey, { type: 'json' });
       if (stored?.scoring) {
         log('check_session_analysis_valid', { ip });
-        return jsonResponse({ valid: true, authenticated: true, type: 'analysis' }, 200, request, env);
+        return jsonResponse(
+          { valid: true, authenticated: true, type: 'analysis', resultId: stored.result_id ?? null },
+          200,
+          request,
+          env,
+        );
       }
       // cv_key cookie present but session gone from KV (expired or migrated to scoring_)
       const fallbackKey = `scoring_${cvKey.slice('cvtext_'.length)}`;
       const fallback = await env.GASLAMAR_SESSIONS.get(fallbackKey, { type: 'json' });
       if (fallback?.scoring) {
         log('check_session_analysis_valid_fallback', { ip });
-        return jsonResponse({ valid: true, authenticated: true, type: 'analysis' }, 200, request, env);
+        return jsonResponse(
+          { valid: true, authenticated: true, type: 'analysis', resultId: fallback.result_id ?? null },
+          200,
+          request,
+          env,
+        );
       }
       // cv_key cookie exists but data is gone — expired
       return jsonResponse({ valid: false, authenticated: false, reason: 'expired', message: 'Sesi analisis sudah kedaluwarsa.' }, 200, request, env);

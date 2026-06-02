@@ -1,6 +1,6 @@
-import { jsonResponse, jsonResponseWithCookie } from '../cors.js';
+import { jsonResponse, jsonResponseWithCookies } from '../cors.js';
 import { clientIp, hexToken, logError } from '../utils.js';
-import { makeCvKeyCookie } from '../cookies.js';
+import { makeCvKeyCookie, makeSessionTokenCookie } from '../cookies.js';
 import { checkRateLimit, checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
 import { validateFileData, extractCVText } from '../fileExtraction.js';
 import { analyzeCV } from '../analysis.js';
@@ -133,11 +133,31 @@ export async function handleAnalyze(request, env) {
       scoring, // used by GET /get-scoring; cv_text is never exposed via that endpoint
     }), { expirationTtl: 86400 }); // 24 hours — gives users time to review hasil before paying
 
-    // Set cv_key as an HttpOnly cookie instead of returning it in the response body.
-    // This prevents XSS from reading the analysis-session token out of the JSON response.
-    // Backward compat: old frontend code that read cv_text_key from the body will find it
-    // absent — those sessions fall back to the query-param path in /get-scoring.
-    return jsonResponseWithCookie({ ...scoring, result_id: resultId }, 200, makeCvKeyCookie(cvTextKey), request, env);
+    // Create a lightweight analysis session record. The sessionToken cookie carries the
+    // UUID; the cvtext_ entry is never exposed directly to the browser.
+    const analysisSessionId = crypto.randomUUID();
+    const now = Date.now();
+    await env.GASLAMAR_SESSIONS.put(
+      `analysis_session_${analysisSessionId}`,
+      JSON.stringify({
+        sessionId:  analysisSessionId,
+        resultId,
+        cvKey:      cvTextKey,
+        createdAt:  now,
+        expiresAt:  now + 86400 * 1000,
+      }),
+      { expirationTtl: 86400 },
+    );
+
+    // Set both cv_key (backward compat with createPayment, validateSession) and
+    // sessionToken (new canonical cookie for /check-session + /get-scoring auth).
+    return jsonResponseWithCookies(
+      { ...scoring, result_id: resultId },
+      200,
+      [makeCvKeyCookie(cvTextKey), makeSessionTokenCookie(analysisSessionId)],
+      request,
+      env,
+    );
   } catch (e) {
     logError('analyze_failed', {
       reason: e.message,
