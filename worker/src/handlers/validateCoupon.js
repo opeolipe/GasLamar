@@ -1,6 +1,6 @@
 import { jsonResponse } from '../cors.js';
 import { clientIp } from '../utils.js';
-import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
+import { checkRateLimitKV, rateLimitResponse, addRateLimitHeaders } from '../rateLimit.js';
 import { TIER_PRICES, VALID_TIERS } from '../constants.js';
 import { validateCoupon } from '../mayar.js';
 
@@ -9,32 +9,33 @@ export async function handleValidateCoupon(request, env) {
 
   // 10 attempts per minute per IP — prevents coupon enumeration attacks
   const rl = await checkRateLimitKV(env, ip, 10, 60, 'coupon_validate');
-  if (!rl.allowed) return rateLimitResponse(request, env, rl.retryAfter ?? 60);
+  if (!rl.allowed) return rateLimitResponse(request, env, rl.retryAfter ?? 60, rl);
+  const withRl = res => addRateLimitHeaders(res, rl);
 
   let body;
   try {
     body = await request.json();
   } catch {
-    return jsonResponse({ valid: false, message: 'Request tidak valid' }, 400, request, env);
+    return withRl(jsonResponse({ valid: false, message: 'Request tidak valid' }, 400, request, env));
   }
 
   const { coupon_code: rawCode, tier, email: rawEmail } = body;
 
   if (!rawCode || typeof rawCode !== 'string') {
-    return jsonResponse({ valid: false, message: 'Kode promo diperlukan' }, 400, request, env);
+    return withRl(jsonResponse({ valid: false, message: 'Kode promo diperlukan' }, 400, request, env));
   }
 
   const couponCode = rawCode.trim().toUpperCase();
   if (couponCode.length < 3 || couponCode.length > 64) {
-    return jsonResponse({ valid: false, message: 'Kode promo tidak valid' }, 400, request, env);
+    return withRl(jsonResponse({ valid: false, message: 'Kode promo tidak valid' }, 400, request, env));
   }
   if (!/^[A-Z0-9_\-]+$/.test(couponCode)) {
-    return jsonResponse({ valid: false, message: 'Kode promo tidak valid' }, 400, request, env);
+    return withRl(jsonResponse({ valid: false, message: 'Kode promo tidak valid' }, 400, request, env));
   }
 
   const tierConfig = TIER_PRICES[tier];
   if (!VALID_TIERS.includes(tier) || !tierConfig) {
-    return jsonResponse({ valid: false, message: 'Pilih paket terlebih dahulu' }, 400, request, env);
+    return withRl(jsonResponse({ valid: false, message: 'Pilih paket terlebih dahulu' }, 400, request, env));
   }
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -52,12 +53,12 @@ export async function handleValidateCoupon(request, env) {
 
     if (!isValid) {
       const msg = result?.data?.messages?.[0] || result?.messages?.[0] || result?.message || 'Kode promo tidak valid atau sudah habis';
-      return jsonResponse({ valid: false, message: msg }, 200, request, env);
+      return withRl(jsonResponse({ valid: false, message: msg }, 200, request, env));
     }
 
     if (!couponData) {
       console.error(JSON.stringify({ event: 'coupon_no_data', couponCode }));
-      return jsonResponse({ valid: false, message: 'Kode promo tidak dapat diverifikasi' }, 200, request, env);
+      return withRl(jsonResponse({ valid: false, message: 'Kode promo tidak dapat diverifikasi' }, 200, request, env));
     }
 
     const discountType  = couponData?.discountType  ?? couponData?.discount_type  ?? 'percentage';
@@ -70,18 +71,18 @@ export async function handleValidateCoupon(request, env) {
       discountedAmount = Math.max(0, tierConfig.amount - discountValue);
     }
 
-    return jsonResponse({
+    return withRl(jsonResponse({
       valid:             true,
       coupon_code:       couponCode,
       discount_type:     discountType,
       discount_value:    discountValue,
       original_amount:   tierConfig.amount,
       discounted_amount: discountedAmount,
-    }, 200, request, env);
+    }, 200, request, env));
 
   } catch (err) {
     console.error(JSON.stringify({ event: 'coupon_validate_error', error: err.message, couponCode }));
     // Don't expose internal errors — surface as invalid
-    return jsonResponse({ valid: false, message: 'Kode promo tidak valid atau sudah habis' }, 200, request, env);
+    return withRl(jsonResponse({ valid: false, message: 'Kode promo tidak valid atau sudah habis' }, 200, request, env));
   }
 }

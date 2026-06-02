@@ -1,6 +1,6 @@
 import { jsonResponse } from '../cors.js';
 import { clientIp, log, logError, extractJobMetadata } from '../utils.js';
-import { checkRateLimit, checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
+import { checkRateLimit, checkRateLimitKV, rateLimitResponse, addRateLimitHeaders } from '../rateLimit.js';
 import { getSession, updateSession } from '../sessions.js';
 import { SESSION_STATES } from '../sessionStates.js';
 import { tailorCVID, tailorCVEN } from '../tailoring.js';
@@ -21,12 +21,13 @@ export async function handleGenerate(request, env, ctx) {
   }
 
   const kvRl = await checkRateLimitKV(env, ip, 10, 60, 'generate');
-  if (!kvRl.allowed) return rateLimitResponse(request, env, kvRl.retryAfter ?? 60);
+  if (!kvRl.allowed) return rateLimitResponse(request, env, kvRl.retryAfter ?? 60, kvRl);
+  const withRl = res => addRateLimitHeaders(res, kvRl);
 
   // Session ID comes from the HttpOnly cookie — not the request body.
   const session_id = getSessionIdFromCookie(request);
   if (!session_id) {
-    return jsonResponse({ message: 'Sesi tidak ditemukan. Pastikan browser mengizinkan cookies.' }, 401, request, env);
+    return withRl(jsonResponse({ message: 'Sesi tidak ditemukan. Pastikan browser mengizinkan cookies.' }, 401, request, env));
   }
 
   // Body still carries optional per-request fields (job_desc override, analytics data)
@@ -54,14 +55,14 @@ export async function handleGenerate(request, env, ctx) {
   let previewSample = null;
   if (typeof rawPreviewSample === 'string' && rawPreviewSample.length <= 500) {
     if (hasPromptInjection(rawPreviewSample)) {
-      return jsonResponse({ message: 'Konten tidak valid' }, 400, request, env);
+      return withRl(jsonResponse({ message: 'Konten tidak valid' }, 400, request, env));
     }
     previewSample = sanitizeForLLM(stripHtml(rawPreviewSample));
   }
   let previewAfter = null;
   if (typeof rawPreviewAfter === 'string' && rawPreviewAfter.length <= 500) {
     if (hasPromptInjection(rawPreviewAfter)) {
-      return jsonResponse({ message: 'Konten tidak valid' }, 400, request, env);
+      return withRl(jsonResponse({ message: 'Konten tidak valid' }, 400, request, env));
     }
     previewAfter = sanitizeForLLM(stripHtml(rawPreviewAfter));
   }
@@ -72,7 +73,7 @@ export async function handleGenerate(request, env, ctx) {
   if (rawKlaim !== undefined) {
     if (!Array.isArray(rawKlaim) || rawKlaim.length > 20 ||
         rawKlaim.some(k => typeof k !== 'string' || k.length > 100)) {
-      return jsonResponse({ message: 'Entitas klaim tidak valid' }, 400, request, env);
+      return withRl(jsonResponse({ message: 'Entitas klaim tidak valid' }, 400, request, env));
     }
     // Normalize: deduplicate, lowercase, trim, drop empty strings.
     // M9 FIX: Threshold lowered from > 2 to >= 1 to match rewriteGuard.js allowedTerms —
@@ -85,11 +86,11 @@ export async function handleGenerate(request, env, ctx) {
   let angkaDiCv = null;
   if (rawAngkaDiCv !== undefined) {
     if (typeof rawAngkaDiCv !== 'string' || rawAngkaDiCv.length > 400) {
-      return jsonResponse({ message: 'angka_di_cv tidak valid' }, 400, request, env);
+      return withRl(jsonResponse({ message: 'angka_di_cv tidak valid' }, 400, request, env));
     }
     // H4 FIX: angka_di_cv is a user-controlled string injected into the tailor prompt.
     if (hasPromptInjection(rawAngkaDiCv)) {
-      return jsonResponse({ message: 'Konten tidak valid' }, 400, request, env);
+      return withRl(jsonResponse({ message: 'Konten tidak valid' }, 400, request, env));
     }
     angkaDiCv = sanitizeForLLM(rawAngkaDiCv.trim()) || null;
   }
@@ -100,10 +101,10 @@ export async function handleGenerate(request, env, ctx) {
   let skillsMentah = null;
   if (rawSkillsMentah !== undefined) {
     if (typeof rawSkillsMentah !== 'string' || rawSkillsMentah.length > 500) {
-      return jsonResponse({ message: 'skills_mentah tidak valid' }, 400, request, env);
+      return withRl(jsonResponse({ message: 'skills_mentah tidak valid' }, 400, request, env));
     }
     if (hasPromptInjection(rawSkillsMentah)) {
-      return jsonResponse({ message: 'Konten tidak valid' }, 400, request, env);
+      return withRl(jsonResponse({ message: 'Konten tidak valid' }, 400, request, env));
     }
     skillsMentah = sanitizeForLLM(rawSkillsMentah.trim()) || null;
   }
@@ -116,12 +117,12 @@ export async function handleGenerate(request, env, ctx) {
   if (rawScore !== undefined) {
     const n = Number(rawScore);
     if (!Number.isFinite(n) || n < 0 || n > 100) {
-      return jsonResponse({ message: 'Score tidak valid' }, 400, request, env);
+      return withRl(jsonResponse({ message: 'Score tidak valid' }, 400, request, env));
     }
   }
   if (rawGaps !== undefined) {
     if (!Array.isArray(rawGaps) || rawGaps.length > 10 || rawGaps.some(g => typeof g !== 'string' || g.length > 500)) {
-      return jsonResponse({ message: 'Gaps tidak valid' }, 400, request, env);
+      return withRl(jsonResponse({ message: 'Gaps tidak valid' }, 400, request, env));
     }
   }
   const score = rawScore !== undefined ? Number(rawScore) : undefined;
@@ -134,16 +135,16 @@ export async function handleGenerate(request, env, ctx) {
   // Optional new job_desc for multi-credit re-use (3-Pack / JobHunt)
   if (newJobDesc !== undefined) {
     if (typeof newJobDesc !== 'string' || newJobDesc.length > 5000) {
-      return jsonResponse({ message: 'Job description terlalu panjang (maks 5.000 karakter)' }, 400, request, env);
+      return withRl(jsonResponse({ message: 'Job description terlalu panjang (maks 5.000 karakter)' }, 400, request, env));
     }
     // Non-empty overrides must satisfy the same 100-char floor as /analyze.
     // Empty string is treated as "no override" (falls back to stored job_desc), so skip the check.
     if (newJobDesc.trim().length > 0 && newJobDesc.trim().length < 100) {
-      return jsonResponse({ message: 'Job description pengganti terlalu pendek. Minimal 100 karakter.' }, 400, request, env);
+      return withRl(jsonResponse({ message: 'Job description pengganti terlalu pendek. Minimal 100 karakter.' }, 400, request, env));
     }
     // Apply the same injection checks as /analyze — newJobDesc is user-supplied and injected into tailor prompts.
     if (newJobDesc.trim().length > 0 && hasPromptInjection(newJobDesc)) {
-      return jsonResponse({ message: 'Konten tidak valid' }, 400, request, env);
+      return withRl(jsonResponse({ message: 'Konten tidak valid' }, 400, request, env));
     }
   }
 
@@ -151,18 +152,18 @@ export async function handleGenerate(request, env, ctx) {
   // All CV data comes from KV — browser cannot inject arbitrary content
   const session = await getSession(env, session_id);
   if (!session) {
-    return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa' }, 404, request, env);
+    return withRl(jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa' }, 404, request, env));
   }
 
   if (session.status !== SESSION_STATES.GENERATING) {
-    return jsonResponse({ message: 'Sesi tidak valid atau pembayaran belum dikonfirmasi' }, 403, request, env);
+    return withRl(jsonResponse({ message: 'Sesi tidak valid atau pembayaran belum dikonfirmasi' }, 403, request, env));
   }
 
   // If the session carries a result_id (set by /analyze, copied by /create-payment),
   // reject any request that supplies a mismatched ID — this prevents cross-session
   // result enumeration even if a session cookie were somehow obtained by a third party.
   if (session.result_id && clientResultId && clientResultId !== session.result_id) {
-    return jsonResponse({ message: 'Akses ditolak' }, 403, request, env);
+    return withRl(jsonResponse({ message: 'Akses ditolak' }, 403, request, env));
   }
 
   const { cv_text, job_desc: storedJobDesc, tier, inferred_role: inferredRole } = session;
@@ -171,7 +172,7 @@ export async function handleGenerate(request, env, ctx) {
     : storedJobDesc;
 
   if (!cv_text || !effectiveJobDesc || !tier) {
-    return jsonResponse({ message: 'Data sesi tidak lengkap' }, 400, request, env);
+    return withRl(jsonResponse({ message: 'Data sesi tidak lengkap' }, 400, request, env));
   }
 
   // Credits: legacy sessions without the field get 1 (they paid for single use)
@@ -194,14 +195,14 @@ export async function handleGenerate(request, env, ctx) {
   const lockKey = `lock_${session_id}`;
   const existingLock = await env.GASLAMAR_SESSIONS.get(lockKey);
   if (existingLock) {
-    return jsonResponse({ message: 'Sedang diproses, coba lagi sebentar.' }, 409, request, env);
+    return withRl(jsonResponse({ message: 'Sedang diproses, coba lagi sebentar.' }, 409, request, env));
   }
   const lockNonce = crypto.randomUUID();
   await env.GASLAMAR_SESSIONS.put(lockKey, lockNonce, { expirationTtl: 120 });
   // Re-read: if a concurrent write overwrote our nonce before we get here, reject.
   const confirmedLock = await env.GASLAMAR_SESSIONS.get(lockKey);
   if (confirmedLock !== lockNonce) {
-    return jsonResponse({ message: 'Sedang diproses, coba lagi sebentar.' }, 409, request, env);
+    return withRl(jsonResponse({ message: 'Sedang diproses, coba lagi sebentar.' }, 409, request, env));
   }
 
   try {
@@ -302,7 +303,7 @@ export async function handleGenerate(request, env, ctx) {
     }
 
     const { job_title, company } = extractJobMetadata(effectiveJobDesc);
-    return jsonResponse({
+    return withRl(jsonResponse({
       cv_id:             idResult.text,
       cv_id_docx:        idResult.docxText,
       cv_en:             enResult?.text      ?? null,
@@ -314,7 +315,7 @@ export async function handleGenerate(request, env, ctx) {
       company:           company        ?? null,
       interview_kit:     interviewKitId ?? null,
       persist_failed:    !persistOk,
-    }, 200, request, env);
+    }, 200, request, env));
   } catch (e) {
     // On failure, restore to the state that allows retry without consuming a credit.
     // If a cv_result_ already exists the user has a previous generation — restore to
@@ -336,7 +337,7 @@ export async function handleGenerate(request, env, ctx) {
     const userMsg = (typeof e.message === 'string' && USER_FACING_MSGS.has(e.message))
       ? e.message
       : 'Generate CV gagal. Coba lagi.';
-    return jsonResponse({ message: userMsg }, 500, request, env);
+    return withRl(jsonResponse({ message: userMsg }, 500, request, env));
   } finally {
     // Only delete the lock if it still contains our nonce.
     // If generation exceeded the 120s KV TTL, the lock auto-expired and a concurrent

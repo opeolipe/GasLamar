@@ -1,6 +1,6 @@
 import { jsonResponse } from '../cors.js';
 import { clientIp, log } from '../utils.js';
-import { checkRateLimit, checkRateLimitKVSession, rateLimitResponse } from '../rateLimit.js';
+import { checkRateLimit, checkRateLimitKVSession, rateLimitResponse, addRateLimitHeaders } from '../rateLimit.js';
 import { getCvKeyFromCookie, getSessionTokenFromCookie } from '../cookies.js';
 
 /**
@@ -32,10 +32,11 @@ export async function handleGetScoring(request, env) {
 
   // KV sliding-window counter — authenticated callers get 20 req/min; unauthenticated IPs get 10/min.
   const kvResult = await checkRateLimitKVSession(env, ip, authToken, 10, 20, 60, 'get_scoring');
-  if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60);
+  if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60, kvResult);
+  const withRl = res => addRateLimitHeaders(res, kvResult);
 
   if (!sessionToken && !cvKeyCookie) {
-    return jsonResponse({ valid: false }, 401, request, env);
+    return withRl(jsonResponse({ valid: false }, 401, request, env));
   }
 
   // Resolve the cvtext_ KV key from whichever cookie is present.
@@ -48,7 +49,7 @@ export async function handleGetScoring(request, env) {
       { type: 'json' },
     );
     if (!session?.cvKey) {
-      return jsonResponse({ valid: false }, 401, request, env);
+      return withRl(jsonResponse({ valid: false }, 401, request, env));
     }
     key = session.cvKey;
   } else {
@@ -63,12 +64,12 @@ export async function handleGetScoring(request, env) {
     stored = await env.GASLAMAR_SESSIONS.get(fallbackKey, { type: 'json' });
   }
   if (!stored || !stored.scoring) {
-    return jsonResponse({ valid: false }, 404, request, env);
+    return withRl(jsonResponse({ valid: false }, 404, request, env));
   }
   if (stored.ip && stored.ip !== ip) {
     log('get_scoring_ip_mismatch', { ip, stored_ip: stored.ip });
   }
 
   // Return scoring only — never cv_text, job_desc, ip, or inferred_role raw data.
-  return jsonResponse({ valid: true, scoring: stored.scoring }, 200, request, env);
+  return withRl(jsonResponse({ valid: true, scoring: stored.scoring }, 200, request, env));
 }

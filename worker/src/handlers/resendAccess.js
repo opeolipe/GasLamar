@@ -1,7 +1,7 @@
 import { jsonResponse }                        from '../cors.js';
 import { getSession }                          from '../sessions.js';
 import { clientIp, log, logError, sha256Hex } from '../utils.js';
-import { checkRateLimit, checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
+import { checkRateLimit, checkRateLimitKV, rateLimitResponse, addRateLimitHeaders } from '../rateLimit.js';
 import { sendResendAccessEmail }               from '../email.js';
 import { SESSION_STATES }                      from '../sessionStates.js';
 
@@ -40,7 +40,7 @@ export async function handleResendAccess(request, env) {
   const rlIp = await checkRateLimitKV(env, ip, 10, 3600, 'resend_access_ip');
   if (!rlIp.allowed) {
     log('resend_access_attempt', { rateLimited: true, ip });
-    return rateLimitResponse(request, env, rlIp.retryAfter ?? 3600);
+    return rateLimitResponse(request, env, rlIp.retryAfter ?? 3600, rlIp);
   }
 
   // Hash email for rate-limit key and index lookup (avoids plaintext PII in KV key space).
@@ -50,8 +50,9 @@ export async function handleResendAccess(request, env) {
   const rlEmail = await checkRateLimitKV(env, emailHash, 3, 3600, 'resend_access');
   if (!rlEmail.allowed) {
     log('resend_access_attempt', { email_hash: emailHash.slice(0, 16), rateLimited: true, ip });
-    return rateLimitResponse(request, env, rlEmail.retryAfter ?? 3600);
+    return rateLimitResponse(request, env, rlEmail.retryAfter ?? 3600, rlEmail);
   }
+  const withRl = res => addRateLimitHeaders(res, rlEmail);
 
   // Look up hashed key first; fall back to legacy plaintext key for pre-migration sessions.
   let indexRaw = await env.GASLAMAR_SESSIONS.get(`email_session_${emailHash}`, { type: 'json' });
@@ -67,7 +68,7 @@ export async function handleResendAccess(request, env) {
 
   if (!sessionIds.length) {
     log('resend_access_attempt', { email_hash: emailHash.slice(0, 16), hasSession: false, rateLimited: false, ip });
-    return jsonResponse(GENERIC_OK, 200, request, env);
+    return withRl(jsonResponse(GENERIC_OK, 200, request, env));
   }
 
   // Find every session that still exists and is paid — send one email per active session.
@@ -80,7 +81,7 @@ export async function handleResendAccess(request, env) {
 
   if (!activeIds.length) {
     log('resend_access_attempt', { email_hash: emailHash.slice(0, 16), hasSession: false, rateLimited: false, ip });
-    return jsonResponse(GENERIC_OK, 200, request, env);
+    return withRl(jsonResponse(GENERIC_OK, 200, request, env));
   }
 
   log('resend_access_attempt', { email_hash: emailHash.slice(0, 16), hasSession: true, count: activeIds.length, rateLimited: false, ip });

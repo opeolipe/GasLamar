@@ -1480,6 +1480,59 @@ describe('Rate limiting — /resend-access', () => {
   });
 });
 
+describe('Rate limiting — X-RateLimit-* headers', () => {
+  const RL_HDR_IP = '10.99.9.1';
+
+  it('single valid request to /check-session includes X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset', async () => {
+    const res = await get('/check-session', {}, RL_HDR_IP);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('X-RateLimit-Limit')).toBeTruthy();
+    expect(Number(res.headers.get('X-RateLimit-Limit'))).toBeGreaterThan(0);
+    expect(res.headers.get('X-RateLimit-Remaining')).not.toBeNull();
+    expect(Number(res.headers.get('X-RateLimit-Remaining'))).toBeGreaterThanOrEqual(0);
+    expect(res.headers.get('X-RateLimit-Reset')).toBeTruthy();
+    expect(Number(res.headers.get('X-RateLimit-Reset'))).toBeGreaterThan(0);
+  });
+
+  it('X-RateLimit-Remaining decreases on subsequent requests', async () => {
+    const RL_HDR_IP2 = '10.99.9.2';
+    const r1 = await get('/check-session', {}, RL_HDR_IP2);
+    const r2 = await get('/check-session', {}, RL_HDR_IP2);
+    const rem1 = Number(r1.headers.get('X-RateLimit-Remaining'));
+    const rem2 = Number(r2.headers.get('X-RateLimit-Remaining'));
+    expect(rem2).toBeLessThan(rem1);
+  });
+
+  it('429 response includes X-RateLimit-Remaining: 0, X-RateLimit-Limit, X-RateLimit-Reset, and Retry-After', async () => {
+    const RL_HDR_IP3 = '10.99.9.3';
+    // Exhaust the /analyze KV limit (5 req/15min)
+    for (let i = 0; i < 5; i++) {
+      await post('/analyze', {}, {}, RL_HDR_IP3);
+    }
+    const blocked = await post('/analyze', {}, {}, RL_HDR_IP3);
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get('X-RateLimit-Remaining')).toBe('0');
+    expect(blocked.headers.get('X-RateLimit-Limit')).toBeTruthy();
+    expect(Number(blocked.headers.get('X-RateLimit-Limit'))).toBeGreaterThan(0);
+    expect(blocked.headers.get('X-RateLimit-Reset')).toBeTruthy();
+    expect(Number(blocked.headers.get('X-RateLimit-Reset'))).toBeGreaterThan(0);
+    expect(Number(blocked.headers.get('Retry-After'))).toBeGreaterThan(0);
+    // JSON body must remain unchanged
+    const body = await blocked.json();
+    expect(body.error).toBe('Too many requests');
+    expect(body.retryAfter).toBeGreaterThan(0);
+    expect(body.message).toContain('Terlalu banyak');
+  });
+
+  it('X-RateLimit-Reset is a Unix timestamp in the future', async () => {
+    const RL_HDR_IP4 = '10.99.9.4';
+    const res = await get('/check-session', {}, RL_HDR_IP4);
+    const reset = Number(res.headers.get('X-RateLimit-Reset'));
+    const nowSecs = Math.floor(Date.now() / 1000);
+    expect(reset).toBeGreaterThan(nowSecs);
+  });
+});
+
 describe('POST /session/ping', () => {
   it('returns 401 when no session cookie is present', async () => {
     // Handlers now read session_id from Cookie header; missing cookie → 401

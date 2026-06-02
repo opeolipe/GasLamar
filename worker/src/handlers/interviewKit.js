@@ -3,7 +3,7 @@ import { log, logError, clientIp } from '../utils.js';
 import { getSession } from '../sessions.js';
 import { getSessionIdFromCookie } from '../cookies.js';
 import { callClaude } from '../claude.js';
-import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
+import { checkRateLimitKV, rateLimitResponse, addRateLimitHeaders } from '../rateLimit.js';
 import { INTERVIEW_KIT_SYSTEM_PROMPT } from '../prompts/interviewKit.js';
 import { sanitizeForLLM } from '../sanitize.js';
 import { SESSION_STATES } from '../sessionStates.js';
@@ -61,11 +61,12 @@ Generate the interview kit. All generated text (email, WhatsApp, tell_me_about_y
 export async function handleInterviewKit(request, env) {
   const ip = clientIp(request);
   const rl = await checkRateLimitKV(env, ip, 10, 60, 'interview_kit');
-  if (!rl.allowed) return rateLimitResponse(request, env, rl.retryAfter ?? 60);
+  if (!rl.allowed) return rateLimitResponse(request, env, rl.retryAfter ?? 60, rl);
+  const withRl = res => addRateLimitHeaders(res, rl);
 
   const session_id = getSessionIdFromCookie(request);
   if (!session_id) {
-    return jsonResponse({ message: 'Sesi tidak ditemukan. Pastikan browser mengizinkan cookies.' }, 401, request, env);
+    return withRl(jsonResponse({ message: 'Sesi tidak ditemukan. Pastikan browser mengizinkan cookies.' }, 401, request, env));
   }
 
   let body;
@@ -86,7 +87,7 @@ export async function handleInterviewKit(request, env) {
       const { kit: cachedKit } = cachedEntry;
 
       log('interview_kit_cache_hit', { session_id, language });
-      return jsonResponse({ success: true, kit: cachedKit ?? cachedEntry }, 200, request, env);
+      return withRl(jsonResponse({ success: true, kit: cachedKit ?? cachedEntry }, 200, request, env));
     }
   } catch (e) {
     logError('interview_kit_cache_read_failed', { session_id, error: e?.message });
@@ -96,19 +97,19 @@ export async function handleInterviewKit(request, env) {
   // Cache miss — require active session to generate
   const session = await getSession(env, session_id);
   if (!session) {
-    return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa' }, 404, request, env);
+    return withRl(jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa' }, 404, request, env));
   }
 
   // 'exhausted' is included so users who used their last credit can still access the kit.
   // cv_text and job_desc are preserved on exhausted sessions (updateSession merges, not replaces).
   const GENERATION_STATUSES = new Set([SESSION_STATES.PAID, SESSION_STATES.GENERATING, SESSION_STATES.READY, SESSION_STATES.EXHAUSTED]);
   if (!GENERATION_STATUSES.has(session.status)) {
-    return jsonResponse({ message: 'Pembayaran belum dikonfirmasi' }, 403, request, env);
+    return withRl(jsonResponse({ message: 'Pembayaran belum dikonfirmasi' }, 403, request, env));
   }
 
   const { cv_text, job_desc } = session;
   if (!cv_text || !job_desc) {
-    return jsonResponse({ message: 'Data sesi tidak lengkap' }, 400, request, env);
+    return withRl(jsonResponse({ message: 'Data sesi tidak lengkap' }, 400, request, env));
   }
 
   try {
@@ -116,12 +117,12 @@ export async function handleInterviewKit(request, env) {
     const cacheEntry = { kit: parsedKit };
     await env.GASLAMAR_SESSIONS.put(cacheKey, JSON.stringify(cacheEntry), { expirationTtl: 86400 });
     log('interview_kit_generated', { session_id, language });
-    return jsonResponse({ success: true, kit: parsedKit }, 200, request, env);
+    return withRl(jsonResponse({ success: true, kit: parsedKit }, 200, request, env));
   } catch (e) {
     logError('interview_kit_failed', { session_id, error: e.message });
     const userMsg = e?.message === 'Respons AI terpotong. Coba lagi.'
       ? e.message
       : 'Gagal menghasilkan Interview Kit. Coba lagi.';
-    return jsonResponse({ message: userMsg }, 500, request, env);
+    return withRl(jsonResponse({ message: userMsg }, 500, request, env));
   }
 }

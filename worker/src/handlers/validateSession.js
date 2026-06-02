@@ -1,6 +1,6 @@
 import { jsonResponse } from '../cors.js';
 import { clientIp, log } from '../utils.js';
-import { checkRateLimitKVSession, rateLimitResponse } from '../rateLimit.js';
+import { checkRateLimitKVSession, rateLimitResponse, addRateLimitHeaders } from '../rateLimit.js';
 import { getCvKeyFromCookie } from '../cookies.js';
 
 export async function handleValidateSession(request, env) {
@@ -14,12 +14,13 @@ export async function handleValidateSession(request, env) {
   // Users with a valid cv_key token get 20 req/min; unauthenticated IPs get 10 req/min.
   const userToken = /^cvtext_[0-9a-f]{64}$/.test(cvKey) ? cvKey : null;
   const rl = await checkRateLimitKVSession(env, ip, userToken, 10, 20, 60, 'validate_session');
-  if (!rl.allowed) return rateLimitResponse(request, env, rl.retryAfter ?? 60);
+  if (!rl.allowed) return rateLimitResponse(request, env, rl.retryAfter ?? 60, rl);
+  const withRl = res => addRateLimitHeaders(res, rl);
 
   // Strict format: exactly "cvtext_" + 64 lowercase hex chars (256-bit random token).
   // Mirrors the validation in getScoring.js — prevents oversized KV key lookups.
   if (!cvKey || !/^cvtext_[0-9a-f]{64}$/.test(cvKey)) {
-    return jsonResponse({ valid: false, reason: 'invalid_key' }, 400, request, env);
+    return withRl(jsonResponse({ valid: false, reason: 'invalid_key' }, 400, request, env));
   }
 
   let stored = await env.GASLAMAR_SESSIONS.get(cvKey, { type: 'json' });
@@ -33,9 +34,9 @@ export async function handleValidateSession(request, env) {
     const fallback = await env.GASLAMAR_SESSIONS.get(fallbackKey, { type: 'json' });
     if (fallback?.scoring) {
       log('validate_session_scoring_fallback', { ip: clientIp(request) });
-      return jsonResponse({ valid: true }, 200, request, env);
+      return withRl(jsonResponse({ valid: true }, 200, request, env));
     }
-    return jsonResponse({ valid: false, reason: 'not_found' }, 404, request, env);
+    return withRl(jsonResponse({ valid: false, reason: 'not_found' }, 404, request, env));
   }
 
   if (stored.ip && stored.ip !== ip) {
@@ -47,5 +48,5 @@ export async function handleValidateSession(request, env) {
     // the only endpoint with real security consequences.
   }
 
-  return jsonResponse({ valid: true }, 200, request, env);
+  return withRl(jsonResponse({ valid: true }, 200, request, env));
 }
