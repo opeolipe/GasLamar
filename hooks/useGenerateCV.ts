@@ -82,8 +82,7 @@ export function useGenerateCV(): UseGenerateCVReturn {
     const baseHeaders = { 'Content-Type': 'application/json' };
 
     ;(window as any).Analytics?.track?.('cv_generation_started', {
-      tier:     sessionStorage.getItem('gaslamar_tier')     || undefined,
-      resultId: sessionStorage.getItem('gaslamar_result_id') || undefined,
+      tier: sessionStorage.getItem('gaslamar_tier') || undefined,
     });
 
     // ── Step 1: /get-session ─────────────────────────────────────────────────
@@ -147,41 +146,25 @@ export function useGenerateCV(): UseGenerateCVReturn {
         const reqBody: Record<string, unknown> = {};
         if (params.jobDesc) reqBody.job_desc = params.jobDesc;
 
-        // Pass score + gaps for the worker's post-generate email.
-        // Scoring object uses `skor` and `gap` (not `score`/`gaps`).
+        // Pass score + gaps (plain numbers from sessionStorage) for post-generate email.
         try {
-          const scoring = JSON.parse(sessionStorage.getItem('gaslamar_scoring') || '{}') as Record<string, unknown>;
-          if (typeof scoring.skor === 'number')                         reqBody.score = scoring.skor;
-          if (Array.isArray(scoring.gap) && scoring.gap.length > 0)   reqBody.gaps  = (scoring.gap as unknown[]).slice(0, 3);
-        } catch (_) { /* ignore malformed sessionStorage */ }
+          const skor = parseInt(sessionStorage.getItem('gaslamar_skor') || '', 10);
+          const rawGap = sessionStorage.getItem('gaslamar_gap');
+          if (!isNaN(skor)) reqBody.score = skor;
+          if (rawGap) {
+            const gap = JSON.parse(rawGap) as string[];
+            if (Array.isArray(gap) && gap.length > 0) reqBody.gaps = gap.slice(0, 3);
+          }
+        } catch (_) {}
 
-        // Pass preview data for Hasil→Download consistency.
-        // gaslamar_sample and gaslamar_preview_after are persisted in useAnalysisPolling
-        // before gaslamar_cv_pending is cleared, so they are always available here.
+        // Pass primary_issue derived from 6D scores (plain numbers, no CV content).
         try {
-          const rawSample    = sessionStorage.getItem('gaslamar_sample');
-          const previewAfter = sessionStorage.getItem('gaslamar_preview_after');
-          const raw6d        = sessionStorage.getItem('gaslamar_6d_scores');
-          const rawKlaim     = sessionStorage.getItem('gaslamar_entitas_klaim');
-          if (rawSample) {
-            const sample = JSON.parse(rawSample) as { text: string; index: number; section: string };
-            if (sample.text) reqBody.preview_sample = sample.text;
-            // Only send validated personalized preview_after — never generic templates
-            if (previewAfter) reqBody.preview_after = previewAfter;
-            if (raw6d) {
-              const primaryIssue = getPrimaryIssue(JSON.parse(raw6d) as Record<string, number>);
-              if (primaryIssue) reqBody.primary_issue = primaryIssue;
-            }
+          const raw6d = sessionStorage.getItem('gaslamar_6d_scores');
+          if (raw6d) {
+            const primaryIssue = getPrimaryIssue(JSON.parse(raw6d) as Record<string, number>);
+            if (primaryIssue) reqBody.primary_issue = primaryIssue;
           }
-          if (rawKlaim) {
-            const klaim = JSON.parse(rawKlaim) as string[];
-            if (Array.isArray(klaim) && klaim.length > 0) reqBody.entitas_klaim = klaim;
-          }
-        } catch (_) { /* ignore */ }
-
-        // Attach resultId for analytics correlation across analyze→generate
-        const resultId = sessionStorage.getItem('gaslamar_result_id') || undefined;
-        if (resultId) reqBody.result_id = resultId;
+        } catch (_) {}
 
         const genRes = await fetch(`${WORKER_URL}/generate`, {
           method:      'POST',
@@ -248,7 +231,6 @@ export function useGenerateCV(): UseGenerateCVReturn {
           has_english:       !!cv_en,
           credits_remaining: credits_remaining ?? 0,
           is_trusted:        isTrusted ?? false,
-          resultId:          sessionStorage.getItem('gaslamar_result_id') || undefined,
         });
 
         // Clear session storage when all credits are exhausted
@@ -260,13 +242,9 @@ export function useGenerateCV(): UseGenerateCVReturn {
           sessionStorage.removeItem('gaslamar_tier');
         }
 
-        // Clear analysis-derived data — no longer needed now that generation succeeded.
-        // For multi-credit users making a second generation these degrade gracefully
-        // (email omits score, entitas_klaim guard is skipped — both are acceptable).
+        // Clear derived score data — no longer needed now that generation succeeded.
         [
-          'gaslamar_scoring', 'gaslamar_6d_scores', 'gaslamar_skor', 'gaslamar_skor_sesudah', 'gaslamar_gap',
-          'gaslamar_entitas_klaim', 'gaslamar_sample', 'gaslamar_preview_after',
-          'gaslamar_sample_context', 'gaslamar_sample_fallback',
+          'gaslamar_6d_scores', 'gaslamar_skor', 'gaslamar_skor_sesudah', 'gaslamar_gap',
         ].forEach(k => { try { sessionStorage.removeItem(k); } catch (_) {} });
 
         if (!mountedRef.current) return;

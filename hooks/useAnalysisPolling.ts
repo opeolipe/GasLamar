@@ -7,10 +7,7 @@ import {
   STEP_INTERVAL,
   STEP_DEFS,
   getTimerText,
-  extractCandidateDisplayName,
 } from '@/lib/analysisUtils';
-import { buildResultData } from '@/lib/resultUtils';
-import { extractSampleLine } from '@/lib/cvUtils';
 
 export type StepStatus = 'pending' | 'active' | 'done';
 
@@ -153,97 +150,22 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
       // cookie (cv_key) by the server, preventing XSS from reading the analysis token.
       const { ...scoringOnly } = result;
 
-      // Extract sample context from cv_pending BEFORE clearing it (synchronous)
-      try {
-        const cvPending = sessionStorage.getItem('gaslamar_cv_pending') || '';
-        if (cvPending) {
-          const lines = cvPending.split('\n').map((text, index) => ({ text: text.trim(), index }));
-          const longLines = lines.filter(l => l.text.length > 20);
-          const bulletLine = longLines.find(({ text }) =>
-            text.startsWith('•') || text.startsWith('-') ||
-            /^(manage|develop|create|mengelola|membuat|mengembangkan)/i.test(text),
-          );
-          const target = bulletLine ?? longLines[0] ?? null;
-          if (target) {
-            const contextStart = Math.max(0, target.index - 1);
-            const contextEnd   = Math.min(lines.length - 1, target.index + 1);
-            const originalBlock = lines.slice(contextStart, contextEnd + 1).map(l => l.text).join('\n');
-            const sampleContext = { line: target.text, index: target.index, originalBlock };
-            sessionStorage.setItem('gaslamar_sample_context', JSON.stringify(sampleContext));
-            sessionStorage.setItem('gaslamar_sample_line', target.text);
-          }
-          // Fallback: store first 500 chars in case no bullet line was found
-          if (!bulletLine) {
-            sessionStorage.setItem('gaslamar_sample_fallback', cvPending.slice(0, 500));
-          }
-        }
-      } catch (_) {}
-
-      // Persist entitas_klaim for the /generate request
-      try {
-        const klaim = result.entitas_klaim;
-        if (Array.isArray(klaim)) {
-          sessionStorage.setItem('gaslamar_entitas_klaim', JSON.stringify(klaim));
-        }
-      } catch (_) {}
-
-      // Store server-generated result_id for analytics correlation.
-      // Never generate this client-side — server uses crypto.randomUUID() so it is
-      // unguessable and bound to the cv_key session.
-      try {
-        if (result.result_id && typeof result.result_id === 'string') {
-          sessionStorage.setItem('gaslamar_result_id', result.result_id);
-        }
-      } catch (_) {}
-
       // cv_key is now an HttpOnly cookie set by /analyze — not readable from JS.
       sessionStorage.setItem('gaslamar_analyze_time', String(Date.now()));
-      // Non-critical: useResultData falls back to GET /get-scoring when absent.
-      try { sessionStorage.setItem('gaslamar_scoring', JSON.stringify(scoringOnly)); } catch (_) {}
+
+      // result_id is used inline for analytics only — never written to sessionStorage.
+      const resultId = (result.result_id && typeof result.result_id === 'string')
+        ? result.result_id : undefined;
 
       (window as any).Analytics?.track?.('analysis_completed', {
         score:      result.skor        || null,
         confidence: result.konfidensitas || null,
-        resultId:   sessionStorage.getItem('gaslamar_result_id') || undefined,
+        resultId,
         time_ms: (() => {
           const t = sessionStorage.getItem('gaslamar_upload_start');
           return t ? Date.now() - parseInt(t, 10) : undefined;
         })(),
       });
-
-      // Persist sample line + preview_after BEFORE clearing cv_pending.
-      // useGenerateCV reads these on the Download page to inject the exact
-      // preview rewrite the user saw, ensuring preview = download consistency.
-      try {
-        const cvText = sessionStorage.getItem('gaslamar_cv_pending') || '';
-        if (cvText && scoringOnly.skor_6d) {
-          const rd = buildResultData({ skor6d: scoringOnly.skor_6d as Record<string, number>, cvText });
-          if (rd.sampleLine) {
-            const lines = cvText.split('\n');
-            const idx   = lines.findIndex(l => l.includes(rd.sampleLine!));
-            sessionStorage.setItem('gaslamar_sample', JSON.stringify({
-              text:  rd.sampleLine,
-              index: idx,
-            }));
-          }
-          if (rd.rewritePreview?.after && !rd.rewritePreview.after.includes('[')) {
-            sessionStorage.setItem('gaslamar_preview_after', rd.rewritePreview.after);
-          }
-        }
-      } catch (e) {
-        console.warn('[GasLamar] Failed to persist sample line for preview consistency:', e);
-      }
-
-      // Persist candidate display name before clearing cv_pending — used by the
-      // download page generating badge (gaslamar_cv_pending is gone by then).
-      try {
-        const cvPending    = sessionStorage.getItem('gaslamar_cv_pending') || '';
-        const rawFilename  = sessionStorage.getItem('gaslamar_filename')   || '';
-        const candidateName = extractCandidateDisplayName(cvPending, rawFilename);
-        if (candidateName && candidateName !== 'CV Kamu') {
-          sessionStorage.setItem('gaslamar_candidate_name', candidateName);
-        }
-      } catch (_) {}
 
       ['gaslamar_cv_pending', 'gaslamar_jd_pending', 'gaslamar_filename', 'gaslamar_jd_draft',
        'gaslamar_cv_draft', 'gaslamar_filename_draft']

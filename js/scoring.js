@@ -24,26 +24,14 @@
   }
 
   // --- Fetch scoring from server ---
-  // For new sessions: the cv_key is an HttpOnly cookie sent automatically with credentials.
-  // For old sessions (pre-cookie-migration): the key is in sessionStorage and sent as a
-  // query param fallback. Both paths are accepted by the server during the transition period.
-
-  // Always clear legacy blob upfront — prevents stale data from a prior session
-  // from being read later in the fallback path if the server fetch succeeds here.
-  try { sessionStorage.removeItem('gaslamar_scoring'); } catch (_) {}
-
-  // Old sessions still have the key in sessionStorage; include as query param for backward compat.
-  const legacyCvKey = sessionStorage.getItem('gaslamar_cv_key');
-  const scoringUrl = (legacyCvKey && /^cvtext_[0-9a-f]{64}$/.test(legacyCvKey))
-    ? `${WORKER_URL}/get-scoring?key=${encodeURIComponent(legacyCvKey)}`
-    : `${WORKER_URL}/get-scoring`;
-
+  // Scoring data is never stored in sessionStorage — always fetched from the server
+  // using the HttpOnly cv_key cookie set by /analyze.
   let scoring;
 
   try {
     const _ac = new AbortController();
     const _at = setTimeout(() => _ac.abort(), 8000);
-    const res = await fetch(scoringUrl, { signal: _ac.signal, credentials: 'include' });
+    const res = await fetch(`${WORKER_URL}/get-scoring`, { signal: _ac.signal, credentials: 'include' });
     clearTimeout(_at);
 
     if (res.ok) {
@@ -51,34 +39,18 @@
       if (data.valid && data.scoring) {
         scoring = data.scoring;
       } else {
-        // Key expired or not found on server.
-        sessionStorage.removeItem('gaslamar_cv_key');
         sessionStorage.removeItem('gaslamar_analyze_time');
         window.location.replace('access.html?expired=1&source=hasil');
         return;
       }
-    } else if (res.status === 404 || res.status === 400) {
-      sessionStorage.removeItem('gaslamar_cv_key');
+    } else if (res.status === 401 || res.status === 404 || res.status === 400) {
       sessionStorage.removeItem('gaslamar_analyze_time');
       window.location.replace('access.html?expired=1&source=hasil');
       return;
     }
-    // Other server errors → try sessionStorage fallback below
+    // Other server errors fall through; scoring stays undefined → error shown below
   } catch (_) {
-    // Network unavailable or timeout — try sessionStorage fallback
-  }
-
-  // Fallback: legacy sessionStorage blob (sessions from before this change, or network failure).
-  if (!scoring) {
-    const raw = sessionStorage.getItem('gaslamar_scoring');
-    if (raw) {
-      try {
-        scoring = JSON.parse(raw);
-        sessionStorage.removeItem('gaslamar_scoring');
-      } catch (_) {
-        sessionStorage.removeItem('gaslamar_scoring');
-      }
-    }
+    // Network unavailable or timeout
   }
 
   if (!scoring) {
@@ -87,24 +59,14 @@
     return;
   }
 
-  // Store a non-sensitive summary so the download page can forward score/gaps/primary_issue
-  // to the post-generate email. The full scoring blob has already been deleted above.
+  // Store minimal derived numbers for Download page score badge (plain numbers, no CV content).
   try {
-    const VALID_ISSUES = ['portfolio', 'recruiter_signal', 'north_star', 'effort', 'risk'];
-    const skor6d = scoring.skor_6d || {};
-    const primary_issue = VALID_ISSUES.reduce(function(a, b) {
-      return (skor6d[a] != null ? skor6d[a] : 10) <= (skor6d[b] != null ? skor6d[b] : 10) ? a : b;
-    });
-    sessionStorage.setItem('gaslamar_score_summary', JSON.stringify({
-      skor:           scoring.skor,
-      gap:            (scoring.gap || []).slice(0, 3),
-      primary_issue:  primary_issue,
-      preview_before: scoring.preview_before || undefined,
-      preview_after:  scoring.preview_after  || undefined,
-      entitas_klaim:  Array.isArray(scoring.entitas_klaim) ? scoring.entitas_klaim : undefined,
-      angka_di_cv:    typeof scoring.angka_di_cv  === 'string' ? scoring.angka_di_cv  : undefined,
-      skills_mentah:  typeof scoring.skills_mentah === 'string' ? scoring.skills_mentah : undefined,
-    }));
+    if (scoring.skor_6d) sessionStorage.setItem('gaslamar_6d_scores', JSON.stringify(scoring.skor_6d));
+    if (typeof scoring.skor === 'number') sessionStorage.setItem('gaslamar_skor', String(scoring.skor));
+    if (typeof scoring.skor_sesudah === 'number') sessionStorage.setItem('gaslamar_skor_sesudah', String(scoring.skor_sesudah));
+    if (Array.isArray(scoring.gap) && scoring.gap.length > 0) {
+      sessionStorage.setItem('gaslamar_gap', JSON.stringify(scoring.gap.slice(0, 5)));
+    }
   } catch (_) {}
 
   // Hide loading, show content

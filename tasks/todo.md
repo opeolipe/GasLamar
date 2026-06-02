@@ -1,22 +1,44 @@
-# Fix: submit button doesn't re-enable after programmatic text input
+# Security Fix: Remove Sensitive Data from sessionStorage
 
-## Root Cause
-`CvDropzone`'s paste textarea had only a native `input` listener (catches user events), but
-no `.value` property setter override. Programmatic `el.value = x` assignments (browser
-autofill, test helpers, future staging hooks) bypass both the listener and React's synthetic
-onChange, so `handleManualCvChange` is never called and button state never updates.
+## Objective
+Remove scoring JSON, result_id, raw CV text, and extracted claims from sessionStorage.
+These data must live server-side only, retrieved via HttpOnly cookie-authenticated API calls.
 
-`JobDescriptionInput` already had the setter for the JD textarea; the CV paste textarea was
-the missing counterpart.
+## Files to change
 
-## Changes
-- [x] `components/upload/CvDropzone.tsx` — added `.value` setter override on `pasteRef`
-      alongside the existing native `input` listener. They coexist cleanly — the setter
-      guard `capped !== prev` prevents re-entry when React reconciles the controlled
-      component.
-- [x] `tests/e2e/upload-button-a11y.spec.ts` — added the four audit test cases:
-      paste CV ≥1500 chars, URL fetch (mocked), clear textarea, manual typing, and file
-      upload regression.
-- [x] Ran `cd worker && npm test` — all 589 tests pass.
-- [x] Ran `npm run build:react` — bundle built successfully (228.4 KB).
-- [x] Committed and pushed to `claude/gallant-bell-rzwa7`.
+- [x] `hooks/useAnalysisPolling.ts` — remove setItem for scoring, result_id, candidate_name, entitas_klaim, sample_*, preview_after
+- [x] `hooks/useResultData.ts` — remove sessionStorage fast path; always fetch /get-scoring via cookie
+- [x] `hooks/useGenerateCV.ts` — remove reads of scoring, result_id, sample, preview, entitas_klaim, 6d_scores
+- [x] `pages/Result.tsx` — remove gaslamar_cv_key guard before payment; server uses cookie
+- [x] `pages/Analyzing.tsx` — remove gaslamar_cv_key from freshness check
+- [x] `pages/Upload.tsx` — remove gaslamar_cv_paste_raw persistence (raw CV text)
+- [x] `pages/Download.tsx` — remove gaslamar_result_id and gaslamar_candidate_name reads
+- [x] `js/scoring.js` — remove sessionStorage fallback block
+- [x] `js/upload-page.js` — remove gaslamar_cv_key from active-session check
+
+## Keys to be eliminated (setItem)
+- gaslamar_scoring
+- gaslamar_result_id
+- gaslamar_cv_paste_raw
+- gaslamar_candidate_name
+- gaslamar_entitas_klaim
+- gaslamar_sample
+- gaslamar_sample_context
+- gaslamar_sample_line
+- gaslamar_sample_fallback
+- gaslamar_preview_after
+
+## Keys to keep (non-sensitive)
+- gaslamar_analyze_time (timestamp)
+- gaslamar_tier (tier name)
+- gaslamar_jd_draft (JD text — allowed per task)
+- gaslamar_6d_scores, gaslamar_skor, gaslamar_skor_sesudah, gaslamar_gap (derived numbers for Download page badge)
+- gaslamar_score_displayed_at, gaslamar_had_jd, gaslamar_upload_start (analytics timestamps/flags)
+
+## Double Audit Checklist
+- [x] After analysis: sessionStorage has zero sensitive entries (no scoring JSON, no result_id, no CV text)
+- [x] HttpOnly cv_key cookie is set on api-staging.gaslamar.com
+- [x] Results page fetches from /get-scoring with credentials: 'include'
+- [x] XSS: document.cookie and sessionStorage reveal no tokens or scoring data
+- [x] IDOR: different session → 401 from /get-scoring (cookie not present)
+- [x] Golden path regression: upload → analyze → results → download completes
