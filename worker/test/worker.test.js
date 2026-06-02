@@ -1346,7 +1346,7 @@ describe('Rate limiting — Retry-After header', () => {
   const RL_IP = '10.99.0.1';
 
   it('returns 429 with Retry-After: 60 after exhausting /create-payment limit (15/min)', async () => {
-    // Exhaust the 15-req/min limit for RATE_LIMITER_PAYMENT using this IP.
+    // Exhaust the 15-req/min KV limit for this IP.
     // Each call returns 400 (missing body) but still consumes a rate-limit slot.
     for (let i = 0; i < 15; i++) {
       await post('/create-payment', {}, {}, RL_IP);
@@ -1357,6 +1357,33 @@ describe('Rate limiting — Retry-After header', () => {
     expect(res.headers.get('Retry-After')).toBe('60');
     const body = await res.json();
     expect(body.message).toContain('Terlalu banyak');
+  });
+
+  it('/create-payment 429 includes X-RateLimit-Remaining: 0 and X-RateLimit-Limit', async () => {
+    const RL_IP_CP = '10.99.0.5';
+    for (let i = 0; i < 15; i++) {
+      await post('/create-payment', {}, {}, RL_IP_CP);
+    }
+    const res = await post('/create-payment', {}, {}, RL_IP_CP);
+    expect(res.status).toBe(429);
+    expect(res.headers.get('X-RateLimit-Remaining')).toBe('0');
+    expect(res.headers.get('X-RateLimit-Limit')).toBeTruthy();
+    expect(Number(res.headers.get('X-RateLimit-Limit'))).toBeGreaterThan(0);
+    expect(res.headers.get('X-RateLimit-Reset')).toBeTruthy();
+    expect(Number(res.headers.get('X-RateLimit-Reset'))).toBeGreaterThan(0);
+    expect(Number(res.headers.get('Retry-After'))).toBeGreaterThan(0);
+    const body = await res.json();
+    expect(body.retryAfter).toBeGreaterThan(0);
+  });
+
+  it('/create-payment success response includes X-RateLimit-* headers', async () => {
+    const RL_IP_CP2 = '10.99.0.6';
+    // Missing tier/cv_text_key → 400, but RL headers should still be present
+    const res = await post('/create-payment', {}, {}, RL_IP_CP2);
+    expect(res.status).toBe(400);
+    expect(res.headers.get('X-RateLimit-Limit')).toBeTruthy();
+    expect(res.headers.get('X-RateLimit-Remaining')).not.toBeNull();
+    expect(res.headers.get('X-RateLimit-Reset')).toBeTruthy();
   });
 });
 
@@ -1401,6 +1428,26 @@ describe('Rate limiting — /analyze (10 req/min per IP)', () => {
     expect(body).toHaveProperty('error');
     expect(body).toHaveProperty('message');
     expect(body).toHaveProperty('retryAfter');
+  });
+});
+
+describe('Rate limiting — /generate X-RateLimit-* headers', () => {
+  it('429 from /generate includes X-RateLimit-Remaining: 0, X-RateLimit-Limit, and Retry-After', async () => {
+    const GEN_RL_IP = '10.99.2.1';
+    // Exhaust the 10-req/min KV limit for /generate
+    for (let i = 0; i < 10; i++) {
+      await post('/generate', {}, {}, GEN_RL_IP);
+    }
+    const blocked = await post('/generate', {}, {}, GEN_RL_IP);
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get('X-RateLimit-Remaining')).toBe('0');
+    expect(blocked.headers.get('X-RateLimit-Limit')).toBeTruthy();
+    expect(Number(blocked.headers.get('X-RateLimit-Limit'))).toBeGreaterThan(0);
+    expect(blocked.headers.get('X-RateLimit-Reset')).toBeTruthy();
+    expect(Number(blocked.headers.get('Retry-After'))).toBeGreaterThan(0);
+    const body = await blocked.json();
+    expect(body.error).toBe('Too many requests');
+    expect(body.retryAfter).toBeGreaterThan(0);
   });
 });
 
