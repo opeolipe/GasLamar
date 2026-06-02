@@ -2,7 +2,7 @@ import { jsonResponse, getCorsHeaders, SECURITY_HEADERS } from '../cors.js';
 import { clientIp, hexToken, logError } from '../utils.js';
 import { makeCvKeyCookie, makeSessionTokenCookie } from '../cookies.js';
 import { getSessionIdFromCookie } from '../cookies.js';
-import { checkRateLimit, checkRateLimitKVSession, rateLimitResponse } from '../rateLimit.js';
+import { checkRateLimit, checkRateLimitKVSession, rateLimitResponse, addRateLimitHeaders } from '../rateLimit.js';
 import { validateFileData, extractCVText } from '../fileExtraction.js';
 import { analyzeCV } from '../analysis.js';
 import { sanitizeForLLM, hasPromptInjection } from '../sanitize.js';
@@ -37,12 +37,13 @@ export async function handleAnalyze(request, env) {
     const retryAfter = !kvResult.allowed ? (kvResult.retryAfter ?? ANALYZE_WINDOW_SECS) : ANALYZE_WINDOW_SECS;
     return rateLimitResponse(request, env, retryAfter, kvResult);
   }
+  const withRl = res => addRateLimitHeaders(res, kvResult);
 
   let body;
   try {
     body = await request.json();
   } catch (e) {
-    return jsonResponse({ message: 'Request body tidak valid' }, 400, request, env);
+    return withRl(jsonResponse({ message: 'Request body tidak valid' }, 400, request, env));
   }
 
   // Accept common aliases so direct API callers don't need to guess the canonical names.
@@ -50,29 +51,29 @@ export async function handleAnalyze(request, env) {
   const rawJobDesc = body.job_desc ?? body.jd ?? body.job_description;
 
   if (!cv) {
-    return jsonResponse({ message: 'CV wajib diisi' }, 400, request, env);
+    return withRl(jsonResponse({ message: 'CV wajib diisi' }, 400, request, env));
   }
 
   // cv must arrive as a JSON string — non-string values fail deep inside validateFileData;
   // we reject early here to surface a clear error instead of a cryptic parse failure.
   if (typeof cv !== 'string') {
-    return jsonResponse({ message: 'Format data CV tidak valid' }, 400, request, env);
+    return withRl(jsonResponse({ message: 'Format data CV tidak valid' }, 400, request, env));
   }
 
   // Guard against excessively large payloads before base64 decode — a 2MB base64 string
   // decodes to ~1.5MB which is within Worker memory limits, but wastes CPU and Claude tokens.
   const MAX_CV_SIZE = 2 * 1024 * 1024; // 2MB
   if (cv.length > MAX_CV_SIZE) {
-    return jsonResponse({ message: 'CV terlalu besar (maks 2MB). Coba kompres atau konversi ke format teks.' }, 413, request, env);
+    return withRl(jsonResponse({ message: 'CV terlalu besar (maks 2MB). Coba kompres atau konversi ke format teks.' }, 413, request, env));
   }
 
   if (rawJobDesc === undefined || rawJobDesc === null) {
     logError('analyze_invalid_input', { reason: 'jd_missing', ip });
-    return jsonResponse({ message: 'Job description wajib diisi.' }, 400, request, env);
+    return withRl(jsonResponse({ message: 'Job description wajib diisi.' }, 400, request, env));
   }
 
   if (typeof rawJobDesc !== 'string' || rawJobDesc.length > 5000) {
-    return jsonResponse({ message: 'Job description terlalu panjang (maks 5.000 karakter)' }, 400, request, env);
+    return withRl(jsonResponse({ message: 'Job description terlalu panjang (maks 5.000 karakter)' }, 400, request, env));
   }
 
   // Strip HTML tags — treat job description as plain text only. This prevents XSS
@@ -82,42 +83,42 @@ export async function handleAnalyze(request, env) {
   // Hard-reject before any further processing if the JD contains injection patterns.
   if (hasPromptInjection(rawJobDescStripped)) {
     logError('analyze_invalid_input', { reason: 'jd_injection', ip });
-    return jsonResponse({ message: 'Job description mengandung konten yang tidak diizinkan.' }, 400, request, env);
+    return withRl(jsonResponse({ message: 'Job description mengandung konten yang tidak diizinkan.' }, 400, request, env));
   }
 
   const job_desc = sanitizeForLLM(rawJobDescStripped);
 
   if (!job_desc.length) {
     logError('analyze_invalid_input', { reason: 'jd_missing', ip });
-    return jsonResponse({ message: 'Job description wajib diisi.' }, 400, request, env);
+    return withRl(jsonResponse({ message: 'Job description wajib diisi.' }, 400, request, env));
   }
 
   if (job_desc.length < 100) {
     logError('analyze_invalid_input', { reason: 'jd_too_short', trimLen: job_desc.length, ip });
-    return jsonResponse({ message: 'Job description terlalu pendek. Tulis minimal 100 karakter.' }, 400, request, env);
+    return withRl(jsonResponse({ message: 'Job description terlalu pendek. Tulis minimal 100 karakter.' }, 400, request, env));
   }
 
   // Validate file
   const validation = validateFileData(cv);
   if (!validation.valid) {
-    return jsonResponse({ message: validation.error }, 400, request, env);
+    return withRl(jsonResponse({ message: validation.error }, 400, request, env));
   }
 
   // Extract text from CV
   const extraction = await extractCVText(cv, env);
   if (!extraction.success) {
-    return jsonResponse({ message: extraction.error }, 422, request, env);
+    return withRl(jsonResponse({ message: extraction.error }, 422, request, env));
   }
 
   // Universal minimum-length gate — covers PDF and DOCX paths that only check >100 chars
   // internally. txt already rejects below 1500 in extractCVText, so this is a safety net.
   if (extraction.text.trim().length < 1500) {
-    return jsonResponse(
+    return withRl(jsonResponse(
       { message: 'CV kamu terlalu singkat. Pastikan CV lengkap dikirim — minimal 1.500 karakter.' },
       422,
       request,
       env,
-    );
+    ));
   }
 
   // Run scoring and store extracted text under a short-lived key
@@ -189,8 +190,8 @@ export async function handleAnalyze(request, env) {
     });
     const schemaFailure = e.message && e.message.includes('format_cv');
     if (schemaFailure) {
-      return jsonResponse({ message: 'CV format tidak didukung. Gunakan PDF berbasis teks, bukan hasil scan.' }, 422, request, env);
+      return withRl(jsonResponse({ message: 'CV format tidak didukung. Gunakan PDF berbasis teks, bukan hasil scan.' }, 422, request, env));
     }
-    return jsonResponse({ message: 'Analisis gagal. Coba lagi.' }, 500, request, env);
+    return withRl(jsonResponse({ message: 'Analisis gagal. Coba lagi.' }, 500, request, env));
   }
 }

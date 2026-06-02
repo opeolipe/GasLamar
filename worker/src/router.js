@@ -1,6 +1,6 @@
 import { forbiddenOriginResponse, isUnsafeOrigin, jsonResponse, corsResponse, SECURITY_HEADERS } from './cors.js';
 import { clientIp, log, logError } from './utils.js';
-import { checkRateLimitKV, rateLimitResponse } from './rateLimit.js';
+import { checkRateLimitKV, rateLimitResponse, addRateLimitHeaders } from './rateLimit.js';
 import { sanitizeLogValue } from './sanitize.js';
 import { handleAnalyze } from './handlers/analyze.js';
 import { handleCreatePayment } from './handlers/createPayment.js';
@@ -231,14 +231,15 @@ export async function route(request, env, ctx) {
   if (method === 'POST' && apiPath === '/log') {
     const ip = clientIp(request);
     const kvResult = await checkRateLimitKV(env, ip, 30, 60, 'client_log');
-    if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60);
+    if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60, kvResult);
+    const withRlLog = res => addRateLimitHeaders(res, kvResult);
     const contentType = request.headers.get('Content-Type') || '';
     // Read the body as text first and enforce actual byte count — not Content-Length,
     // which is client-supplied and can be absent or falsified (chunked transfer, no header).
     const bodyText = await request.text().catch(() => '');
     if (bodyText.length > 8192) {
       console.warn(JSON.stringify({ event: 'client_log_oversized', bodyLength: bodyText.length, ip }));
-      return jsonResponse({ ok: false, message: 'Payload terlalu besar' }, 413, request, env);
+      return withRlLog(jsonResponse({ ok: false, message: 'Payload terlalu besar' }, 413, request, env));
     }
     // Accept both application/json and text/plain (sendBeacon sends text/plain to avoid
     // CORS preflight; the body is still JSON-formatted). Fall back to { raw } on parse error.
@@ -255,16 +256,17 @@ export async function route(request, env, ctx) {
       })
     );
     log('client_log', { body, ip });
-    return jsonResponse({ ok: true }, 200, request, env);
+    return withRlLog(jsonResponse({ ok: true }, 200, request, env));
   }
 
   if (method === 'POST' && apiPath === '/feedback') {
     const ip = clientIp(request);
     const kvResult = await checkRateLimitKV(env, ip, 10, 60, 'feedback');
-    if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60);
+    if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60, kvResult);
+    const withRlFb = res => addRateLimitHeaders(res, kvResult);
     const feedbackText = await request.text().catch(() => '');
     if (feedbackText.length > 4096) {
-      return jsonResponse({ ok: false, message: 'Payload terlalu besar' }, 413, request, env);
+      return withRlFb(jsonResponse({ ok: false, message: 'Payload terlalu besar' }, 413, request, env));
     }
     const body = feedbackText
       ? (() => { try { return JSON.parse(feedbackText); } catch { return {}; } })()
@@ -275,7 +277,7 @@ export async function route(request, env, ctx) {
     // Cap answer length and sanitize control chars — fire-and-forget, no need to reject
     const answer = sanitizeLogValue(typeof body.answer === 'string' ? body.answer : '', 1000);
     log('user_feedback', { type, answer, ip });
-    return jsonResponse({ ok: true }, 200, request, env);
+    return withRlFb(jsonResponse({ ok: true }, 200, request, env));
   }
 
   const allowedMethods = API_METHODS.get(apiPath);

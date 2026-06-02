@@ -121,6 +121,19 @@ export async function checkRateLimitKVSession(
   return checkRateLimitKV(env, ip, limit, windowSecs, prefix);
 }
 
+/**
+ * Attaches X-RateLimit-* headers to an existing Response without mutating it.
+ * Call this on every successful response after a rate-limit check so clients can
+ * track their quota without waiting for a 429.
+ */
+export function addRateLimitHeaders(response, rlInfo = {}) {
+  const headers = new Headers(response.headers);
+  if (rlInfo.limit     !== undefined) headers.set('X-RateLimit-Limit',     String(rlInfo.limit));
+  if (rlInfo.remaining !== undefined) headers.set('X-RateLimit-Remaining', String(rlInfo.remaining));
+  if (rlInfo.reset     !== undefined) headers.set('X-RateLimit-Reset',     String(rlInfo.reset));
+  return new Response(response.body, { status: response.status, headers });
+}
+
 // Returns a properly-formed 429 with Retry-After and X-RateLimit-* headers (RFC 7231 §7.1.3).
 // All rate-limited endpoints must use this instead of a plain jsonResponse 429.
 // rlInfo: optional { limit, remaining, reset } to populate X-RateLimit-* headers.
