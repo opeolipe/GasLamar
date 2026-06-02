@@ -59,6 +59,10 @@ export async function handleAnalyze(request, env) {
     return jsonResponse({ message: 'Format data CV tidak valid' }, 400, request, env);
   }
 
+  // Direct API callers may send cv_text as a plain text string rather than the internal
+  // {"type":"txt","data":"..."} envelope the frontend uses. Auto-wrap so both forms work.
+  const cvNormalized = cv.trimStart().startsWith('{') ? cv : JSON.stringify({ type: 'txt', data: cv });
+
   // Guard against excessively large payloads before base64 decode — a 2MB base64 string
   // decodes to ~1.5MB which is within Worker memory limits, but wastes CPU and Claude tokens.
   const MAX_CV_SIZE = 2 * 1024 * 1024; // 2MB
@@ -98,13 +102,13 @@ export async function handleAnalyze(request, env) {
   }
 
   // Validate file
-  const validation = validateFileData(cv);
+  const validation = validateFileData(cvNormalized);
   if (!validation.valid) {
     return jsonResponse({ message: validation.error }, 400, request, env);
   }
 
   // Extract text from CV
-  const extraction = await extractCVText(cv, env);
+  const extraction = await extractCVText(cvNormalized, env);
   if (!extraction.success) {
     return jsonResponse({ message: extraction.error }, 422, request, env);
   }

@@ -950,6 +950,24 @@ describe('POST /analyze — validation', () => {
     expect(body.message).toMatch(/minimal 1\.500 karakter/i);
   });
 
+  it('accepts cv_text as a plain string (auto-wrapped as txt) — short text still rejects with correct error', async () => {
+    // Direct API callers may pass cv_text:"raw text" instead of the internal envelope.
+    // The backend should auto-wrap and return a meaningful error (not "Data CV tidak dapat dibaca").
+    const res = await post('/analyze', { cv_text: 'A'.repeat(1499), job_description: JOB_DESC }, {}, nextIp());
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.message).toMatch(/minimal 1\.500 karakter/i);
+  });
+
+  it('accepts cv_text alias with job_description alias for plain-text CV → passes validation', async () => {
+    // Plain-string cv_text passes all validation when long enough; pipeline will fail at
+    // Claude (no mock here) but must NOT return a parameter-mismatch 400.
+    const longCvText = 'Budi Santoso\nSoftware Engineer\n\nPENGALAMAN\n' + 'Developer PT XYZ — membangun aplikasi web dengan Node.js dan React.\n'.repeat(30);
+    const res = await post('/analyze', { cv_text: longCvText, job_description: JOB_DESC }, {}, nextIp());
+    // Should proceed past parameter validation (not 400); may fail at Claude call (422/500)
+    expect(res.status).not.toBe(400);
+  });
+
   it('rejects DOCX CV with extracted text under 1500 chars → 422', async () => {
     // makeShortDOCXBase64 builds a structurally valid DOCX with only ~85 chars of
     // text content — passes the 100-char floor in extractCVText but hits the
