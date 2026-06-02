@@ -42,21 +42,21 @@ function makeDOCXBase64() {
 }
 
 function sessionIdFromSetCookie(res) {
-  const match = (res.headers.get('set-cookie') || res.headers.get('Set-Cookie') || '').match(/session_id=(sess_[^;]+)/);
+  const match = (res.headers.get('set-cookie') || res.headers.get('Set-Cookie') || '').match(/__Host-session_id=(sess_[^;]+)/);
   expect(match).not.toBeNull();
   return match[1];
 }
 
 /** Extract the cv_key value from a Set-Cookie header returned by /analyze. */
 function cvKeyFromSetCookie(res) {
-  const match = (res.headers.get('set-cookie') || res.headers.get('Set-Cookie') || '').match(/cv_key=(cvtext_[0-9a-f]{64})/);
+  const match = (res.headers.get('set-cookie') || res.headers.get('Set-Cookie') || '').match(/__Host-cv_key=(cvtext_[0-9a-f]{64})/);
   expect(match).not.toBeNull();
   return match[1];
 }
 
 /** Build a Cookie header that carries both session_id and cv_key. */
 function cvKeyCookie(cvKey) {
-  return { Cookie: `cv_key=${cvKey}` };
+  return { Cookie: `__Host-cv_key=${cvKey}` };
 }
 
 /**
@@ -469,7 +469,7 @@ describe('protected state page routing', () => {
     const res = await route(new Request('https://gaslamar.com/hasil', {
       method: 'GET',
       headers: {
-        Cookie: `session_id=${sessionId}`,
+        Cookie: `__Host-session_id=${sessionId}`,
         'CF-Connecting-IP': '1.2.3.4',
       },
     }), { ...env, ENVIRONMENT: 'production' }, {});
@@ -483,7 +483,7 @@ describe('protected state page routing', () => {
     const res = await route(new Request('https://gaslamar.com/download.html', {
       method: 'GET',
       headers: {
-        Cookie: 'session_id=sess_nonexistent',
+        Cookie: '__Host-session_id=sess_nonexistent',
         'CF-Connecting-IP': '1.2.3.4',
       },
     }), { ...env, ENVIRONMENT: 'production' }, {});
@@ -515,7 +515,7 @@ describe('protected state page routing', () => {
     const res = await route(new Request('https://gaslamar.com/hasil.html', {
       method: 'GET',
       headers: {
-        Cookie: `cv_key=${cvTextKey}`,
+        Cookie: `__Host-cv_key=${cvTextKey}`,
         'CF-Connecting-IP': '1.2.3.4',
       },
     }), { ...env, ENVIRONMENT: 'production' }, {});
@@ -557,7 +557,7 @@ describe('protected state page routing', () => {
     const res = await route(new Request('https://gaslamar.com/hasil.html', {
       method: 'GET',
       headers: {
-        Cookie: `cv_key=cvtext_${'b'.repeat(64)}`,
+        Cookie: `__Host-cv_key=cvtext_${'b'.repeat(64)}`,
         'CF-Connecting-IP': '1.2.3.4',
       },
     }), { ...env, ENVIRONMENT: 'production' }, {});
@@ -577,7 +577,7 @@ describe('protected state page routing', () => {
     const res = await route(new Request('https://gaslamar.com/hasil.html', {
       method: 'GET',
       headers: {
-        Cookie: `cv_key=${cvTextKey}`,
+        Cookie: `__Host-cv_key=${cvTextKey}`,
         'CF-Connecting-IP': '20.20.20.20',
       },
     }), { ...env, ENVIRONMENT: 'production' }, {});
@@ -597,7 +597,7 @@ describe('protected state page routing', () => {
     const res = await route(new Request('https://gaslamar.com/hasil.html', {
       method: 'GET',
       headers: {
-        Cookie: `cv_key=cvtext_${token}`,
+        Cookie: `__Host-cv_key=cvtext_${token}`,
         'CF-Connecting-IP': '20.20.20.20',
       },
     }), { ...env, ENVIRONMENT: 'production' }, {});
@@ -626,7 +626,7 @@ describe('protected state page routing', () => {
     const res = await route(new Request('https://gaslamar.com/download.html?token=0123456789abcdef0123456789abcdef', {
       method: 'GET',
       headers: {
-        Cookie: `session_id=${sessionId}; other=value`,
+        Cookie: `__Host-session_id=${sessionId}; other=value`,
         'CF-Connecting-IP': '1.2.3.4',
       },
     }), { ...env, ENVIRONMENT: 'production' }, {});
@@ -692,7 +692,7 @@ describe('CORS', () => {
       headers: {
         'Content-Type': 'text/plain',
         Origin: 'https://evil.com',
-        Cookie: `session_id=${sessionId}`,
+        Cookie: `__Host-session_id=${sessionId}`,
       },
       body: '{}',
     });
@@ -1010,7 +1010,7 @@ describe('POST /analyze — happy path (mocked Claude)', () => {
 
     // cv_key must appear in the Set-Cookie header as an HttpOnly cookie.
     const setCookie = res.headers.get('set-cookie') || res.headers.get('Set-Cookie') || '';
-    expect(setCookie).toMatch(/cv_key=cvtext_[0-9a-f]{64}/);
+    expect(setCookie).toMatch(/__Host-cv_key=cvtext_[0-9a-f]{64}/);
     expect(setCookie).toContain('HttpOnly');
     expect(setCookie).toContain('Secure');
 
@@ -1111,7 +1111,7 @@ describe('POST /create-payment — validation', () => {
     // Seed a valid key bound to the default IP (1.2.3.4)
     const key = await seedCVTextKey(undefined, '1.2.3.4');
     // Pass the key only via cookie — body has no cv_text_key
-    const res = await post('/create-payment', { tier: 'single' }, { Cookie: `cv_key=${key}` }, '1.2.3.4');
+    const res = await post('/create-payment', { tier: 'single' }, { Cookie: `__Host-cv_key=${key}` }, '1.2.3.4');
     // Reaches Mayar invoice creation (which fails without API key in test env) → not a 400 key error
     expect(res.status).not.toBe(400);
   });
@@ -1123,7 +1123,7 @@ describe('POST /create-payment — validation', () => {
     const res = await post(
       '/create-payment',
       { tier: 'single', cv_text_key: bodyKey },
-      { Cookie: `cv_key=${cookieKey}` },
+      { Cookie: `__Host-cv_key=${cookieKey}` },
       '1.2.3.4',
     );
     // Cookie key is valid and found in KV — should not return 400 for missing/expired key
@@ -1427,12 +1427,12 @@ describe('POST /session/ping', () => {
   });
 
   it('returns 401 for invalid session_id in cookie (not sess_ prefix)', async () => {
-    const res = await post('/session/ping', {}, { Cookie: 'session_id=invalid' });
+    const res = await post('/session/ping', {}, { Cookie: '__Host-session_id=invalid' });
     expect(res.status).toBe(401);
   });
 
   it('returns 404 for unknown session', async () => {
-    const res = await post('/session/ping', {}, { Cookie: 'session_id=sess_nonexistent' });
+    const res = await post('/session/ping', {}, { Cookie: '__Host-session_id=sess_nonexistent' });
     expect(res.status).toBe(404);
     const body = await res.json();
     expect(body.expired).toBe(true);
@@ -1579,7 +1579,7 @@ describe('GET /check-session', () => {
       ip: '1.2.3.4',
       scoring: { skor: 75, gap: [], kekuatan: [] },
     }), { expirationTtl: 86400 });
-    const res = await get('/check-session', { Cookie: `cv_key=${key}` });
+    const res = await get('/check-session', { Cookie: `__Host-cv_key=${key}` });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.valid).toBe(true);
@@ -1589,7 +1589,7 @@ describe('GET /check-session', () => {
 
   it('returns valid:false with reason expired when cv_key cookie exists but KV entry is gone', async () => {
     const missingKey = `cvtext_${cvHexToken()}`;
-    const res = await get('/check-session', { Cookie: `cv_key=${missingKey}` });
+    const res = await get('/check-session', { Cookie: `__Host-cv_key=${missingKey}` });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.valid).toBe(false);
@@ -1602,7 +1602,7 @@ describe('GET /check-session', () => {
     await env.GASLAMAR_SESSIONS.put(`scoring_${token}`, JSON.stringify({
       scoring: { skor: 60, gap: [], kekuatan: [] },
     }), { expirationTtl: 86400 });
-    const res = await get('/check-session', { Cookie: `cv_key=${cvKey}` });
+    const res = await get('/check-session', { Cookie: `__Host-cv_key=${cvKey}` });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.valid).toBe(true);
@@ -1613,7 +1613,7 @@ describe('GET /check-session', () => {
   it('cv_key cookie without sess_ prefix does not bleed into payment session path', async () => {
     const key = `cvtext_${cvHexToken()}`;
     // No KV entry — expired cv_key should not trigger session path
-    const res = await get('/check-session', { Cookie: `cv_key=${key}` });
+    const res = await get('/check-session', { Cookie: `__Host-cv_key=${key}` });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).not.toHaveProperty('status'); // payment session fields absent
@@ -1701,7 +1701,7 @@ describe('POST /exchange-token — abuse regression', () => {
     expect(first.status).toBe(200);
     const firstBody = await first.json();
     expect(firstBody).toEqual({ ok: true });
-    expect(first.headers.get('Set-Cookie')).toContain(`session_id=${sessionId}`);
+    expect(first.headers.get('Set-Cookie')).toContain(`__Host-session_id=${sessionId}`);
     expect(await env.GASLAMAR_SESSIONS.get(`email_token_${token}`)).toBeNull();
 
     const replay = await post('/exchange-token', { email_token: token }, {}, '10.89.0.7');
@@ -1868,7 +1868,7 @@ describe('GET /validate-session', () => {
 
   it('returns valid:true via cv_key cookie (new session flow)', async () => {
     const key = await seedCVTextKey(undefined, '10.96.2.1');
-    const res = await get('/validate-session', { Cookie: `cv_key=${key}` }, '10.96.2.1');
+    const res = await get('/validate-session', { Cookie: `__Host-cv_key=${key}` }, '10.96.2.1');
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.valid).toBe(true);
@@ -1880,7 +1880,7 @@ describe('GET /validate-session', () => {
     // Cookie points to a valid key; query param points to a nonexistent one.
     const res = await get(
       `/validate-session?cvKey=${encodeURIComponent(badKey)}`,
-      { Cookie: `cv_key=${goodKey}` },
+      { Cookie: `__Host-cv_key=${goodKey}` },
       '10.96.3.1',
     );
     expect(res.status).toBe(200);
@@ -1904,12 +1904,12 @@ describe('POST /get-session', () => {
   });
 
   it('returns 401 when cookie session_id lacks sess_ prefix', async () => {
-    const res = await post('/get-session', {}, { Cookie: 'session_id=abc123' });
+    const res = await post('/get-session', {}, { Cookie: '__Host-session_id=abc123' });
     expect(res.status).toBe(401);
   });
 
   it('returns 404 for unknown session', async () => {
-    const res = await post('/get-session', {}, { Cookie: 'session_id=sess_nonexistent' });
+    const res = await post('/get-session', {}, { Cookie: '__Host-session_id=sess_nonexistent' });
     expect(res.status).toBe(404);
   });
 
@@ -2034,12 +2034,12 @@ describe('POST /generate — validation', () => {
   });
 
   it('returns 401 when cookie session_id lacks sess_ prefix', async () => {
-    const res = await post('/generate', {}, { Cookie: 'session_id=invalid' });
+    const res = await post('/generate', {}, { Cookie: '__Host-session_id=invalid' });
     expect(res.status).toBe(401);
   });
 
   it('returns 404 for unknown session', async () => {
-    const res = await post('/generate', {}, { Cookie: 'session_id=sess_nonexistent' });
+    const res = await post('/generate', {}, { Cookie: '__Host-session_id=sess_nonexistent' });
     expect(res.status).toBe(404);
   });
 
@@ -2849,7 +2849,7 @@ async function preTailorCache(cvText, jobDesc) {
  * instead of the request body or query params.
  */
 function sessionCookie(sessionId) {
-  return { Cookie: `session_id=${sessionId}` };
+  return { Cookie: `__Host-session_id=${sessionId}` };
 }
 
 /** Seed a session with a bound secret hash. Returns { sessionId, secret }. */
@@ -3048,7 +3048,7 @@ describe('POST /exchange-token — single-use enforcement', () => {
     const body = await res.json();
     expect(body.ok).toBe(true);
     expect(body).not.toHaveProperty('session_id');
-    expect(res.headers.get('Set-Cookie')).toMatch(/session_id=/);
+    expect(res.headers.get('Set-Cookie')).toMatch(/__Host-session_id=/);
   });
 
   it('returns 404 on second use of the same token (single-use enforcement)', async () => {
@@ -3162,7 +3162,7 @@ describe('Session token non-disclosure', () => {
 
     const body = await res.json();
     expect(body).toEqual({ ok: true });
-    expect(res.headers.get('Set-Cookie')).toMatch(/session_id=sess_/);
+    expect(res.headers.get('Set-Cookie')).toMatch(/__Host-session_id=sess_/);
   });
 
 });
@@ -3851,7 +3851,7 @@ describe('POST /interview-kit', () => {
   });
 
   it('returns 404 for unknown session', async () => {
-    const res = await post('/interview-kit', {}, { Cookie: 'session_id=sess_nonexistent' }, nextKitIp());
+    const res = await post('/interview-kit', {}, { Cookie: '__Host-session_id=sess_nonexistent' }, nextKitIp());
     expect(res.status).toBe(404);
     const body = await res.json();
     expect(body.message).toMatch(/sesi/i);
@@ -4198,7 +4198,7 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
       scoring: mockScoring,
     }), { expirationTtl: 86400 });
 
-    const res = await get('/get-scoring', { Cookie: `cv_key=cvtext_${token}` }, '1.2.3.4');
+    const res = await get('/get-scoring', { Cookie: `__Host-cv_key=cvtext_${token}` }, '1.2.3.4');
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.valid).toBe(true);
@@ -4217,7 +4217,7 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
     await env.GASLAMAR_SESSIONS.delete(`cvtext_${token}`);
     await env.GASLAMAR_SESSIONS.put(`scoring_${token}`, JSON.stringify({ scoring: mockScoring }), { expirationTtl: 86400 });
 
-    const res = await get('/get-scoring', { Cookie: `cv_key=cvtext_${token}` }, nextScoringIp());
+    const res = await get('/get-scoring', { Cookie: `__Host-cv_key=cvtext_${token}` }, nextScoringIp());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.valid).toBe(true);
@@ -4235,7 +4235,7 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
       scoring: mockScoring,
     }), { expirationTtl: 86400 });
 
-    const res = await get('/get-scoring', { Cookie: `cv_key=cvtext_${token}` }, '1.2.3.4');
+    const res = await get('/get-scoring', { Cookie: `__Host-cv_key=cvtext_${token}` }, '1.2.3.4');
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.valid).toBe(true);
@@ -4254,7 +4254,7 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
       scoring: { skor: 51, verdict: 'TIMED', skor_6d: {} },
     }), { expirationTtl: 86400 });
 
-    const res = await get('/get-scoring', { Cookie: `cv_key=cvtext_${token}` }, '10.221.99.2');
+    const res = await get('/get-scoring', { Cookie: `__Host-cv_key=cvtext_${token}` }, '10.221.99.2');
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.valid).toBe(true);
@@ -4269,7 +4269,7 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
       scoring: { skor: 61, verdict: 'TIMED', skor_6d: {} },
     }), { expirationTtl: 86400 });
 
-    const res = await get('/get-scoring', { Cookie: `cv_key=cvtext_${token}` }, '10.221.88.2');
+    const res = await get('/get-scoring', { Cookie: `__Host-cv_key=cvtext_${token}` }, '10.221.88.2');
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.valid).toBe(true);
@@ -4278,7 +4278,7 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
 
   it('returns 404 when both cvtext_ and scoring_ keys are absent', async () => {
     const token = 'e'.repeat(64);
-    const res = await get('/get-scoring', { Cookie: `cv_key=cvtext_${token}` }, nextScoringIp());
+    const res = await get('/get-scoring', { Cookie: `__Host-cv_key=cvtext_${token}` }, nextScoringIp());
     expect(res.status).toBe(404);
     const body = await res.json();
     expect(body.valid).toBe(false);
@@ -4334,7 +4334,7 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
     }), { expirationTtl: 86400 });
 
     // Pass key via HttpOnly cookie — no query param; use same IP as stored entry
-    const res = await get('/get-scoring', { Cookie: `cv_key=cvtext_${token}` }, '1.2.3.4');
+    const res = await get('/get-scoring', { Cookie: `__Host-cv_key=cvtext_${token}` }, '1.2.3.4');
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.valid).toBe(true);
@@ -4354,7 +4354,7 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
     // Cookie key is valid; query param points to a nonexistent key.
     const res = await get(
       `/get-scoring?key=cvtext_${badToken}`,
-      { Cookie: `cv_key=cvtext_${goodToken}` },
+      { Cookie: `__Host-cv_key=cvtext_${goodToken}` },
       nextScoringIp(),
     );
     expect(res.status).toBe(200);
@@ -4550,7 +4550,7 @@ describe('POST /get-result — exhausted field', () => {
     }), { expirationTtl: 600 });
     await env.GASLAMAR_SESSIONS.put(`cv_result_${sessionId}`, JSON.stringify(CV_RESULT), { expirationTtl: 600 });
 
-    const res = await post('/get-result', {}, { Cookie: `session_id=${sessionId}` });
+    const res = await post('/get-result', {}, { Cookie: `__Host-session_id=${sessionId}` });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.exhausted).toBe(true);
@@ -4564,7 +4564,7 @@ describe('POST /get-result — exhausted field', () => {
     }), { expirationTtl: 600 });
     await env.GASLAMAR_SESSIONS.put(`cv_result_${sessionId}`, JSON.stringify({ ...CV_RESULT, tier: '3pack' }), { expirationTtl: 600 });
 
-    const res = await post('/get-result', {}, { Cookie: `session_id=${sessionId}` });
+    const res = await post('/get-result', {}, { Cookie: `__Host-session_id=${sessionId}` });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.exhausted).toBe(false);
@@ -4575,7 +4575,7 @@ describe('POST /get-result — exhausted field', () => {
     // No session entry — only the cv_result_ entry remains
     await env.GASLAMAR_SESSIONS.put(`cv_result_${sessionId}`, JSON.stringify(CV_RESULT), { expirationTtl: 600 });
 
-    const res = await post('/get-result', {}, { Cookie: `session_id=${sessionId}` });
+    const res = await post('/get-result', {}, { Cookie: `__Host-session_id=${sessionId}` });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.exhausted).toBe(true);
@@ -4588,7 +4588,7 @@ describe('POST /get-result — exhausted field', () => {
 
   it('returns 404 when cv_result_ entry is absent', async () => {
     const sessionId = `sess_${crypto.randomUUID()}`;
-    const res = await post('/get-result', {}, { Cookie: `session_id=${sessionId}` });
+    const res = await post('/get-result', {}, { Cookie: `__Host-session_id=${sessionId}` });
     expect(res.status).toBe(404);
   });
 });
