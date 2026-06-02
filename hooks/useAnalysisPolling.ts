@@ -117,10 +117,14 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
         has_jd: !!(jobDesc?.trim().length >= 50),
       });
 
+      // Strip HTML tags from the job description before sending — defense-in-depth
+      // alongside server-side validation. Equivalent to DOMPurify with ALLOWED_TAGS:[].
+      const sanitizedJobDesc = jobDesc.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+
       const res = await fetch(`${WORKER_URL}/analyze`, {
         method:      'POST',
         headers:     { 'Content-Type': 'application/json' },
-        body:        JSON.stringify({ cv: cvData, job_desc: jobDesc }),
+        body:        JSON.stringify({ cv: cvData, job_desc: sanitizedJobDesc }),
         signal:      abortRef.current.signal,
         // credentials:'include' is required so the browser saves the HttpOnly cv_key cookie
         // returned in the Set-Cookie header. Without this, cross-origin cookies are discarded.

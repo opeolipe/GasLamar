@@ -80,8 +80,17 @@ export async function handleAnalyze(request, env) {
     return withRl(jsonResponse({ message: 'Job description terlalu panjang (maks 5.000 karakter)' }, 400, request, env));
   }
 
-  // Strip HTML tags — treat job description as plain text only. This prevents XSS
-  // payloads from being stored in KV and echoed in any future API response or email.
+  // Hard-reject inputs that contain dangerous HTML/script payloads before any processing.
+  // Prevents XSS payloads from being stored in KV or echoed in future responses.
+  // This check runs on the raw input (before stripping) so that obfuscated patterns
+  // such as `java&#115;cript:` are not silently normalised away.
+  const UNSAFE_HTML_RE = /<script|<iframe|<img\b|onerror\s*=|onload\s*=|javascript\s*:/i;
+  if (UNSAFE_HTML_RE.test(rawJobDesc)) {
+    logError('analyze_invalid_input', { reason: 'jd_unsafe_html', ip });
+    return withRl(jsonResponse({ message: 'Input contains unsafe content.' }, 400, request, env));
+  }
+
+  // Strip any remaining HTML tags — treat job description as plain text only.
   const rawJobDescStripped = rawJobDesc.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 
   // Hard-reject before any further processing if the JD contains injection patterns.

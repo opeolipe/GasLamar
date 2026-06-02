@@ -921,6 +921,30 @@ describe('POST /analyze — validation', () => {
     expect(body.message).toMatch(/job description wajib/i);
   });
 
+  it('rejects job_desc containing <script> tag → 400 unsafe content', async () => {
+    const xssJd = '<script>alert("XSS")</script>' + 'x'.repeat(100);
+    const res = await post('/analyze', { cv: VALID_PDF_CV, job_desc: xssJd }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/unsafe content/i);
+  });
+
+  it('rejects job_desc containing onerror= attribute → 400 unsafe content', async () => {
+    const xssJd = '<img src=x onerror=alert(1)>' + 'x'.repeat(100);
+    const res = await post('/analyze', { cv: VALID_PDF_CV, job_desc: xssJd }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/unsafe content/i);
+  });
+
+  it('rejects job_desc containing javascript: URL → 400 unsafe content', async () => {
+    const xssJd = '<a href="javascript:alert(1)">click</a>' + 'x'.repeat(100);
+    const res = await post('/analyze', { cv: VALID_PDF_CV, job_desc: xssJd }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/unsafe content/i);
+  });
+
   it('rejects cv as a non-string (object) → 400', async () => {
     // Client-side bypass: attacker sends cv as a raw object instead of a JSON string.
     const res = await post('/analyze', { cv: { type: 'pdf', data: makePdfBase64() }, job_desc: JOB_DESC }, {}, nextIp());
@@ -4709,7 +4733,7 @@ describe('POST /get-result — exhausted field', () => {
 
 describe('Security headers', () => {
   const REQUIRED = [
-    ['content-security-policy', "default-src 'none'; frame-ancestors 'none'"],
+    ['content-security-policy', "default-src 'none'; script-src 'none'; frame-ancestors 'none'"],
     ['x-frame-options', 'DENY'],
     ['x-content-type-options', 'nosniff'],
     ['strict-transport-security', 'max-age=31536000; includeSubDomains'],
