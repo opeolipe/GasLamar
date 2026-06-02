@@ -14,14 +14,14 @@ LLM = extraction + text only. All scoring is pure JS.
 |---|---|
 | 1. EXTRACT | LLM → structured CV+JD data. Cache: `extract_v5_<hash>` 24h |
 | 2. ANALYZE | pure JS — skill match, format, archetype, red flags |
-| 3. SCORE | formula → 6D scores, verdict (DO/TIMED/DO NOT), timebox. Cache: `analysis_v17_<hash>` 48h |
+| 3. SCORE | formula → 6D scores, verdict (DO/TIMED/DO NOT), timebox. Cache: `analysis_v18_<hash>` 48h |
 | 4. DIAGNOSE | LLM → human-readable gap explanation only (cannot change scores) |
 | 5. REWRITE | LLM via `/generate` → tailored CV in ID + EN. Cache: `gen_id_v13_<hash>` / `gen_en_v13_<hash>` 48h |
 | 6. VALIDATE | schema check + 1 retry after every LLM call |
 
 **Cache bump rule:** two independent versions in `cacheVersions.js`:
 - `EXTRACT_CACHE_VERSION` (`extract_v5_*`) — bump when changing `pipeline/extract.js` or `prompts/extract.js`
-- `ANALYSIS_CACHE_VERSION` (`analysis_v17_*`) — bump when changing anything else in `pipeline/` or `prompts/`
+- `ANALYSIS_CACHE_VERSION` (`analysis_v18_*`) — bump when changing anything else in `pipeline/` or `prompts/`
 - Tailoring: bump `GEN_KEY_PREFIX_ID` (`gen_id_v13_`) / `GEN_KEY_PREFIX_EN` (`gen_en_v13_`) in `cacheVersions.js` when changing tailor prompts
 
 **Session state machine** (`worker/src/sessionStates.js`):
@@ -63,6 +63,7 @@ Routes → `router.js`. Handlers → `worker/src/handlers/<endpoint>.js`. Pipeli
 | `js/download-guard.js` | Blocking external `<script>` loaded in download.html `<head>` (not inline). Three valid entry paths: `?token=` (email link), localStorage `gaslamar_session` (post-payment), localStorage `gaslamar_delivery` (email-delivery flow). All others → `window.location.replace('/')`. |
 | `worker/src/handlers/validateCoupon.js` | `POST /validate-coupon` — pre-payment coupon validation. Calls Mayar `GET /coupon/validate` as a query-string request (GET with body is forbidden by Fetch spec). Rate-limited 10 req/min per IP to block enumeration. Returns discount amount so the frontend can show a live discounted price before redirecting to Mayar. |
 | `worker/src/handlers/resendAccess.js` | `POST /resend-access` — re-sends a download link to a registered email. Dual-layer rate limiting: 2 req/hour per email + 10 req/hour per IP (prevents enumeration and credential stuffing). Always returns a generic success message regardless of whether the email exists. |
+| `worker/src/handlers/resendEmail.js` | `POST /resend-email` — re-sends the CV-ready delivery email from `ready`/`exhausted` sessions (e.g., user missed the original). Requires valid session cookie. |
 | `worker/src/handlers/getScoring.js` | `GET /get-scoring?key=cvtext_<token>` — returns the scoring snapshot stored alongside the `cvtext_` entry at analyze time. Lets `hasil.html` fetch analysis data after a tab refresh or new-tab open without re-running the pipeline. Returns only `scoring` — never `cv_text` or `job_desc`. Rate-limited 10 req/min per IP. |
 
 ---
@@ -133,10 +134,13 @@ cd worker && npm run tail          # prod log stream
 cd worker && npm run deploy:prod   # deploy to production (NOT bare `npm run deploy` — that targets sandbox)
 
 # Frontend (repo root)
-npm run build                   # vendor + JS bundles + React + Tailwind
+npm run build                   # all: CSP hash + vendor + JS bundles + React + bundle hash
 npm run build:js                # esbuild bundles only
 npm run build:react             # React build only
 npm run build:vendor            # vendor libs + Tailwind only
+npm run build:csp               # update CSP hash in _headers after HTML changes
+npm run build:hash              # update bundle hashes in HTML after JS build
+npm run check:cache             # verify cache version strings are consistent
 npm run dev                     # watch mode
 npm start                       # serve frontend locally on :3000
 ```
@@ -148,7 +152,8 @@ npm start                       # serve frontend locally on :3000
 - Scoring/verdict logic stays in pure JS (`pipeline/analyze.js` + `pipeline/score.js`) — never in LLM prompts.
 - Webhook HMAC-SHA256 (Mayar) must always be verified.
 - CORS: `gaslamar.com`, `www.gaslamar.com`, and `gaslamar.pages.dev` (Pages canonical) — see `constants.js` `PRODUCTION_ORIGINS`.
-- File validation: magic bytes (PDF `%PDF`, DOCX `PK`) + 5MB — server-side.
+- File validation: magic bytes (PDF `%PDF`, DOCX `PK`) + 5MB — server-side. CV text must be ≥ 1 500 characters after extraction (all file types).
+- Security headers (`CSP`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`) on **all** responses including 404 and webhook.
 - Rate limiting: Cloudflare native binding + KV fallback — **both** must allow.
 
 ## Gotchas (common bug sources)
@@ -171,6 +176,7 @@ npm start                       # serve frontend locally on :3000
 - **Red-flag penalty is absolute** — -15 (1 flag), -20 (2 flags), -25 (3+ flags). Plus an extra -10 if any flag matches `format|karakter|parsing|ATS` keywords — total can reach -35. Applied to `skor` and `skor_sesudah` only — never to `skor_6d`.
 - **CV truncated in tailoring** — `tailoring.js` activates section-aware truncation for CVs over 4000 chars: keeps header + first 2 experience entries (role-separator-based) + skills section, then appends a localized `[... removed ...]` note. Three fallback paths (all emit `console.warn`): (1) section-aware reduces size → `cv_truncated`; (2) section-aware fails AND CV > 10 000 chars → hard-cut at 10 000 → `cv_truncated_hard`; (3) section-aware fails AND CV is 4 001–10 000 chars → line-boundary cut at 4 000 → `cv_truncated_fallback`. CVs under 4 000 chars are passed through unchanged.
 - **Coupon GET with body forbidden** — Mayar's docs show `GET /coupon/validate` with a JSON body (curl `--data`), but the Fetch API spec forbids GET bodies (throws TypeError). Always use query string params for this endpoint. Using `method:'GET'` + `body:` will silently return `valid:false` in production.
+- **`result_id` is server-generated** — `/analyze` returns a `crypto.randomUUID()` that the frontend stores as `gaslamar_result_id`. `/generate` validates this against the value stored in the `cvtext_` KV entry (403 on mismatch). Do not generate `result_id` client-side. Old sessions without the field are allowed through for backward compat.
 - **Coupon discount is UX-only** — GasLamar shows a projected discounted price but Mayar is authoritative. The actual discount is applied on Mayar's checkout page when the user enters the code. A coupon that passes our validation may still be rejected at Mayar checkout if it expires between validation and payment.
 
 ---
