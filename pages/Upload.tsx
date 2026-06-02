@@ -182,20 +182,23 @@ export default function Upload() {
         newNotices.push({ type: 'error', text: 'Analisis gagal: ' + uploadErr });
       }
 
-      // cv_key is an HttpOnly cookie — check analyze_time only for a freshness hint.
-      // Skip when a no-session redirect already set a notice to avoid contradictory messages.
-      if (!isNoSessionRedirect) {
+      // "Active results" notice — skip when this page load already shows a session-error
+      // reason (avoids contradicting messages like "expired" + "active results").
+      const sessionErrorReasons = new Set(['no_session', 'session_expired', 'cv_expired', 'missing_data']);
+      if (!sessionErrorReasons.has(reason ?? '')) {
         const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
         if (analyzeTime) {
           const remaining = 86400 - Math.floor((Date.now() - analyzeTime) / 1000);
           if (remaining > 0) {
-            const h = Math.floor(remaining / 3600);
-            const m = Math.floor((remaining % 3600) / 60);
+            // Optimistic: show while we confirm with the server; removed if check-session says invalid.
             newNotices.push({
               type: 'info',
-              text: `Kamu masih punya hasil analisis aktif (${h > 0 ? `${h}j ${m}m` : `${m} menit`} tersisa).`,
+              text: `Kamu masih punya hasil analisis aktif (${Math.floor(remaining / 3600) > 0 ? `${Math.floor(remaining / 3600)}j ${Math.floor((remaining % 3600) / 60)}m` : `${Math.floor((remaining % 3600) / 60)} menit`} tersisa).`,
               link: { href: 'hasil.html', label: 'Lihat hasil →' },
             });
+          } else {
+            // analyzeTime in sessionStorage but already past 24h — clear stale data.
+            try { sessionStorage.removeItem('gaslamar_analyze_time'); } catch (_) {}
           }
         }
       }
@@ -226,22 +229,43 @@ export default function Upload() {
     }
   }, []);
 
-  // Validate any paid session cookie — dismiss banner if session is explicitly deleted/pending.
-  // Only act on a successful (200) response with a terminal status; HTTP errors (401 = no cookie,
-  // 5xx = server fault) leave the banner so download.html can handle the state gracefully.
+  // Validate session cookie — dismiss stale banners after a server round-trip.
   useEffect(() => {
     (async () => {
       try {
         const res = await fetch(`${WORKER_URL}/check-session`, { credentials: 'include' });
-        if (!res.ok) return; // 401 = no cookie, 5xx = server error — leave banner as-is
-        const data = await res.json() as { status?: string };
+
+        // 401 = no cookie at all — remove the "active results" notice (optimistic banner
+        // added in the mount effect might be showing stale analyzeTime).
+        if (res.status === 401) {
+          try { sessionStorage.removeItem('gaslamar_analyze_time'); } catch (_) {}
+          setNotices(prev => prev.filter(n => !n.link?.href.includes('hasil.html')));
+          return;
+        }
+
+        if (!res.ok) return; // 5xx server error — leave banners as-is
+
+        const data = await res.json() as { valid?: boolean; authenticated?: boolean; status?: string; type?: string };
+
+        // Analysis session invalid/expired: remove the "active results" banner and stale timestamp.
+        if (data?.type === 'analysis' && (!data?.valid && !data?.authenticated)) {
+          try { sessionStorage.removeItem('gaslamar_analyze_time'); } catch (_) {}
+          setNotices(prev => prev.filter(n => !n.link?.href.includes('hasil.html')));
+        }
+        // No analysis session at all (valid:false, no type): same cleanup.
+        if (!data?.valid && !data?.authenticated && !data?.type) {
+          try { sessionStorage.removeItem('gaslamar_analyze_time'); } catch (_) {}
+          setNotices(prev => prev.filter(n => !n.link?.href.includes('hasil.html')));
+        }
+
+        // Paid session: dismiss "download" banner if session is in a terminal/deleted state.
         const isTerminal = data?.status === 'deleted' || data?.status === 'pending';
         if (isTerminal) {
           clearClientSessionData(null);
           setNotices(prev => prev.filter(n => !n.link?.href.includes('download.html')));
         }
       } catch (_) {
-        // Network error — leave banner; download.html will handle the expired state
+        // Network error — leave banners; downstream pages handle expired states
       }
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps

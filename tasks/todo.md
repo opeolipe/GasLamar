@@ -1,42 +1,20 @@
-# Fix: /hasil.html redirect loop + conflicting session messages
+# Fix: critical session issue blocking /hasil after analysis
 
-## Root causes identified
+## Root cause
+After /analyze completes, the `cv_key` HttpOnly cookie (set with `SameSite=None; Partitioned`)
+fails to be sent in subsequent requests in some browsers (Safari ITP blocks third-party cookies
+on staging where frontend is `staging.gaslamar.pages.dev` and API is `api-staging.gaslamar.com`).
+Additionally, the Upload page shows contradictory messages (both "session expired" and "active
+results") when the cv_key cookie fails but `gaslamar_analyze_time` is still in sessionStorage.
 
-1. **Cookie reliability (production)**: `cv_key` uses `SameSite=None; Partitioned` (CHIPS). In production
-   (same-site, gaslamar.com) the `Partitioned` attribute should be a no-op per the CHIPS spec, but some
-   browser versions mishandle it and may not send the cookie on navigation. Changing to `SameSite=Strict`
-   (no `Partitioned`) in production eliminates the ambiguity. Staging remains `SameSite=None; Partitioned`
-   because the frontend (staging.gaslamar.pages.dev) is cross-site from the worker (api-staging.gaslamar.com).
+## Required changes
 
-2. **Conflicting UI messages (confirmed bug)**: When the server redirects to `/upload.html?reason=no_session`,
-   `Upload.tsx` adds an "Sesi tidak ditemukan" info notice AND also checks `gaslamar_analyze_time` in
-   sessionStorage and — if still valid — adds a second info notice with a "Lihat hasil →" link.
-   `prioritizeNotices()` shows both (primary + secondary when both are `info`). This creates a loop:
-   user clicks "Lihat hasil" → server redirect → back on upload with same contradiction.
-
-3. **Single-message guarantee**: Result.tsx already shows only one `noSession` state inline. No change
-   needed there, but verify no double-render can occur.
-
-## Plan
-
-- [x] `worker/src/cookies.js` — `makeCvKeyCookie(cvKey, env)`: production → SameSite=Strict (no Partitioned);
-  staging/sandbox → SameSite=None; Partitioned (unchanged)
-- [x] `worker/src/handlers/analyze.js` — pass `env` to `makeCvKeyCookie`
-- [x] `pages/Upload.tsx` — when `reason=no_session`: clear `gaslamar_analyze_time` from sessionStorage AND
-  skip adding "Lihat hasil" notice (only show the no-session error, never both)
-- [x] `worker/src/router.js` — verify/strengthen: cookie present + expired → access.html (not upload);
-  no cookie → upload; this logic is already correct but add inline comments for clarity
-- [x] `worker/test/worker.test.js` — update cookie format assertion for production env;
-  add test: cv_key cookie present + expired KV → access.html (not upload)
-- [x] `tasks/lessons.md` — record pattern
-
-## Previously completed (prior PR)
-
-- [x] `worker/src/handlers/checkSession.js` — validate cv_key cookie
-- [x] `js/hasil-guard.js` — URL-param validation only
-- [x] `hasil.html` — rebuild inline guard
-- [x] `hooks/useResultData.ts` — always fetch /get-scoring via cookie
-- [x] `hooks/useAnalysisPolling.ts` — remove sensitive data from sessionStorage
-- [x] `pages/Analyzing.tsx` — remove gaslamar_cv_key from freshness check
-- [x] `js/analyzing-page.js` — same cleanup
-- [x] `worker/test/worker.test.js` — add tests for cv_key path in /check-session
+- [x] `worker/src/cookies.js` — add `makeSessionTokenCookie(sessionId)` + `getSessionTokenFromCookie(request)`
+- [x] `worker/src/cors.js` — add `jsonResponseWithCookies(data, status, cookieHeaders[], request, env)` for setting multiple cookies
+- [x] `worker/src/handlers/analyze.js` — create `analysis_session_<uuid>` KV entry (sessionId, resultId, cvKey, createdAt, expiresAt); set both `cv_key` + `sessionToken` cookies
+- [x] `worker/src/handlers/checkSession.js` — also read `sessionToken` cookie; look up `analysis_session_`; return `{ valid: true, resultId, type: 'analysis' }` on success; return 401 on invalid/expired
+- [x] `worker/src/handlers/getScoring.js` — also accept `sessionToken` cookie as auth (resolve cvKey via analysis_session_ then fetch scoring)
+- [x] `hooks/useResultData.ts` — call /check-session first to validate cookie + get resultId; then fetch /get-scoring; on 401 show inline expired state
+- [x] `pages/Upload.tsx` — skip "active results" notice when URL reason indicates expired session; call /check-session to remove stale notice when cookie is invalid
+- [x] `worker/test/worker.test.js` — add 6 tests for sessionToken cookie path in /check-session and /get-scoring + 1 for analyze sessionToken output
+- [x] `tasks/lessons.md` — document: set-cookie with two cookies requires Headers.append, not plain object spread

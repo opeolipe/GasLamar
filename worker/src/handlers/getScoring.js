@@ -1,7 +1,7 @@
 import { jsonResponse } from '../cors.js';
 import { clientIp, log } from '../utils.js';
 import { checkRateLimit, checkRateLimitKVSession, rateLimitResponse } from '../rateLimit.js';
-import { getCvKeyFromCookie } from '../cookies.js';
+import { getCvKeyFromCookie, getSessionTokenFromCookie } from '../cookies.js';
 
 /**
  * GET /get-scoring
@@ -19,43 +19,52 @@ import { getCvKeyFromCookie } from '../cookies.js';
  *  - Rate-limited: 20 req/min with a valid cv_key cookie, 10 req/min by IP otherwise.
  */
 export async function handleGetScoring(request, env) {
-  const ip          = clientIp(request);
-  const cvKeyCookie = getCvKeyFromCookie(request);
+  const ip             = clientIp(request);
+  const sessionToken   = getSessionTokenFromCookie(request);
+  const cvKeyCookie    = getCvKeyFromCookie(request);
+  // Use either token for the rate-limit bucket (authenticated callers get higher limit).
+  const authToken      = sessionToken ?? cvKeyCookie;
 
   // Atomic burst guard — CF native binding has no TOCTOU race, catches parallel floods.
   if (!await checkRateLimit(env, env.RATE_LIMITER_GET_SCORING, ip)) {
     return rateLimitResponse(request, env, 60);
   }
 
-  // KV sliding-window counter — users with a valid cv_key cookie get 20 req/min;
-  // unauthenticated IPs get 10 req/min.
-  const kvResult = await checkRateLimitKVSession(env, ip, cvKeyCookie, 10, 20, 60, 'get_scoring');
+  // KV sliding-window counter — authenticated callers get 20 req/min; unauthenticated IPs get 10/min.
+  const kvResult = await checkRateLimitKVSession(env, ip, authToken, 10, 20, 60, 'get_scoring');
   if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60);
 
-  // Require the HttpOnly cv_key cookie set by /analyze. The ?key= query param is
-  // intentionally not accepted — it would let anyone enumerate arbitrary keys.
-  // Use the same generic body for all auth/not-found failures to prevent enumeration.
-  const key = cvKeyCookie;
-  if (!key) {
+  if (!sessionToken && !cvKeyCookie) {
     return jsonResponse({ valid: false }, 401, request, env);
+  }
+
+  // Resolve the cvtext_ KV key from whichever cookie is present.
+  // New path: sessionToken → analysis_session_ → cvKey
+  // Legacy path: cv_key cookie contains the cvtext_ key directly.
+  let key;
+  if (sessionToken) {
+    const session = await env.GASLAMAR_SESSIONS.get(
+      `analysis_session_${sessionToken}`,
+      { type: 'json' },
+    );
+    if (!session?.cvKey) {
+      return jsonResponse({ valid: false }, 401, request, env);
+    }
+    key = session.cvKey;
+  } else {
+    key = cvKeyCookie;
   }
 
   let stored = await env.GASLAMAR_SESSIONS.get(key, { type: 'json' });
   if (!stored || !stored.scoring) {
     // cvtext_ entry may have been deleted after payment creation. Fall back to the
-    // scoring snapshot preserved by /create-payment so hasil.html can still render
-    // if the user returns to /hasil after a Mayar redirect (cancel or back-navigation).
+    // scoring snapshot preserved by /create-payment.
     const fallbackKey = `scoring_${key.slice('cvtext_'.length)}`;
     stored = await env.GASLAMAR_SESSIONS.get(fallbackKey, { type: 'json' });
   }
   if (!stored || !stored.scoring) {
     return jsonResponse({ valid: false }, 404, request, env);
   }
-  // IP mismatch is intentionally non-blocking here — same rationale as validateSession.js:
-  // mobile users, carrier-grade NAT, and VPN users legitimately change IPs between
-  // /analyze and /get-scoring. The cvtext_ key is a 256-bit random token so it is
-  // already unguessable; IP binding adds friction without meaningful security benefit
-  // for a read-only scoring endpoint. Log for abuse visibility only.
   if (stored.ip && stored.ip !== ip) {
     log('get_scoring_ip_mismatch', { ip, stored_ip: stored.ip });
   }

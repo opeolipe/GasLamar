@@ -8,6 +8,7 @@ import {
   STEP_DEFS,
   getTimerText,
 } from '@/lib/analysisUtils';
+import { extractSampleLine } from '@/lib/cvUtils';
 
 export type StepStatus = 'pending' | 'active' | 'done';
 
@@ -167,12 +168,18 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
         })(),
       });
 
-      // Persist a sample line before clearing cv_pending so Result.tsx has a fallback.
+      // Persist a non-PII sample line before clearing cv_pending so Result.tsx has a
+      // fallback for the personalized rewrite preview. Only extract for text CVs — binary
+      // (PDF/DOCX) blobs can't be decoded here. Store only the extracted bullet/action
+      // line, never the raw text or the full JSON blob.
       try {
         const cvPending = sessionStorage.getItem('gaslamar_cv_pending');
         if (cvPending) {
-          const firstLine = cvPending.split('\n').find(l => l.trim().length > 0) || '';
-          if (firstLine) sessionStorage.setItem('gaslamar_sample_line', firstLine.trim());
+          const parsed = JSON.parse(cvPending);
+          if (parsed?.type === 'txt' && typeof parsed.data === 'string') {
+            const sample = extractSampleLine(parsed.data);
+            if (sample) sessionStorage.setItem('gaslamar_sample_line', sample);
+          }
         }
       } catch (_) {}
 

@@ -483,36 +483,43 @@ Pattern applied in the XSS/IDOR security fix:
 6. **STALE_KEYS in Upload.tsx must list all keys ever written** — including legacy ones that
    are no longer written — so old-session data is swept on the next upload.
 
-## Pattern: redirect loop from conflicting session notices
+---
 
-**Symptom:** `/hasil.html` server-redirects to `/upload.html?reason=no_session`, but Upload.tsx
-also shows a "Lihat hasil →" banner because `gaslamar_analyze_time` is still in sessionStorage.
-User clicks the banner → back to `/hasil.html` → same redirect → infinite loop.
+## Setting multiple Set-Cookie headers requires Headers.append, not plain object spread (2026-06-02)
 
-**Fix:**
-1. When `reason === 'no_session'` or `reason === 'session_expired'` lands on upload,
-   immediately clear `gaslamar_analyze_time` from sessionStorage so the "Lihat hasil"
-   banner does not render. Apply this in BOTH `pages/Upload.tsx` AND `js/upload-page.js`
-   (the React bundle is canonical; the plain JS file is a belt-and-suspenders fallback).
-2. Do NOT add the analyze_time notice when a no-session redirect reason is present —
-   add the `isNoSessionRedirect` guard before the analyzeTime block.
+`new Response(body, { headers: { 'Set-Cookie': v1, 'Set-Cookie': v2 } })` silently drops the
+first cookie — plain JS objects have unique keys. Only the last `Set-Cookie` value survives.
 
-**Rule:** Any path that shows "you have no session" must also clear the signal that would
-show "you have an active session". Never let both states render simultaneously.
+**Fix:** Build a `Headers` instance and use `.append()`:
+```js
+const headers = new Headers({ ...BASE_HEADERS, 'Content-Type': 'application/json' });
+for (const c of cookieHeaders) headers.append('Set-Cookie', c);
+return new Response(JSON.stringify(data), { status, headers });
+```
 
-## Pattern: SameSite=None; Partitioned causes same-site cookie delivery issues
+Added `jsonResponseWithCookies(data, status, cookieHeaders[], request, env)` to `cors.js`.
 
-**Problem:** The `cv_key` cookie used `SameSite=None; Partitioned` (CHIPS) in all environments.
-In production (gaslamar.com — fully same-site), the `Partitioned` attribute is a spec no-op but
-some browsers misbehave: they may store the cookie with the `Partitioned` flag intact even in
-a same-site context and then fail to match it on subsequent navigation requests.
+---
 
-**Fix:** Make `makeCvKeyCookie(cvKey, env)` environment-aware:
-- Production: `SameSite=Strict` (no `Partitioned`) — safe because analyzing.html, /analyze,
-  and /hasil.html are all on gaslamar.com; same-site navigation always sends Strict cookies.
-- Staging/sandbox: `SameSite=None; Partitioned` unchanged — the frontend is on
-  staging.gaslamar.pages.dev (different eTLD+1 from api-staging.gaslamar.com) so CHIPS
-  is required for cross-site credential passing in Chrome 120+.
+## Upload.tsx "active results" notice must not show when session is already expired (2026-06-02)
 
-**Rule:** Don't apply cross-site cookie attributes (SameSite=None; Partitioned) to same-site
-deployments. Detect via `env.ENVIRONMENT === 'production'` and use Strict there.
+The "Kamu masih punya hasil analisis aktif" banner is driven by `gaslamar_analyze_time` in
+sessionStorage. If the cv_key/sessionToken cookie has expired (user was redirected here via
+`?reason=no_session`), both messages appear simultaneously — a contradiction.
+
+**Pattern:**
+- Skip the "active results" notice entirely when `params.get('reason')` is in the set
+  `{'no_session', 'session_expired', 'cv_expired', 'missing_data'}`.
+- Also confirm via `/check-session` asynchronously: if the server says no valid analysis
+  session, remove the notice and clear `gaslamar_analyze_time` from sessionStorage.
+
+---
+
+## /check-session: sessionToken (UUID) takes precedence over cv_key (cvtext_ hex) (2026-06-02)
+
+After `/analyze` sets BOTH cookies, `checkSession.js` must prefer `sessionToken` when present.
+The `sessionToken` is a UUID pointing to `analysis_session_<uuid>` KV record (lightweight).
+The `cv_key` is the raw cvtext_ key (points to the full CV+scoring blob).
+
+Lookup order: `sessionToken` → `analysis_session_` → `{ resultId, cvKey }` → return resultId.
+Legacy fallback: `cv_key` → `cvtext_` KV direct lookup (old sessions, no analysis_session_ entry).
