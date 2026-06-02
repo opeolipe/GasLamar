@@ -160,6 +160,15 @@ test.describe('GasLamar CV Flow', () => {
       }),
     );
 
+    // Mock /get-scoring so hasil page renders without a live worker
+    await page.route('**/get-scoring**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ scoring: MOCK_ANALYZE_RESPONSE }),
+      }),
+    );
+
     // Navigate first, then clear storage ONCE via evaluate.
     // IMPORTANT: never use page.addInitScript for storage clearing — it fires
     // before every page load including internal app navigations, which wipes

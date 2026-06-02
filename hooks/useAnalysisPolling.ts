@@ -167,6 +167,15 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
         })(),
       });
 
+      // Persist a sample line before clearing cv_pending so Result.tsx has a fallback.
+      try {
+        const cvPending = sessionStorage.getItem('gaslamar_cv_pending');
+        if (cvPending) {
+          const firstLine = cvPending.split('\n').find(l => l.trim().length > 0) || '';
+          if (firstLine) sessionStorage.setItem('gaslamar_sample_line', firstLine.trim());
+        }
+      } catch (_) {}
+
       ['gaslamar_cv_pending', 'gaslamar_jd_pending', 'gaslamar_filename', 'gaslamar_jd_draft',
        'gaslamar_cv_draft', 'gaslamar_filename_draft']
         .forEach(k => { try { sessionStorage.removeItem(k); } catch (_) {} });
