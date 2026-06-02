@@ -2,19 +2,21 @@
 /**
  * scripts/verify-staging-bundle.js
  *
- * Run after a Cloudflare Pages staging deploy to confirm the live page is
+ * Run after a Cloudflare Pages staging deploy to confirm the live pages are
  * serving bundles built from the current commit — not a stale deployment.
  *
  * Strategy: the build pipeline embeds content-hash fingerprints in every
  * ?v= query string (update-bundle-hashes.js). This script:
- *   1. Reads the expected fingerprint from the local upload.html (just built).
- *   2. Fetches the deployed upload.html from the staging URL.
- *   3. Compares the ?v= values for each bundle referenced in the file.
+ *   1. Reads expected fingerprints from local HTML files (just built).
+ *   2. Fetches each deployed HTML page from the staging URL.
+ *   3. Compares the ?v= values for every bundle referenced in each file.
+ *   4. Asserts that each page loads its own dedicated bundle (catches the
+ *      "hasil.html is a copy of upload.html" class of stale-deploy bug).
  *
  * Usage:
  *   STAGING_URL=https://staging.gaslamar.pages.dev node scripts/verify-staging-bundle.js
  *
- * Exit codes: 0 = all fingerprints match, 1 = mismatch or fetch failure.
+ * Exit codes: 0 = all checks pass, 1 = any mismatch or fetch failure.
  */
 'use strict';
 
@@ -27,9 +29,27 @@ if (!STAGING_URL) {
   process.exit(1);
 }
 
-const LOCAL_HTML = path.join(__dirname, '..', 'upload.html');
+const ROOT = path.join(__dirname, '..');
 
-// Extract all  src="js/dist/foo.bundle.js?v=XXXX"  entries from an HTML string.
+// Pages to verify: [html filename, expected dedicated bundle (must be present)]
+const PAGES = [
+  { file: 'upload.html',    ownBundle: 'js/dist/upload-react.bundle.js' },
+  { file: 'hasil.html',     ownBundle: 'js/dist/hasil-react.bundle.js'  },
+  { file: 'analyzing.html', ownBundle: 'js/dist/analyzing-react.bundle.js' },
+  { file: 'download.html',  ownBundle: 'js/dist/download-react.bundle.js' },
+  { file: 'index.html',     ownBundle: 'js/dist/home-react.bundle.js'   },
+];
+
+// Bundles that must NOT appear in a page other than their owner.
+// Catches identical-file bugs (e.g. hasil.html loading upload-react.bundle.js).
+const EXCLUSIVE_BUNDLES = [
+  'js/dist/upload-react.bundle.js',
+  'js/dist/hasil-react.bundle.js',
+  'js/dist/analyzing-react.bundle.js',
+  'js/dist/download-react.bundle.js',
+  'js/dist/home-react.bundle.js',
+];
+
 function extractBundleVersions(html) {
   const map = {};
   const re = /src="(js\/dist\/[^"?]+\.bundle\.js)\?v=([^"]+)"/g;
@@ -40,48 +60,87 @@ function extractBundleVersions(html) {
   return map;
 }
 
+async function fetchPage(url) {
+  const res = await fetch(url, { headers: { 'Cache-Control': 'no-cache' } });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.text();
+}
+
 async function main() {
-  const localHtml = fs.readFileSync(LOCAL_HTML, 'utf8');
-  const localVersions = extractBundleVersions(localHtml);
+  const base = STAGING_URL.replace(/\/$/, '');
+  let fail = false;
 
-  if (Object.keys(localVersions).length === 0) {
-    console.error('[verify-staging-bundle] No bundle references found in local upload.html — run npm run build first');
-    process.exit(1);
-  }
+  for (const { file, ownBundle } of PAGES) {
+    const localPath = path.join(ROOT, file);
 
-  const targetUrl = `${STAGING_URL.replace(/\/$/, '')}/upload.html`;
-  console.log(`[verify-staging-bundle] Fetching ${targetUrl}`);
+    if (!fs.existsSync(localPath)) {
+      console.warn(`[verify-staging-bundle] SKIP ${file} — not found locally`);
+      continue;
+    }
 
-  let remoteHtml;
-  try {
-    const res = await fetch(targetUrl, { headers: { 'Cache-Control': 'no-cache' } });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    remoteHtml = await res.text();
-  } catch (err) {
-    console.error(`[verify-staging-bundle] Failed to fetch staging page: ${err.message}`);
-    process.exit(1);
-  }
+    const localHtml  = fs.readFileSync(localPath, 'utf8');
+    const localVers  = extractBundleVersions(localHtml);
 
-  const remoteVersions = extractBundleVersions(remoteHtml);
+    if (Object.keys(localVers).length === 0) {
+      console.error(`[verify-staging-bundle] ${file}: no bundle refs found locally — run npm run build first`);
+      fail = true;
+      continue;
+    }
 
-  let allMatch = true;
-  for (const [bundle, expectedV] of Object.entries(localVersions)) {
-    const deployedV = remoteVersions[bundle];
-    if (deployedV === expectedV) {
-      console.log(`  ✓ ${bundle}?v=${expectedV}`);
+    const url = `${base}/${file}`;
+    console.log(`\n[${file}] Fetching ${url}`);
+
+    let remoteHtml;
+    try {
+      remoteHtml = await fetchPage(url);
+    } catch (err) {
+      console.error(`  ✗ Fetch failed: ${err.message}`);
+      fail = true;
+      continue;
+    }
+
+    const remoteVers = extractBundleVersions(remoteHtml);
+
+    // 1. Each bundle fingerprint must match the local build.
+    for (const [bundle, expectedV] of Object.entries(localVers)) {
+      const deployedV = remoteVers[bundle];
+      if (deployedV === expectedV) {
+        console.log(`  ✓ ${bundle}?v=${expectedV}`);
+      } else {
+        console.error(`  ✗ ${bundle} — expected ?v=${expectedV}, got ?v=${deployedV ?? '(missing)'}`);
+        fail = true;
+      }
+    }
+
+    // 2. The page must reference its own dedicated bundle.
+    if (!remoteVers[ownBundle]) {
+      console.error(`  ✗ STRUCTURAL: ${file} must reference ${ownBundle} — not found in deployed page`);
+      fail = true;
     } else {
-      console.error(`  ✗ ${bundle} — expected ?v=${expectedV}, got ?v=${deployedV ?? '(missing)'}`);
-      allMatch = false;
+      console.log(`  ✓ own bundle present: ${ownBundle}`);
+    }
+
+    // 3. The page must NOT reference another page's exclusive bundle.
+    for (const foreignBundle of EXCLUSIVE_BUNDLES) {
+      if (foreignBundle === ownBundle) continue;
+      if (remoteVers[foreignBundle]) {
+        console.error(
+          `  ✗ STRUCTURAL: ${file} must NOT reference ${foreignBundle} — this indicates ` +
+          `${file} is a stale copy of another page's HTML`
+        );
+        fail = true;
+      }
     }
   }
 
-  if (!allMatch) {
-    console.error('\n[verify-staging-bundle] FAIL — staging is serving stale bundles.');
+  console.log('');
+  if (fail) {
+    console.error('[verify-staging-bundle] FAIL — one or more staging pages are stale or misconfigured.');
     console.error('This means the Pages deploy did not propagate, or the build artifact is wrong.');
     process.exit(1);
   }
 
-  console.log('\n[verify-staging-bundle] PASS — all staging bundles match current build.');
+  console.log('[verify-staging-bundle] PASS — all staging pages match the current build.');
 }
 
 main();
