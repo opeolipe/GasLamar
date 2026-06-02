@@ -14,14 +14,14 @@ LLM = extraction + text only. All scoring is pure JS.
 |---|---|
 | 1. EXTRACT | LLM → structured CV+JD data. Cache: `extract_v5_<hash>` 24h |
 | 2. ANALYZE | pure JS — skill match, format, archetype, red flags |
-| 3. SCORE | formula → 6D scores, verdict (DO/TIMED/DO NOT), timebox. Cache: `analysis_v17_<hash>` 48h |
+| 3. SCORE | formula → 6D scores, verdict (DO/TIMED/DO NOT), timebox. Cache: `analysis_v18_<hash>` 48h |
 | 4. DIAGNOSE | LLM → human-readable gap explanation only (cannot change scores) |
 | 5. REWRITE | LLM via `/generate` → tailored CV in ID + EN. Cache: `gen_id_v13_<hash>` / `gen_en_v13_<hash>` 48h |
 | 6. VALIDATE | schema check + 1 retry after every LLM call |
 
 **Cache bump rule:** two independent versions in `cacheVersions.js`:
 - `EXTRACT_CACHE_VERSION` (`extract_v5_*`) — bump when changing `pipeline/extract.js` or `prompts/extract.js`
-- `ANALYSIS_CACHE_VERSION` (`analysis_v17_*`) — bump when changing anything else in `pipeline/` or `prompts/`
+- `ANALYSIS_CACHE_VERSION` (`analysis_v18_*`) — bump when changing anything else in `pipeline/` or `prompts/`
 - Tailoring: bump `GEN_KEY_PREFIX_ID` (`gen_id_v13_`) / `GEN_KEY_PREFIX_EN` (`gen_en_v13_`) in `cacheVersions.js` when changing tailor prompts
 
 **Session state machine** (`worker/src/sessionStates.js`):
