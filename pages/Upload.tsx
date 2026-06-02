@@ -150,30 +150,17 @@ export default function Upload() {
 
     if (!isNewPackage && !hasPaidSession) {
       const reason = params.get('reason');
-      // When the server tells us there is no session, clear the analyze_time stamp so
-      // the "Lihat hasil" banner does not also appear — showing both simultaneously is
-      // contradictory and causes a redirect loop (user clicks "Lihat hasil" → server
-      // redirects back here with no_session → both messages show again).
-      const isNoSessionRedirect = reason === 'no_session' || reason === 'session_expired';
-      if (isNoSessionRedirect) {
-        try { sessionStorage.removeItem('gaslamar_analyze_time'); } catch (_) {}
-      }
-
-      if (reason === 'no_session') {
-        history.replaceState(null, '', location.pathname);
-        newNotices.push({ type: 'info', text: 'Sesi tidak ditemukan atau sudah kedaluwarsa (hasil analisis aktif 24 jam). Silakan upload CV kembali untuk memulai analisis baru.' });
-      } else if (reason === 'missing_data') {
+      // Only show actionable redirect context — expiry notices belong on hasil.html.
+      if (reason === 'missing_data') {
         history.replaceState(null, '', location.pathname);
         newNotices.push({ type: 'warning', text: 'Data sesi tidak lengkap. Silakan upload CV kamu untuk memulai.' });
       } else if (reason === 'interrupted') {
         history.replaceState(null, '', location.pathname);
         newNotices.push({ type: 'warning', text: 'Analisis terputus — silakan upload ulang CV kamu untuk memulai.' });
-      } else if (reason === 'session_expired') {
+      } else if (reason) {
+        // Discard all other reason codes (session_expired, cv_expired, no_session, etc.)
+        // so no contradictory message appears alongside the server-checked active-results banner.
         history.replaceState(null, '', location.pathname);
-        newNotices.push({ type: 'info', text: 'Sesi analisis sudah berakhir. Silakan upload CV kembali untuk analisis baru.' });
-      } else if (reason === 'cv_expired') {
-        history.replaceState(null, '', location.pathname);
-        newNotices.push({ type: 'info', text: 'Waktu analisis sudah habis. Upload CV kembali untuk melanjutkan pembayaran.' });
       }
 
       const uploadErr = sessionStorage.getItem('gaslamar_upload_error');
@@ -181,27 +168,8 @@ export default function Upload() {
         sessionStorage.removeItem('gaslamar_upload_error');
         newNotices.push({ type: 'error', text: 'Analisis gagal: ' + uploadErr });
       }
-
-      // "Active results" notice — skip when this page load already shows a session-error
-      // reason (avoids contradicting messages like "expired" + "active results").
-      const sessionErrorReasons = new Set(['no_session', 'session_expired', 'cv_expired', 'missing_data']);
-      if (!sessionErrorReasons.has(reason ?? '')) {
-        const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
-        if (analyzeTime) {
-          const remaining = 86400 - Math.floor((Date.now() - analyzeTime) / 1000);
-          if (remaining > 0) {
-            // Optimistic: show while we confirm with the server; removed if check-session says invalid.
-            newNotices.push({
-              type: 'info',
-              text: `Kamu masih punya hasil analisis aktif (${Math.floor(remaining / 3600) > 0 ? `${Math.floor(remaining / 3600)}j ${Math.floor((remaining % 3600) / 60)}m` : `${Math.floor((remaining % 3600) / 60)} menit`} tersisa).`,
-              link: { href: 'hasil.html', label: 'Lihat hasil →' },
-            });
-          } else {
-            // analyzeTime in sessionStorage but already past 24h — clear stale data.
-            try { sessionStorage.removeItem('gaslamar_analyze_time'); } catch (_) {}
-          }
-        }
-      }
+      // Active analysis notice is now populated by the /check-session effect below,
+      // not from sessionStorage, to avoid contradictions with server state.
     }
 
     if (newNotices.length) setNotices(prioritizeNotices(newNotices));
@@ -229,43 +197,34 @@ export default function Upload() {
     }
   }, []);
 
-  // Validate session cookie — dismiss stale banners after a server round-trip.
+  // Single server-side session check — drives both the "active analysis" notice and
+  // the payment session cleanup. Replaces all sessionStorage-based state detection
+  // to prevent contradictory messages.
   useEffect(() => {
     (async () => {
       try {
         const res = await fetch(`${WORKER_URL}/check-session`, { credentials: 'include' });
+        if (!res.ok) return; // non-200 = server error — leave banners as-is
+        const data = await res.json() as { valid?: boolean; status?: string; type?: string };
 
-        // 401 = no cookie at all — remove the "active results" notice (optimistic banner
-        // added in the mount effect might be showing stale analyzeTime).
-        if (res.status === 401) {
-          try { sessionStorage.removeItem('gaslamar_analyze_time'); } catch (_) {}
-          setNotices(prev => prev.filter(n => !n.link?.href.includes('hasil.html')));
-          return;
-        }
-
-        if (!res.ok) return; // 5xx server error — leave banners as-is
-
-        const data = await res.json() as { valid?: boolean; authenticated?: boolean; status?: string; type?: string };
-
-        // Analysis session invalid/expired: remove the "active results" banner and stale timestamp.
-        if (data?.type === 'analysis' && (!data?.valid && !data?.authenticated)) {
-          try { sessionStorage.removeItem('gaslamar_analyze_time'); } catch (_) {}
-          setNotices(prev => prev.filter(n => !n.link?.href.includes('hasil.html')));
-        }
-        // No analysis session at all (valid:false, no type): same cleanup.
-        if (!data?.valid && !data?.authenticated && !data?.type) {
-          try { sessionStorage.removeItem('gaslamar_analyze_time'); } catch (_) {}
-          setNotices(prev => prev.filter(n => !n.link?.href.includes('hasil.html')));
-        }
-
-        // Paid session: dismiss "download" banner if session is in a terminal/deleted state.
-        const isTerminal = data?.status === 'deleted' || data?.status === 'pending';
-        if (isTerminal) {
+        if (data?.valid && data?.type === 'analysis') {
+          // cv_key cookie is live and KV entry exists — show the single active-results prompt.
+          setNotices(prev => {
+            if (prev.some(n => n.link?.href === 'hasil.html')) return prev; // deduplicate
+            return [...prev, {
+              type: 'info',
+              text: 'Anda memiliki hasil analisis aktif.',
+              link: { href: 'hasil.html', label: 'Lihat hasil →' },
+            }];
+          });
+        } else if (data?.status === 'deleted' || data?.status === 'pending') {
+          // Payment session is terminal — clear stale client storage and dismiss download banner.
           clearClientSessionData(null);
           setNotices(prev => prev.filter(n => !n.link?.href.includes('download.html')));
         }
+        // valid: false for analysis (expired/absent) → show no message; user is on the upload form.
       } catch (_) {
-        // Network error — leave banners; downstream pages handle expired states
+        // Network error — leave banners as-is; respective pages handle their own state.
       }
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
