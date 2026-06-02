@@ -455,6 +455,30 @@ When an API returns job description text that may exceed the field limit, cap it
 - **Problem**: `hasil-guard.js` checked `gaslamar_analyze_time` in sessionStorage synchronously before page load. This is tab-scoped and can be absent (privacy modes, new tab, iOS Safari ITP, cleared by upload page).
 - **Fix**: Remove the sessionStorage auth check from the guard. Auth is enforced via:
   1. Server-side: `router.js` checks `cv_key` HttpOnly cookie before serving `hasil.html` in production.
-  2. Async: `/check-session` now validates `cv_key` cookie and returns `{valid:true, type:"analysis"}` for active analysis sessions; `useResultData` calls this on page load.
-- **Rule**: Never use sessionStorage as a gate for page access. Use HttpOnly cookies (server-side) or async API calls. The guard exists only to block forged URL parameters.
+  2. Async: `/check-session` now validates `cv_key` cookie and returns `{valid:true, type:"analysis"}` for active analysis sessions; `useResultData` calls this as defense-in-depth.
+- **Rule**: Never use sessionStorage as a gate for page access. Use HttpOnly cookies (server-side) or async API calls. The guard exists only to block forged URL parameters and sets `window.__hasilSessionError` for inline React error states.
 - **Countdown UX**: `gaslamar_analyze_time` is still written to sessionStorage for the payment countdown timer — it is not a security token and its absence does not block access.
+
+## Removing all sensitive data from sessionStorage (2026-06-01)
+
+Pattern applied in the XSS/IDOR security fix:
+
+1. **Never write scoring blobs client-side.** `GET /get-scoring` (cookie-auth) is the single
+   source of truth. The fast-path sessionStorage cache saves one network round-trip but creates
+   XSS exposure for the entire scoring payload. Remove it.
+
+2. **result_id and cv_key stay in-memory.** analytics correlation across page loads is a
+   nice-to-have; XSS-proof storage is a must. Use local variables or skip cross-page correlation.
+
+3. **Raw CV text and extracted claims must never touch sessionStorage.** This includes:
+   `gaslamar_cv_paste_raw`, `gaslamar_entitas_klaim`, `gaslamar_sample*`, `gaslamar_preview_after`.
+   Accept the UX degradation (no paste draft persistence, no preview consistency).
+
+4. **Derived numbers are OK.** Plain integer scores (`skor`, `skor_6d`, `gap` as strings) contain
+   no CV content and no session token. These may be stored for the Download badge display.
+
+5. **Client cv_key check before payment is a false gate.** For cookie-based sessions it always
+   fails. Remove the check; the server already validates via the HttpOnly cookie.
+
+6. **STALE_KEYS in Upload.tsx must list all keys ever written** — including legacy ones that
+   are no longer written — so old-session data is swept on the next upload.

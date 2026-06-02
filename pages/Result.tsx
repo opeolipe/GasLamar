@@ -226,7 +226,6 @@ export default function Result() {
     if (paymentInProgress) return;
     if (!selectedTier) return;
 
-    const currentCvKey = sessionStorage.getItem('gaslamar_cv_key');
     const pendingRaw = sessionStorage.getItem('gaslamar_pending_invoice');
     if (pendingRaw) {
       try {
@@ -234,50 +233,40 @@ export default function Result() {
           invoice_url: string;
           created_at:  number;
           tier?:       string;
-          cv_key?:     string;
         };
         const notExpired  = (Date.now() - (pending.created_at || 0)) < 7200000;
         const tierMatches = !pending.tier || pending.tier === selectedTier;
-        const noNewUpload = !currentCvKey || !pending.cv_key || pending.cv_key === currentCvKey;
 
-        if (pending.invoice_url && notExpired) {
-          if (tierMatches && noNewUpload) {
-            let urlSafe = false;
-            try {
-              const p = new URL(pending.invoice_url);
-              const h = p.hostname;
-              urlSafe = p.protocol === 'https:' && (
-                h === 'mayar.id' || h.endsWith('.mayar.id') ||
-                h === 'mayar.club' || h.endsWith('.mayar.club')
-              );
-            } catch (_) {}
-            if (!urlSafe) throw new Error('invalid_invoice_url');
-            setPaymentInProgress(true);
-            setPayBtnOverride('Mengalihkan ke halaman pembayaran...');
-            setTransitionInvoiceUrl(pending.invoice_url);
-            return;
-          }
-          if (!tierMatches && !currentCvKey) {
-            const origLabel = (pending.tier && TIER_CONFIG[pending.tier])
-              ? TIER_CONFIG[pending.tier].label
-              : 'paket sebelumnya';
-            setPaymentError(
-              `Invoice sudah dibuat untuk "${origLabel}". Pilih paket itu untuk melanjutkan, ` +
-              `atau klik "Upload CV lain" di bawah untuk memilih paket lain.`
+        if (pending.invoice_url && notExpired && tierMatches) {
+          let urlSafe = false;
+          try {
+            const p = new URL(pending.invoice_url);
+            const h = p.hostname;
+            urlSafe = p.protocol === 'https:' && (
+              h === 'mayar.id' || h.endsWith('.mayar.id') ||
+              h === 'mayar.club' || h.endsWith('.mayar.club')
             );
-            setPaymentInProgress(false);
-            setPayBtnOverride(null);
-            return;
-          }
+          } catch (_) {}
+          if (!urlSafe) throw new Error('invalid_invoice_url');
+          setPaymentInProgress(true);
+          setPayBtnOverride('Mengalihkan ke halaman pembayaran...');
+          setTransitionInvoiceUrl(pending.invoice_url);
+          return;
+        }
+        if (pending.invoice_url && notExpired && !tierMatches) {
+          const origLabel = (pending.tier && TIER_CONFIG[pending.tier])
+            ? TIER_CONFIG[pending.tier].label
+            : 'paket sebelumnya';
+          setPaymentError(
+            `Invoice sudah dibuat untuk "${origLabel}". Pilih paket itu untuk melanjutkan, ` +
+            `atau klik "Upload CV lain" di bawah untuk memilih paket lain.`
+          );
+          setPaymentInProgress(false);
+          setPayBtnOverride(null);
+          return;
         }
       } catch (_) {}
       sessionStorage.removeItem('gaslamar_pending_invoice');
-    }
-
-    const cvTextKey = sessionStorage.getItem('gaslamar_cv_key');
-    if (!cvTextKey) {
-      setPaymentError('Data CV tidak ditemukan. Silakan upload CV kamu kembali.');
-      return;
     }
 
     const emailValidation = validateEmail(email);
@@ -320,9 +309,8 @@ export default function Result() {
         headers:     { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          tier:           selectedTier,
-          cv_text_key:    cvTextKey,
-          email:          capturedEmail,
+          tier:  selectedTier,
+          email: capturedEmail,
         }),
         signal: controller.signal,
       });
@@ -360,18 +348,13 @@ export default function Result() {
         sessionStorage.setItem('gaslamar_pending_invoice', JSON.stringify({
           invoice_url,
           created_at: Date.now(),
-          tier:   selectedTier,
-          cv_key: cvTextKey,
+          tier: selectedTier,
         }));
       } catch (storageErr) {
         // Non-fatal: invoice already created server-side. Pending-invoice reuse
         // (cancel-and-return) won't work but the user can still complete payment.
         console.warn('[GasLamar] sessionStorage write failed (quota?):', storageErr);
       }
-
-      // gaslamar_cv_key intentionally kept — hasil-guard.js needs it if user
-      // returns from Mayar (cancel/back). Server already deleted cvtext_ KV;
-      // /get-scoring falls back to the scoring_ snapshot from createPayment.
       setPayBtnOverride('Mengalihkan ke halaman pembayaran...');
       setTransitionInvoiceUrl(invoice_url);
 
@@ -392,10 +375,6 @@ export default function Result() {
     ? buildResultData({
         skor6d:       data.skor_6d!,
         cvText:       cvText || undefined,
-        entitasKlaim: (() => {
-          try { const raw = sessionStorage.getItem('gaslamar_entitas_klaim'); return raw ? JSON.parse(raw) as string[] : undefined; }
-          catch { return undefined; }
-        })(),
       })
     : null;
 
@@ -440,16 +419,8 @@ export default function Result() {
         .slice(0, 2)
     : [];
 
-  const snippetPreviewText = (() => {
-    const primary = buildSnippetPreview(result6d?.rewritePreview?.after);
-    if (primary) return primary;
-    try {
-      const fromSession = sessionStorage.getItem('gaslamar_preview_after');
-      return buildSnippetPreview(fromSession);
-    } catch (_) {
-      return null;
-    }
-  })();
+  // Preview text comes only from the in-memory scoring result — never from sessionStorage.
+  const snippetPreviewText = buildSnippetPreview(result6d?.rewritePreview?.after) ?? null;
 
   function scrollToPricing() {
     const el = document.getElementById('pricing-section');

@@ -102,7 +102,9 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
   const isPastedCv = fileSize === '(teks ditempel)';
   const isFileCv   = !!fileName && !isPastedCv && cvReady;
 
-  // Catch programmatic `.value` assignments that bypass React's synthetic onChange.
+  // (1) Native input listener — caps oversized pastes in the DOM immediately so the user
+  //     never sees truncated-then-corrected text, and notifies React state on every
+  //     user-triggered input event (typing, Cmd+V, drag-drop).
   useEffect(() => {
     const el = pasteRef.current;
     if (!el) return;
@@ -113,6 +115,46 @@ export default function CvDropzone({ fileName, fileSize, error, cvReady, scanWar
     }
     el.addEventListener('input', onNativeInput);
     return () => el.removeEventListener('input', onNativeInput);
+  }, [tab]);
+
+  // (2) Property setter override — bridges programmatic `el.value = x` assignments
+  //     (browser autofill, test helpers, staging panel) that never fire an `input` event.
+  //     Mirrors the same pattern used for the JD textarea in JobDescriptionInput.
+  //     The `capped !== prev` guard prevents re-entry when React reconciles the controlled
+  //     component (React sets el.value to the same value already in the DOM → equal → skip).
+  useEffect(() => {
+    const el = pasteRef.current;
+    if (!el) return;
+
+    const ownDescriptor  = Object.getOwnPropertyDescriptor(el, 'value');
+    const protoDescriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
+    const descriptor = ownDescriptor ?? protoDescriptor;
+    if (!descriptor?.get || !descriptor?.set) return;
+
+    let setting = false;
+
+    Object.defineProperty(el, 'value', {
+      configurable: true,
+      get() { return descriptor.get!.call(this); },
+      set(next) {
+        if (setting) { descriptor.set!.call(this, next); return; }
+        setting = true;
+        try {
+          const raw    = String(next ?? '');
+          const capped = raw.length > MAX_CV_PASTE_CHARS ? raw.slice(0, MAX_CV_PASTE_CHARS) : raw;
+          const prev   = descriptor.get!.call(this);
+          descriptor.set!.call(this, capped);
+          if (capped !== prev) onChangeRef.current(capped);
+        } finally {
+          setting = false;
+        }
+      },
+    });
+
+    return () => {
+      if (ownDescriptor) Object.defineProperty(el, 'value', ownDescriptor);
+      else Reflect.deleteProperty(el, 'value');
+    };
   }, [tab]);
 
   // Follow the active CV source when it changes externally (e.g. session restore).

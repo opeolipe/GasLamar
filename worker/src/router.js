@@ -1,4 +1,4 @@
-import { forbiddenOriginResponse, isUnsafeOrigin, jsonResponse, corsResponse } from './cors.js';
+import { forbiddenOriginResponse, isUnsafeOrigin, jsonResponse, corsResponse, SECURITY_HEADERS } from './cors.js';
 import { clientIp, log, logError } from './utils.js';
 import { checkRateLimitKV, rateLimitResponse } from './rateLimit.js';
 import { sanitizeLogValue } from './sanitize.js';
@@ -363,6 +363,6 @@ export async function route(request, env, ctx) {
   // No CORS headers on unknown paths — only defined API endpoints are CORS-enabled.
   return new Response(JSON.stringify({ message: 'Not found' }), {
     status: 404,
-    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+    headers: { ...SECURITY_HEADERS, 'Content-Type': 'application/json' },
   });
 }

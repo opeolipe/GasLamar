@@ -95,6 +95,17 @@ export async function handleAnalyze(request, env) {
     return jsonResponse({ message: extraction.error }, 422, request, env);
   }
 
+  // Universal minimum-length gate — covers PDF and DOCX paths that only check >100 chars
+  // internally. txt already rejects below 1500 in extractCVText, so this is a safety net.
+  if (extraction.text.trim().length < 1500) {
+    return jsonResponse(
+      { message: 'CV kamu terlalu singkat. Pastikan CV lengkap dikirim — minimal 1.500 karakter.' },
+      422,
+      request,
+      env,
+    );
+  }
+
   // Run scoring and store extracted text under a short-lived key
   // so /create-payment can reuse it without re-extracting the file
   try {
