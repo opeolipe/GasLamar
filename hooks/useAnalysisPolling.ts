@@ -169,17 +169,21 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
         })(),
       });
 
-      // Persist a non-PII sample line before clearing cv_pending so Result.tsx has a
-      // fallback for the personalized rewrite preview. Only extract for text CVs — binary
-      // (PDF/DOCX) blobs can't be decoded here. Store only the extracted bullet/action
-      // line, never the raw text or the full JSON blob.
+      // Persist a non-PII sample line before clearing cv_pending. Prefer the server-returned
+      // sample_line (works for all CV types including PDF/DOCX). Fall back to client-side
+      // extraction for txt-type CVs (backward compat for mocked/offline flows).
       try {
-        const cvPending = sessionStorage.getItem('gaslamar_cv_pending');
-        if (cvPending) {
-          const parsed = JSON.parse(cvPending);
-          if (parsed?.type === 'txt' && typeof parsed.data === 'string') {
-            const sample = extractSampleLine(parsed.data);
-            if (sample) sessionStorage.setItem('gaslamar_sample_line', sample);
+        const serverSample = (result as Record<string, unknown>).sample_line;
+        if (serverSample && typeof serverSample === 'string') {
+          sessionStorage.setItem('gaslamar_sample_line', serverSample);
+        } else {
+          const cvPending = sessionStorage.getItem('gaslamar_cv_pending');
+          if (cvPending) {
+            const parsed = JSON.parse(cvPending);
+            if (parsed?.type === 'txt' && typeof parsed.data === 'string') {
+              const sample = extractSampleLine(parsed.data);
+              if (sample) sessionStorage.setItem('gaslamar_sample_line', sample);
+            }
           }
         }
       } catch (_) {}

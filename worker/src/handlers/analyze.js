@@ -7,6 +7,16 @@ import { validateFileData, extractCVText } from '../fileExtraction.js';
 import { analyzeCV } from '../analysis.js';
 import { sanitizeForLLM, hasPromptInjection } from '../sanitize.js';
 
+function extractSampleLineFromText(text) {
+  if (!text) return null;
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 20);
+  const bullet = lines.find(l =>
+    l.startsWith('•') || l.startsWith('-') ||
+    /^(manage|develop|create|mengelola|membuat|mengembangkan)/i.test(l)
+  );
+  return bullet || lines[0] || null;
+}
+
 const ANALYZE_WINDOW_SECS = 900;  // 15-minute sliding window
 const ANALYZE_IP_LIMIT    = 5;    // unauthenticated: 5 requests per 15 min
 const ANALYZE_SESS_LIMIT  = 10;   // paying session: 10 requests per 15 min
@@ -169,7 +179,8 @@ export async function handleAnalyze(request, env) {
     });
     responseHeaders.append('Set-Cookie', makeCvKeyCookie(cvTextKey));
     responseHeaders.append('Set-Cookie', makeSessionTokenCookie(analysisSessionId));
-    return new Response(JSON.stringify({ ...scoring, result_id: resultId }), { status: 200, headers: responseHeaders });
+    const sampleLine = extractSampleLineFromText(extraction.text);
+    return new Response(JSON.stringify({ ...scoring, result_id: resultId, ...(sampleLine ? { sample_line: sampleLine } : {}) }), { status: 200, headers: responseHeaders });
   } catch (e) {
     logError('analyze_failed', {
       reason: e.message,
