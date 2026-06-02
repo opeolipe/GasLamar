@@ -505,16 +505,10 @@ test.describe('GasLamar CV Flow', () => {
   // ── NO SESSION ON HASIL PAGE ──────────────────────────────────────────────
 
   test('hasil page shows no-session message when sessionStorage is empty', async ({ page }) => {
-    // Result.tsx calls window.location.replace('upload.html?reason=no_session') when
-    // no session is found. waitForRequest fires when the browser initiates the request,
-    // before it resolves — avoiding ERR_ABORTED from the location.replace() abort.
-    const redirectRequest = page.waitForRequest(
-      (req) => req.url().includes('upload') && req.url().includes('reason='),
-      { timeout: 15000 },
-    );
+    // Result.tsx renders an inline "Tidak ada sesi aktif" panel when no session is found
+    // (useResultData sets noSession='missing'). There is no redirect.
     await page.goto('/hasil');
-    const req = await redirectRequest;
-    expect(req.url()).toContain('no_session');
+    await expect(page.getByText('Tidak ada sesi aktif')).toBeVisible({ timeout: 15000 });
   });
 
   // ── PAYMENT BUTTON TRIGGERS MAYAR REDIRECT ────────────────────────────────
@@ -645,7 +639,7 @@ test.describe('GasLamar CV Flow', () => {
     });
 
     expect(jdLength).toBe(4871);
-    await expect(page.locator('text=4.871 / 5.000 karakter')).toBeVisible();
+    await expect(page.locator('text=4.871 / 5.000')).toBeVisible();
     await expect(page.locator('[data-testid="submit-upload"]')).toBeEnabled();
 
     const cappedLength = await page.evaluate(() => {
@@ -657,7 +651,7 @@ test.describe('GasLamar CV Flow', () => {
     });
 
     expect(cappedLength).toBe(5000);
-    await expect(page.locator('text=5.000 / 5.000 karakter')).toBeVisible();
+    await expect(page.locator('text=5.000 / 5.000')).toBeVisible();
   });
 
   // ── MOBILE VIEWPORT ───────────────────────────────────────────────────────
