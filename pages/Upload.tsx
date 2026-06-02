@@ -150,6 +150,15 @@ export default function Upload() {
 
     if (!isNewPackage && !hasPaidSession) {
       const reason = params.get('reason');
+      // When the server tells us there is no session, clear the analyze_time stamp so
+      // the "Lihat hasil" banner does not also appear — showing both simultaneously is
+      // contradictory and causes a redirect loop (user clicks "Lihat hasil" → server
+      // redirects back here with no_session → both messages show again).
+      const isNoSessionRedirect = reason === 'no_session' || reason === 'session_expired';
+      if (isNoSessionRedirect) {
+        try { sessionStorage.removeItem('gaslamar_analyze_time'); } catch (_) {}
+      }
+
       if (reason === 'no_session') {
         history.replaceState(null, '', location.pathname);
         newNotices.push({ type: 'info', text: 'Sesi tidak ditemukan atau sudah kedaluwarsa (hasil analisis aktif 24 jam). Silakan upload CV kembali untuk memulai analisis baru.' });

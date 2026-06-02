@@ -107,6 +107,15 @@ export function clearSessionCookie() {
  * HttpOnly prevents XSS from reading the analysis-session token.
  * __Host- prefix enforces host-only binding (no Domain, Path=/, Secure required).
  *
+ * SameSite strategy:
+ *   - Production (gaslamar.com): SameSite=Strict. The analyzing page and hasil page are
+ *     on the same domain, so the cookie is always same-site. Strict is the most secure
+ *     choice and removes any ambiguity around the Partitioned attribute in same-site contexts.
+ *   - Staging/sandbox: SameSite=None; Partitioned (CHIPS). The frontend lives on
+ *     staging.gaslamar.pages.dev (different eTLD+1 from api-staging.gaslamar.com),
+ *     so cross-site credential passing is required. Partitioned is mandatory for
+ *     cross-site cookies in Chrome 120+ to avoid the third-party cookie block.
+ *
  * @param {string} cvKey — the cvtext_<64-hex> token returned by /analyze
  */
 export function makeCvKeyCookie(cvKey) {

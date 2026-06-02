@@ -290,15 +290,24 @@ export async function route(request, env, ctx) {
   if ((method === 'GET' || method === 'HEAD') && env.ENVIRONMENT === 'production') {
     if (pathname === '/hasil' || pathname === '/hasil.html') {
       const state = await getProtectedPageState(request, env);
+      // Active analysis session — serve the page (falls through to Pages proxy below).
       if (state.analysisActive && pathname === '/hasil') {
+        // Canonical path: /hasil (no extension) → redirect to /hasil.html
         return noStoreRedirect('/hasil.html');
       }
+      // Paid session but no active analysis (user already paid and is returning).
       if (!state.analysisActive && state.sessionActive) {
         return noStoreRedirect('/download.html');
       }
+      // Cookie present but session expired or IP-mismatched — do NOT send to /upload
+      // (that would contradict the "you have active results" banner). Use access.html
+      // so the user sees a proper explanation and can re-authenticate via email link.
       if (!state.analysisActive && (state.hasAnalysisCookie || state.hasSessionCookie)) {
         return noStoreRedirect('/access.html?expired=1&source=hasil');
       }
+      // Truly no session at all — no cookie, no token. Upload.tsx will clear
+      // gaslamar_analyze_time on this reason so the "Lihat hasil" banner does not
+      // contradict this message and create a redirect loop.
       if (!state.analysisActive && pathname === '/hasil.html') {
         return noStoreRedirect('/upload.html?reason=no_session');
       }
