@@ -64,6 +64,7 @@ Session states are defined in `sessionStates.js`: `pending_payment → paid → 
 | 6 | **Session secret (HMAC)** — `/get-session` and `/generate` verify `X-Session-Secret` against a SHA-256 hash stored in KV using constant-time comparison | `sessions.js:46–56` |
 | 7 | **IP-binding on `cv_text_key`** — the analysis key from `/analyze` is bound to the originating IP; cannot be reused from a different network | `createPayment.js:50–52` |
 | 11 | **Server-side CV minimum length** — `/analyze` rejects CV files shorter than 1 500 characters (after text extraction) for all file types (PDF/DOCX/TXT); prevents trivial content smuggling and forces a real CV | `handlers/analyze.js` |
+| 13 | **XSS input validation (defense-in-depth)** — `/analyze` hard-rejects job descriptions containing `<script>`, `<iframe>`, `<img>`, `onerror=`, `onload=`, or `javascript:` patterns (400 "Input contains unsafe content.") before HTML-stripping runs; frontend also strips HTML tags from `job_desc` before sending. All responses include `X-XSS-Protection: 1; mode=block`. | `handlers/analyze.js`, `sanitize.js`, `cors.js`, `_headers` |
 | 12 | **Server-generated `result_id`** — `/analyze` generates a `crypto.randomUUID()` server-side and stores it in the `cvtext_` KV entry. `/generate` validates the client-supplied `result_id` against this value (403 on mismatch). Prevents cross-session result enumeration that was possible when the client generated IDs from `Date.now()` + a predictable prefix. Backward-compat: old sessions without the field are allowed through. | `handlers/analyze.js`, `handlers/generate.js` |
 | 8 | **Distributed lock** — a `lock_<session_id>` KV entry (TTL 120s) prevents concurrent double-generation race conditions | `generate.js:136–141` |
 | 9 | **Credit exhaustion → `exhausted` state** — at zero credits, the session transitions to `status: 'exhausted'` (not deleted); `/check-session` returns the exhausted status so the client can distinguish "used up" from "expired/not found". The KV entry expires by TTL. | `generate.js`, `sessionStates.js` |
@@ -108,10 +109,9 @@ tampered webhook requests are rejected before any session state is updated.
 
 ### Security Response Headers
 
-All responses — including 404 and webhook responses — include a standard set of security headers:
+All responses — including 404, webhook, OPTIONS preflight, and redirect responses — include a standard set of security headers:
 `Content-Security-Policy`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
-`Referrer-Policy`, and `Permissions-Policy`. CSP hashes for inline scripts are maintained in
-`_headers` and updated via `npm run build:csp` after any HTML change. Headers are verified in CI.
+`Referrer-Policy`, `Permissions-Policy`, and `X-XSS-Protection: 1; mode=block`. CSP hashes for inline scripts are maintained in `_headers` and updated via `npm run build:csp` after any HTML change. Headers are verified in CI via the security headers smoke test in `deploy-staging.yml`.
 
 ---
 

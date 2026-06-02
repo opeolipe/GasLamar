@@ -539,3 +539,48 @@ authenticated or not.
 The React app already handles unauthenticated access inline (shows "Tidak ada sesi aktif" UI).
 Client-side or worker-side guards are sufficient; `_redirects` rules for the same path are dead
 code in production (worker intercepts first) and harmful in staging.
+
+---
+
+## XSS input validation must run on raw input, before any sanitization (2026-06-02)
+
+When adding XSS defenses, pattern-matching against the already-sanitized (HTML-stripped) string
+is ineffective — obfuscated payloads like `<scr<script>ipt>` can survive a naive strip and then
+reassemble. Always check the raw, unsanitized `job_desc` for `<script>`, `<iframe>`, `<img>`,
+`onerror=`, `onload=`, `javascript:` before running `sanitizeForLLM()` or any HTML stripping.
+
+**Pattern:** hard-reject first (400 "Input contains unsafe content."), sanitize second.
+
+---
+
+## All rate-limited endpoints must return X-RateLimit-* and Retry-After headers (2026-06-02)
+
+Every endpoint that enforces a rate limit should include `X-RateLimit-Limit`,
+`X-RateLimit-Remaining`, and `X-RateLimit-Reset` on **all** responses (not just 429s) so clients
+can self-throttle. `Retry-After` is added only on 429 responses.
+
+Implementation: `addRateLimitHeaders(res, kvResult)` from `rateLimit.js` — wrap every return
+value in the handler with this helper. Run CF binding + KV checks in parallel (`Promise.all`)
+so `kvResult` is always defined when building the 429 body.
+
+**Gotcha:** if the CF binding blocks the request and you short-circuit before the KV check,
+`kvResult` will be `undefined` — the 429 will be missing headers. Always run both in parallel
+and use `kvResult` for header values regardless of which check fired.
+
+---
+
+## Staging cross-origin cookie blocking — sessionToken fallback for cv_text_key (2026-06-02)
+
+`__Host-cv_key` uses `SameSite=Strict`, correct for production (`gaslamar.com` same eTLD+1).
+On staging, the Pages frontend (`staging.gaslamar.pages.dev`) and Worker
+(`api-staging.gaslamar.com`) are different eTLD+1 domains, so the Strict cookie is blocked
+from cross-site requests — causing `POST /create-payment` to return 400 "Data tidak lengkap"
+with a valid tier and email.
+
+Fix: add a third resolution path — if neither the `__Host-cv_key` cookie nor the body
+`cv_text_key` is present, read the `sessionToken` cookie (already `SameSite=None; Partitioned`
+for cross-origin) and look up the `analysis_session_` KV entry to retrieve `cvKey`.
+
+Return a structured error code (`cv_key_missing` vs `cv_expired`) so the frontend can show the
+correct UX rather than a generic "Data tidak lengkap" message.
+
