@@ -8,6 +8,10 @@ interface Props {
   rateLimitSecsLeft?: number;
 }
 
+function formatWait(secs: number): string {
+  return secs >= 60 ? `${Math.ceil(secs / 60)} menit` : `${secs} detik`;
+}
+
 export default function AnalysisError({ message, onRetry, isFileError = false, isRateLimit = false, rateLimitSecsLeft = 0 }: Props) {
   const retryBlocked = isRateLimit && rateLimitSecsLeft > 0;
 
@@ -24,7 +28,7 @@ export default function AnalysisError({ message, onRetry, isFileError = false, i
     <StateCard
       icon={icon}
       title={title}
-      message={isRateLimit && retryBlocked ? `⏳ Terlalu banyak permintaan. Silakan tunggu ${rateLimitSecsLeft} detik.` : message}
+      message={isRateLimit && retryBlocked ? `⏳ Terlalu banyak permintaan. Silakan coba lagi dalam ${formatWait(rateLimitSecsLeft)}.` : message}
       helper={recoveryLine}
       tone={isFileError ? 'warning' : 'danger'}
     >
@@ -42,7 +46,7 @@ export default function AnalysisError({ message, onRetry, isFileError = false, i
             className={`text-white font-semibold px-5 py-2.5 rounded-full transition-all min-h-[44px] border-0 ${retryBlocked ? 'opacity-50 cursor-not-allowed' : 'hover:-translate-y-[1px] cursor-pointer'}`}
             style={{ background: 'linear-gradient(180deg,#3b82f6,#1d4ed8)', boxShadow: '0 8px 24px rgba(37,99,235,0.30)' }}
           >
-            {retryBlocked ? `Tunggu ${rateLimitSecsLeft}s...` : 'Coba Lagi'}
+            {retryBlocked ? `Tunggu ${rateLimitSecsLeft >= 60 ? Math.ceil(rateLimitSecsLeft / 60) + 'm' : rateLimitSecsLeft + 's'}...` : 'Coba Lagi'}
           </button>
         )}
         <a

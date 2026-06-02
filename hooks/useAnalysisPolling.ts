@@ -132,8 +132,9 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         if (res.status === 429) {
-          const secs = err.retryAfter || 60;
-          const rlErr = new Error(`Terlalu banyak permintaan. Silakan tunggu ${secs} detik.`);
+          const secs = err.retryAfter || 900;
+          const waitText = secs >= 60 ? `${Math.ceil(secs / 60)} menit` : `${secs} detik`;
+          const rlErr = new Error(`Terlalu banyak permintaan. Silakan coba lagi dalam ${waitText}.`);
           (rlErr as any).isRateLimit  = true;
           (rlErr as any).retryAfter   = secs;
           throw rlErr;

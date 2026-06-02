@@ -1,27 +1,31 @@
-import { jsonResponse, jsonResponseWithCookies } from '../cors.js';
+import { jsonResponse, getCorsHeaders, SECURITY_HEADERS } from '../cors.js';
 import { clientIp, hexToken, logError } from '../utils.js';
 import { makeCvKeyCookie, makeSessionTokenCookie } from '../cookies.js';
-import { checkRateLimit, checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
+import { getSessionIdFromCookie } from '../cookies.js';
+import { checkRateLimit, checkRateLimitKVSession, rateLimitResponse } from '../rateLimit.js';
 import { validateFileData, extractCVText } from '../fileExtraction.js';
 import { analyzeCV } from '../analysis.js';
 import { sanitizeForLLM, hasPromptInjection } from '../sanitize.js';
 
+const ANALYZE_WINDOW_SECS = 900;  // 15-minute sliding window
+const ANALYZE_IP_LIMIT    = 5;    // unauthenticated: 5 requests per 15 min
+const ANALYZE_SESS_LIMIT  = 10;   // paying session: 10 requests per 15 min
+
 export async function handleAnalyze(request, env) {
-  const ip = clientIp(request);
+  const ip        = clientIp(request);
+  const sessionId = getSessionIdFromCookie(request);
 
   // Primary: Cloudflare native binding (atomic, no TOCTOU). Falls through if binding absent.
-  // Secondary: KV-based counter — reliable even when the binding is misconfigured.
-  // Both must allow the request for it to proceed.
+  // Secondary: KV-based sliding-window counter — authoritative 15-minute gate.
+  // Authenticated sessions (paying users) get a higher limit than anonymous IPs.
+  // Both layers must allow the request to proceed.
   const [bindingOk, kvResult] = await Promise.all([
     checkRateLimit(env, env.RATE_LIMITER_ANALYZE, ip),
-    checkRateLimitKV(env, ip, 5, 60, 'analyze'),
+    checkRateLimitKVSession(env, ip, sessionId, ANALYZE_IP_LIMIT, ANALYZE_SESS_LIMIT, ANALYZE_WINDOW_SECS, 'analyze'),
   ]);
   if (!bindingOk || !kvResult.allowed) {
-    // Use the KV-computed remaining seconds when KV is the blocker; fall back to
-    // the window length when the native binding is the blocker (it doesn't expose
-    // a remaining-time API).
-    const retryAfter = !kvResult.allowed ? (kvResult.retryAfter ?? 60) : 60;
-    return rateLimitResponse(request, env, retryAfter);
+    const retryAfter = !kvResult.allowed ? (kvResult.retryAfter ?? ANALYZE_WINDOW_SECS) : ANALYZE_WINDOW_SECS;
+    return rateLimitResponse(request, env, retryAfter, kvResult);
   }
 
   let body;
@@ -149,15 +153,23 @@ export async function handleAnalyze(request, env) {
       { expirationTtl: 86400 },
     );
 
-    // Set both cv_key (backward compat with createPayment, validateSession) and
-    // sessionToken (new canonical cookie for /check-session + /get-scoring auth).
-    return jsonResponseWithCookies(
-      { ...scoring, result_id: resultId },
-      200,
-      [makeCvKeyCookie(cvTextKey), makeSessionTokenCookie(analysisSessionId)],
-      request,
-      env,
-    );
+    // Build response with both cookies (cv_key + sessionToken) and X-RateLimit-* headers.
+    // Headers API is used directly so multiple Set-Cookie values are preserved — plain
+    // object spreading collapses duplicate keys and loses the second cookie.
+    const corsHeaders = getCorsHeaders(request, env);
+    const rlHeaders = {};
+    if (kvResult.limit     !== undefined) rlHeaders['X-RateLimit-Limit']     = String(kvResult.limit);
+    if (kvResult.remaining !== undefined) rlHeaders['X-RateLimit-Remaining'] = String(kvResult.remaining);
+    if (kvResult.reset     !== undefined) rlHeaders['X-RateLimit-Reset']     = String(kvResult.reset);
+    const responseHeaders = new Headers({
+      ...SECURITY_HEADERS,
+      ...corsHeaders,
+      'Content-Type': 'application/json',
+      ...rlHeaders,
+    });
+    responseHeaders.append('Set-Cookie', makeCvKeyCookie(cvTextKey));
+    responseHeaders.append('Set-Cookie', makeSessionTokenCookie(analysisSessionId));
+    return new Response(JSON.stringify({ ...scoring, result_id: resultId }), { status: 200, headers: responseHeaders });
   } catch (e) {
     logError('analyze_failed', {
       reason: e.message,
