@@ -15,13 +15,14 @@ import { hasPromptInjection, sanitizeForLLM } from '../sanitize.js';
 export async function handleGenerate(request, env, ctx) {
   const ip = clientIp(request);
 
-  const allowed = await checkRateLimit(env, env.RATE_LIMITER_GENERATE, ip);
-  if (!allowed) {
-    return rateLimitResponse(request, env);
+  const [cfAllowed, kvRl] = await Promise.all([
+    checkRateLimit(env, env.RATE_LIMITER_GENERATE, ip),
+    checkRateLimitKV(env, ip, 10, 60, 'generate'),
+  ]);
+  if (!cfAllowed || !kvRl.allowed) {
+    const retryAfter = !kvRl.allowed ? (kvRl.retryAfter ?? 60) : 60;
+    return rateLimitResponse(request, env, retryAfter, kvRl);
   }
-
-  const kvRl = await checkRateLimitKV(env, ip, 10, 60, 'generate');
-  if (!kvRl.allowed) return rateLimitResponse(request, env, kvRl.retryAfter ?? 60, kvRl);
   const withRl = res => addRateLimitHeaders(res, kvRl);
 
   // Session ID comes from the HttpOnly cookie — not the request body.
