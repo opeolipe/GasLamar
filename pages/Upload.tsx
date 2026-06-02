@@ -65,6 +65,7 @@ export default function Upload() {
 
   // UI
   const [loading,        setLoading]        = useState(false);
+  const [submitted,      setSubmitted]      = useState(false);
   const [tier,           setTier]           = useState<string | null>(null);
   const [notices,        setNotices]        = useState<Notice[]>([]);
   const [jdSubmitError,  setJdSubmitError]  = useState('');
@@ -401,7 +402,9 @@ export default function Upload() {
     }
 
     (window as any).Analytics?.track?.('upload_submitted', { jd_length: jd.trim().length });
-    window.location.href = 'analyzing.html';
+
+    flushSync(() => setSubmitted(true));
+    setTimeout(() => { window.location.href = 'analyzing.html'; }, 1500);
   }
 
   const noticeCls: Record<NoticeType, string> = {
@@ -527,6 +530,7 @@ export default function Upload() {
 
           <SubmitSection
             isLoading={loading}
+            isSubmitted={submitted}
             hasCv={hasFile}
             showJdHint={jd.trim().length < 100}
             jdHintText={jd.trim().length === 0
