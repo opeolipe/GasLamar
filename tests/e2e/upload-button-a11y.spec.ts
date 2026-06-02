@@ -148,7 +148,7 @@ test.describe('Submit button — programmatic text input re-evaluation', () => {
     );
 
     // Open URL fetcher and submit.
-    await page.getByRole('button', { name: /Ambil via link/i }).click();
+    await page.locator('button', { hasText: /Ambil via link/i }).click();
     await page.locator('input[type="url"]').fill('https://glints.com/id/opportunities/jobs/fake');
     await page.getByRole('button', { name: /^Ambil$/i }).click();
 
