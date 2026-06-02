@@ -92,10 +92,9 @@ function buildSnippetPreview(raw: string | null | undefined): string | null {
 export default function Result() {
   const { data, analyzeTime, loading, error, noSession } = useResultData();
   const countdown = useSessionCountdown(analyzeTime);
-  const [cvText]  = useState(() =>
-    sessionStorage.getItem('gaslamar_cv_pending') ||
-    sessionStorage.getItem('gaslamar_sample_line') || '',
-  );
+  // cv_pending is cleared by Analyzing before navigation — read only the pre-extracted
+  // sample line (a single bullet/action verb, no raw CV text).
+  const [cvText]  = useState(() => sessionStorage.getItem('gaslamar_sample_line') || '');
 
   const [showAllDimensions,     setShowAllDimensions]     = useState(false);
   const [resultFlowVariant,     setResultFlowVariant]     = useState<'on' | 'control'>('on');
