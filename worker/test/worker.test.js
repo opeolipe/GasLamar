@@ -1191,6 +1191,25 @@ describe('POST /create-payment — validation', () => {
     expect(res.status).not.toBe(400);
   });
 
+  it('resolves cv_text_key via sessionToken cookie → analysis_session_ KV (cross-origin staging fallback)', async () => {
+    const cvKey = await seedCVTextKey(undefined, '1.2.3.4');
+    const analysisSessionId = crypto.randomUUID();
+    await env.GASLAMAR_SESSIONS.put(
+      `analysis_session_${analysisSessionId}`,
+      JSON.stringify({ sessionId: analysisSessionId, cvKey, createdAt: Date.now(), expiresAt: Date.now() + 86400000 }),
+      { expirationTtl: 86400 },
+    );
+    // No __Host-cv_key cookie, no body key — only sessionToken cookie (cross-origin staging path)
+    const res = await post(
+      '/create-payment',
+      { tier: 'single' },
+      { Cookie: `sessionToken=${analysisSessionId}` },
+      '1.2.3.4',
+    );
+    // Reaches Mayar invoice creation (fails without API key in test env) → not a 400 key error
+    expect(res.status).not.toBe(400);
+  });
+
   it('rejects cv_text_key used from a different IP → 403', async () => {
     // Seed the key bound to IP 10.97.0.1
     const key = await seedCVTextKey(undefined, '10.97.0.1');

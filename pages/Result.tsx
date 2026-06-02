@@ -319,7 +319,7 @@ export default function Result() {
       if (!response.ok) {
         const err    = await response.json().catch(() => ({}));
         const errMsg = (err as any).message || `Server error: ${response.status}`;
-        if ((response.status === 400 && (err as any).code === 'cv_expired') || response.status === 403) {
+        if ((response.status === 400 && ((err as any).code === 'cv_expired' || (err as any).code === 'cv_key_missing')) || response.status === 403) {
           setPaymentInProgress(false);
           setPayBtnOverride(null);
           setPaymentError('Waktu analisis sudah habis. Klik "Upload CV lain" di bawah untuk melanjutkan.');
