@@ -20,7 +20,7 @@ import { handleGetResult } from './handlers/getResult.js';
 import { handleValidateCoupon } from './handlers/validateCoupon.js';
 import { handleGetScoring } from './handlers/getScoring.js';
 import { getSession } from './sessions.js';
-import { getCvTextKeyFromCookie, getCvKeyFromCookie, getSessionIdFromCookie } from './cookies.js';
+import { getCvTextKeyFromCookie, getCvKeyFromCookie, getSessionIdFromCookie, getSessionTokenFromCookie } from './cookies.js';
 
 function noStoreRedirect(location) {
   return new Response(null, {
@@ -34,23 +34,36 @@ function noStoreRedirect(location) {
 }
 
 async function getProtectedPageState(request, env) {
-  const sessionId = getSessionIdFromCookie(request);
+  const sessionId   = getSessionIdFromCookie(request);
   // cv_key is the current cookie name (set by /analyze via makeCvKeyCookie).
   // cv_text_key is the legacy name kept for backward compat with old sessions.
-  const cvTextKey = getCvKeyFromCookie(request) || getCvTextKeyFromCookie(request);
+  const cvTextKey   = getCvKeyFromCookie(request) || getCvTextKeyFromCookie(request);
+  // sessionToken (UUID → analysis_session_ KV) is checked first — no IP binding,
+  // so it works when the user's IP changes between /analyze and /hasil (e.g. mobile).
+  const sessionToken = getSessionTokenFromCookie(request);
   const ip = clientIp(request);
   const state = {
-    hasSessionCookie: !!sessionId,
-    hasAnalysisCookie: !!cvTextKey,
-    sessionActive: false,
-    analysisActive: false,
+    hasSessionCookie:  !!sessionId,
+    hasAnalysisCookie: !!(cvTextKey || sessionToken),
+    sessionActive:   false,
+    analysisActive:  false,
   };
 
   if (sessionId) {
     state.sessionActive = !!(await getSession(env, sessionId));
   }
 
-  if (cvTextKey) {
+  // Primary: sessionToken path — no IP check, survives mobile IP changes.
+  if (!state.analysisActive && sessionToken) {
+    const session = await env.GASLAMAR_SESSIONS.get(
+      `analysis_session_${sessionToken}`,
+      { type: 'json' },
+    );
+    if (session?.resultId) state.analysisActive = true;
+  }
+
+  // Fallback: cv_key cookie path — IP-bound for additional security.
+  if (!state.analysisActive && cvTextKey) {
     const stored = await env.GASLAMAR_SESSIONS.get(cvTextKey, { type: 'json' });
     if (stored?.scoring && (!stored.ip || stored.ip === ip)) {
       state.analysisActive = true;

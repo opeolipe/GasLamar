@@ -188,9 +188,6 @@ export default function Analyzing() {
         </div>
 
         <p className="text-center mt-6 text-xs text-slate-400">
-          Data kamu tidak disimpan di server setelah analisis selesai.
-        </p>
-        <p className="text-center mt-3 text-xs text-slate-400">
           GasLamar · Biar CV kamu nggak tenggelam
         </p>
       </main>
