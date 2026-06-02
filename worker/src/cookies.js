@@ -120,3 +120,29 @@ export function getCvKeyFromCookie(request) {
   if (key && /^cvtext_[0-9a-f]{64}$/.test(key)) return key;
   return null;
 }
+
+/**
+ * Build a Set-Cookie value for the sessionToken cookie (analysis session).
+ * Stores a UUID that points to the analysis_session_ KV entry (never the cv_text directly).
+ * Max-Age matches the analysis session KV TTL (24h).
+ *
+ * SameSite=None; Partitioned (CHIPS): works for staging cross-domain
+ * (staging.gaslamar.pages.dev → api-staging.gaslamar.com).
+ * In production (gaslamar.com first-party) the cookie is same-site so SameSite
+ * attribute is irrelevant — it is always sent.
+ */
+export function makeSessionTokenCookie(sessionId) {
+  return `sessionToken=${sessionId}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=86400; Partitioned`;
+}
+
+/**
+ * Extract and validate the sessionToken cookie from a request.
+ * Returns the session ID string (UUID format) or null.
+ */
+export function getSessionTokenFromCookie(request) {
+  const cookies = parseCookies(request.headers.get('Cookie'));
+  const id = cookies.sessionToken;
+  // UUID v4: 8-4-4-4-12 hex groups — max 36 chars
+  if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) return id;
+  return null;
+}

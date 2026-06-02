@@ -1028,6 +1028,20 @@ describe('POST /analyze — happy path (mocked Claude)', () => {
     expect(stored).not.toBeNull();
     expect(stored.text).toBeTruthy();
     expect(stored.ip).toBe('10.0.0.1');
+
+    // sessionToken cookie must also be present and point to a valid analysis_session_ KV entry.
+    const setCookieFull = res.headers.get('set-cookie') || res.headers.get('Set-Cookie') || '';
+    const sessionTokenMatch = setCookieFull.match(/sessionToken=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/);
+    expect(sessionTokenMatch).not.toBeNull();
+    const sessionId = sessionTokenMatch?.[1];
+    expect(sessionId).toBeTruthy();
+
+    const analysisSession = await env.GASLAMAR_SESSIONS.get(`analysis_session_${sessionId}`, { type: 'json' });
+    expect(analysisSession).not.toBeNull();
+    expect(analysisSession.resultId).toBeTruthy();
+    expect(analysisSession.cvKey).toMatch(/^cvtext_/);
+    expect(typeof analysisSession.createdAt).toBe('number');
+    expect(typeof analysisSession.expiresAt).toBe('number');
   });
 });
 
@@ -1614,6 +1628,48 @@ describe('GET /check-session', () => {
     expect(body.valid).toBe(true);
     expect(body.status).toBe('paid');
     expect(body.credits_remaining).toBeDefined();
+  });
+
+  it('returns valid:true + resultId for a valid sessionToken cookie', async () => {
+    const sessionId = crypto.randomUUID();
+    const resultId  = crypto.randomUUID();
+    const cvKey     = `cvtext_${cvHexToken()}`;
+    await env.GASLAMAR_SESSIONS.put(`analysis_session_${sessionId}`, JSON.stringify({
+      sessionId, resultId, cvKey, createdAt: Date.now(), expiresAt: Date.now() + 86400000,
+    }), { expirationTtl: 86400 });
+    const res = await get('/check-session', { Cookie: `sessionToken=${sessionId}` });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.authenticated).toBe(true);
+    expect(body.type).toBe('analysis');
+    expect(body.resultId).toBe(resultId);
+  });
+
+  it('returns 401 when sessionToken cookie exists but analysis_session_ KV entry is gone', async () => {
+    const sessionId = crypto.randomUUID();
+    const res = await get('/check-session', { Cookie: `sessionToken=${sessionId}` });
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+    expect(body.reason).toBe('expired');
+  });
+
+  it('sessionToken takes precedence over cv_key when both are present', async () => {
+    const sessionId = crypto.randomUUID();
+    const resultId  = crypto.randomUUID();
+    const cvKey     = `cvtext_${cvHexToken()}`;
+    await env.GASLAMAR_SESSIONS.put(`analysis_session_${sessionId}`, JSON.stringify({
+      sessionId, resultId, cvKey, createdAt: Date.now(), expiresAt: Date.now() + 86400000,
+    }), { expirationTtl: 86400 });
+    // cv_key present but no matching KV — sessionToken should win
+    const res = await get('/check-session', {
+      Cookie: `sessionToken=${sessionId}; cv_key=cvtext_${'a'.repeat(64)}`,
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.resultId).toBe(resultId);
   });
 
 });
@@ -4233,6 +4289,32 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
     expect(res.status).toBe(401);
     const body = await res.json();
     expect(body.valid).toBe(false);
+  });
+
+  it('returns scoring via sessionToken cookie (new session flow)', async () => {
+    const sessionId = crypto.randomUUID();
+    const cvToken   = 'f1'.repeat(32);
+    const cvKey     = `cvtext_${cvToken}`;
+    const mockScoring = { skor: 82, verdict: 'DO', skor_6d: {} };
+    await env.GASLAMAR_SESSIONS.put(`analysis_session_${sessionId}`, JSON.stringify({
+      sessionId, resultId: crypto.randomUUID(), cvKey, createdAt: Date.now(), expiresAt: Date.now() + 86400000,
+    }), { expirationTtl: 86400 });
+    await env.GASLAMAR_SESSIONS.put(cvKey, JSON.stringify({
+      text: 'cv text', job_desc: 'jd', ip: '1.2.3.4', scoring: mockScoring,
+    }), { expirationTtl: 86400 });
+
+    const res = await get('/get-scoring', { Cookie: `sessionToken=${sessionId}` }, '1.2.3.4');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.scoring.skor).toBe(82);
+    expect(body.text).toBeUndefined();
+  });
+
+  it('returns 401 via sessionToken when analysis_session_ KV entry is missing', async () => {
+    const sessionId = crypto.randomUUID();
+    const res = await get('/get-scoring', { Cookie: `sessionToken=${sessionId}` }, nextScoringIp());
+    expect(res.status).toBe(401);
   });
 
   it('returns 401 when only a ?key= query param is provided (no cookie)', async () => {

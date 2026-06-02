@@ -89,3 +89,20 @@ export function jsonResponseWithCookie(data, status, cookieHeader, request, env)
     env
   );
 }
+
+/**
+ * Like jsonResponseWithCookie but sets multiple Set-Cookie headers.
+ * Plain-object header spreading loses duplicate keys, so we use Headers.append.
+ *
+ * @param {string[]} cookieHeaders — array of Set-Cookie values
+ */
+export function jsonResponseWithCookies(data, status, cookieHeaders, request, env) {
+  const corsHeaders = getCorsHeaders(request, env);
+  const headers = new Headers({
+    ...SECURITY_HEADERS,
+    ...corsHeaders,
+    'Content-Type': 'application/json',
+  });
+  for (const c of cookieHeaders) headers.append('Set-Cookie', c);
+  return new Response(JSON.stringify(data), { status, headers });
+}
