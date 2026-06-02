@@ -57,7 +57,7 @@ export const SECURITY_HEADERS = {
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'X-Frame-Options': 'DENY',
   'X-XSS-Protection': '1; mode=block',
-  'Content-Security-Policy': "default-src 'none'; script-src 'none'; frame-ancestors 'none'",
+  'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
   'Cache-Control': 'no-store',
