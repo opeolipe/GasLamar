@@ -4799,7 +4799,7 @@ describe('POST /get-result — exhausted field', () => {
 
 describe('Security headers', () => {
   const REQUIRED = [
-    ['content-security-policy', "default-src 'none'; script-src 'none'; frame-ancestors 'none'"],
+    ['content-security-policy', "default-src 'none'; frame-ancestors 'none'"],
     ['x-frame-options', 'DENY'],
     ['x-content-type-options', 'nosniff'],
     ['strict-transport-security', 'max-age=31536000; includeSubDomains'],
