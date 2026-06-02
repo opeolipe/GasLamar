@@ -59,7 +59,7 @@ function processFile(file) {
   // Clear any stale data from a previous flow before starting fresh
   ['gaslamar_scoring', 'gaslamar_cv_key', 'gaslamar_cv_pending',
    'gaslamar_jd_pending', 'gaslamar_filename', 'gaslamar_tier',
-   'gaslamar_analyze_time',
+   'gaslamar_analyze_time', 'gaslamar_sample_line',
    'gaslamar_cv_draft', 'gaslamar_filename_draft',
   ].forEach(k => sessionStorage.removeItem(k));
 
