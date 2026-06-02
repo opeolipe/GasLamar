@@ -225,49 +225,6 @@ export default function Result() {
     if (paymentInProgress) return;
     if (!selectedTier) return;
 
-    const pendingRaw = sessionStorage.getItem('gaslamar_pending_invoice');
-    if (pendingRaw) {
-      try {
-        const pending = JSON.parse(pendingRaw) as {
-          invoice_url: string;
-          created_at:  number;
-          tier?:       string;
-        };
-        const notExpired  = (Date.now() - (pending.created_at || 0)) < 7200000;
-        const tierMatches = !pending.tier || pending.tier === selectedTier;
-
-        if (pending.invoice_url && notExpired && tierMatches) {
-          let urlSafe = false;
-          try {
-            const p = new URL(pending.invoice_url);
-            const h = p.hostname;
-            urlSafe = p.protocol === 'https:' && (
-              h === 'mayar.id' || h.endsWith('.mayar.id') ||
-              h === 'mayar.club' || h.endsWith('.mayar.club')
-            );
-          } catch (_) {}
-          if (!urlSafe) throw new Error('invalid_invoice_url');
-          setPaymentInProgress(true);
-          setPayBtnOverride('Mengalihkan ke halaman pembayaran...');
-          setTransitionInvoiceUrl(pending.invoice_url);
-          return;
-        }
-        if (pending.invoice_url && notExpired && !tierMatches) {
-          const origLabel = (pending.tier && TIER_CONFIG[pending.tier])
-            ? TIER_CONFIG[pending.tier].label
-            : 'paket sebelumnya';
-          setPaymentError(
-            `Invoice sudah dibuat untuk "${origLabel}". Pilih paket itu untuk melanjutkan, ` +
-            `atau klik "Upload CV lain" di bawah untuk memilih paket lain.`
-          );
-          setPaymentInProgress(false);
-          setPayBtnOverride(null);
-          return;
-        }
-      } catch (_) {}
-      sessionStorage.removeItem('gaslamar_pending_invoice');
-    }
-
     const emailValidation = validateEmail(email);
     if (!emailValidation.valid || emailValidation.suggestion) {
       setEmailError(emailValidation.error ?? 'Email tidak valid.');
@@ -343,17 +300,6 @@ export default function Result() {
       } catch (_) {}
       if (!validUrl) throw new Error('URL pembayaran tidak valid. Coba lagi.');
 
-      try {
-        sessionStorage.setItem('gaslamar_pending_invoice', JSON.stringify({
-          invoice_url,
-          created_at: Date.now(),
-          tier: selectedTier,
-        }));
-      } catch (storageErr) {
-        // Non-fatal: invoice already created server-side. Pending-invoice reuse
-        // (cancel-and-return) won't work but the user can still complete payment.
-        console.warn('[GasLamar] sessionStorage write failed (quota?):', storageErr);
-      }
       setPayBtnOverride('Mengalihkan ke halaman pembayaran...');
       setTransitionInvoiceUrl(invoice_url);
 

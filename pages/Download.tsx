@@ -313,7 +313,6 @@ export default function Download() {
   // The KV session remains on the server and expires on its own TTL; if the user
   // did actually pay, the confirmation email carries their download link.
   const handleStartFresh = useCallback(() => {
-    try { sessionStorage.removeItem('gaslamar_pending_invoice'); } catch (_) {}
     clearClientSessionData(null);
     window.location.href = 'upload.html';
   }, []);
