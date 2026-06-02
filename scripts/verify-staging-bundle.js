@@ -69,7 +69,38 @@ async function sleep(ms) {
 async function fetchPage(url) {
   const res = await fetch(url, { headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' } });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  // Cloudflare Pages "Clean URLs" strips .html and canonicalises /foo.html → /foo.
+  // If a _redirects rule exists for /foo (e.g. /hasil → upload.html), the chain
+  // becomes: /hasil.html → 301 /hasil → 302 /upload.html — and we silently read
+  // the wrong page.  Detect this by comparing the final URL to the requested URL.
+  if (res.redirected && res.url !== url) {
+    throw new Error(`Redirected to ${res.url} — _redirects rule or canonical URL redirect intercepted the request`);
+  }
   return res.text();
+}
+
+/**
+ * Verify a single JS bundle file is deployed with the correct content hash.
+ * Used as a fallback for HTML pages that redirect (session-protected pages
+ * such as hasil.html and download.html can't be read via their HTML URL
+ * because Cloudflare Pages' Clean URL canonicalisation chains into the
+ * _redirects rules before we can see the file content).
+ */
+async function checkBundleAsset(base, bundle, expectedV) {
+  const url = `${base}/${bundle}`;
+  let res;
+  try {
+    res = await fetch(url, { headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' } });
+  } catch (err) {
+    return [`Asset fetch failed for ${bundle}: ${err.message}`];
+  }
+  if (!res.ok) return [`Asset ${bundle} returned HTTP ${res.status}`];
+  const buf = Buffer.from(await res.arrayBuffer());
+  const hash = require('node:crypto').createHash('sha256').update(buf).digest('hex').slice(0, 8);
+  if (hash !== expectedV) {
+    return [`${bundle} — expected content hash ${expectedV}, deployed hash ${hash}`];
+  }
+  return [];
 }
 
 /** Check one page. Returns an array of error strings, or empty array on success. */
@@ -79,6 +110,20 @@ async function checkPage(base, file, ownBundle, localVers) {
   try {
     remoteHtml = await fetchPage(url);
   } catch (err) {
+    // Cloudflare Pages "Clean URLs" + _redirects can redirect session-protected
+    // pages (e.g. /hasil.html → /hasil → upload.html).  Fall back to verifying
+    // the JS bundle asset directly so the build is still confirmed correct.
+    if (err.message.startsWith('Redirected to ')) {
+      redirected = true;
+      console.log(`  (redirected — verifying bundle asset directly)`);
+      const expectedV = localVers[ownBundle];
+      if (!expectedV) return [`No local version found for ${ownBundle}`];
+      const errs = await checkBundleAsset(base, ownBundle, expectedV);
+      if (errs.length === 0) {
+        console.log(`  ✓ ${ownBundle} (asset hash verified)`);
+      }
+      return errs;
+    }
     return [`Fetch failed: ${err.message}`];
   }
 
