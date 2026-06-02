@@ -233,5 +233,5 @@ jobs:
       # QA false positive MEDIUM #1 (2026-06-01).
       - name: Verify staging bundle fingerprints match current build
         run: |
-          sleep 10
+          sleep 20
           STAGING_URL="${{ steps.pages.outputs.staging_url }}" node dist/scripts/verify-staging-bundle.js

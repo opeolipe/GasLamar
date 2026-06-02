@@ -60,87 +60,132 @@ function extractBundleVersions(html) {
   return map;
 }
 
+const RETRY_DELAYS_MS = [15000, 20000, 25000, 30000]; // 4 retries after initial attempt (~90s total)
+
+async function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
 async function fetchPage(url) {
-  const res = await fetch(url, { headers: { 'Cache-Control': 'no-cache' } });
+  const res = await fetch(url, { headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' } });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.text();
 }
 
+/** Check one page. Returns an array of error strings, or empty array on success. */
+async function checkPage(base, file, ownBundle, localVers) {
+  const url = `${base}/${file}`;
+  let remoteHtml;
+  try {
+    remoteHtml = await fetchPage(url);
+  } catch (err) {
+    return [`Fetch failed: ${err.message}`];
+  }
+
+  const remoteVers = extractBundleVersions(remoteHtml);
+  const errors = [];
+
+  // 1. Each bundle fingerprint must match the local build.
+  for (const [bundle, expectedV] of Object.entries(localVers)) {
+    const deployedV = remoteVers[bundle];
+    if (deployedV !== expectedV) {
+      errors.push(`${bundle} — expected ?v=${expectedV}, got ?v=${deployedV ?? '(missing)'}`);
+    }
+  }
+
+  // 2. The page must reference its own dedicated bundle.
+  if (!remoteVers[ownBundle]) {
+    errors.push(`STRUCTURAL: ${file} must reference ${ownBundle} — not found in deployed page`);
+  }
+
+  // 3. The page must NOT reference another page's exclusive bundle.
+  for (const foreignBundle of EXCLUSIVE_BUNDLES) {
+    if (foreignBundle === ownBundle) continue;
+    if (remoteVers[foreignBundle]) {
+      errors.push(
+        `STRUCTURAL: ${file} must NOT reference ${foreignBundle} — ` +
+        `this indicates ${file} is a stale copy of another page's HTML`
+      );
+    }
+  }
+
+  return errors;
+}
+
 async function main() {
   const base = STAGING_URL.replace(/\/$/, '');
-  let fail = false;
 
+  // Pre-load all local HTML files and their expected bundle versions.
+  const pages = [];
   for (const { file, ownBundle } of PAGES) {
     const localPath = path.join(ROOT, file);
-
     if (!fs.existsSync(localPath)) {
       console.warn(`[verify-staging-bundle] SKIP ${file} — not found locally`);
       continue;
     }
-
-    const localHtml  = fs.readFileSync(localPath, 'utf8');
-    const localVers  = extractBundleVersions(localHtml);
-
+    const localHtml = fs.readFileSync(localPath, 'utf8');
+    const localVers = extractBundleVersions(localHtml);
     if (Object.keys(localVers).length === 0) {
       console.error(`[verify-staging-bundle] ${file}: no bundle refs found locally — run npm run build first`);
-      fail = true;
-      continue;
+      process.exit(1);
     }
+    pages.push({ file, ownBundle, localVers });
+  }
 
-    const url = `${base}/${file}`;
-    console.log(`\n[${file}] Fetching ${url}`);
+  // Retry loop: Cloudflare Pages CDN propagation can take 30–90 s after deploy.
+  // We attempt verification up to 5 times with increasing delays between attempts.
+  const attempts = [0, ...RETRY_DELAYS_MS]; // first attempt is immediate (sleep already done by workflow)
+  let lastErrors = {};
 
-    let remoteHtml;
-    try {
-      remoteHtml = await fetchPage(url);
-    } catch (err) {
-      console.error(`  ✗ Fetch failed: ${err.message}`);
-      fail = true;
-      continue;
-    }
-
-    const remoteVers = extractBundleVersions(remoteHtml);
-
-    // 1. Each bundle fingerprint must match the local build.
-    for (const [bundle, expectedV] of Object.entries(localVers)) {
-      const deployedV = remoteVers[bundle];
-      if (deployedV === expectedV) {
-        console.log(`  ✓ ${bundle}?v=${expectedV}`);
-      } else {
-        console.error(`  ✗ ${bundle} — expected ?v=${expectedV}, got ?v=${deployedV ?? '(missing)'}`);
-        fail = true;
-      }
-    }
-
-    // 2. The page must reference its own dedicated bundle.
-    if (!remoteVers[ownBundle]) {
-      console.error(`  ✗ STRUCTURAL: ${file} must reference ${ownBundle} — not found in deployed page`);
-      fail = true;
+  for (let attempt = 0; attempt < attempts.length; attempt++) {
+    if (attempt > 0) {
+      const wait = attempts[attempt];
+      console.log(`\n[verify-staging-bundle] Attempt ${attempt + 1}/${attempts.length} — waiting ${wait / 1000}s for CDN propagation...`);
+      await sleep(wait);
     } else {
-      console.log(`  ✓ own bundle present: ${ownBundle}`);
+      console.log(`[verify-staging-bundle] Attempt 1/${attempts.length}`);
     }
 
-    // 3. The page must NOT reference another page's exclusive bundle.
-    for (const foreignBundle of EXCLUSIVE_BUNDLES) {
-      if (foreignBundle === ownBundle) continue;
-      if (remoteVers[foreignBundle]) {
-        console.error(
-          `  ✗ STRUCTURAL: ${file} must NOT reference ${foreignBundle} — this indicates ` +
-          `${file} is a stale copy of another page's HTML`
-        );
-        fail = true;
+    lastErrors = {};
+    let allPass = true;
+
+    for (const { file, ownBundle, localVers } of pages) {
+      const url = `${base}/${file}`;
+      console.log(`\n[${file}] Fetching ${url}`);
+      const errors = await checkPage(base, file, ownBundle, localVers);
+
+      if (errors.length === 0) {
+        // Print passing checks
+        for (const [bundle, v] of Object.entries(localVers)) {
+          console.log(`  ✓ ${bundle}?v=${v}`);
+        }
+        console.log(`  ✓ own bundle present: ${ownBundle}`);
+      } else {
+        allPass = false;
+        lastErrors[file] = errors;
+        for (const e of errors) console.error(`  ✗ ${e}`);
       }
     }
+
+    if (allPass) {
+      console.log('\n[verify-staging-bundle] PASS — all staging pages match the current build.');
+      return;
+    }
+
+    if (attempt < attempts.length - 1) {
+      const failingPages = Object.keys(lastErrors).join(', ');
+      console.warn(`\n[verify-staging-bundle] Attempt ${attempt + 1} failed for: ${failingPages}. Retrying...`);
+    }
   }
 
-  console.log('');
-  if (fail) {
-    console.error('[verify-staging-bundle] FAIL — one or more staging pages are stale or misconfigured.');
-    console.error('This means the Pages deploy did not propagate, or the build artifact is wrong.');
-    process.exit(1);
+  // All attempts exhausted.
+  console.error('\n[verify-staging-bundle] FAIL — staging pages still stale after all retry attempts.');
+  for (const [file, errors] of Object.entries(lastErrors)) {
+    console.error(`  ${file}:`);
+    for (const e of errors) console.error(`    ✗ ${e}`);
   }
-
-  console.log('[verify-staging-bundle] PASS — all staging pages match the current build.');
+  console.error('This means CDN propagation took too long, or the build artifact is wrong.');
+  process.exit(1);
 }
 
 main();
