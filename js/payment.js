@@ -398,7 +398,7 @@ async function proceedToPayment() {
       const errMsg = err.message || `Server error: ${response.status}`;
       // M22: Check structured error code instead of message substring so renaming
       // the Indonesian message text doesn't silently break this branch.
-      if (err.code === 'cv_expired' || response.status === 403) {
+      if (err.code === 'cv_expired' || err.code === 'cv_key_missing' || response.status === 403) {
         showExpiryError();
         return;
       }

@@ -5,7 +5,7 @@ import { checkRateLimit, rateLimitResponse } from '../rateLimit.js';
 import { TIER_CREDITS, SESSION_TTL_MULTI, VALID_TIERS } from '../constants.js';
 import { createMayarInvoice, logMayarEnvironment } from '../mayar.js';
 import { createSession } from '../sessions.js';
-import { makeSessionCookie, getCvKeyFromCookie } from '../cookies.js';
+import { makeSessionCookie, getCvKeyFromCookie, getSessionTokenFromCookie } from '../cookies.js';
 import { SESSION_STATES } from '../sessionStates.js';
 
 export async function handleCreatePayment(request, env) {
@@ -24,9 +24,25 @@ export async function handleCreatePayment(request, env) {
   }
 
   const { tier, cv_text_key: cv_text_key_body, email: rawEmail, coupon_code: rawCoupon } = body;
-  // Prefer the HttpOnly cv_key cookie (new sessions). Fall back to the request body
-  // (old sessions that analyzed before the cookie migration and still have the key stored).
-  const cv_text_key = getCvKeyFromCookie(request) || cv_text_key_body;
+
+  // Resolution order for cv_text_key:
+  // 1. __Host-cv_key HttpOnly cookie (new sessions, same-origin production).
+  // 2. cv_text_key in request body (legacy sessions that stored it in sessionStorage).
+  // 3. sessionToken cookie → analysis_session_ KV (cross-origin staging: __Host-cv_key is
+  //    SameSite=Strict so it is blocked on staging.gaslamar.pages.dev → api-staging.gaslamar.com,
+  //    but sessionToken uses SameSite=None; Partitioned and survives the cross-site fetch).
+  let cv_text_key = getCvKeyFromCookie(request) || cv_text_key_body || null;
+
+  if (!cv_text_key) {
+    const analysisToken = getSessionTokenFromCookie(request);
+    if (analysisToken) {
+      const analysisSession = await env.GASLAMAR_SESSIONS.get(`analysis_session_${analysisToken}`, { type: 'json' });
+      if (analysisSession?.cvKey && /^cvtext_[0-9a-f]{64}$/.test(analysisSession.cvKey)) {
+        cv_text_key = analysisSession.cvKey;
+        log('create_payment_cv_key_from_analysis_session', { ip });
+      }
+    }
+  }
 
   // Sanitize coupon code — uppercase, strip non-alphanumeric, max 64 chars
   const couponCode = (rawCoupon && typeof rawCoupon === 'string')
@@ -47,7 +63,7 @@ export async function handleCreatePayment(request, env) {
   }
 
   if (!cv_text_key) {
-    return jsonResponse({ message: 'Data tidak lengkap' }, 400, request, env);
+    return jsonResponse({ message: 'Sesi analisis tidak ditemukan. Ulangi upload CV untuk melanjutkan.', code: 'cv_key_missing' }, 400, request, env);
   }
 
   // Strict format: exactly "cvtext_" + 64 lowercase hex chars (256-bit random token).
