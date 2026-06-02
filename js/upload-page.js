@@ -46,10 +46,16 @@ try {
 } catch (_) {}
 
 // Show informational notice when redirected from hasil.html or download.html.
-// Guard: if the active-session banner is already being shown (cv_key still valid),
+// When the server tells us there is no valid session, clear analyze_time so the
+// "Lihat hasil" banner above does not contradict the no-session message — showing
+// both simultaneously creates a redirect loop (user clicks "Lihat hasil" →
+// server redirects back here with no_session → same contradiction repeats).
 const _redirectParams = new URLSearchParams(window.location.search);
 const _redirectReason = _redirectParams.get('reason');
 if (_redirectReason === 'session_expired' || _redirectReason === 'no_session' || _redirectReason === 'cv_expired') {
+  if (_redirectReason === 'no_session' || _redirectReason === 'session_expired') {
+    try { sessionStorage.removeItem('gaslamar_analyze_time'); } catch (_) {}
+  }
   history.replaceState(null, '', window.location.pathname);
   const _noticeEl = document.createElement('div');
   _noticeEl.className = 'session-notice-banner';

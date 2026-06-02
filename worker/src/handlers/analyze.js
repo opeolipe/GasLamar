@@ -137,7 +137,7 @@ export async function handleAnalyze(request, env) {
     // This prevents XSS from reading the analysis-session token out of the JSON response.
     // Backward compat: old frontend code that read cv_text_key from the body will find it
     // absent — those sessions fall back to the query-param path in /get-scoring.
-    return jsonResponseWithCookie({ ...scoring, result_id: resultId }, 200, makeCvKeyCookie(cvTextKey), request, env);
+    return jsonResponseWithCookie({ ...scoring, result_id: resultId }, 200, makeCvKeyCookie(cvTextKey, env), request, env);
   } catch (e) {
     logError('analyze_failed', {
       reason: e.message,

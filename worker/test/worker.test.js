@@ -11,6 +11,7 @@ import { route } from '../src/router.js';
 import { verifyMayarWebhook } from '../src/mayar.js';
 import { GEN_KEY_PREFIX_ID, GEN_KEY_PREFIX_EN } from '../src/cacheVersions.js';
 import { handleResendAccess } from '../src/handlers/resendAccess.js';
+import { makeCvKeyCookie } from '../src/cookies.js';
 
 // ---- Test helpers ----
 
@@ -351,6 +352,42 @@ const MOCK_CV_EN = { content: [{ text: 'PROFESSIONAL SUMMARY\nExperienced develo
 // Test suites
 // ============================================================
 
+describe('makeCvKeyCookie — SameSite strategy per environment', () => {
+  const TOKEN = `cvtext_${'a'.repeat(64)}`;
+
+  it('production: uses SameSite=Strict without Partitioned (same-site navigation)', () => {
+    const cookie = makeCvKeyCookie(TOKEN, { ENVIRONMENT: 'production' });
+    expect(cookie).toContain('cv_key=' + TOKEN);
+    expect(cookie).toContain('HttpOnly');
+    expect(cookie).toContain('Secure');
+    expect(cookie).toContain('SameSite=Strict');
+    expect(cookie).not.toContain('Partitioned');
+    expect(cookie).not.toContain('SameSite=None');
+  });
+
+  it('staging: uses SameSite=None; Partitioned (CHIPS for cross-site staging)', () => {
+    const cookie = makeCvKeyCookie(TOKEN, { ENVIRONMENT: 'staging' });
+    expect(cookie).toContain('cv_key=' + TOKEN);
+    expect(cookie).toContain('HttpOnly');
+    expect(cookie).toContain('Secure');
+    expect(cookie).toContain('SameSite=None');
+    expect(cookie).toContain('Partitioned');
+    expect(cookie).not.toContain('SameSite=Strict');
+  });
+
+  it('sandbox: uses SameSite=None; Partitioned (same as staging)', () => {
+    const cookie = makeCvKeyCookie(TOKEN, { ENVIRONMENT: 'sandbox' });
+    expect(cookie).toContain('SameSite=None');
+    expect(cookie).toContain('Partitioned');
+  });
+
+  it('no env: defaults to SameSite=None; Partitioned (safe default)', () => {
+    const cookie = makeCvKeyCookie(TOKEN);
+    expect(cookie).toContain('SameSite=None');
+    expect(cookie).toContain('Partitioned');
+  });
+});
+
 describe('/health', () => {
   it('returns 200 with status and timestamp', async () => {
     const before = Date.now();
@@ -636,6 +673,26 @@ describe('protected state page routing', () => {
     const upstreamHeaders = upstreamRequest?.headers;
     const cookieHeader = upstreamHeaders?.cookie ?? upstreamHeaders?.Cookie;
     expect(cookieHeader).toBeUndefined();
+  });
+
+  it('production: cv_key cookie present but KV entry missing → access.html (not /upload)', async () => {
+    // Cookie is present but the cvtext_ KV entry has expired/been deleted.
+    // Must redirect to access.html, NOT /upload.html, to avoid contradicting any
+    // "Lihat hasil" banner that Upload.tsx might show based on gaslamar_analyze_time.
+    const staleKey = `cvtext_${'e'.repeat(64)}`;
+    // Deliberately do NOT seed a KV entry — simulates an expired session.
+
+    const res = await route(new Request('https://gaslamar.com/hasil.html', {
+      method: 'GET',
+      headers: {
+        Cookie: `cv_key=${staleKey}`,
+        'CF-Connecting-IP': '1.2.3.4',
+      },
+    }), { ...env, ENVIRONMENT: 'production' }, {});
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get('Location')).toBe('/access.html?expired=1&source=hasil');
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
   });
 });
 
@@ -1009,10 +1066,13 @@ describe('POST /analyze — happy path (mocked Claude)', () => {
     expect(body.cv_text_key).toBeUndefined();
 
     // cv_key must appear in the Set-Cookie header as an HttpOnly cookie.
+    // sandbox env → SameSite=None; Partitioned (cross-site CHIPS for staging)
     const setCookie = res.headers.get('set-cookie') || res.headers.get('Set-Cookie') || '';
     expect(setCookie).toMatch(/cv_key=cvtext_[0-9a-f]{64}/);
     expect(setCookie).toContain('HttpOnly');
     expect(setCookie).toContain('Secure');
+    expect(setCookie).toContain('SameSite=None');
+    expect(setCookie).toContain('Partitioned');
 
     // Verify response shape matches the pre-refactor contract
     expect(body).toHaveProperty('skor_6d');

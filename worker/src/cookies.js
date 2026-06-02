@@ -104,10 +104,24 @@ export function clearSessionCookie() {
  * Max-Age matches the cvtext_ KV entry expirationTtl in analyze.js (24h).
  * HttpOnly prevents XSS from reading the analysis-session token.
  *
+ * SameSite strategy:
+ *   - Production (gaslamar.com): SameSite=Strict. The analyzing page and hasil page are
+ *     on the same domain, so the cookie is always same-site. Strict is the most secure
+ *     choice and removes any ambiguity around the Partitioned attribute in same-site contexts.
+ *   - Staging/sandbox: SameSite=None; Partitioned (CHIPS). The frontend lives on
+ *     staging.gaslamar.pages.dev (different eTLD+1 from api-staging.gaslamar.com),
+ *     so cross-site credential passing is required. Partitioned is mandatory for
+ *     cross-site cookies in Chrome 120+ to avoid the third-party cookie block.
+ *
  * @param {string} cvKey — the cvtext_<64-hex> token returned by /analyze
+ * @param {object} [env] — Worker env binding; used to select SameSite strategy
  */
-export function makeCvKeyCookie(cvKey) {
-  return `cv_key=${cvKey}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=86400; Partitioned`;
+export function makeCvKeyCookie(cvKey, env) {
+  const isProduction = env?.ENVIRONMENT === 'production';
+  const sameSiteAttrs = isProduction
+    ? 'SameSite=Strict'
+    : 'SameSite=None; Partitioned';
+  return `cv_key=${cvKey}; HttpOnly; Secure; ${sameSiteAttrs}; Path=/; Max-Age=86400`;
 }
 
 /**

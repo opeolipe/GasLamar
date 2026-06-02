@@ -482,3 +482,37 @@ Pattern applied in the XSS/IDOR security fix:
 
 6. **STALE_KEYS in Upload.tsx must list all keys ever written** — including legacy ones that
    are no longer written — so old-session data is swept on the next upload.
+
+## Pattern: redirect loop from conflicting session notices
+
+**Symptom:** `/hasil.html` server-redirects to `/upload.html?reason=no_session`, but Upload.tsx
+also shows a "Lihat hasil →" banner because `gaslamar_analyze_time` is still in sessionStorage.
+User clicks the banner → back to `/hasil.html` → same redirect → infinite loop.
+
+**Fix:**
+1. When `reason === 'no_session'` or `reason === 'session_expired'` lands on upload,
+   immediately clear `gaslamar_analyze_time` from sessionStorage so the "Lihat hasil"
+   banner does not render. Apply this in BOTH `pages/Upload.tsx` AND `js/upload-page.js`
+   (the React bundle is canonical; the plain JS file is a belt-and-suspenders fallback).
+2. Do NOT add the analyze_time notice when a no-session redirect reason is present —
+   add the `isNoSessionRedirect` guard before the analyzeTime block.
+
+**Rule:** Any path that shows "you have no session" must also clear the signal that would
+show "you have an active session". Never let both states render simultaneously.
+
+## Pattern: SameSite=None; Partitioned causes same-site cookie delivery issues
+
+**Problem:** The `cv_key` cookie used `SameSite=None; Partitioned` (CHIPS) in all environments.
+In production (gaslamar.com — fully same-site), the `Partitioned` attribute is a spec no-op but
+some browsers misbehave: they may store the cookie with the `Partitioned` flag intact even in
+a same-site context and then fail to match it on subsequent navigation requests.
+
+**Fix:** Make `makeCvKeyCookie(cvKey, env)` environment-aware:
+- Production: `SameSite=Strict` (no `Partitioned`) — safe because analyzing.html, /analyze,
+  and /hasil.html are all on gaslamar.com; same-site navigation always sends Strict cookies.
+- Staging/sandbox: `SameSite=None; Partitioned` unchanged — the frontend is on
+  staging.gaslamar.pages.dev (different eTLD+1 from api-staging.gaslamar.com) so CHIPS
+  is required for cross-site credential passing in Chrome 120+.
+
+**Rule:** Don't apply cross-site cookie attributes (SameSite=None; Partitioned) to same-site
+deployments. Detect via `env.ENVIRONMENT === 'production'` and use Strict there.

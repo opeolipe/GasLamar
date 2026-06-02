@@ -150,6 +150,15 @@ export default function Upload() {
 
     if (!isNewPackage && !hasPaidSession) {
       const reason = params.get('reason');
+      // When the server tells us there is no session, clear the analyze_time stamp so
+      // the "Lihat hasil" banner does not also appear — showing both simultaneously is
+      // contradictory and causes a redirect loop (user clicks "Lihat hasil" → server
+      // redirects back here with no_session → both messages show again).
+      const isNoSessionRedirect = reason === 'no_session' || reason === 'session_expired';
+      if (isNoSessionRedirect) {
+        try { sessionStorage.removeItem('gaslamar_analyze_time'); } catch (_) {}
+      }
+
       if (reason === 'no_session') {
         history.replaceState(null, '', location.pathname);
         newNotices.push({ type: 'info', text: 'Sesi tidak ditemukan atau sudah kedaluwarsa (hasil analisis aktif 24 jam). Silakan upload CV kembali untuk memulai analisis baru.' });
@@ -173,18 +182,21 @@ export default function Upload() {
         newNotices.push({ type: 'error', text: 'Analisis gagal: ' + uploadErr });
       }
 
-      // cv_key is now an HttpOnly cookie — check analyze_time only for freshness.
-      const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
-      if (analyzeTime) {
-        const remaining = 86400 - Math.floor((Date.now() - analyzeTime) / 1000);
-        if (remaining > 0) {
-          const h = Math.floor(remaining / 3600);
-          const m = Math.floor((remaining % 3600) / 60);
-          newNotices.push({
-            type: 'info',
-            text: `Kamu masih punya hasil analisis aktif (${h > 0 ? `${h}j ${m}m` : `${m} menit`} tersisa).`,
-            link: { href: 'hasil.html', label: 'Lihat hasil →' },
-          });
+      // cv_key is an HttpOnly cookie — check analyze_time only for a freshness hint.
+      // Skip when a no-session redirect already set a notice to avoid contradictory messages.
+      if (!isNoSessionRedirect) {
+        const analyzeTime = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
+        if (analyzeTime) {
+          const remaining = 86400 - Math.floor((Date.now() - analyzeTime) / 1000);
+          if (remaining > 0) {
+            const h = Math.floor(remaining / 3600);
+            const m = Math.floor((remaining % 3600) / 60);
+            newNotices.push({
+              type: 'info',
+              text: `Kamu masih punya hasil analisis aktif (${h > 0 ? `${h}j ${m}m` : `${m} menit`} tersisa).`,
+              link: { href: 'hasil.html', label: 'Lihat hasil →' },
+            });
+          }
         }
       }
     }
