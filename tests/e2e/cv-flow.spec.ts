@@ -160,6 +160,17 @@ test.describe('GasLamar CV Flow', () => {
       }),
     );
 
+    // Mock /check-session so useResultData authenticates the analysis session cookie.
+    // useResultData calls this before /get-scoring; without this mock the real server
+    // returns 401 (no HttpOnly cookie) and the hasil page shows an expired-session state.
+    await page.route('**/check-session**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ valid: true, authenticated: true, type: 'analysis' }),
+      }),
+    );
+
     // Mock /get-scoring so hasil page renders without a live worker
     await page.route('**/get-scoring**', (route) =>
       route.fulfill({
@@ -528,15 +539,10 @@ test.describe('GasLamar CV Flow', () => {
   // ── PAYMENT BUTTON TRIGGERS MAYAR REDIRECT ────────────────────────────────
 
   test('payment CTA button attempts redirect to mayar.id', async ({ page }) => {
-    // Use addInitScript (scoped to this test's page) to inject session data BEFORE
-    // /hasil page scripts run. page.evaluate() from /upload doesn't guarantee sessionStorage
-    // persistence across the page.goto() navigation.
-    await page.addInitScript((scoring) => {
-      sessionStorage.setItem('gaslamar_scoring', JSON.stringify(scoring));
-      sessionStorage.setItem('gaslamar_cv_key', 'cvtext_test-key-e2e');
-      sessionStorage.setItem('gaslamar_analyze_time', String(Date.now()));
-      sessionStorage.setItem('gaslamar_tier', 'single');
-    }, MOCK_ANALYZE_RESPONSE);
+    // Auth is now entirely cookie-based (HttpOnly sessionToken set by /analyze).
+    // The beforeEach /check-session mock returns { valid: true, type: 'analysis' } so
+    // useResultData loads scoring from the mocked /get-scoring without any sessionStorage.
+    // gaslamar_scoring / gaslamar_result_id must NOT be seeded — they are no longer used.
 
     let paymentUrl = '';
     await page.route('**/create-payment**', (route) =>
