@@ -156,6 +156,18 @@ npm start                       # serve frontend locally on :3000
 - Security headers (`CSP`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`) on **all** responses including 404 and webhook.
 - Rate limiting: Cloudflare native binding + KV fallback — **both** must allow.
 
+## Staging Looks Stale — Check Deployment First
+
+Before debugging application code when staging behaves unexpectedly, verify the deployment is actually current:
+
+1. **CI green?** — Check `.github/workflows/deploy-staging.yml` passed the smoke test step.
+2. **Hard-refresh** — `Ctrl+Shift+R` / `Cmd+Shift+R` bypasses browser cache.
+3. **Compare `?v=` hashes** — View source on `hasil.html` in the browser; compare `?v=` with the latest `hasil.html` in the repo. If they differ, browser served a cached copy.
+4. **`_headers` correct?** — `/*.html` must have `Cache-Control: public, max-age=0, must-revalidate`. Without this, browsers heuristic-cache HTML for minutes to hours.
+5. Full guide: `docs/deployment.md`.
+
+---
+
 ## Gotchas (common bug sources)
 
 - **Stale cache** — change prompt or scoring formula? Bump version in `cacheVersions.js`. Old key = old result.
