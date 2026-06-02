@@ -12,7 +12,7 @@ All endpoints accept and return JSON. Rate limits apply per IP.
 
 Analyzes a CV against a job description and returns a scoring result.
 
-**Rate limit:** 3 requests / 60 s per IP.
+**Rate limit:** 5 requests / 15 min per IP (unauthenticated); 10 requests / 15 min for authenticated sessions (paying users with a valid session cookie).
 
 ### Request
 
@@ -22,8 +22,8 @@ Content-Type: application/json
 
 | Field | Aliases accepted | Type | Required | Description |
 |---|---|---|---|---|
-| `cv` | `cv_text` | string | Yes | CV text (plain text, max 2 MB). PDF/DOCX must be pre-extracted to text client-side. |
-| `job_desc` | `jd`, `job_description` | string | Yes | Job description text (100–5,000 chars). |
+| `cv` | `cv_text` | string | Yes | CV text (plain string). PDF/DOCX must be pre-extracted to text client-side. Max 2 MB. |
+| `job_desc` | `jd`, `job_description` | string | Yes | Job description text (100–5,000 chars). HTML tags are stripped server-side; `<script>`, `<iframe>`, `onerror=`, and similar XSS patterns are hard-rejected before stripping. |
 
 ```json
 {
@@ -31,6 +31,17 @@ Content-Type: application/json
   "job_desc": "Kami mencari Software Engineer dengan pengalaman minimal 2 tahun di bidang backend..."
 }
 ```
+
+### Rate-Limit Response Headers
+
+All responses from rate-limited endpoints include:
+
+| Header | Description |
+|---|---|
+| `X-RateLimit-Limit` | Request limit for the current window |
+| `X-RateLimit-Remaining` | Requests remaining in the current window |
+| `X-RateLimit-Reset` | Unix timestamp when the window resets |
+| `Retry-After` | Seconds to wait before retrying (429 responses only) |
 
 ### Response `200 OK`
 
@@ -56,6 +67,7 @@ Returns a scoring object and sets an `HttpOnly` session cookie (`cv_key`).
 | `400` | `Job description terlalu panjang (maks 5.000 karakter)` | JD exceeds 5,000 chars |
 | `400` | `Job description terlalu pendek. Tulis minimal 100 karakter.` | JD under 100 chars |
 | `400` | `Job description mengandung konten yang tidak diizinkan.` | Prompt injection detected |
+| `400` | `Input contains unsafe content.` | JD contains XSS patterns (`<script>`, `<iframe>`, `<img>`, `onerror=`, `onload=`, `javascript:`) — checked on raw input before HTML stripping |
 | `400` | `Request body tidak valid` | Body is not valid JSON |
 | `413` | `CV terlalu besar (maks 2MB). Coba kompres atau konversi ke format teks.` | CV exceeds 2 MB |
 | `422` | `CV format tidak didukung. Gunakan PDF berbasis teks, bukan hasil scan.` | CV is an image-based scan |

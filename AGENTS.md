@@ -105,7 +105,7 @@ POST /analyze
 | Method | Path | File | Notes |
 |---|---|---|---|
 | GET | /health | inline in router.js | No auth, no rate limit |
-| POST | /analyze | handlers/analyze.js | Rate: 5/min (native binding + KV fallback) |
+| POST | /analyze | handlers/analyze.js | Rate: 5/15min IP (unauthenticated), 10/15min per session (authenticated). Native binding + KV sliding-window; both must allow. |
 | POST | /create-payment | handlers/createPayment.js | Rate: 5/min |
 | POST | /webhook/mayar | handlers/mayarWebhook.js | HMAC-SHA256 verified |
 | GET, POST | /session/ping (alias: /api/session/ping) | handlers/sessionPing.js | Keepalive. Rate: 10/min (unauthenticated), 60/min (authenticated) |
