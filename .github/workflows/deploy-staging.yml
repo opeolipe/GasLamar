@@ -260,7 +260,7 @@ jobs:
             echo ""
             echo "=== $FILE ==="
             # Use cache-bypass headers to avoid serving a stale CDN response
-            HTTP_STATUS=$(curl -s -o /tmp/smoke_body.html -w "%{http_code}" \
+            HTTP_STATUS=$(curl -s -L -o /tmp/smoke_body.html -w "%{http_code}" \
               -H "Cache-Control: no-cache" -H "Pragma: no-cache" "$URL")
 
             if [ "$HTTP_STATUS" != "200" ]; then
