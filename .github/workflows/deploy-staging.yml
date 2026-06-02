@@ -325,9 +325,9 @@ jobs:
             fi
           }
 
-          # Public pages: check HTML content directly.
-          check_page "upload.html"    "upload-react.bundle.js"    "upload-root"    ""
-          check_page "analyzing.html" "analyzing-react.bundle.js" "analyzing-root" ""
+          # Public pages: request without .html to avoid Cloudflare Clean URLs 308 redirect.
+          check_page "upload"    "upload-react.bundle.js"    "upload-root"    ""
+          check_page "analyzing" "analyzing-react.bundle.js" "analyzing-root" ""
 
           # Session-protected pages redirect unauthenticated requests via Clean URLs
           # + _redirects. Verify their JS bundles are deployed instead.
