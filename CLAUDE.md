@@ -63,6 +63,7 @@ Routes → `router.js`. Handlers → `worker/src/handlers/<endpoint>.js`. Pipeli
 | `js/download-guard.js` | Blocking external `<script>` loaded in download.html `<head>` (not inline). Three valid entry paths: `?token=` (email link), localStorage `gaslamar_session` (post-payment), localStorage `gaslamar_delivery` (email-delivery flow). All others → `window.location.replace('/')`. |
 | `worker/src/handlers/validateCoupon.js` | `POST /validate-coupon` — pre-payment coupon validation. Calls Mayar `GET /coupon/validate` as a query-string request (GET with body is forbidden by Fetch spec). Rate-limited 10 req/min per IP to block enumeration. Returns discount amount so the frontend can show a live discounted price before redirecting to Mayar. |
 | `worker/src/handlers/resendAccess.js` | `POST /resend-access` — re-sends a download link to a registered email. Dual-layer rate limiting: 2 req/hour per email + 10 req/hour per IP (prevents enumeration and credential stuffing). Always returns a generic success message regardless of whether the email exists. |
+| `worker/src/handlers/resendEmail.js` | `POST /resend-email` — re-sends the CV-ready delivery email from `ready`/`exhausted` sessions (e.g., user missed the original). Requires valid session cookie. |
 | `worker/src/handlers/getScoring.js` | `GET /get-scoring?key=cvtext_<token>` — returns the scoring snapshot stored alongside the `cvtext_` entry at analyze time. Lets `hasil.html` fetch analysis data after a tab refresh or new-tab open without re-running the pipeline. Returns only `scoring` — never `cv_text` or `job_desc`. Rate-limited 10 req/min per IP. |
 
 ---
@@ -133,10 +134,13 @@ cd worker && npm run tail          # prod log stream
 cd worker && npm run deploy:prod   # deploy to production (NOT bare `npm run deploy` — that targets sandbox)
 
 # Frontend (repo root)
-npm run build                   # vendor + JS bundles + React + Tailwind
+npm run build                   # all: CSP hash + vendor + JS bundles + React + bundle hash
 npm run build:js                # esbuild bundles only
 npm run build:react             # React build only
 npm run build:vendor            # vendor libs + Tailwind only
+npm run build:csp               # update CSP hash in _headers after HTML changes
+npm run build:hash              # update bundle hashes in HTML after JS build
+npm run check:cache             # verify cache version strings are consistent
 npm run dev                     # watch mode
 npm start                       # serve frontend locally on :3000
 ```
@@ -148,7 +152,8 @@ npm start                       # serve frontend locally on :3000
 - Scoring/verdict logic stays in pure JS (`pipeline/analyze.js` + `pipeline/score.js`) — never in LLM prompts.
 - Webhook HMAC-SHA256 (Mayar) must always be verified.
 - CORS: `gaslamar.com`, `www.gaslamar.com`, and `gaslamar.pages.dev` (Pages canonical) — see `constants.js` `PRODUCTION_ORIGINS`.
-- File validation: magic bytes (PDF `%PDF`, DOCX `PK`) + 5MB — server-side.
+- File validation: magic bytes (PDF `%PDF`, DOCX `PK`) + 5MB — server-side. CV text must be ≥ 1 500 characters after extraction (all file types).
+- Security headers (`CSP`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`) on **all** responses including 404 and webhook.
 - Rate limiting: Cloudflare native binding + KV fallback — **both** must allow.
 
 ## Gotchas (common bug sources)

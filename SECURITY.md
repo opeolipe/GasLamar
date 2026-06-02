@@ -63,6 +63,7 @@ Session states are defined in `sessionStates.js`: `pending_payment → paid → 
 | 5 | **`pending → paid` gate via webhook** — a session cannot be used until the Mayar payment webhook sets `status: 'paid'`; the client cannot self-promote | `mayarWebhook.js`, `getSession.js:31` |
 | 6 | **Session secret (HMAC)** — `/get-session` and `/generate` verify `X-Session-Secret` against a SHA-256 hash stored in KV using constant-time comparison | `sessions.js:46–56` |
 | 7 | **IP-binding on `cv_text_key`** — the analysis key from `/analyze` is bound to the originating IP; cannot be reused from a different network | `createPayment.js:50–52` |
+| 11 | **Server-side CV minimum length** — `/analyze` rejects CV files shorter than 1 500 characters (after text extraction) for all file types (PDF/DOCX/TXT); prevents trivial content smuggling and forces a real CV | `handlers/analyze.js` |
 | 8 | **Distributed lock** — a `lock_<session_id>` KV entry (TTL 120s) prevents concurrent double-generation race conditions | `generate.js:136–141` |
 | 9 | **Credit exhaustion → `exhausted` state** — at zero credits, the session transitions to `status: 'exhausted'` (not deleted); `/check-session` returns the exhausted status so the client can distinguish "used up" from "expired/not found". The KV entry expires by TTL. | `generate.js`, `sessionStates.js` |
 | 10 | **Server overwrites client tier** — after payment confirmation, `/check-session` returns `data.tier` which `download.js` immediately writes to `sessionStorage`, correcting any tampered value | `download.js:119` |
@@ -103,6 +104,13 @@ consumed (`download.js:336–339`).
 Mayar payment webhook calls are verified using an HMAC-SHA256 signature checked against
 `MAYAR_WEBHOOK_SECRET` (a Cloudflare Worker secret, never exposed to the browser). Unsigned or
 tampered webhook requests are rejected before any session state is updated.
+
+### Security Response Headers
+
+All responses — including 404 and webhook responses — include a standard set of security headers:
+`Content-Security-Policy`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+`Referrer-Policy`, and `Permissions-Policy`. CSP hashes for inline scripts are maintained in
+`_headers` and updated via `npm run build:csp` after any HTML change. Headers are verified in CI.
 
 ---
 
