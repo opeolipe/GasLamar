@@ -31,6 +31,7 @@ const MOCK_ANALYZE_RESPONSE = {
   skor_sesudah: 85,
   timebox_weeks: 4,
   cv_text_key: 'cvtext_test-key-e2e',
+  sample_line: '• Mengelola kampanye digital dengan ROI 3x target perusahaan',
 };
 
 const SAMPLE_CV_PATH = path.resolve('tests/fixtures/sample-cv.pdf');
