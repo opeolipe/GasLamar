@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import type { ScoringData }    from '@/lib/resultUtils';
 import { WORKER_URL }          from '@/lib/resultUtils';
 
-export type NoSessionReason = 'expired' | 'missing';
+export type NoSessionReason = 'expired' | 'missing' | 'data_missing';
 
 export interface ResultDataState {
   data:        ScoringData | null;
@@ -29,6 +29,11 @@ export function useResultData(): ResultDataState {
 
     const fail = (noSession: NoSessionReason) =>
       setState({ data: null, cvKey: '', analyzeTime: 0, loading: false, error: null, noSession });
+
+    // Guard already classified the error synchronously — propagate it.
+    const guardError = (window as any).__hasilSessionError;
+    if (guardError === 'no_session') { fail('missing'); return; }
+    if (guardError === 'expired')    { fail('expired'); return; }
 
     // Reject foreign URL session parameters
     if (urlSession !== null && !urlSession.startsWith('cvtext_')) { fail('expired'); return; }
@@ -63,8 +68,12 @@ export function useResultData(): ResultDataState {
           .then(async r => {
             if (!r || cancelled) return;
             if (r.status === 404) {
-              try { sessionStorage.removeItem('gaslamar_cv_key'); } catch (_) {}
-              fail('expired');
+              // Cookie exists but KV entry is gone — data not found.
+              try {
+                sessionStorage.removeItem('gaslamar_cv_key');
+                sessionStorage.removeItem('gaslamar_analyze_time');
+              } catch (_) {}
+              fail('data_missing');
               return;
             }
             if (!r.ok) throw new Error(`server_${r.status}`);
@@ -143,12 +152,13 @@ export function useResultData(): ResultDataState {
     setState({ data: parsed, cvKey: cvKeyVal, analyzeTime, loading: false, error: null, noSession: null });
 
     // Defense-in-depth: validate cv_key cookie via /check-session (fail-open on network error).
+    // /check-session now validates both analysis (cv_key) and payment (sess_) sessions.
     fetch(`${WORKER_URL}/check-session`, { credentials: 'include' })
       .then(r => (r.ok ? r.json() : Promise.reject()))
       .then((result: { valid?: boolean; authenticated?: boolean }) => {
         if (!result.valid && !result.authenticated) {
-          sessionStorage.removeItem('gaslamar_cv_key');
-          window.location.replace('access.html?expired=1&source=hasil');
+          try { sessionStorage.removeItem('gaslamar_cv_key'); } catch (_) {}
+          setState(prev => ({ ...prev, data: null, loading: false, noSession: 'expired' }));
         }
       })
       .catch(() => {}); // network unavailable — fail open

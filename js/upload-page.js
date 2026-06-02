@@ -47,31 +47,19 @@ try {
 
 // Show informational notice when redirected from hasil.html or download.html.
 // Guard: if the active-session banner is already being shown (cv_key still valid),
-// suppress the error message — the "Lihat hasil" link is more useful than a stale
-// "session not found" error that contradicts the active-session state.
 const _redirectParams = new URLSearchParams(window.location.search);
 const _redirectReason = _redirectParams.get('reason');
 if (_redirectReason === 'session_expired' || _redirectReason === 'no_session' || _redirectReason === 'cv_expired') {
   history.replaceState(null, '', window.location.pathname);
-  const _hasActiveSession = (function() {
-    try {
-      const k = sessionStorage.getItem('gaslamar_cv_key') || '';
-      const t = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
-      return k.startsWith('cvtext_') && t > 0 && (Date.now() - t) / 1000 < 86400;
-    } catch (_) { return false; }
-  })();
-  // If an active analysis session exists, the "Lihat hasil" banner already gives the user
-  // a clear next action. Skip the error message to avoid contradictory copy.
-  if (!_hasActiveSession) {
-    const _noticeEl = document.createElement('div');
-    _noticeEl.className = 'session-notice-banner';
-    _noticeEl.textContent = _redirectReason === 'no_session'
-      ? 'Sesi tidak ditemukan. Silakan upload CV dan selesaikan pembayaran.'
-      : _redirectReason === 'cv_expired'
-      ? 'Waktu analisis sudah habis. Upload CV kembali untuk melanjutkan pembayaran.'
-      : 'Sesi analisis tidak ditemukan atau sudah kedaluwarsa. Silakan upload ulang CV kamu.';
-    document.querySelector('.card').insertBefore(_noticeEl, document.querySelector('.card').firstChild);
-  }
+  const _noticeEl = document.createElement('div');
+  _noticeEl.className = 'session-notice-banner';
+  _noticeEl.textContent = _redirectReason === 'no_session'
+    ? '📄 Tidak ada sesi aktif. Silakan upload CV untuk memulai analisis baru.'
+    : _redirectReason === 'cv_expired'
+    ? '⏰ Waktu analisis sudah habis. Upload CV kembali untuk melanjutkan.'
+    : '⏰ Sesi analisis kamu sudah berakhir (setelah 24 jam). Upload CV lagi untuk analisis baru.';
+  const _card = document.querySelector('.card');
+  if (_card) _card.insertBefore(_noticeEl, _card.firstChild);
 }
 
 // Hide scroll hint once submit button scrolls into view

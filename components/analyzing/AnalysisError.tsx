@@ -18,13 +18,13 @@ export default function AnalysisError({ message, onRetry, isFileError = false, i
       : 'Proses belum berhasil, tapi progres kamu aman dan bisa lanjut lagi.';
 
   const icon = isRateLimit ? <span className="text-3xl">⏳</span> : <span className="text-3xl">⚠️</span>;
-  const title = isRateLimit ? 'Terlalu Cepat' : 'Analisis Gagal';
+  const title = isRateLimit ? 'Terlalu Banyak Permintaan' : 'Analisis Gagal';
 
   return (
     <StateCard
       icon={icon}
       title={title}
-      message={isRateLimit && retryBlocked ? `⏳ Terlalu cepat. Coba lagi dalam ${rateLimitSecsLeft} detik.` : message}
+      message={isRateLimit && retryBlocked ? `⏳ Terlalu banyak permintaan. Silakan tunggu ${rateLimitSecsLeft} detik.` : message}
       helper={recoveryLine}
       tone={isFileError ? 'warning' : 'danger'}
     >

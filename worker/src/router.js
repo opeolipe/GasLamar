@@ -360,5 +360,9 @@ export async function route(request, env, ctx) {
     }
   }
 
-  return jsonResponse({ message: 'Not found' }, 404, request, env);
+  // No CORS headers on unknown paths — only defined API endpoints are CORS-enabled.
+  return new Response(JSON.stringify({ message: 'Not found' }), {
+    status: 404,
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+  });
 }

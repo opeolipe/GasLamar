@@ -149,7 +149,7 @@ async function runAnalysis() {
       // Surface rate limit with retry guidance
       if (response.status === 429) {
         const retryAfter = err.retryAfter || 60;
-        throw new Error(`Terlalu banyak permintaan. Coba lagi dalam ${retryAfter} detik.`);
+        throw new Error(`Terlalu banyak permintaan. Silakan tunggu ${retryAfter} detik.`);
       }
       throw new Error(msg || 'Server error: ' + response.status);
     }
