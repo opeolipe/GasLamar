@@ -22,8 +22,14 @@ const FORBIDDEN_STORAGE_KEYS = [
   'bearer',
   'access_token',
   'refresh_token',
-  'gaslamar_cv_key',   // stored as HttpOnly cookie, never in JS-accessible storage
+  'gaslamar_cv_key',        // stored as HttpOnly cookie, never in JS-accessible storage
   'server_session_id',
+  'gaslamar_session',       // payment session token — HttpOnly cookie, never in JS storage
+  'gaslamar_user_id',       // analytics ID — in-memory only, not persisted to storage
+  'gaslamar_skor',          // score number — not stored client-side; fetched via /get-scoring
+  'gaslamar_pending_invoice', // invoice URL — removed; server protects against double-creation
+  'gaslamar_result_id',     // result ID — server-generated, not stored in JS storage
+  'gaslamar_scoring',       // full scoring blob — stored only server-side in KV
 ];
 
 /** Returns all keys present in sessionStorage and localStorage. */

@@ -146,11 +146,9 @@ export function useGenerateCV(): UseGenerateCVReturn {
         const reqBody: Record<string, unknown> = {};
         if (params.jobDesc) reqBody.job_desc = params.jobDesc;
 
-        // Pass score + gaps (plain numbers from sessionStorage) for post-generate email.
+        // Pass gaps (plain strings from sessionStorage) for post-generate email.
         try {
-          const skor = parseInt(sessionStorage.getItem('gaslamar_skor') || '', 10);
           const rawGap = sessionStorage.getItem('gaslamar_gap');
-          if (!isNaN(skor)) reqBody.score = skor;
           if (rawGap) {
             const gap = JSON.parse(rawGap) as string[];
             if (Array.isArray(gap) && gap.length > 0) reqBody.gaps = gap.slice(0, 3);

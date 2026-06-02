@@ -95,9 +95,6 @@ export function useResultData(): ResultDataState {
               if (s.skor_6d) {
                 try { sessionStorage.setItem('gaslamar_6d_scores', JSON.stringify(s.skor_6d)); } catch (_) {}
               }
-              if (typeof s.skor === 'number') {
-                try { sessionStorage.setItem('gaslamar_skor', String(s.skor)); } catch (_) {}
-              }
               if (typeof s.skor_sesudah === 'number') {
                 try { sessionStorage.setItem('gaslamar_skor_sesudah', String(s.skor_sesudah)); } catch (_) {}
               }
