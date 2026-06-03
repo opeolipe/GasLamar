@@ -29,16 +29,22 @@ async function fetchAndGenerateCV(sessionId) {
     clearTimeout(timeout);
 
     if (res.status === 401) {
+      console.error('[GasLamar] download 401 — session not found');
       showSessionError(
-        'Sesi Tidak Ditemukan',
-        'Sesi tidak ditemukan. Pastikan browser mengizinkan cookies, lalu coba refresh halaman ini.',
+        'Sesi Berakhir',
+        'Sesi Anda berakhir. Silakan upload CV lagi.',
         false
       );
       return;
     }
 
     if (res.status === 403) {
-      showSessionError('Akses Ditolak', 'Pembayaran belum dikonfirmasi atau sesi tidak valid.', false);
+      console.error('[GasLamar] download 403 — payment not confirmed');
+      showSessionError(
+        'Menunggu Konfirmasi',
+        'Pembayaran belum dikonfirmasi. Jika sudah membayar, tunggu beberapa saat lalu coba lagi.',
+        true
+      );
       return;
     }
 

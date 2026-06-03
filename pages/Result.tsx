@@ -271,10 +271,23 @@ export default function Result() {
       if (!response.ok) {
         const err    = await response.json().catch(() => ({}));
         const errMsg = (err as any).message || `Server error: ${response.status}`;
+        console.error('[GasLamar] payment error', response.status, err);
         if ((response.status === 400 && ((err as any).code === 'cv_expired' || (err as any).code === 'cv_key_missing')) || response.status === 403) {
           setPaymentInProgress(false);
           setPayBtnOverride(null);
-          setPaymentError('Waktu analisis sudah habis. Klik "Upload CV lain" di bawah untuk melanjutkan.');
+          setPaymentError('__EXPIRY__');
+          return;
+        }
+        if (response.status === 401) {
+          setPaymentInProgress(false);
+          setPayBtnOverride(null);
+          setPaymentError('__SESSION_EXPIRED__');
+          return;
+        }
+        if (response.status === 502 || response.status === 503 || (err as any).code === 'PAYMENT_GATEWAY_ERROR') {
+          setPaymentInProgress(false);
+          setPayBtnOverride(null);
+          setPaymentError('__GATEWAY_ERROR__');
           return;
         }
         throw new Error(errMsg);
@@ -316,7 +329,9 @@ export default function Result() {
       const e = err as Error;
       ;(window as any).Analytics?.trackError?.('payment_api', { tier: selectedTier, is_timeout: e.name === 'AbortError', error_message: e.message });
 
-      const msg = e.name === 'AbortError' ? 'Koneksi lambat. Periksa internet kamu lalu coba lagi.' : e.message || 'Gagal menghubungi server. Coba lagi.';
+      console.error('[GasLamar] payment catch', e);
+      const isNetworkError = e.name === 'AbortError' || e.name === 'TypeError';
+      const msg = isNetworkError ? '__NETWORK_ERROR__' : (e.message || 'Gagal menghubungi server. Coba lagi.');
       setPaymentError(msg);
     }
   }
@@ -779,11 +794,35 @@ export default function Result() {
                     <span aria-hidden="true">📬</span> CV akan dikirim ke: <strong>{email.trim()}</strong>
                   </p>
                 )}
-                {paymentError && (
-                  <div role="alert" style={{ marginTop: '0.75rem', padding: '0.75rem', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 12, color: '#92400E', fontSize: '0.875rem', textAlign: 'center' }}>
-                    {paymentError}
-                  </div>
-                )}
+                {paymentError && (() => {
+                  const isRetryable = paymentError === '__NETWORK_ERROR__' || paymentError === '__GATEWAY_ERROR__';
+                  const isExpiry    = paymentError === '__EXPIRY__' || paymentError === '__SESSION_EXPIRED__';
+                  const label =
+                    paymentError === '__NETWORK_ERROR__'   ? 'Koneksi terputus. Periksa internet Anda dan coba lagi.' :
+                    paymentError === '__GATEWAY_ERROR__'   ? 'Layanan pembayaran sedang sibuk. Coba lagi dalam beberapa menit.' :
+                    paymentError === '__SESSION_EXPIRED__' ? 'Sesi Anda berakhir.' :
+                    paymentError === '__EXPIRY__'          ? 'Waktu analisis sudah habis.' :
+                    paymentError;
+                  return (
+                    <div role="alert" style={{ marginTop: '0.75rem', padding: '0.75rem', background: isExpiry ? 'rgba(245,158,11,0.08)' : 'rgba(220,38,38,0.07)', border: `1px solid ${isExpiry ? 'rgba(245,158,11,0.3)' : 'rgba(220,38,38,0.25)'}`, borderRadius: 12, color: isExpiry ? '#92400E' : '#991B1B', fontSize: '0.875rem', textAlign: 'center' }}>
+                      <span>{label}</span>
+                      {(paymentError === '__SESSION_EXPIRED__' || paymentError === '__EXPIRY__') && (
+                        <> <a href="upload.html" style={{ color: 'inherit', fontWeight: 600, textDecoration: 'underline' }}>Upload CV lagi</a>.</>
+                      )}
+                      {isRetryable && (
+                        <div style={{ marginTop: '0.4rem' }}>
+                          <button
+                            type="button"
+                            onClick={() => { setPaymentError(null); document.getElementById('pay-btn')?.click(); }}
+                            style={{ padding: '0.25rem 0.9rem', background: '#991B1B', color: '#fff', border: 'none', borderRadius: 8, fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600 }}
+                          >
+                            Coba Lagi
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
