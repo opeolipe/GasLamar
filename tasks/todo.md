@@ -1,52 +1,16 @@
-# Remove gaslamar_tier from sessionStorage
+# Rate Limit Headers — Fix Plan
 
-## Status
-The backend HttpOnly cookie implementation is complete and verified (622 tests pass).
-The only remaining sessionStorage item from the security task is `gaslamar_tier`
-(non-sensitive display value: coba/single/3pack/jobhunt).
+## Problem
+- `X-RateLimit-Limit/Remaining/Reset` and `Retry-After` headers absent from API responses
+- Core reason 1: `Access-Control-Expose-Headers` missing in CORS config → browsers can't read headers even when present
+- Core reason 2: `resendAccess.js` success path (line 99) missing `withRl` wrapper
+- Core reason 3: `exchangeToken.js` and `submitEmail.js` use CF-only rate limiting with no rlInfo → no headers on successful responses
 
-## Plan
+## Steps
 
-### 1. Thread tier via URL params through pre-payment flow
-- `js/upload.js`: Pass tier in redirect to analyzing.html (`?tier=<value>`)
-- `js/analyzing-page.js`: Read tier from URL, pass it on redirect to hasil.html
-- `js/hasil-page.js`: Read tier from URL param instead of sessionStorage
-
-### 2. Remove sessionStorage writes for tier
-- `js/payment.js`: Remove `sessionStorage.setItem('gaslamar_tier', tier)` (selectTier fn)
-- `js/download-state.js`: Remove tamper check + setItem; setClientSessionTier removed
-- `hooks/useDownloadSession.ts`: Remove sessionStorage.setItem for tier (use state)
-- `hooks/useGenerateCV.ts`: Remove setItem; 404 error msg hard-code validity text
-- `pages/Result.tsx`: Remove sessionStorage read/write for tier (use state + URL param)
-- `pages/Upload.tsx`: Remove sessionStorage.setItem for tier; pass in redirect
-
-### 3. Update sessionStorage readers to use alternatives
-- `js/download-page.js`: Default to '' during generation; tier shown after cvDataCache loads
-- `js/download-generation.js`: Remove tier from analytics (lines 17, 262)
-- `js/analytics.js`: Remove tier from top-level analytics call
-- `js/session-controller.js`: Remove gaslamar_tier from cleanup comment (already removes it)
-
-### 4. Update e2e test
-- `tests/e2e/security-invariants.spec.ts`: Remove outdated `gaslamar_scoring` seed
-  (hasil-guard.js no longer reads it; test should use correct mechanism)
-
-### 5. Verify
-- `cd worker && npm test` (all 622 tests must pass)
-- Build frontend: `npm run build`
-
-## Checkboxes
-- [ ] upload.js
-- [ ] analyzing-page.js
-- [ ] hasil-page.js
-- [ ] payment.js
-- [ ] download-state.js
-- [ ] useDownloadSession.ts
-- [ ] useGenerateCV.ts
-- [ ] pages/Result.tsx
-- [ ] pages/Upload.tsx
-- [ ] download-page.js
-- [ ] download-generation.js
-- [ ] analytics.js
-- [ ] e2e test
-- [ ] npm test passes
-- [ ] npm run build passes
+- [ ] 1. `cors.js`: Add `Access-Control-Expose-Headers: X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, Retry-After` to `getCorsHeaders()`
+- [ ] 2. `resendAccess.js`: Wrap line 99 success return with `withRl`
+- [ ] 3. `exchangeToken.js`: Add `checkRateLimitKV` (5/60s, prefix `exchange_token`) alongside CF check to get rlInfo; apply `withRl` to all responses
+- [ ] 4. `submitEmail.js`: Add `checkRateLimitKV` (5/60s, prefix `submit_email`) alongside CF check; apply `withRl`
+- [ ] 5. Run `cd worker && npm test` — all tests green
+- [ ] 6. Commit and push to `claude/relaxed-hawking-QxD4g`

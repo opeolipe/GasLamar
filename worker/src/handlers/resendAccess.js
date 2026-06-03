@@ -96,5 +96,5 @@ export async function handleResendAccess(request, env) {
   }
   log('resend_access_sent', { email_hash: emailHash.slice(0, 16), count: toSend.length, capped: activeIds.length > 3, ip });
 
-  return jsonResponse(GENERIC_OK, 200, request, env);
+  return withRl(jsonResponse(GENERIC_OK, 200, request, env));
 }
