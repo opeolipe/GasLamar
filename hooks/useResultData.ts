@@ -5,17 +5,18 @@ import { WORKER_URL }          from '@/lib/resultUtils';
 export type NoSessionReason = 'expired' | 'missing' | 'data_missing';
 
 export interface ResultDataState {
-  data:        ScoringData | null;
-  cvKey:       string;
-  analyzeTime: number;
-  loading:     boolean;
-  error:       string | null;
-  noSession:   NoSessionReason | null;
+  data:             ScoringData | null;
+  cvKey:            string;
+  analyzeTime:      number;
+  scoreDisplayedAt: number;
+  loading:          boolean;
+  error:            string | null;
+  noSession:        NoSessionReason | null;
 }
 
 export function useResultData(): ResultDataState {
   const [state, setState] = useState<ResultDataState>({
-    data: null, cvKey: '', analyzeTime: 0, loading: true, error: null, noSession: null,
+    data: null, cvKey: '', analyzeTime: 0, scoreDisplayedAt: 0, loading: true, error: null, noSession: null,
   });
 
   useEffect(() => {
@@ -25,7 +26,7 @@ export function useResultData(): ResultDataState {
     const time       = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
 
     const fail = (noSession: NoSessionReason) =>
-      setState({ data: null, cvKey: '', analyzeTime: 0, loading: false, error: null, noSession });
+      setState({ data: null, cvKey: '', analyzeTime: 0, scoreDisplayedAt: 0, loading: false, error: null, noSession });
 
     // Guard already classified the error synchronously — propagate it.
     const guardError = (window as any).__hasilSessionError;
@@ -90,11 +91,6 @@ export function useResultData(): ResultDataState {
               const skor = parseInt(String(s?.skor));
               if (isNaN(skor) || skor < 0 || skor > 100) { if (!cancelled) fail('missing'); return; }
 
-              // Persist minimal derived numbers for the Download page score badge.
-              // These are plain numbers, not the full scoring blob or any CV content.
-              if (s.skor_6d) {
-                try { sessionStorage.setItem('gaslamar_6d_scores', JSON.stringify(s.skor_6d)); } catch (_) {}
-              }
               if (typeof s.skor_sesudah === 'number') {
                 try { sessionStorage.setItem('gaslamar_skor_sesudah', String(s.skor_sesudah)); } catch (_) {}
               }
@@ -102,8 +98,8 @@ export function useResultData(): ResultDataState {
                 try { sessionStorage.setItem('gaslamar_gap', JSON.stringify((s.gap as string[]).slice(0, 5))); } catch (_) {}
               }
 
+              const now = Date.now();
               try {
-                sessionStorage.setItem('gaslamar_score_displayed_at', String(Date.now()));
                 (window as any).Analytics?.track?.('score_displayed', {
                   score:        skor,
                   score_bucket: skor >= 70 ? 'high' : skor >= 50 ? 'medium' : 'low',
@@ -112,7 +108,7 @@ export function useResultData(): ResultDataState {
                 });
               } catch (_) {}
 
-              if (!cancelled) setState({ data: s ?? null, cvKey: '', analyzeTime: time, loading: false, error: null, noSession: null });
+              if (!cancelled) setState({ data: s ?? null, cvKey: '', analyzeTime: time, scoreDisplayedAt: now, loading: false, error: null, noSession: null });
             });
         });
 

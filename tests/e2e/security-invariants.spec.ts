@@ -29,6 +29,8 @@ const FORBIDDEN_STORAGE_KEYS = [
   'gaslamar_skor',          // score number — not stored client-side; fetched via /get-scoring
   'gaslamar_pending_invoice', // invoice URL — removed; server protects against double-creation
   'gaslamar_result_id',     // result ID — server-generated, not stored in JS storage
+  'gaslamar_6d_scores',     // 6-dimensional score breakdown — not stored client-side; fetched via /get-scoring
+  'gaslamar_score_displayed_at', // score display timestamp — held in React state only, not persisted
 ];
 
 /** Returns all keys present in sessionStorage and localStorage. */
