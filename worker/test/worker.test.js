@@ -1913,16 +1913,16 @@ describe('GET /check-session', () => {
     }
   });
 
-  it('rate-limits unauthenticated burst attempts (10/min per IP — no session cookie)', async () => {
+  it('rate-limits unauthenticated burst attempts (30/5min per IP — no session cookie)', async () => {
     const ip = '10.88.0.99';
 
-    // First 10 unauthenticated requests are allowed — no session cookie → IP bucket.
-    for (let i = 0; i < 10; i++) {
+    // First 30 unauthenticated requests are allowed — no session cookie → IP bucket.
+    for (let i = 0; i < 30; i++) {
       const res = await get('/check-session', {}, ip);
       expect(res.status).toBe(200); // no cookie → 200+authenticated:false, not 429
     }
 
-    // 11th request is blocked by the rate limiter.
+    // 31st request is blocked by the rate limiter.
     const blocked = await get('/check-session', {}, ip);
     expect(blocked.status).toBe(429);
     expect(blocked.headers.get('Retry-After')).toBeTruthy();

@@ -69,6 +69,16 @@ async function poll(sessionId) {
       credentials: 'include',
     });
 
+    if (res.status === 429) {
+      // Rate limited — respect Retry-After before scheduling next poll.
+      const retryAfter = parseInt(res.headers.get('Retry-After') || '60', 10);
+      const waitMs = Math.min(retryAfter * 1000, 120000); // cap at 2 min
+      if (pollCount < MAX_POLLS) {
+        pollTimer = setTimeout(function() { poll(sessionId); }, waitMs);
+      }
+      return;
+    }
+
     if (res.status === 400) {
       showSessionError(
         'Link Tidak Valid',
