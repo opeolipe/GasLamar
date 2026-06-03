@@ -230,27 +230,29 @@ test.describe('GasLamar CV Flow', () => {
 
   // ── FULL FLOW + PREVIEW CONSISTENCY ──────────────────────────────────────
 
-  test('full flow: B1 fix — gaslamar_sample persisted before cv_pending cleared', async ({ page }) => {
+  test('full flow: B1 fix — cv_pending cleared after analysis, sample_line served from server', async ({ page }) => {
     await uploadCV(page, SAMPLE_CV_PATH);
     await fillValidJD(page);
     await page.click('[data-testid="submit-upload"]');
     await page.waitForURL('**/hasil**', { timeout: 60000 });
 
-    // Verify useAnalysisPolling persisted gaslamar_sample_line before clearing cv_pending.
-    // This is the root fix for preview = download consistency (B1).
-    // gaslamar_sample_line is a plain string (the best bullet from the CV), not JSON.
+    // sample_line is no longer stored in sessionStorage — it is returned by /analyze and
+    // persisted in the server's scoring blob (accessible via /get-scoring). This is the
+    // security fix from 509d3c2 that prevents PII-adjacent data from living client-side.
     const storedSample = await page.evaluate(() => sessionStorage.getItem('gaslamar_sample_line'));
-    expect(storedSample).toBeTruthy();
+    expect(storedSample).toBeNull();
 
     // cv_pending must be cleared at this point
     const cvPending = await page.evaluate(() => sessionStorage.getItem('gaslamar_cv_pending'));
     expect(cvPending).toBeNull();
 
-    // Navigate to download — verify the UI renders correctly
+    // Navigate to download — verify the UI renders with sample_line from the server mock.
+    // The mock /analyze response includes sample_line; Result.tsx reads it from scoring data.
+    const expectedSample = MOCK_ANALYZE_RESPONSE.sample_line;
     await setupDownloadSession(page);
     await mockCheckSession(page);
     await mockGetSession(page);
-    await mockGenerate(page, { cv_id: storedSample + ' — Digital Marketing Specialist.' });
+    await mockGenerate(page, { cv_id: expectedSample + ' — Digital Marketing Specialist.' });
 
     await page.goto('/download');
     await expect(page.locator('[data-testid="cv-content"]')).toBeVisible({
@@ -258,7 +260,7 @@ test.describe('GasLamar CV Flow', () => {
     });
 
     const cvText = await page.locator('[data-testid="cv-content"]').textContent();
-    expect(cvText).toContain(storedSample);
+    expect(cvText).toContain(expectedSample);
   });
 
   // ── TRUST BADGE POSITIVE ─────────────────────────────────────────────────
