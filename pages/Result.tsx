@@ -92,9 +92,8 @@ function buildSnippetPreview(raw: string | null | undefined): string | null {
 export default function Result() {
   const { data, analyzeTime, scoreDisplayedAt, loading, error, noSession } = useResultData();
   const countdown = useSessionCountdown(analyzeTime);
-  // cv_pending is cleared by Analyzing before navigation — read only the pre-extracted
-  // sample line (a single bullet/action verb, no raw CV text).
-  const [cvText]  = useState(() => sessionStorage.getItem('gaslamar_sample_line') || '');
+  // sample_line is now fetched from server via /get-scoring — never stored in sessionStorage.
+  const cvText = data?.sample_line ?? '';
 
   const [showAllDimensions,     setShowAllDimensions]     = useState(false);
   const [resultFlowVariant,     setResultFlowVariant]     = useState<'on' | 'control'>('on');

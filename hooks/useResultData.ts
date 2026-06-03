@@ -22,8 +22,8 @@ export function useResultData(): ResultDataState {
   useEffect(() => {
     const params     = new URLSearchParams(location.search);
     const urlSession = params.get('session') || params.get('sessionId');
-    // analyzeTime kept for countdown UX only — not used for auth decisions
-    const time       = parseInt(sessionStorage.getItem('gaslamar_analyze_time') || '0');
+    // analyzeTime was previously stored in sessionStorage; now defaults to 0 (countdown hidden).
+    const time = 0;
 
     const fail = (noSession: NoSessionReason) =>
       setState({ data: null, cvKey: '', analyzeTime: 0, scoreDisplayedAt: 0, loading: false, error: null, noSession });
@@ -90,13 +90,6 @@ export function useResultData(): ResultDataState {
               const s = body.scoring;
               const skor = parseInt(String(s?.skor));
               if (isNaN(skor) || skor < 0 || skor > 100) { if (!cancelled) fail('missing'); return; }
-
-              if (typeof s.skor_sesudah === 'number') {
-                try { sessionStorage.setItem('gaslamar_skor_sesudah', String(s.skor_sesudah)); } catch (_) {}
-              }
-              if (Array.isArray(s.gap) && s.gap.length > 0) {
-                try { sessionStorage.setItem('gaslamar_gap', JSON.stringify((s.gap as string[]).slice(0, 5))); } catch (_) {}
-              }
 
               const now = Date.now();
               try {

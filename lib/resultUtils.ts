@@ -27,6 +27,9 @@ export interface ScoringData {
   inferred_industry?:    string;
   primary_issue_dim?:    string;
   jd_mode?:             'targeted' | 'inferred';
+  sample_line?:          string;
+  preview_before?:       string;
+  preview_after?:        string;
 }
 
 // ── Pricing ─────────────────────────────────────────────────────────────────

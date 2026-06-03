@@ -8,7 +8,6 @@ import {
   STEP_DEFS,
   getTimerText,
 } from '@/lib/analysisUtils';
-import { extractSampleLine } from '@/lib/cvUtils';
 
 export type StepStatus = 'pending' | 'active' | 'done';
 
@@ -157,7 +156,6 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
       const { ...scoringOnly } = result;
 
       // cv_key is now an HttpOnly cookie set by /analyze — not readable from JS.
-      sessionStorage.setItem('gaslamar_analyze_time', String(Date.now()));
 
       // result_id is used inline for analytics only — never written to sessionStorage.
       const resultId = (result.result_id && typeof result.result_id === 'string')
@@ -172,25 +170,6 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
           return t ? Date.now() - parseInt(t, 10) : undefined;
         })(),
       });
-
-      // Persist a non-PII sample line before clearing cv_pending. Prefer the server-returned
-      // sample_line (works for all CV types including PDF/DOCX). Fall back to client-side
-      // extraction for txt-type CVs (backward compat for mocked/offline flows).
-      try {
-        const serverSample = (result as Record<string, unknown>).sample_line;
-        if (serverSample && typeof serverSample === 'string') {
-          sessionStorage.setItem('gaslamar_sample_line', serverSample);
-        } else {
-          const cvPending = sessionStorage.getItem('gaslamar_cv_pending');
-          if (cvPending) {
-            const parsed = JSON.parse(cvPending);
-            if (parsed?.type === 'txt' && typeof parsed.data === 'string') {
-              const sample = extractSampleLine(parsed.data);
-              if (sample) sessionStorage.setItem('gaslamar_sample_line', sample);
-            }
-          }
-        }
-      } catch (_) {}
 
       ['gaslamar_cv_pending', 'gaslamar_jd_pending', 'gaslamar_filename', 'gaslamar_jd_draft',
        'gaslamar_cv_draft', 'gaslamar_filename_draft']
