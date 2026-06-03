@@ -19,6 +19,7 @@ import { handleInterviewKit }  from './handlers/interviewKit.js';
 import { handleGetResult } from './handlers/getResult.js';
 import { handleValidateCoupon } from './handlers/validateCoupon.js';
 import { handleGetScoring } from './handlers/getScoring.js';
+import { handlePaymentHealth } from './handlers/paymentHealth.js';
 import { getSession } from './sessions.js';
 import { getCvTextKeyFromCookie, getCvKeyFromCookie, getSessionIdFromCookie, getSessionTokenFromCookie } from './cookies.js';
 
@@ -179,6 +180,10 @@ export async function route(request, env, ctx) {
 
   if (method === 'POST' && apiPath === '/create-payment') {
     return handleCreatePayment(request, env);
+  }
+
+  if (method === 'GET' && apiPath === '/payment-health') {
+    return handlePaymentHealth(request, env);
   }
 
   if (isWebhookPath) {
