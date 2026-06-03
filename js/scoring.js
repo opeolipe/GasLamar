@@ -59,14 +59,6 @@
     return;
   }
 
-  try {
-    if (typeof scoring.skor === 'number') sessionStorage.setItem('gaslamar_skor', String(scoring.skor));
-    if (typeof scoring.skor_sesudah === 'number') sessionStorage.setItem('gaslamar_skor_sesudah', String(scoring.skor_sesudah));
-    if (Array.isArray(scoring.gap) && scoring.gap.length > 0) {
-      sessionStorage.setItem('gaslamar_gap', JSON.stringify(scoring.gap.slice(0, 5)));
-    }
-  } catch (_) {}
-
   // Hide loading, show content
   document.getElementById('results-loading').classList.add('hidden');
   document.getElementById('results-content').classList.remove('hidden');

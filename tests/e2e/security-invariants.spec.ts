@@ -26,10 +26,14 @@ const FORBIDDEN_STORAGE_KEYS = [
   'server_session_id',
   'gaslamar_session',       // payment session token — HttpOnly cookie, never in JS storage
   'gaslamar_user_id',       // analytics ID — in-memory only, not persisted to storage
-  'gaslamar_skor',          // score number — not stored client-side; fetched via /get-scoring
-  'gaslamar_pending_invoice', // invoice URL — removed; server protects against double-creation
-  'gaslamar_result_id',     // result ID — server-generated, not stored in JS storage
-  'gaslamar_6d_scores',     // 6-dimensional score breakdown — not stored client-side; fetched via /get-scoring
+  'gaslamar_skor',              // score number — not stored client-side; fetched via /get-scoring
+  'gaslamar_skor_sesudah',      // projected score after rewrite — not stored; fetched via /get-scoring
+  'gaslamar_gap',               // gap items (PII-adjacent) — not stored; fetched via /get-scoring
+  'gaslamar_sample_line',       // CV bullet sample (PII-adjacent) — not stored; in server scoring blob
+  'gaslamar_analyze_time',      // analysis timestamp — removed; countdown hidden when absent
+  'gaslamar_pending_invoice',   // invoice URL — removed; server protects against double-creation
+  'gaslamar_result_id',         // result ID — server-generated, not stored in JS storage
+  'gaslamar_6d_scores',         // 6-dimensional score breakdown — not stored client-side; fetched via /get-scoring
   'gaslamar_score_displayed_at', // score display timestamp — held in React state only, not persisted
 ];
 
@@ -92,15 +96,43 @@ test.describe('Client-storage security invariants', () => {
     expect(sessionKeys).not.toContain('gaslamar_cv_key');
   });
 
+  test('post-analysis — sensitive scoring keys must not appear in sessionStorage after /analyze', async ({ page }) => {
+    // Simulate what happens after a successful /analyze call by mocking the response
+    // and checking that no sensitive keys are written to sessionStorage.
+    await page.route('**/analyze', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: {
+          'Set-Cookie': 'cv_key=cvtext_abc123; HttpOnly; Secure; SameSite=None; Path=/',
+        },
+        body: JSON.stringify({
+          skor: 72, skor_sesudah: 85,
+          gap: ['Kurang pengalaman Python', 'Tidak ada sertifikasi AWS'],
+          sample_line: 'Managed a team of 5 engineers',
+          result_id: 'test-result-id',
+        }),
+      });
+    });
+
+    await page.goto('/analyzing.html');
+    await page.waitForLoadState('domcontentloaded');
+    // Brief pause to allow any async sessionStorage writes to settle.
+    await page.waitForTimeout(500);
+
+    const sessionKeys = await page.evaluate(() => Object.keys(sessionStorage));
+    expect(sessionKeys, 'gaslamar_skor_sesudah must not be written after analysis').not.toContain('gaslamar_skor_sesudah');
+    expect(sessionKeys, 'gaslamar_gap must not be written after analysis').not.toContain('gaslamar_gap');
+    expect(sessionKeys, 'gaslamar_sample_line must not be written after analysis').not.toContain('gaslamar_sample_line');
+    expect(sessionKeys, 'gaslamar_analyze_time must not be written after analysis').not.toContain('gaslamar_analyze_time');
+  });
+
   test('hasil page — no raw auth tokens after scoring data is loaded from sessionStorage', async ({ page }) => {
     // Seed the minimum sessionStorage state hasil-guard.js requires.
     await page.goto('/hasil.html');
     await page.evaluate(() => {
-      sessionStorage.setItem('gaslamar_analyze_time', String(Date.now()));
-      // Minimal scoring blob so the guard doesn't redirect.
-      sessionStorage.setItem('gaslamar_scoring', JSON.stringify({
-        skor: 72, verdict: 'DO', tier: 'single',
-      }));
+      // gaslamar_analyze_time and gaslamar_scoring are no longer written by the app;
+      // this test verifies forbidden keys are absent without seeding them.
     });
     await page.reload();
     await page.waitForLoadState('domcontentloaded');

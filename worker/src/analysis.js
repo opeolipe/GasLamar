@@ -152,6 +152,16 @@ export async function analyzeCV(cvText, jobDesc, env) {
 
   if (!scoring.hr_7_detik) delete scoring.hr_7_detik;
 
+  // Add sample_line to scoring so /get-scoring can return it without client-side storage.
+  const _sampleLines = cvText
+    ? cvText.split('\n').map(l => l.trim()).filter(l => l.length > 20)
+    : [];
+  const _sampleLine = _sampleLines.find(l =>
+    l.startsWith('•') || l.startsWith('-') ||
+    /^(manage|develop|create|mengelola|membuat|mengembangkan)/i.test(l)
+  ) || _sampleLines[0] || null;
+  if (_sampleLine) scoring.sample_line = _sampleLine;
+
   if (Array.isArray(extractedData?.cv?.entitas_klaim)) {
     scoring.entitas_klaim = extractedData.cv.entitas_klaim.slice(0, 20);
   }
