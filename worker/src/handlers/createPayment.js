@@ -64,7 +64,11 @@ export async function handleCreatePayment(request, env) {
   // whether cv_text_key is also missing, preventing the ambiguous "Data tidak lengkap"
   // response that would otherwise mask an invalid tier name.
   // Trim whitespace defensively so minor formatting differences don't produce silent failures.
-  const normalizedTier = (typeof tier === 'string') ? tier.trim() : tier;
+  // Alias map: "starter" → "coba" for backward compatibility with older frontend bundles
+  // that used the display label as the tier key before the rename.
+  const TIER_ALIASES = { starter: 'coba' };
+  const trimmed = (typeof tier === 'string') ? tier.trim().toLowerCase() : tier;
+  const normalizedTier = TIER_ALIASES[trimmed] ?? trimmed;
   if (!normalizedTier || !VALID_TIERS.includes(normalizedTier)) {
     return withRl(jsonResponse({
       message: `Tier tidak valid. Nilai yang diterima: ${VALID_TIERS.join(', ')}`,

@@ -1182,10 +1182,12 @@ describe('POST /create-payment — validation', () => {
     expect(body.message).toMatch(/coba|single|3pack|jobhunt/i);
   });
 
-  it('rejects tier with wrong casing → 400', async () => {
+  it('accepts tier with uppercase casing → normalized to lowercase', async () => {
+    // Validation is case-insensitive: 'SINGLE' normalizes to 'single'
     const key = await seedCVTextKey();
     const res = await post('/create-payment', { tier: 'SINGLE', cv_text_key: key });
-    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message ?? '').not.toMatch(/tier tidak valid/i);
   });
 
   it('accepts each valid tier past tier validation (all 4 tiers)', async () => {
@@ -1201,6 +1203,14 @@ describe('POST /create-payment — validation', () => {
   it('accepts tier with surrounding whitespace → trimmed and accepted', async () => {
     const key = await seedCVTextKey();
     const res = await post('/create-payment', { tier: '  single  ', cv_text_key: key });
+    // Should pass tier validation — not a 400 tier error
+    const body = await res.json();
+    expect(body.message ?? '').not.toMatch(/tier tidak valid/i);
+  });
+
+  it('accepts "starter" alias → normalized to "coba" (backward compat for stale bundles)', async () => {
+    const key = await seedCVTextKey();
+    const res = await post('/create-payment', { tier: 'starter', cv_text_key: key });
     // Should pass tier validation — not a 400 tier error
     const body = await res.json();
     expect(body.message ?? '').not.toMatch(/tier tidak valid/i);
