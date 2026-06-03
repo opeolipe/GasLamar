@@ -38,6 +38,7 @@ export function getCorsHeaders(request, env) {
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-Session-Id',
     'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Expose-Headers': 'X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, Retry-After',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',
   };
