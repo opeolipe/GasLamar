@@ -402,6 +402,12 @@ async function proceedToPayment() {
         showExpiryError();
         return;
       }
+      if (response.status === 503 || response.status === 502) {
+        throw new Error('Layanan pembayaran sedang tidak tersedia. Tunggu sebentar lalu coba lagi.');
+      }
+      if (response.status === 409) {
+        throw new Error('Permintaan sedang diproses. Tunggu sebentar lalu coba lagi.');
+      }
       throw new Error(errMsg);
     }
 
@@ -428,7 +434,9 @@ async function proceedToPayment() {
     // (staging, QA, direct worker URL) — an attacker-controlled staging env
     // could return any invoice_url and the browser would follow it unchecked.
     // Mayar sandbox URLs are also on *.mayar.id / *.mayar.club, so no exceptions needed.
-    const ALLOWED_PAYMENT_HOSTS = ['mayar.id', 'mayar.club'];
+    // mayar.id / mayar.club — production and sandbox API-issued links
+    // myr.id — Mayar sandbox checkout URLs (e.g. olive-41774.myr.id)
+    const ALLOWED_PAYMENT_HOSTS = ['mayar.id', 'mayar.club', 'myr.id'];
     let validInvoiceUrl = false;
     try {
       const parsed = new URL(invoice_url);
