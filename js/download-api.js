@@ -125,6 +125,12 @@ async function poll(sessionId) {
       return;
     }
 
+    // 'analysis'   — analysis done but no payment session; redirect to hasil page
+    if (status === 'analysis') {
+      window.location.replace('hasil.html');
+      return;
+    }
+
     // 'paid'       — payment confirmed, ready for first generation
     // 'ready'      — a previous generation succeeded; another can be triggered
     // 'generating' — generation already in progress (retry after failure)
