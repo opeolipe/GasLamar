@@ -138,12 +138,20 @@ export function getCvKeyFromCookie(request) {
  * Stores a UUID that points to the analysis_session_ KV entry (never the cv_text directly).
  * Max-Age matches the analysis session KV TTL (24h).
  *
- * SameSite=None; Partitioned (CHIPS): works for staging cross-domain
- * (staging.gaslamar.pages.dev → api-staging.gaslamar.com).
- * In production (gaslamar.com first-party) the cookie is same-site so SameSite
- * attribute is irrelevant — it is always sent.
+ * SameSite strategy (mirrors makeCvKeyCookie):
+ *   - Production: SameSite=Strict. Frontend and worker share gaslamar.com, so the
+ *     cookie is always same-site. Strict adds an explicit CSRF defence layer.
+ *   - Staging/sandbox: SameSite=None; Partitioned (CHIPS). The frontend lives on
+ *     staging.gaslamar.pages.dev (different eTLD+1 from api-staging.gaslamar.com),
+ *     so cross-site credential passing is required.
+ *
+ * @param {string} sessionId
+ * @param {object} [env]  — Worker env bindings; used to detect production vs. staging
  */
-export function makeSessionTokenCookie(sessionId) {
+export function makeSessionTokenCookie(sessionId, env) {
+  if (env?.ENVIRONMENT === 'production') {
+    return `sessionToken=${sessionId}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=86400`;
+  }
   return `sessionToken=${sessionId}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=86400; Partitioned`;
 }
 

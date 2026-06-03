@@ -192,7 +192,7 @@ export async function handleAnalyze(request, env) {
       ...rlHeaders,
     });
     responseHeaders.append('Set-Cookie', makeCvKeyCookie(cvTextKey));
-    responseHeaders.append('Set-Cookie', makeSessionTokenCookie(analysisSessionId));
+    responseHeaders.append('Set-Cookie', makeSessionTokenCookie(analysisSessionId, env));
     const sampleLine = extractSampleLineFromText(extraction.text);
     return new Response(JSON.stringify({ ...scoring, result_id: resultId, ...(sampleLine ? { sample_line: sampleLine } : {}) }), { status: 200, headers: responseHeaders });
   } catch (e) {
