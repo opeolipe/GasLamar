@@ -1173,11 +1173,37 @@ describe('POST /create-payment — validation', () => {
     expect(body.message).toContain('cv_text_key');
   });
 
-  it('rejects invalid tier → 400', async () => {
+  it('rejects invalid tier → 400 with list of valid tiers', async () => {
     // Seed with default IP (1.2.3.4) — tier is rejected before IP check
     const key = await seedCVTextKey();
     const res = await post('/create-payment', { tier: 'premium', cv_text_key: key });
     expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/coba|single|3pack|jobhunt/i);
+  });
+
+  it('rejects tier with wrong casing → 400', async () => {
+    const key = await seedCVTextKey();
+    const res = await post('/create-payment', { tier: 'SINGLE', cv_text_key: key });
+    expect(res.status).toBe(400);
+  });
+
+  it('accepts each valid tier past tier validation (all 4 tiers)', async () => {
+    for (const tier of ['coba', 'single', '3pack', 'jobhunt']) {
+      const key = await seedCVTextKey();
+      const res = await post('/create-payment', { tier, cv_text_key: key });
+      // Reaches Mayar invoice creation (fails without API key in test env) — not a 400 tier error
+      const body = await res.json();
+      expect(body.message ?? '').not.toMatch(/tier tidak valid/i);
+    }
+  });
+
+  it('accepts tier with surrounding whitespace → trimmed and accepted', async () => {
+    const key = await seedCVTextKey();
+    const res = await post('/create-payment', { tier: '  single  ', cv_text_key: key });
+    // Should pass tier validation — not a 400 tier error
+    const body = await res.json();
+    expect(body.message ?? '').not.toMatch(/tier tidak valid/i);
   });
 
   it('rejects expired / missing cv_text_key in body → 400', async () => {

@@ -63,9 +63,16 @@ export async function handleCreatePayment(request, env) {
   // Validate tier first — gives a specific rejection for unknown tiers regardless of
   // whether cv_text_key is also missing, preventing the ambiguous "Data tidak lengkap"
   // response that would otherwise mask an invalid tier name.
-  if (!tier || !VALID_TIERS.includes(tier)) {
-    return withRl(jsonResponse({ message: 'Tier tidak valid' }, 400, request, env));
+  // Trim whitespace defensively so minor formatting differences don't produce silent failures.
+  const normalizedTier = (typeof tier === 'string') ? tier.trim() : tier;
+  if (!normalizedTier || !VALID_TIERS.includes(normalizedTier)) {
+    return withRl(jsonResponse({
+      message: `Tier tidak valid. Nilai yang diterima: ${VALID_TIERS.join(', ')}`,
+      valid_tiers: VALID_TIERS,
+    }, 400, request, env));
   }
+  // Use the trimmed value for all downstream logic
+  const validatedTier = normalizedTier;
 
   if (!cv_text_key) {
     return withRl(jsonResponse({ message: 'Sesi analisis tidak ditemukan. Ulangi upload CV untuk melanjutkan.', code: 'cv_key_missing' }, 400, request, env));
@@ -112,7 +119,7 @@ export async function handleCreatePayment(request, env) {
   // Create session
   const sessionId = `sess_${crypto.randomUUID()}`;
 
-  const credits = TIER_CREDITS[tier] ?? 1;
+  const credits = TIER_CREDITS[validatedTier] ?? 1;
 
   try {
     // Redirect after payment completes — points to the right frontend per environment.
@@ -126,7 +133,7 @@ export async function handleCreatePayment(request, env) {
     console.log(JSON.stringify({ event: 'payment_redirect_url', redirectUrl, environment: env.ENVIRONMENT ?? 'sandbox' }));
 
     // Create Mayar invoice first — if this fails, cv_text_key is still intact and user can retry
-    const { invoice_id, invoice_url } = await createMayarInvoice(sessionId, tier, env, redirectUrl, sessionEmail, couponCode);
+    const { invoice_id, invoice_url } = await createMayarInvoice(sessionId, validatedTier, env, redirectUrl, sessionEmail, couponCode);
 
     if (invoice_id) {
       // Store session so the Mayar webhook can complete it even if we don't redirect now.
@@ -137,7 +144,7 @@ export async function handleCreatePayment(request, env) {
         inferred_role: stored.inferred_role ?? null,
         // Carry result_id so /generate can validate the client-supplied analytics ID.
         ...(stored.result_id ? { result_id: stored.result_id } : {}),
-        tier,
+        tier: validatedTier,
         status: SESSION_STATES.PENDING_PAYMENT,
         mayar_invoice_id: invoice_id,
         credits_remaining: credits,
@@ -182,7 +189,7 @@ export async function handleCreatePayment(request, env) {
     if (!invoice_url) {
       // Invoice may or may not have been created — either way, cannot redirect.
       // Do NOT release the invoice lock; do NOT allow retry with the same cv_text_key.
-      console.error(JSON.stringify({ event: 'create_payment_no_url', tier, invoice_id: invoice_id ?? null }));
+      console.error(JSON.stringify({ event: 'create_payment_no_url', tier: validatedTier, invoice_id: invoice_id ?? null }));
       return withRl(jsonResponse({ message: 'Link pembayaran tidak tersedia. Hubungi support@gaslamar.com jika sudah melakukan pembayaran.', code: 'PAYMENT_GATEWAY_ERROR' }, 503, request, env));
     }
 
@@ -213,7 +220,7 @@ export async function handleCreatePayment(request, env) {
     // Release invoice lock only for errors where Mayar never received the request
     // (network failures, validation errors). This allows the user to retry safely.
     await env.GASLAMAR_SESSIONS.delete(invoiceLockKey).catch(() => {});
-    console.error(JSON.stringify({ event: 'create_payment_failed', error: e.message, tier }));
+    console.error(JSON.stringify({ event: 'create_payment_failed', error: e.message, tier: validatedTier }));
     return withRl(jsonResponse({ message: 'Gagal membuat invoice. Coba lagi atau hubungi support@gaslamar.com.' }, 500, request, env));
   }
 }
