@@ -21,10 +21,11 @@ export async function handleCheckSession(request, env) {
         : 'other';
 
   // Primary: CF native binding (atomic, no TOCTOU). Secondary: KV sliding window.
-  // Authenticated callers (valid session cookie) get 30 req/min; IP-only get 10 req/min.
+  // Authenticated callers (valid session cookie) get 60 req/5 min; IP-only get 30 req/5 min.
+  // Window is 5 minutes to accommodate payment-confirmation polling (every 3 s, up to 5 min).
   const [cfAllowed, kvResult] = await Promise.all([
     checkRateLimit(env, env.RATE_LIMITER_CHECK_SESSION, ip),
-    checkRateLimitKVSession(env, ip, cookieSessionId, 10, 30, 60, 'check_session'),
+    checkRateLimitKVSession(env, ip, cookieSessionId, 30, 60, 300, 'check_session'),
   ]);
   if (!cfAllowed || !kvResult.allowed) {
     const retryAfter = !kvResult.allowed ? (kvResult.retryAfter ?? 60) : 60;
