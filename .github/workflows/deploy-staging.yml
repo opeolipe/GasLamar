@@ -213,6 +213,32 @@ jobs:
         env:
           GASLAMAR_IS_SANDBOX: 'true'
 
+      - name: Verify payment allowlist contains all required Mayar checkout domains
+        run: |
+          set -e
+          BUNDLE="js/dist/payment.bundle.js"
+          if [ ! -f "$BUNDLE" ]; then
+            echo "SKIP: $BUNDLE not found (legacy payment.js is used instead — check js/payment.js)"
+            BUNDLE="js/payment.js"
+          fi
+          FAIL=0
+          for DOMAIN in mayar.id mayar.club mayar.co mayar.shop myr.id; do
+            if grep -q "$DOMAIN" "$BUNDLE" js/payment.js pages/Result.tsx 2>/dev/null; then
+              echo "  OK: $DOMAIN found in allowlist sources"
+            else
+              echo "  FAIL: $DOMAIN missing from allowlist — add to ALLOWED_PAYMENT_HOSTS in js/payment.js AND pages/Result.tsx"
+              FAIL=1
+            fi
+          done
+          if [ "$FAIL" -ne 0 ]; then
+            echo ""
+            echo "Payment allowlist check FAILED. Mayar sandbox uses mayar.shop and myr.id checkout URLs."
+            echo "Missing domains cause orphaned invoices and 'Selesaikan Pembayaran Anda' emails."
+            echo "See docs/payment-flow.md for full details."
+            exit 1
+          fi
+          echo "Payment allowlist check passed."
+
       - name: Upload frontend artifact
         uses: actions/upload-artifact@v4
         with:

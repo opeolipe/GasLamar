@@ -1404,6 +1404,91 @@ describe('POST /create-payment — one-time key consumption', () => {
   });
 });
 
+describe('POST /create-payment — Mayar URL field extraction', () => {
+  beforeAll(() => fetchMock.activate());
+  afterAll(() => fetchMock.deactivate());
+
+  const CHECKOUT_DOMAINS = [
+    { field: 'paymentLink', url: 'https://olive-41774.mayar.shop/select-channel/abc123', label: 'mayar.shop (paymentLink)' },
+    { field: 'link',        url: 'https://web.mayar.id/pay/inv_link',                    label: 'mayar.id (link)' },
+    { field: 'url',         url: 'https://sandbox.mayar.co/pay/inv_url',                 label: 'mayar.co (url)' },
+    { field: 'payment_url', url: 'https://olive-41774.myr.id/pay/inv_purl',              label: 'myr.id (payment_url)' },
+  ];
+
+  for (const { field, url, label } of CHECKOUT_DOMAINS) {
+    it(`extracts invoice_url from Mayar response field "${field}" — ${label}`, async () => {
+      const key = await seedCVTextKey(undefined, '10.1.1.1');
+      fetchMock
+        .get('https://api.mayar.club')
+        .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
+        .reply(200, JSON.stringify({ data: { id: `inv_${field}`, [field]: url } }))
+        .times(1);
+
+      const res = await post('/create-payment', { tier: 'single', cv_text_key: key }, {}, '10.1.1.1');
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.invoice_url).toBe(url);
+    });
+  }
+
+  it('stores invoice_url in session so resume logic can return it on retry', async () => {
+    const key = await seedCVTextKey(undefined, '10.1.2.1');
+    const invoiceUrl = 'https://olive-41774.mayar.shop/select-channel/store-test';
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
+      .reply(200, JSON.stringify({ data: { id: 'inv_store_test', paymentLink: invoiceUrl } }))
+      .times(1);
+
+    const res = await post('/create-payment', { tier: 'single', cv_text_key: key }, {}, '10.1.2.1');
+    expect(res.status).toBe(200);
+
+    const sessionId = sessionIdFromSetCookie(res);
+    const session = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
+    expect(session.invoice_url).toBe(invoiceUrl);
+    expect(session.status).toBe('pending_payment');
+  });
+
+  it('resume path returns stored invoice_url without creating a new Mayar invoice', async () => {
+    // Simulate: cvtext_ already consumed, session cookie present with pending_payment + invoice_url.
+    // fetchMock must NOT be called — if it is, a new invoice was created (bug).
+    const sessionId = `sess_${crypto.randomUUID()}`;
+    const existingUrl = 'https://olive-41774.mayar.shop/select-channel/resume-no-dup';
+    await env.GASLAMAR_SESSIONS.put(
+      sessionId,
+      JSON.stringify({
+        tier: 'single',
+        status: 'pending_payment',
+        invoice_url: existingUrl,
+        mayar_invoice_id: 'inv_resume_no_dup',
+        credits_remaining: 1,
+        total_credits: 1,
+      }),
+      { expirationTtl: 604800 },
+    );
+
+    let mayarWasCalled = false;
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
+      .reply(200, () => { mayarWasCalled = true; return JSON.stringify({ data: { id: 'inv_dup', paymentLink: 'https://mayar.shop/dup' } }); })
+      .times(1);
+
+    const nonexistentKey = `cvtext_${cvHexToken()}`;
+    const res = await post(
+      '/create-payment',
+      { tier: 'single', cv_text_key: nonexistentKey },
+      { Cookie: `__Host-session_id=${sessionId}` },
+      '10.1.3.1',
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.invoice_url).toBe(existingUrl);
+    expect(mayarWasCalled).toBe(false);
+  });
+});
+
 describe('API aliases', () => {
   it('accepts POST /api/create-payment as an alias for /create-payment', async () => {
     const key = await seedCVTextKey(undefined, '10.0.0.13');
