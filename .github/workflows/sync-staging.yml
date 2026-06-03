@@ -63,7 +63,7 @@ jobs:
               --base staging \
               --head main \
               --title "chore: sync main → staging ($(date +%Y-%m-%d), $BEHIND commits)" \
-              --body "$(cat <<'EOF'
+              --body "$(cat <<EOF
 ## Automatic daily sync
 
 This PR was created automatically because **staging is $BEHIND commits behind main**.
