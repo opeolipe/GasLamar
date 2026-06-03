@@ -157,8 +157,6 @@ async function runAnalysis() {
     const result = await response.json();
 
     // cv_text_key is now an HttpOnly cookie set by the server — not stored in sessionStorage.
-    // Only the timestamp is kept so hasil-guard.js can check session freshness client-side.
-    sessionStorage.setItem('gaslamar_analyze_time', String(Date.now()));
     // Remove any leftover scoring blob from a previous analysis (defensive cleanup).
     sessionStorage.removeItem('gaslamar_scoring');
 
@@ -173,15 +171,6 @@ async function runAnalysis() {
       time_ms: (() => { const t = sessionStorage.getItem('gaslamar_upload_start'); return t ? Date.now() - parseInt(t, 10) : undefined; })(),
     });
 
-    // Persist best bullet for preview/download consistency (B1 fix) before clearing cv_pending
-    try {
-      if (cvData) {
-        const lines = cvData.split('\n').map(l => l.trim()).filter(l => l.length > 20);
-        const bullet = lines.find(l => /^[-•*]/.test(l)) || lines.reduce((a, b) => b.length > a.length ? b : a, '');
-        if (bullet) sessionStorage.setItem('gaslamar_sample_line', bullet);
-      }
-    } catch (_) {}
-
     // Clear pending data — analysis succeeded, draft no longer needed
     sessionStorage.removeItem('gaslamar_cv_pending');
     sessionStorage.removeItem('gaslamar_jd_pending');
@@ -194,7 +183,8 @@ async function runAnalysis() {
     clearInterval(trustInterval);
     finishAnimation();
 
-    setTimeout(() => { window.location.replace('hasil.html'); }, 800);
+    const _tierParam = new URLSearchParams(location.search).get('tier');
+    setTimeout(() => { window.location.replace(_tierParam ? 'hasil.html?tier=' + encodeURIComponent(_tierParam) : 'hasil.html'); }, 800);
 
   } catch (err) {
     clearTimeout(analysisTimeoutId);

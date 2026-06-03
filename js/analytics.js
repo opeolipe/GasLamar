@@ -10,8 +10,6 @@
 (function () {
   'use strict';
 
-  var USER_ID_KEY = 'gaslamar_user_id';
-
   function ph() {
     return window.posthog || { capture: function () {}, identify: function () {}, onFeatureFlags: function () {}, getFeatureFlag: function () {} };
   }
@@ -21,23 +19,19 @@
   }
 
   function getOrCreateStableUserId() {
-    try {
-      var existing = sessionStorage.getItem(USER_ID_KEY);
-      if (existing && /^gl_[a-f0-9]{32}$/.test(existing)) return existing;
-      var raw = new Uint8Array(16);
-      crypto.getRandomValues(raw);
-      var created = 'gl_' + toHex(raw);
-      sessionStorage.setItem(USER_ID_KEY, created);
-      return created;
-    } catch (_) {
-      // localStorage may be blocked (private mode). Keep a deterministic fallback in-memory per page.
-      if (!window.__gaslamarEphemeralUserId) {
-        var tmp = new Uint8Array(16);
-        crypto.getRandomValues(tmp);
-        window.__gaslamarEphemeralUserId = 'gl_' + toHex(tmp);
+    // Anonymous analytics ID — kept in-memory only (no sessionStorage/localStorage).
+    // A new ID is generated on each page load; this is intentional to avoid
+    // storing any user-associated identifier in JS-accessible storage.
+    if (!window.__gaslamarEphemeralUserId) {
+      try {
+        var raw = new Uint8Array(16);
+        crypto.getRandomValues(raw);
+        window.__gaslamarEphemeralUserId = 'gl_' + toHex(raw);
+      } catch (_) {
+        window.__gaslamarEphemeralUserId = 'gl_fallback';
       }
-      return window.__gaslamarEphemeralUserId;
     }
+    return window.__gaslamarEphemeralUserId;
   }
 
   async function sha256Hex(input) {
@@ -50,8 +44,7 @@
   }
 
   function getSessionProps() {
-    var tier = sessionStorage.getItem('gaslamar_tier') || localStorage.getItem('gaslamar_tier') || undefined;
-    return tier ? { tier_intent: tier } : {};
+    return {};
   }
 
   var Analytics = {

@@ -50,10 +50,35 @@ jobs:
       - name: TypeScript type check
         run: npm run typecheck
 
+  check-staleness:
+    name: Check Branch Staleness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fail if staging is more than 24h behind main
+        run: |
+          git fetch origin main --depth=1
+          MAIN_TS=$(git log -1 --format=%ct origin/main)
+          HEAD_TS=$(git log -1 --format=%ct HEAD)
+          DIFF=$(( MAIN_TS - HEAD_TS ))
+          echo "main latest commit: $(date -d @$MAIN_TS --utc '+%Y-%m-%dT%H:%M:%SZ')"
+          echo "staging HEAD commit: $(date -d @$HEAD_TS --utc '+%Y-%m-%dT%H:%M:%SZ')"
+          echo "Difference: ${DIFF}s ($(( DIFF / 3600 ))h $(( (DIFF % 3600) / 60 ))m)"
+          if [ "$DIFF" -gt 86400 ]; then
+            echo ""
+            echo "STAGING IS STALE — merge main into staging before deploying."
+            echo "Staging is $(( DIFF / 3600 ))h behind main. Run: git merge origin/main"
+            exit 1
+          fi
+          echo "Staleness check passed: staging is within 24h of main."
+
   deploy-sandbox-worker:
     name: Deploy Staging Worker
     runs-on: ubuntu-latest
-    needs: [test, typecheck]
+    needs: [test, typecheck, check-staleness]
     defaults:
       run:
         working-directory: worker
@@ -88,6 +113,64 @@ jobs:
             echo "Health check failed: expected 200, got $STATUS"
             exit 1
           fi
+
+      - name: Payment gateway smoke test
+        run: |
+          set -e
+          WORKER="https://api-staging.gaslamar.com"
+          ORIGIN="https://staging.gaslamar.pages.dev"
+          FAIL=0
+
+          echo "--- [1] GET /payment-health: Mayar sandbox reachable + API key configured ---"
+          HEALTH_BODY=$(curl -s -H "Origin: $ORIGIN" "$WORKER/payment-health")
+          echo "  Response: $HEALTH_BODY"
+          HEALTH_STATUS=$(echo "$HEALTH_BODY" | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4)
+          GW_STATUS=$(echo "$HEALTH_BODY" | grep -o '"gateway_status":"[^"]*"' | head -1 | cut -d'"' -f4)
+          echo "  status=$HEALTH_STATUS  gateway_status=$GW_STATUS"
+          if [ "$HEALTH_STATUS" = "ok" ]; then
+            echo "  PASS: Mayar gateway reachable"
+          else
+            echo "  FAIL: Mayar gateway not reachable (status=$HEALTH_STATUS, gateway_status=$GW_STATUS)"
+            echo "        This means MAYAR_API_KEY_SANDBOX is missing or Mayar sandbox is down."
+            FAIL=1
+          fi
+
+          echo "--- [2] POST /create-payment: endpoint exists and rejects missing cv_text_key with 400 ---"
+          CP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "$WORKER/create-payment" \
+            -H "Content-Type: application/json" \
+            -H "Origin: $ORIGIN" \
+            -d '{"tier":"single","email":"smoke@gaslamar.test"}')
+          echo "  HTTP $CP_STATUS (expected 400 — missing cv_text_key)"
+          if [ "$CP_STATUS" = "400" ]; then
+            echo "  PASS: endpoint live and validating input correctly"
+          else
+            echo "  FAIL: expected 400, got $CP_STATUS — endpoint may not be deployed or is returning an unexpected error"
+            FAIL=1
+          fi
+
+          echo "--- [3] POST /create-payment: rejects unknown tier with 400 + valid_tiers field ---"
+          TIER_BODY=$(curl -s \
+            -X POST "$WORKER/create-payment" \
+            -H "Content-Type: application/json" \
+            -H "Origin: $ORIGIN" \
+            -d '{"tier":"__invalid_tier__","cv_text_key":"cvtext_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}')
+          TIER_STATUS=$(echo "$TIER_BODY" | grep -o '"valid_tiers"')
+          if [ "$TIER_STATUS" = '"valid_tiers"' ]; then
+            echo "  PASS: tier validation present in response"
+          else
+            echo "  WARN: valid_tiers field not in response — check tier validation: $TIER_BODY"
+          fi
+
+          if [ "$FAIL" -ne 0 ]; then
+            echo ""
+            echo "Payment gateway smoke test FAILED — see above."
+            echo "This usually means: (a) MAYAR_API_KEY_SANDBOX secret is missing, or"
+            echo "(b) the staging worker was not deployed correctly."
+            exit 1
+          fi
+          echo ""
+          echo "Payment gateway smoke test passed."
 
       - name: CORS security header check (staging)
         run: |
@@ -156,6 +239,42 @@ jobs:
           echo ""
           echo "All CORS security checks passed."
 
+      - name: Security headers check (staging)
+        run: |
+          set -e
+          WORKER="https://api-staging.gaslamar.com"
+          FAIL=0
+
+          check_header() {
+            local ENDPOINT="$1"
+            local HEADER="$2"
+            local EXPECTED="$3"
+            local ACTUAL
+            ACTUAL=$(curl -s -I "$WORKER$ENDPOINT" | grep -i "^${HEADER}:" | tr -d '\r' | sed 's/^[^:]*: //')
+            if [ "$ACTUAL" = "$EXPECTED" ]; then
+              echo "  PASS [$ENDPOINT] $HEADER: $ACTUAL"
+            else
+              echo "  FAIL [$ENDPOINT] $HEADER: expected '$EXPECTED', got '$ACTUAL'"
+              FAIL=1
+            fi
+          }
+
+          for ENDPOINT in /health /check-session; do
+            echo "--- $ENDPOINT ---"
+            check_header "$ENDPOINT" "content-security-policy" "default-src 'none'; frame-ancestors 'none'"
+            check_header "$ENDPOINT" "x-frame-options"         "DENY"
+            check_header "$ENDPOINT" "x-content-type-options"  "nosniff"
+            check_header "$ENDPOINT" "strict-transport-security" "max-age=31536000; includeSubDomains"
+          done
+
+          if [ "$FAIL" -ne 0 ]; then
+            echo ""
+            echo "Security headers check FAILED — see above."
+            exit 1
+          fi
+          echo ""
+          echo "All security header checks passed."
+
   build-frontend:
     name: Build Frontend
     runs-on: ubuntu-latest
@@ -177,6 +296,32 @@ jobs:
         env:
           GASLAMAR_IS_SANDBOX: 'true'
 
+      - name: Verify payment allowlist contains all required Mayar checkout domains
+        run: |
+          set -e
+          BUNDLE="js/dist/payment.bundle.js"
+          if [ ! -f "$BUNDLE" ]; then
+            echo "SKIP: $BUNDLE not found (legacy payment.js is used instead — check js/payment.js)"
+            BUNDLE="js/payment.js"
+          fi
+          FAIL=0
+          for DOMAIN in mayar.id mayar.club mayar.co mayar.shop myr.id; do
+            if grep -q "$DOMAIN" "$BUNDLE" js/payment.js pages/Result.tsx 2>/dev/null; then
+              echo "  OK: $DOMAIN found in allowlist sources"
+            else
+              echo "  FAIL: $DOMAIN missing from allowlist — add to ALLOWED_PAYMENT_HOSTS in js/payment.js AND pages/Result.tsx"
+              FAIL=1
+            fi
+          done
+          if [ "$FAIL" -ne 0 ]; then
+            echo ""
+            echo "Payment allowlist check FAILED. Mayar sandbox uses mayar.shop and myr.id checkout URLs."
+            echo "Missing domains cause orphaned invoices and 'Selesaikan Pembayaran Anda' emails."
+            echo "See docs/payment-flow.md for full details."
+            exit 1
+          fi
+          echo "Payment allowlist check passed."
+
       - name: Upload frontend artifact
         uses: actions/upload-artifact@v4
         with:
@@ -191,7 +336,7 @@ jobs:
   deploy-staging-pages:
     name: Deploy Staging to Cloudflare Pages
     runs-on: ubuntu-latest
-    needs: build-frontend
+    needs: [build-frontend, deploy-sandbox-worker]
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -206,15 +351,20 @@ jobs:
       - name: Deploy preview to Cloudflare Pages
         id: pages
         run: |
-          npx wrangler@4 pages deploy dist \
+          npx wrangler@3 pages deploy dist \
             --project-name=gaslamar \
             --branch=staging \
             --commit-dirty=true \
             2>&1 | tee /tmp/pages-output.txt
           echo "--- Pages output ---"
           cat /tmp/pages-output.txt
-          # Extract the preview URL from wrangler output
+          # Extract the preview URL from wrangler output; fall back to the canonical
+          # branch alias so the smoke test always has a valid target.
           URL=$(grep -oE 'https://[a-z0-9-]+\.gaslamar\.pages\.dev' /tmp/pages-output.txt | head -1)
+          if [ -z "$URL" ]; then
+            URL="https://staging.gaslamar.pages.dev"
+            echo "URL not found in wrangler output — using canonical alias: $URL"
+          fi
           echo "staging_url=$URL" >> $GITHUB_OUTPUT
           echo "Staging URL: $URL"
         env:
@@ -233,5 +383,105 @@ jobs:
       # QA false positive MEDIUM #1 (2026-06-01).
       - name: Verify staging bundle fingerprints match current build
         run: |
-          sleep 10
+          sleep 20
           STAGING_URL="${{ steps.pages.outputs.staging_url }}" node dist/scripts/verify-staging-bundle.js
+
+      # Structural smoke test: confirms each deployed page has the correct root
+      # element, loads only its own React bundle, and returns HTTP 200.
+      # This catches stale HTML (wrong bundle reference) and server errors.
+      #
+      # NOTE: hasil.html and download.html are session-protected pages. Cloudflare
+      # Pages "Clean URLs" strips .html → redirects /hasil.html → /hasil, which
+      # then hits the _redirects rule and sends unauthenticated users to upload.html.
+      # We cannot check their HTML content without auth, so we verify their JS
+      # bundle assets directly instead (same strategy as verify-staging-bundle.js).
+      - name: Structural smoke test
+        run: |
+          set -e
+          BASE="${{ steps.pages.outputs.staging_url }}"
+          FAIL=0
+
+          # check_page: fetch the HTML page (without following redirects) and
+          # verify it contains the expected root element and bundle reference.
+          check_page() {
+            local FILE="$1"
+            local OWN_BUNDLE="$2"
+            local ROOT_ELEM="$3"
+            local TITLE_FRAGMENT="$4"
+            local URL="$BASE/$FILE"
+
+            echo ""
+            echo "=== $FILE ==="
+            # Do NOT follow redirects (-L omitted): session-protected pages redirect
+            # unauthenticated requests and we must not read the redirect destination.
+            HTTP_STATUS=$(curl -s -o /tmp/smoke_body.html -w "%{http_code}" \
+              -H "Cache-Control: no-cache" -H "Pragma: no-cache" "$URL")
+
+            if [ "$HTTP_STATUS" != "200" ]; then
+              echo "  FAIL: HTTP $HTTP_STATUS (expected 200)"
+              FAIL=1
+              return
+            fi
+            echo "  OK: HTTP 200"
+
+            if ! grep -q "$ROOT_ELEM" /tmp/smoke_body.html; then
+              echo "  FAIL: root element '$ROOT_ELEM' not found"
+              FAIL=1
+            else
+              echo "  OK: root element '$ROOT_ELEM' present"
+            fi
+
+            if ! grep -q "$OWN_BUNDLE" /tmp/smoke_body.html; then
+              echo "  FAIL: own bundle '$OWN_BUNDLE' not found"
+              FAIL=1
+            else
+              echo "  OK: own bundle '$OWN_BUNDLE' loaded"
+            fi
+
+            if [ -n "$TITLE_FRAGMENT" ]; then
+              if ! grep -q "$TITLE_FRAGMENT" /tmp/smoke_body.html; then
+                echo "  FAIL: title fragment '$TITLE_FRAGMENT' not found"
+                FAIL=1
+              else
+                echo "  OK: title fragment found"
+              fi
+            fi
+          }
+
+          # check_bundle_asset: for session-protected pages that always redirect
+          # unauthenticated requests, verify the JS bundle file itself is deployed
+          # and returns HTTP 200. The bundle content hash was already confirmed by
+          # the "Verify staging bundle fingerprints" step above.
+          check_bundle_asset() {
+            local LABEL="$1"
+            local BUNDLE_PATH="$2"
+            local URL="$BASE/$BUNDLE_PATH"
+
+            echo ""
+            echo "=== $LABEL (bundle asset check) ==="
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              -H "Cache-Control: no-cache" -H "Pragma: no-cache" "$URL")
+
+            if [ "$HTTP_STATUS" = "200" ]; then
+              echo "  OK: HTTP 200 — bundle deployed"
+            else
+              echo "  FAIL: HTTP $HTTP_STATUS (expected 200) — bundle missing or not served"
+              FAIL=1
+            fi
+          }
+
+          # Public pages: request without .html to avoid Cloudflare Clean URLs 308 redirect.
+          check_page "upload"    "upload-react.bundle.js"    "upload-root"    ""
+          check_page "analyzing" "analyzing-react.bundle.js" "analyzing-root" ""
+
+          # Session-protected pages redirect unauthenticated requests via Clean URLs
+          # + _redirects. Verify their JS bundles are deployed instead.
+          check_bundle_asset "hasil.html"    "js/dist/hasil-react.bundle.js"
+          check_bundle_asset "download.html" "js/dist/download-react.bundle.js"
+
+          echo ""
+          if [ "$FAIL" -ne 0 ]; then
+            echo "Structural smoke test FAILED — see above."
+            exit 1
+          fi
+          echo "All structural smoke checks passed."

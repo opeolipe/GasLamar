@@ -38,6 +38,7 @@ export function getCorsHeaders(request, env) {
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-Session-Id',
     'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Expose-Headers': 'X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, Retry-After',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',
   };
@@ -56,6 +57,7 @@ export const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'X-Frame-Options': 'DENY',
+  'X-XSS-Protection': '1; mode=block',
   'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',

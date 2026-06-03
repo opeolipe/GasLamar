@@ -1,6 +1,6 @@
 import { forbiddenOriginResponse, isUnsafeOrigin, jsonResponse, corsResponse, SECURITY_HEADERS } from './cors.js';
 import { clientIp, log, logError } from './utils.js';
-import { checkRateLimitKV, rateLimitResponse } from './rateLimit.js';
+import { checkRateLimitKV, rateLimitResponse, addRateLimitHeaders } from './rateLimit.js';
 import { sanitizeLogValue } from './sanitize.js';
 import { handleAnalyze } from './handlers/analyze.js';
 import { handleCreatePayment } from './handlers/createPayment.js';
@@ -19,13 +19,16 @@ import { handleInterviewKit }  from './handlers/interviewKit.js';
 import { handleGetResult } from './handlers/getResult.js';
 import { handleValidateCoupon } from './handlers/validateCoupon.js';
 import { handleGetScoring } from './handlers/getScoring.js';
+import { handlePaymentHealth } from './handlers/paymentHealth.js';
+import { handleAdminCancelInvoice } from './handlers/adminCancelInvoice.js';
 import { getSession } from './sessions.js';
-import { getCvTextKeyFromCookie, getCvKeyFromCookie, getSessionIdFromCookie } from './cookies.js';
+import { getCvTextKeyFromCookie, getCvKeyFromCookie, getSessionIdFromCookie, getSessionTokenFromCookie } from './cookies.js';
 
 function noStoreRedirect(location) {
   return new Response(null, {
     status: 302,
     headers: {
+      ...SECURITY_HEADERS,
       Location: location,
       'Cache-Control': 'no-store',
     },
@@ -33,23 +36,36 @@ function noStoreRedirect(location) {
 }
 
 async function getProtectedPageState(request, env) {
-  const sessionId = getSessionIdFromCookie(request);
+  const sessionId   = getSessionIdFromCookie(request);
   // cv_key is the current cookie name (set by /analyze via makeCvKeyCookie).
   // cv_text_key is the legacy name kept for backward compat with old sessions.
-  const cvTextKey = getCvKeyFromCookie(request) || getCvTextKeyFromCookie(request);
+  const cvTextKey   = getCvKeyFromCookie(request) || getCvTextKeyFromCookie(request);
+  // sessionToken (UUID → analysis_session_ KV) is checked first — no IP binding,
+  // so it works when the user's IP changes between /analyze and /hasil (e.g. mobile).
+  const sessionToken = getSessionTokenFromCookie(request);
   const ip = clientIp(request);
   const state = {
-    hasSessionCookie: !!sessionId,
-    hasAnalysisCookie: !!cvTextKey,
-    sessionActive: false,
-    analysisActive: false,
+    hasSessionCookie:  !!sessionId,
+    hasAnalysisCookie: !!(cvTextKey || sessionToken),
+    sessionActive:   false,
+    analysisActive:  false,
   };
 
   if (sessionId) {
     state.sessionActive = !!(await getSession(env, sessionId));
   }
 
-  if (cvTextKey) {
+  // Primary: sessionToken path — no IP check, survives mobile IP changes.
+  if (!state.analysisActive && sessionToken) {
+    const session = await env.GASLAMAR_SESSIONS.get(
+      `analysis_session_${sessionToken}`,
+      { type: 'json' },
+    );
+    if (session?.resultId) state.analysisActive = true;
+  }
+
+  // Fallback: cv_key cookie path — IP-bound for additional security.
+  if (!state.analysisActive && cvTextKey) {
     const stored = await env.GASLAMAR_SESSIONS.get(cvTextKey, { type: 'json' });
     if (stored?.scoring && (!stored.ip || stored.ip === ip)) {
       state.analysisActive = true;
@@ -167,6 +183,14 @@ export async function route(request, env, ctx) {
     return handleCreatePayment(request, env);
   }
 
+  if (method === 'GET' && apiPath === '/payment-health') {
+    return handlePaymentHealth(request, env);
+  }
+
+  if (method === 'POST' && apiPath === '/admin/cancel-invoice') {
+    return handleAdminCancelInvoice(request, env);
+  }
+
   if (isWebhookPath) {
     return handleMayarWebhook(request, env, ctx);
   }
@@ -231,14 +255,15 @@ export async function route(request, env, ctx) {
   if (method === 'POST' && apiPath === '/log') {
     const ip = clientIp(request);
     const kvResult = await checkRateLimitKV(env, ip, 30, 60, 'client_log');
-    if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60);
+    if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60, kvResult);
+    const withRlLog = res => addRateLimitHeaders(res, kvResult);
     const contentType = request.headers.get('Content-Type') || '';
     // Read the body as text first and enforce actual byte count — not Content-Length,
     // which is client-supplied and can be absent or falsified (chunked transfer, no header).
     const bodyText = await request.text().catch(() => '');
     if (bodyText.length > 8192) {
       console.warn(JSON.stringify({ event: 'client_log_oversized', bodyLength: bodyText.length, ip }));
-      return jsonResponse({ ok: false, message: 'Payload terlalu besar' }, 413, request, env);
+      return withRlLog(jsonResponse({ ok: false, message: 'Payload terlalu besar' }, 413, request, env));
     }
     // Accept both application/json and text/plain (sendBeacon sends text/plain to avoid
     // CORS preflight; the body is still JSON-formatted). Fall back to { raw } on parse error.
@@ -255,16 +280,17 @@ export async function route(request, env, ctx) {
       })
     );
     log('client_log', { body, ip });
-    return jsonResponse({ ok: true }, 200, request, env);
+    return withRlLog(jsonResponse({ ok: true }, 200, request, env));
   }
 
   if (method === 'POST' && apiPath === '/feedback') {
     const ip = clientIp(request);
     const kvResult = await checkRateLimitKV(env, ip, 10, 60, 'feedback');
-    if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60);
+    if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60, kvResult);
+    const withRlFb = res => addRateLimitHeaders(res, kvResult);
     const feedbackText = await request.text().catch(() => '');
     if (feedbackText.length > 4096) {
-      return jsonResponse({ ok: false, message: 'Payload terlalu besar' }, 413, request, env);
+      return withRlFb(jsonResponse({ ok: false, message: 'Payload terlalu besar' }, 413, request, env));
     }
     const body = feedbackText
       ? (() => { try { return JSON.parse(feedbackText); } catch { return {}; } })()
@@ -275,7 +301,7 @@ export async function route(request, env, ctx) {
     // Cap answer length and sanitize control chars — fire-and-forget, no need to reject
     const answer = sanitizeLogValue(typeof body.answer === 'string' ? body.answer : '', 1000);
     log('user_feedback', { type, answer, ip });
-    return jsonResponse({ ok: true }, 200, request, env);
+    return withRlFb(jsonResponse({ ok: true }, 200, request, env));
   }
 
   const allowedMethods = API_METHODS.get(apiPath);

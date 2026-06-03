@@ -2,7 +2,7 @@ import { jsonResponse } from '../cors.js';
 import { getSessionIdFromCookie } from '../cookies.js';
 import { log, clientIp } from '../utils.js';
 import { KV_CV_RESULT_PREFIX } from '../constants.js';
-import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
+import { checkRateLimitKV, rateLimitResponse, addRateLimitHeaders } from '../rateLimit.js';
 import { getSession } from '../sessions.js';
 import { SESSION_STATES } from '../sessionStates.js';
 
@@ -24,16 +24,17 @@ function sanitizeFinalExportText(text) {
 export async function handleGetResult(request, env) {
   const ip = clientIp(request);
   const rl = await checkRateLimitKV(env, ip, 30, 60, 'get_result');
-  if (!rl.allowed) return rateLimitResponse(request, env, rl.retryAfter ?? 60);
+  if (!rl.allowed) return rateLimitResponse(request, env, rl.retryAfter ?? 60, rl);
+  const withRl = res => addRateLimitHeaders(res, rl);
 
   const session_id = getSessionIdFromCookie(request);
   if (!session_id) {
-    return jsonResponse({ message: 'Sesi tidak ditemukan.' }, 401, request, env);
+    return withRl(jsonResponse({ message: 'Sesi tidak ditemukan.' }, 401, request, env));
   }
 
   const stored = await env.GASLAMAR_SESSIONS.get(`${KV_CV_RESULT_PREFIX}${session_id}`, { type: 'json' });
   if (!stored) {
-    return jsonResponse({ message: 'Hasil tidak ditemukan atau sudah kedaluwarsa.' }, 404, request, env);
+    return withRl(jsonResponse({ message: 'Hasil tidak ditemukan atau sudah kedaluwarsa.' }, 404, request, env));
   }
 
   // Strip internal fields before returning
@@ -50,5 +51,5 @@ export async function handleGetResult(request, env) {
   const exhausted = !session || session.status === SESSION_STATES.EXHAUSTED;
 
   log('get_result_hit', { session_id, exhausted });
-  return jsonResponse({ ...result, exhausted }, 200, request, env);
+  return withRl(jsonResponse({ ...result, exhausted }, 200, request, env));
 }

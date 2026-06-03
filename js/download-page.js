@@ -14,7 +14,7 @@ let _genTrustIdx = 0, _genTrustTimer = null, _genTimerTimer = null, _genStartTim
 
 function startGeneratingAnimation() {
   const filename = sessionStorage.getItem('gaslamar_filename') || 'CV kamu';
-  const tier = sessionStorage.getItem('gaslamar_tier') || 'single';
+  const tier = (cvDataCache && cvDataCache.tier) || 'single';
   const tierLabel = { coba:'Coba Dulu', single:'Single', '3pack':'3-Pack', jobhunt:'Job Hunt Pack' }[tier] || tier;
   document.getElementById('gen-filename').textContent = filename;
   document.getElementById('gen-tier').textContent = 'Paket: ' + tierLabel;

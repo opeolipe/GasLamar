@@ -90,11 +90,10 @@ function buildSnippetPreview(raw: string | null | undefined): string | null {
 }
 
 export default function Result() {
-  const { data, analyzeTime, loading, error, noSession } = useResultData();
+  const { data, analyzeTime, scoreDisplayedAt, loading, error, noSession } = useResultData();
   const countdown = useSessionCountdown(analyzeTime);
-  // cv_pending is cleared by Analyzing before navigation — read only the pre-extracted
-  // sample line (a single bullet/action verb, no raw CV text).
-  const [cvText]  = useState(() => sessionStorage.getItem('gaslamar_sample_line') || '');
+  // sample_line is now fetched from server via /get-scoring — never stored in sessionStorage.
+  const cvText = data?.sample_line ?? '';
 
   const [showAllDimensions,     setShowAllDimensions]     = useState(false);
   const [resultFlowVariant,     setResultFlowVariant]     = useState<'on' | 'control'>('on');
@@ -115,8 +114,8 @@ export default function Result() {
   const blurTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const saved = sessionStorage.getItem('gaslamar_tier') || localStorage.getItem('gaslamar_tier');
-    if (saved && TIER_CONFIG[saved]) setSelectedTier(saved);
+    const urlTier = new URLSearchParams(window.location.search).get('tier');
+    if (urlTier && TIER_CONFIG[urlTier]) setSelectedTier(urlTier);
   }, []);
 
   useEffect(() => {
@@ -155,7 +154,6 @@ export default function Result() {
   function handleTierSelect(tier: string) {
     setSelectedTier(tier);
     setPaymentError(null);
-    sessionStorage.setItem('gaslamar_tier', tier);
     setEmailError('');
     ;(window as any).Analytics?.track?.('tier_selected', { tier, tier_price_idr: TIER_CONFIG[tier].price, tier_label: TIER_CONFIG[tier].label, is_bilingual: TIER_CONFIG[tier].bilingual });
   }
@@ -225,49 +223,6 @@ export default function Result() {
     if (paymentInProgress) return;
     if (!selectedTier) return;
 
-    const pendingRaw = sessionStorage.getItem('gaslamar_pending_invoice');
-    if (pendingRaw) {
-      try {
-        const pending = JSON.parse(pendingRaw) as {
-          invoice_url: string;
-          created_at:  number;
-          tier?:       string;
-        };
-        const notExpired  = (Date.now() - (pending.created_at || 0)) < 7200000;
-        const tierMatches = !pending.tier || pending.tier === selectedTier;
-
-        if (pending.invoice_url && notExpired && tierMatches) {
-          let urlSafe = false;
-          try {
-            const p = new URL(pending.invoice_url);
-            const h = p.hostname;
-            urlSafe = p.protocol === 'https:' && (
-              h === 'mayar.id' || h.endsWith('.mayar.id') ||
-              h === 'mayar.club' || h.endsWith('.mayar.club')
-            );
-          } catch (_) {}
-          if (!urlSafe) throw new Error('invalid_invoice_url');
-          setPaymentInProgress(true);
-          setPayBtnOverride('Mengalihkan ke halaman pembayaran...');
-          setTransitionInvoiceUrl(pending.invoice_url);
-          return;
-        }
-        if (pending.invoice_url && notExpired && !tierMatches) {
-          const origLabel = (pending.tier && TIER_CONFIG[pending.tier])
-            ? TIER_CONFIG[pending.tier].label
-            : 'paket sebelumnya';
-          setPaymentError(
-            `Invoice sudah dibuat untuk "${origLabel}". Pilih paket itu untuk melanjutkan, ` +
-            `atau klik "Upload CV lain" di bawah untuk memilih paket lain.`
-          );
-          setPaymentInProgress(false);
-          setPayBtnOverride(null);
-          return;
-        }
-      } catch (_) {}
-      sessionStorage.removeItem('gaslamar_pending_invoice');
-    }
-
     const emailValidation = validateEmail(email);
     if (!emailValidation.valid || emailValidation.suggestion) {
       setEmailError(emailValidation.error ?? 'Email tidak valid.');
@@ -289,10 +244,7 @@ export default function Result() {
     ;(window as any).Analytics?.track?.('payment_initiated', {
       tier:           selectedTier,
       tier_price_idr: TIER_CONFIG[selectedTier].price,
-      time_ms_since_score: (() => {
-        const t = sessionStorage.getItem('gaslamar_score_displayed_at');
-        return t ? Date.now() - parseInt(t, 10) : undefined;
-      })(),
+      time_ms_since_score: scoreDisplayedAt ? Date.now() - scoreDisplayedAt : undefined,
     });
 
     setPaymentInProgress(true);
@@ -319,7 +271,7 @@ export default function Result() {
       if (!response.ok) {
         const err    = await response.json().catch(() => ({}));
         const errMsg = (err as any).message || `Server error: ${response.status}`;
-        if ((response.status === 400 && (err as any).code === 'cv_expired') || response.status === 403) {
+        if ((response.status === 400 && ((err as any).code === 'cv_expired' || (err as any).code === 'cv_key_missing')) || response.status === 403) {
           setPaymentInProgress(false);
           setPayBtnOverride(null);
           setPaymentError('Waktu analisis sudah habis. Klik "Upload CV lain" di bawah untuk melanjutkan.');
@@ -336,24 +288,23 @@ export default function Result() {
       try {
         const parsed = new URL(invoice_url);
         const h = parsed.hostname;
-        validUrl = parsed.protocol === 'https:' && (
-          h === 'mayar.id' || h.endsWith('.mayar.id') ||
-          h === 'mayar.club' || h.endsWith('.mayar.club')
-        );
+        // mayar.id / mayar.club — production and sandbox API-issued links
+        // mayar.co / sandbox.mayar.co — Mayar sandbox checkout URLs (new sandbox domain)
+        // mayar.shop — Mayar sandbox checkout URLs (e.g. olive-41774.mayar.shop)
+        // myr.id — Mayar sandbox checkout URLs (legacy, e.g. olive-41774.myr.id)
+        const ALLOWED_PAYMENT_HOSTS = ['mayar.id', 'mayar.club', 'mayar.co', 'mayar.shop', 'myr.id'];
+        validUrl = parsed.protocol === 'https:' &&
+          ALLOWED_PAYMENT_HOSTS.some(domain => h === domain || h.endsWith('.' + domain));
       } catch (_) {}
-      if (!validUrl) throw new Error('URL pembayaran tidak valid. Coba lagi.');
-
-      try {
-        sessionStorage.setItem('gaslamar_pending_invoice', JSON.stringify({
-          invoice_url,
-          created_at: Date.now(),
-          tier: selectedTier,
-        }));
-      } catch (storageErr) {
-        // Non-fatal: invoice already created server-side. Pending-invoice reuse
-        // (cancel-and-return) won't work but the user can still complete payment.
-        console.warn('[GasLamar] sessionStorage write failed (quota?):', storageErr);
+      if (!validUrl) {
+        console.error('[GasLamar] payment URL domain not in allowlist:', invoice_url ? new URL(invoice_url).hostname : 'null');
+        throw new Error('Layanan pembayaran tidak tersedia saat ini. Coba lagi atau hubungi support@gaslamar.com.');
       }
+
+      // Set routing flag so download-guard.js lets the user through after the Mayar redirect.
+      // The actual session credential is the HttpOnly cookie — this is only a navigation hint.
+      try { localStorage.setItem('gaslamar_has_session', '1'); } catch (_) {}
+
       setPayBtnOverride('Mengalihkan ke halaman pembayaran...');
       setTransitionInvoiceUrl(invoice_url);
 

@@ -31,7 +31,6 @@ document.addEventListener('DOMContentLoaded', () => {
 function selectTier(tier) {
   if (!TIER_CONFIG[tier]) return;
   selectedTier = tier;
-  sessionStorage.setItem('gaslamar_tier', tier);
   if (window.Analytics) Analytics.track('tier_selected', {
     tier,
     tier_price_idr: TIER_CONFIG[tier].price,
@@ -398,9 +397,15 @@ async function proceedToPayment() {
       const errMsg = err.message || `Server error: ${response.status}`;
       // M22: Check structured error code instead of message substring so renaming
       // the Indonesian message text doesn't silently break this branch.
-      if (err.code === 'cv_expired' || response.status === 403) {
+      if (err.code === 'cv_expired' || err.code === 'cv_key_missing' || response.status === 403) {
         showExpiryError();
         return;
+      }
+      if (response.status === 503 || response.status === 502 || err.code === 'PAYMENT_GATEWAY_ERROR') {
+        throw new Error('Layanan pembayaran sedang tidak tersedia. Tunggu sebentar lalu coba lagi.');
+      }
+      if (response.status === 409) {
+        throw new Error('Permintaan sedang diproses. Tunggu sebentar lalu coba lagi.');
       }
       throw new Error(errMsg);
     }
@@ -428,7 +433,11 @@ async function proceedToPayment() {
     // (staging, QA, direct worker URL) — an attacker-controlled staging env
     // could return any invoice_url and the browser would follow it unchecked.
     // Mayar sandbox URLs are also on *.mayar.id / *.mayar.club, so no exceptions needed.
-    const ALLOWED_PAYMENT_HOSTS = ['mayar.id', 'mayar.club'];
+    // mayar.id / mayar.club — production and sandbox API-issued links
+    // mayar.co / sandbox.mayar.co — Mayar sandbox checkout URLs (new sandbox domain)
+    // mayar.shop — Mayar sandbox checkout URLs (e.g. olive-41774.mayar.shop)
+    // myr.id — Mayar sandbox checkout URLs (legacy, e.g. olive-41774.myr.id)
+    const ALLOWED_PAYMENT_HOSTS = ['mayar.id', 'mayar.club', 'mayar.co', 'mayar.shop', 'myr.id'];
     let validInvoiceUrl = false;
     try {
       const parsed = new URL(invoice_url);

@@ -17,7 +17,6 @@ import {
   clearClientSessionData,
   WORKER_URL,
 } from '@/lib/sessionUtils';
-import { buildResultData } from '@/lib/resultUtils';
 import { getExperimentVariant, trackExperimentExposure } from '@/lib/experiments';
 import {
   PAGE_BG,
@@ -25,7 +24,6 @@ import {
   MAIN_CONTAINER_CLASS,
   MAIN_CONTAINER_MAX,
 } from '@/lib/pageChrome';
-import type { ResultData } from '@/types/result';
 import SessionError          from '@/components/download/SessionError';
 import WaitingPayment        from '@/components/download/WaitingPayment';
 import GeneratingCV          from '@/components/download/GeneratingCV';
@@ -313,7 +311,6 @@ export default function Download() {
   // The KV session remains on the server and expires on its own TTL; if the user
   // did actually pay, the confirmation email carries their download link.
   const handleStartFresh = useCallback(() => {
-    try { sessionStorage.removeItem('gaslamar_pending_invoice'); } catch (_) {}
     clearClientSessionData(null);
     window.location.href = 'upload.html';
   }, []);
@@ -339,17 +336,6 @@ export default function Download() {
     } catch (_) {}
   }, [effectiveContentCvId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const [resultData] = useState<ResultData | null>(() => {
-    try {
-      const raw6d  = sessionStorage.getItem('gaslamar_6d_scores');
-      if (!raw6d) return null;
-      const skor6d = JSON.parse(raw6d) as Record<string, number>;
-      const cvText = sessionStorage.getItem('gaslamar_cv_pending') || '';
-      return buildResultData({ skor6d, cvText: cvText || undefined });
-    } catch { return null; }
-  });
-
-  const dimensions = resultData?.scores;
   const creditsRemaining = effectiveContent?.creditsRemaining ?? session.sessionData?.creditsRemaining ?? 1;
   const totalCredits     = effectiveContent?.totalCredits     ?? session.sessionData?.totalCredits     ?? 1;
   const bilingual        = tier ? isBilingual(tier) : false;
@@ -493,8 +479,7 @@ export default function Download() {
               onUrlFetch={handleUrlFetch}
               showMobileFallback={showMobileFb}
               closureFirst={closureFirst}
-              dimensions={dimensions}
-              primaryIssue={resultData?.primaryIssue ?? null}
+              primaryIssue={null}
               isTrusted={effectiveContent?.isTrusted ?? false}
               interviewKitNode={view === 'ready' ? (
                 <InterviewKit

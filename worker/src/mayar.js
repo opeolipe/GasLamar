@@ -111,24 +111,25 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
     }
 
     const data = await res.json();
-    // Log inner keys so we can see exactly which field holds the payment-link ID.
-    // This makes it easy to diagnose webhook lookup mismatches in the CF log viewer.
+    // Log full response (inner data object) so we can diagnose missing URL fields.
     console.log(JSON.stringify({
       event: 'mayar_success',
       endpoint,
       data_keys: Object.keys(data),
       data_inner_keys: data.data ? Object.keys(data.data) : null,
+      data_inner: data.data ?? null,
     }));
 
     // Mayar API has returned the invoice ID under different field names across versions;
     // check all known variants so the KV index key matches whatever the webhook sends.
     const invoice_id  = data.data?.id || data.data?.invoice_id || data.id || data.invoice_id;
-    // Mayar API has used several field names across versions; check all known variants
+    // Mayar API has used several field names across versions; check all known variants.
+    // paymentLink is used by Mayar sandbox (myr.id checkout URLs).
     const invoice_url =
       data.data?.link         || data.data?.url          || data.data?.payment_url  ||
-      data.data?.checkout_url || data.data?.invoice_url  ||
+      data.data?.checkout_url || data.data?.invoice_url  || data.data?.paymentLink  ||
       data.link               || data.url                || data.payment_url        ||
-      data.checkout_url       || data.invoice_url;
+      data.checkout_url       || data.invoice_url        || data.paymentLink;
 
     if (!invoice_url) {
       // Invoice was created on Mayar (we got an invoice_id) but no payment URL was returned.

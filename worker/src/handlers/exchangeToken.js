@@ -23,7 +23,7 @@
 import { jsonResponseWithCookie } from '../cors.js';
 import { jsonResponse } from '../cors.js';
 import { clientIp, log, logError } from '../utils.js';
-import { checkRateLimit, rateLimitResponse } from '../rateLimit.js';
+import { checkRateLimit, checkRateLimitKV, rateLimitResponse, addRateLimitHeaders } from '../rateLimit.js';
 import { getSession } from '../sessions.js';
 import { makeSessionCookie } from '../cookies.js';
 import { KV_CV_RESULT_PREFIX } from '../constants.js';
@@ -34,16 +34,21 @@ export async function handleExchangeToken(request, env) {
   const ip = clientIp(request);
 
   // Reuse the payment rate limiter (5 req/min) — token exchange is equally sensitive
-  const allowed = await checkRateLimit(env, env.RATE_LIMITER_PAYMENT, ip);
-  if (!allowed) {
-    return rateLimitResponse(request, env);
+  const [cfAllowed, kvRl] = await Promise.all([
+    checkRateLimit(env, env.RATE_LIMITER_PAYMENT, ip),
+    checkRateLimitKV(env, ip, 15, 60, 'exchange_token'),
+  ]);
+  if (!cfAllowed || !kvRl.allowed) {
+    const retryAfter = !kvRl.allowed ? (kvRl.retryAfter ?? 60) : 60;
+    return rateLimitResponse(request, env, retryAfter, kvRl);
   }
+  const withRl = res => addRateLimitHeaders(res, kvRl);
 
   let body;
   try {
     body = await request.json();
   } catch (e) {
-    return jsonResponse({ message: 'Request body tidak valid' }, 400, request, env);
+    return withRl(jsonResponse({ message: 'Request body tidak valid' }, 400, request, env));
   }
 
   const { email_token } = body;
@@ -52,7 +57,7 @@ export async function handleExchangeToken(request, env) {
   // The original check accepted 1–64 chars — a 1-char token has only 16 possibilities,
   // making short tokens trivially brute-forceable against the KV lookup key.
   if (!email_token || typeof email_token !== 'string' || !/^[0-9a-f]{32}$/.test(email_token)) {
-    return jsonResponse({ message: 'Token tidak valid' }, 400, request, env);
+    return withRl(jsonResponse({ message: 'Token tidak valid' }, 400, request, env));
   }
 
   const kvKey = `email_token_${email_token}`;
@@ -60,13 +65,13 @@ export async function handleExchangeToken(request, env) {
 
   if (!stored || !stored.session_id) {
     logError('exchange_token_not_found', { ip });
-    return jsonResponse({ message: 'Token tidak valid atau sudah kedaluwarsa' }, 404, request, env);
+    return withRl(jsonResponse({ message: 'Token tidak valid atau sudah kedaluwarsa' }, 404, request, env));
   }
 
   if (typeof stored.session_id !== 'string' || !SESSION_ID_RE.test(stored.session_id)) {
     await env.GASLAMAR_SESSIONS.delete(kvKey);
     logError('exchange_token_malformed_session', { ip });
-    return jsonResponse({ message: 'Token tidak valid atau sudah kedaluwarsa' }, 404, request, env);
+    return withRl(jsonResponse({ message: 'Token tidak valid atau sudah kedaluwarsa' }, 404, request, env));
   }
 
   // Delete immediately — single-use enforcement.
@@ -90,17 +95,17 @@ export async function handleExchangeToken(request, env) {
     );
     if (!result) {
       logError('exchange_token_session_gone', { ip });
-      return jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa' }, 404, request, env);
+      return withRl(jsonResponse({ message: 'Sesi tidak ditemukan atau sudah kedaluwarsa' }, 404, request, env));
     }
     const isMulti = result.tier === '3pack' || result.tier === 'jobhunt';
     log('exchange_token_result_only', { session_id: stored.session_id, ip });
-    return jsonResponseWithCookie(
+    return withRl(jsonResponseWithCookie(
       { ok: true },
       200,
       makeSessionCookie(stored.session_id, isMulti),
       request,
       env
-    );
+    ));
   }
 
   log('exchange_token_success', { session_id: stored.session_id, ip });
@@ -108,11 +113,11 @@ export async function handleExchangeToken(request, env) {
   const isMulti = (session.total_credits ?? 1) > 1;
   const cookieHeader = makeSessionCookie(stored.session_id, isMulti);
 
-  return jsonResponseWithCookie(
+  return withRl(jsonResponseWithCookie(
     { ok: true },
     200,
     cookieHeader,
     request,
     env
-  );
+  ));
 }

@@ -2,7 +2,7 @@ import { jsonResponse }                      from '../cors.js';
 import { getSession, updateSession }         from '../sessions.js';
 import { getSessionIdFromCookie }            from '../cookies.js';
 import { clientIp, log, logError, sha256Hex } from '../utils.js';
-import { checkRateLimitKV, rateLimitResponse } from '../rateLimit.js';
+import { checkRateLimitKV, rateLimitResponse, addRateLimitHeaders } from '../rateLimit.js';
 import { sendCVReadyEmail }                  from '../email.js';
 import { SESSION_STATES }                    from '../sessionStates.js';
 
@@ -43,43 +43,44 @@ export async function handleResendEmail(request, env) {
   const ip = clientIp(request);
   const rl = await checkRateLimitKV(env, ip, 5, 60, 'resend_email');
   if (!rl.allowed) {
-    return rateLimitResponse(request, env, rl.retryAfter ?? 60);
+    return rateLimitResponse(request, env, rl.retryAfter ?? 60, rl);
   }
+  const withRl = res => addRateLimitHeaders(res, rl);
 
   const sessionId = getSessionIdFromCookie(request);
 
   if (!sessionId) {
-    return jsonResponse(
+    return withRl(jsonResponse(
       { message: 'Sesi tidak ditemukan. Pastikan browser mengizinkan cookies.', reason: 'no_cookie' },
       401, request, env,
-    );
+    ));
   }
 
   const session = await getSession(env, sessionId);
 
   if (!session) {
-    return jsonResponse(
+    return withRl(jsonResponse(
       { message: 'Sesi tidak ditemukan atau sudah kedaluwarsa.', reason: 'expired' },
       404, request, env,
-    );
+    ));
   }
 
   if (!PAID_STATUSES.has(session.status)) {
-    return jsonResponse(
+    return withRl(jsonResponse(
       { message: 'Pembayaran belum dikonfirmasi.', reason: 'not_paid' },
       403, request, env,
-    );
+    ));
   }
 
   let body;
   try { body = await request.json(); }
-  catch { return jsonResponse({ message: 'Request tidak valid.' }, 400, request, env); }
+  catch { return withRl(jsonResponse({ message: 'Request tidak valid.' }, 400, request, env)); }
 
   // Optional new email — when provided, updates the session before sending.
   const rawEmail = typeof body.email === 'string' ? body.email.trim() : null;
   if (rawEmail !== null) {
     if (!EMAIL_REGEX.test(rawEmail) || rawEmail.length > 254) {
-      return jsonResponse({ message: 'Format email tidak valid.' }, 400, request, env);
+      return withRl(jsonResponse({ message: 'Format email tidak valid.' }, 400, request, env));
     }
   }
   const newEmail = rawEmail ? rawEmail.toLowerCase() : null;
@@ -88,10 +89,10 @@ export async function handleResendEmail(request, env) {
   if (newEmail && newEmail !== session.email) {
     const ok = await updateSession(env, sessionId, { email: newEmail });
     if (!ok) {
-      return jsonResponse(
+      return withRl(jsonResponse(
         { message: 'Sesi tidak ditemukan.', reason: 'expired' },
         404, request, env,
-      );
+      ));
     }
     // Remove this session from the old email's index (leave other sessions under that email intact),
     // then append it to the new email's index.
@@ -129,11 +130,11 @@ export async function handleResendEmail(request, env) {
     log('resend_email_sent', { session_id: sessionId, changed: !!newEmail, ip });
   } catch (e) {
     logError('resend_email_failed', { session_id: sessionId, error: e.message });
-    return jsonResponse(
+    return withRl(jsonResponse(
       { message: 'Gagal mengirim email. Coba lagi dalam beberapa saat.' },
       500, request, env,
-    );
+    ));
   }
 
-  return jsonResponse({ success: true }, 200, request, env);
+  return withRl(jsonResponse({ success: true }, 200, request, env));
 }

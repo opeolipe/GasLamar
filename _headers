@@ -13,10 +13,23 @@
 /access.html
   X-Robots-Tag: noindex, nofollow
 
+/*.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+/js/dist/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/js/vendor/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/css/*
+  Cache-Control: public, max-age=86400
+
 /*
   Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
+  X-XSS-Protection: 1; mode=block
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-B2oPzdr2HgmMa0u5lH01tkh6EAp6q59Sap8Ftq5XXws=' https://eu-assets.i.posthog.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://gaslamar.com https://api-staging.gaslamar.com https://gaslamar-worker.carolineratuolivia.workers.dev https://gaslamar.carolineratuolivia.workers.dev https://gaslamar-worker-staging.carolineratuolivia.workers.dev https://eu.i.posthog.com https://eu-assets.i.posthog.com https://cloudflareinsights.com; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; worker-src 'self' blob:
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-SjC8LKlmv2KPR7bK/1S1lxNsVzj+7MAFfSQ2t+JyKww=' https://eu-assets.i.posthog.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://gaslamar.com https://api-staging.gaslamar.com https://gaslamar-worker.carolineratuolivia.workers.dev https://gaslamar.carolineratuolivia.workers.dev https://gaslamar-worker-staging.carolineratuolivia.workers.dev https://eu.i.posthog.com https://eu-assets.i.posthog.com https://cloudflareinsights.com; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; worker-src 'self' blob:

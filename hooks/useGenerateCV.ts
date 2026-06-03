@@ -3,7 +3,6 @@ import {
   WORKER_URL,
   clearClientSessionData,
 } from '@/lib/sessionUtils';
-import { getPrimaryIssue } from '@/lib/resultUtils';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -81,9 +80,7 @@ export function useGenerateCV(): UseGenerateCVReturn {
 
     const baseHeaders = { 'Content-Type': 'application/json' };
 
-    ;(window as any).Analytics?.track?.('cv_generation_started', {
-      tier: sessionStorage.getItem('gaslamar_tier') || undefined,
-    });
+    ;(window as any).Analytics?.track?.('cv_generation_started', {});
 
     // ── Step 1: /get-session ─────────────────────────────────────────────────
     const ctrl1   = new AbortController();
@@ -111,10 +108,8 @@ export function useGenerateCV(): UseGenerateCVReturn {
       if (res.status === 404) {
         clearClientSessionData(params.sessionId ?? null);
         const errData  = await res.json().catch(() => ({} as Record<string, unknown>));
-        const t        = sessionStorage.getItem('gaslamar_tier') || '';
-        const validity = (t === '3pack' || t === 'jobhunt') ? '30 hari' : '7 hari';
         const msg      = (errData as any).reason === 'expired'
-          ? `⏰ Sesi kamu sudah berakhir setelah ${validity}. Silakan upload ulang CV untuk analisis baru.`
+          ? '⏰ Sesi kamu sudah berakhir. Silakan upload ulang CV untuk analisis baru.'
           : 'Sesi tidak ditemukan atau sudah berakhir. Upload ulang CV untuk analisis baru.';
         showError('Sesi Berakhir', msg);
         return;
@@ -122,14 +117,7 @@ export function useGenerateCV(): UseGenerateCVReturn {
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
 
       const sessionData      = await res.json() as { tier: string };
-      const confirmedTier    = sessionData.tier || 'single';
-
-      // Sync tier from server — warn if client/server mismatch detected
-      const stored = sessionStorage.getItem('gaslamar_tier');
-      if (stored && stored !== confirmedTier) {
-        console.warn(`[GasLamar] Tier mismatch: ${stored} → ${confirmedTier}. UI corrected.`);
-      }
-      sessionStorage.setItem('gaslamar_tier', confirmedTier);
+      const confirmedTier = sessionData.tier || 'single';
 
       if (!mountedRef.current) return;
       setTier(confirmedTier);
@@ -146,25 +134,15 @@ export function useGenerateCV(): UseGenerateCVReturn {
         const reqBody: Record<string, unknown> = {};
         if (params.jobDesc) reqBody.job_desc = params.jobDesc;
 
-        // Pass score + gaps (plain numbers from sessionStorage) for post-generate email.
+        // Pass gaps (plain strings from sessionStorage) for post-generate email.
         try {
-          const skor = parseInt(sessionStorage.getItem('gaslamar_skor') || '', 10);
           const rawGap = sessionStorage.getItem('gaslamar_gap');
-          if (!isNaN(skor)) reqBody.score = skor;
           if (rawGap) {
             const gap = JSON.parse(rawGap) as string[];
             if (Array.isArray(gap) && gap.length > 0) reqBody.gaps = gap.slice(0, 3);
           }
         } catch (_) {}
 
-        // Pass primary_issue derived from 6D scores (plain numbers, no CV content).
-        try {
-          const raw6d = sessionStorage.getItem('gaslamar_6d_scores');
-          if (raw6d) {
-            const primaryIssue = getPrimaryIssue(JSON.parse(raw6d) as Record<string, number>);
-            if (primaryIssue) reqBody.primary_issue = primaryIssue;
-          }
-        } catch (_) {}
 
         const genRes = await fetch(`${WORKER_URL}/generate`, {
           method:      'POST',

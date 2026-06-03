@@ -1,32 +1,53 @@
 import { jsonResponseWithCookie } from '../cors.js';
 import { jsonResponse } from '../cors.js';
 import { clientIp, sha256Hex, log } from '../utils.js';
-import { checkRateLimit, rateLimitResponse } from '../rateLimit.js';
+import { checkRateLimit, checkRateLimitKV, rateLimitResponse, addRateLimitHeaders } from '../rateLimit.js';
 import { TIER_CREDITS, SESSION_TTL_MULTI, VALID_TIERS } from '../constants.js';
 import { createMayarInvoice, logMayarEnvironment } from '../mayar.js';
-import { createSession } from '../sessions.js';
-import { makeSessionCookie, getCvKeyFromCookie } from '../cookies.js';
+import { createSession, getSession, updateSession } from '../sessions.js';
+import { makeSessionCookie, getCvKeyFromCookie, getSessionTokenFromCookie, getSessionIdFromCookie } from '../cookies.js';
 import { SESSION_STATES } from '../sessionStates.js';
 
 export async function handleCreatePayment(request, env) {
   const ip = clientIp(request);
 
-  const allowed = await checkRateLimit(env, env.RATE_LIMITER_PAYMENT, ip);
-  if (!allowed) {
-    return rateLimitResponse(request, env);
+  const [cfAllowed, kvRl] = await Promise.all([
+    checkRateLimit(env, env.RATE_LIMITER_PAYMENT, ip),
+    checkRateLimitKV(env, ip, 15, 60, 'create_payment'),
+  ]);
+  if (!cfAllowed || !kvRl.allowed) {
+    const retryAfter = !kvRl.allowed ? (kvRl.retryAfter ?? 60) : 60;
+    return rateLimitResponse(request, env, retryAfter, kvRl);
   }
+  const withRl = res => addRateLimitHeaders(res, kvRl);
 
   let body;
   try {
     body = await request.json();
   } catch (e) {
-    return jsonResponse({ message: 'Request body tidak valid' }, 400, request, env);
+    return withRl(jsonResponse({ message: 'Request body tidak valid' }, 400, request, env));
   }
 
   const { tier, cv_text_key: cv_text_key_body, email: rawEmail, coupon_code: rawCoupon } = body;
-  // Prefer the HttpOnly cv_key cookie (new sessions). Fall back to the request body
-  // (old sessions that analyzed before the cookie migration and still have the key stored).
-  const cv_text_key = getCvKeyFromCookie(request) || cv_text_key_body;
+
+  // Resolution order for cv_text_key:
+  // 1. __Host-cv_key HttpOnly cookie (new sessions, same-origin production).
+  // 2. cv_text_key in request body (legacy sessions that stored it in sessionStorage).
+  // 3. sessionToken cookie → analysis_session_ KV (cross-origin staging: __Host-cv_key is
+  //    SameSite=Strict so it is blocked on staging.gaslamar.pages.dev → api-staging.gaslamar.com,
+  //    but sessionToken uses SameSite=None; Partitioned and survives the cross-site fetch).
+  let cv_text_key = getCvKeyFromCookie(request) || cv_text_key_body || null;
+
+  if (!cv_text_key) {
+    const analysisToken = getSessionTokenFromCookie(request);
+    if (analysisToken) {
+      const analysisSession = await env.GASLAMAR_SESSIONS.get(`analysis_session_${analysisToken}`, { type: 'json' });
+      if (analysisSession?.cvKey && /^cvtext_[0-9a-f]{64}$/.test(analysisSession.cvKey)) {
+        cv_text_key = analysisSession.cvKey;
+        log('create_payment_cv_key_from_analysis_session', { ip });
+      }
+    }
+  }
 
   // Sanitize coupon code — uppercase, strip non-alphanumeric, max 64 chars
   const couponCode = (rawCoupon && typeof rawCoupon === 'string')
@@ -42,32 +63,113 @@ export async function handleCreatePayment(request, env) {
   // Validate tier first — gives a specific rejection for unknown tiers regardless of
   // whether cv_text_key is also missing, preventing the ambiguous "Data tidak lengkap"
   // response that would otherwise mask an invalid tier name.
-  if (!tier || !VALID_TIERS.includes(tier)) {
-    return jsonResponse({ message: 'Tier tidak valid' }, 400, request, env);
+  // Trim whitespace defensively so minor formatting differences don't produce silent failures.
+  // Alias map: "starter" → "coba" for backward compatibility with older frontend bundles
+  // that used the display label as the tier key before the rename.
+  const TIER_ALIASES = { starter: 'coba' };
+  const trimmed = (typeof tier === 'string') ? tier.trim().toLowerCase() : tier;
+  const normalizedTier = TIER_ALIASES[trimmed] ?? trimmed;
+  if (!normalizedTier || !VALID_TIERS.includes(normalizedTier)) {
+    return withRl(jsonResponse({
+      message: `Tier tidak valid. Nilai yang diterima: ${VALID_TIERS.join(', ')}`,
+      valid_tiers: VALID_TIERS,
+    }, 400, request, env));
   }
+  // Use the trimmed value for all downstream logic
+  const validatedTier = normalizedTier;
 
   if (!cv_text_key) {
-    return jsonResponse({ message: 'Data tidak lengkap' }, 400, request, env);
+    return withRl(jsonResponse({ message: 'Sesi analisis tidak ditemukan. Ulangi upload CV untuk melanjutkan.', code: 'cv_key_missing' }, 400, request, env));
   }
 
   // Strict format: exactly "cvtext_" + 64 lowercase hex chars (256-bit random token).
   // Mirrors getScoring.js validation — prevents oversized KV key lookups that hit
   // Cloudflare's 512-byte key limit with a confusing error.
   if (!/^cvtext_[0-9a-f]{64}$/.test(cv_text_key)) {
-    return jsonResponse({ message: 'cv_text_key tidak valid' }, 400, request, env);
+    return withRl(jsonResponse({ message: 'cv_text_key tidak valid' }, 400, request, env));
   }
   const stored = await env.GASLAMAR_SESSIONS.get(cv_text_key, { type: 'json' });
   if (!stored || !stored.text) {
+    // Before giving up with cv_expired, check whether the user already completed a
+    // /create-payment call that succeeded on the backend but failed on the frontend
+    // (e.g. due to an allowlist mismatch). In that case the cvtext_ entry was already
+    // consumed and deleted, but the session cookie was written and the invoice_url was
+    // stored in the session — so we can resume without creating a duplicate invoice.
+    const existingSessionId = getSessionIdFromCookie(request);
+    if (existingSessionId) {
+      const existingSession = await getSession(env, existingSessionId);
+      if (
+        existingSession?.status === SESSION_STATES.PENDING_PAYMENT &&
+        existingSession?.tier === validatedTier
+      ) {
+        const credits = TIER_CREDITS[validatedTier] ?? 1;
+        const isMulti = credits > 1;
+
+        // Check whether the stored invoice is still within its validity window.
+        // Sandbox invoices expire quickly (~1h); production invoices last much longer.
+        // If expired, fall through to create a fresh invoice — a new Mayar email will
+        // be sent, which is correct because the old link is dead.
+        const INVOICE_TTL_MS = env.ENVIRONMENT === 'production'
+          ? 23 * 60 * 60 * 1000   // 23h — conservative for production
+          : 50 * 60 * 1000;       // 50min — sandbox invoices expire ~1h after creation
+        // Old sessions may not have invoice_created_at — treat as still valid (backward compat).
+        const invoiceAge = existingSession.invoice_created_at
+          ? Date.now() - existingSession.invoice_created_at
+          : 0;
+        const invoiceValid = existingSession.invoice_url && invoiceAge < INVOICE_TTL_MS;
+
+        if (invoiceValid) {
+          log('create_payment_resumed', { ip, sessionId: existingSessionId });
+          const cookieHeader = makeSessionCookie(existingSessionId, isMulti);
+          return withRl(jsonResponseWithCookie({ invoice_url: existingSession.invoice_url }, 200, cookieHeader, request, env));
+        }
+
+        // Invoice expired or URL missing — create a fresh invoice and update the session.
+        // Session data already has cv_text + job_desc so we can recreate without cvtext_.
+        log('create_payment_invoice_expired_refresh', { ip, sessionId: existingSessionId, invoiceAge });
+        const mayarKeyForRefresh = env.ENVIRONMENT === 'production' ? env.MAYAR_API_KEY : env.MAYAR_API_KEY_SANDBOX;
+        if (mayarKeyForRefresh) {
+          try {
+            const redirectUrl = env.ENVIRONMENT === 'staging'
+              ? 'https://staging.gaslamar.pages.dev/download.html'
+              : 'https://gaslamar.com/download.html';
+            const { invoice_id: newInvoiceId, invoice_url: newInvoiceUrl } = await createMayarInvoice(
+              existingSessionId, validatedTier, env, redirectUrl, existingSession.email ?? null, null
+            );
+            if (newInvoiceUrl) {
+              await updateSession(env, existingSessionId, {
+                mayar_invoice_id: newInvoiceId,
+                invoice_url: newInvoiceUrl,
+                invoice_created_at: Date.now(),
+              });
+              if (newInvoiceId) {
+                await env.GASLAMAR_SESSIONS.put(
+                  `mayar_session_${newInvoiceId}`,
+                  JSON.stringify({ session_id: existingSessionId }),
+                  { expirationTtl: isMulti ? 2592000 : 604800 }
+                );
+              }
+              log('create_payment_invoice_refreshed', { ip, sessionId: existingSessionId });
+              const cookieHeader = makeSessionCookie(existingSessionId, isMulti);
+              return withRl(jsonResponseWithCookie({ invoice_url: newInvoiceUrl }, 200, cookieHeader, request, env));
+            }
+          } catch (refreshErr) {
+            console.error(JSON.stringify({ event: 'create_payment_refresh_failed', error: refreshErr.message }));
+            // Fall through to cv_expired — user may need to re-upload
+          }
+        }
+      }
+    }
     // M22: Include a stable machine-readable code so the client can branch on it
     // without depending on the Indonesian message text (which can change).
-    return jsonResponse({ message: 'Sesi analisis kedaluwarsa. Ulangi upload CV.', code: 'cv_expired' }, 400, request, env);
+    return withRl(jsonResponse({ message: 'Sesi analisis kedaluwarsa. Ulangi upload CV.', code: 'cv_expired' }, 400, request, env));
   }
 
   // IP-binding check — reject if the key was created from a different network.
   // stored.ip is absent on entries written before this check was added; those pass through.
   if (stored.ip && stored.ip !== ip) {
     log('cvtext_ip_mismatch', { ip, stored_ip: stored.ip });
-    return jsonResponse({ message: 'Sesi tidak valid dari jaringan ini. Ulangi upload CV.' }, 403, request, env);
+    return withRl(jsonResponse({ message: 'Sesi tidak valid dari jaringan ini. Ulangi upload CV.' }, 403, request, env));
   }
 
   // Validate Mayar API key before creating an invoice lock (gives a clear 503
@@ -75,7 +177,7 @@ export async function handleCreatePayment(request, env) {
   const mayarKey = env.ENVIRONMENT === 'production' ? env.MAYAR_API_KEY : env.MAYAR_API_KEY_SANDBOX;
   if (!mayarKey) {
     console.error(JSON.stringify({ event: 'create_payment_no_apikey', environment: env.ENVIRONMENT ?? 'sandbox' }));
-    return jsonResponse({ message: 'Layanan pembayaran sedang tidak tersedia. Hubungi support@gaslamar.com.' }, 503, request, env);
+    return withRl(jsonResponse({ message: 'Layanan pembayaran sedang tidak tersedia. Hubungi support@gaslamar.com.', code: 'PAYMENT_GATEWAY_ERROR' }, 503, request, env));
   }
 
   // Idempotency: prevent duplicate invoices from rapid concurrent requests.
@@ -84,14 +186,14 @@ export async function handleCreatePayment(request, env) {
   const invoiceLockKey = `invoice_lock_${cv_text_key}`;
   const existingLock = await env.GASLAMAR_SESSIONS.get(invoiceLockKey);
   if (existingLock) {
-    return jsonResponse({ message: 'Permintaan sedang diproses. Coba lagi sebentar.' }, 409, request, env);
+    return withRl(jsonResponse({ message: 'Permintaan sedang diproses. Coba lagi sebentar.' }, 409, request, env));
   }
   await env.GASLAMAR_SESSIONS.put(invoiceLockKey, '1', { expirationTtl: 60 }); // KV minimum TTL is 60s
 
   // Create session
   const sessionId = `sess_${crypto.randomUUID()}`;
 
-  const credits = TIER_CREDITS[tier] ?? 1;
+  const credits = TIER_CREDITS[validatedTier] ?? 1;
 
   try {
     // Redirect after payment completes — points to the right frontend per environment.
@@ -105,7 +207,7 @@ export async function handleCreatePayment(request, env) {
     console.log(JSON.stringify({ event: 'payment_redirect_url', redirectUrl, environment: env.ENVIRONMENT ?? 'sandbox' }));
 
     // Create Mayar invoice first — if this fails, cv_text_key is still intact and user can retry
-    const { invoice_id, invoice_url } = await createMayarInvoice(sessionId, tier, env, redirectUrl, sessionEmail, couponCode);
+    const { invoice_id, invoice_url } = await createMayarInvoice(sessionId, validatedTier, env, redirectUrl, sessionEmail, couponCode);
 
     if (invoice_id) {
       // Store session so the Mayar webhook can complete it even if we don't redirect now.
@@ -116,9 +218,13 @@ export async function handleCreatePayment(request, env) {
         inferred_role: stored.inferred_role ?? null,
         // Carry result_id so /generate can validate the client-supplied analytics ID.
         ...(stored.result_id ? { result_id: stored.result_id } : {}),
-        tier,
+        tier: validatedTier,
         status: SESSION_STATES.PENDING_PAYMENT,
         mayar_invoice_id: invoice_id,
+        // Store invoice_url so the frontend can resume if the first redirect attempt
+        // failed (e.g. allowlist mismatch) and cvtext_ was already consumed.
+        ...(invoice_url ? { invoice_url } : {}),
+        invoice_created_at: Date.now(),
         credits_remaining: credits,
         total_credits: credits,
         ip,
@@ -161,8 +267,8 @@ export async function handleCreatePayment(request, env) {
     if (!invoice_url) {
       // Invoice may or may not have been created — either way, cannot redirect.
       // Do NOT release the invoice lock; do NOT allow retry with the same cv_text_key.
-      console.error(JSON.stringify({ event: 'create_payment_no_url', tier, invoice_id: invoice_id ?? null }));
-      return jsonResponse({ message: 'Link pembayaran tidak tersedia. Hubungi support@gaslamar.com jika sudah melakukan pembayaran.' }, 503, request, env);
+      console.error(JSON.stringify({ event: 'create_payment_no_url', tier: validatedTier, invoice_id: invoice_id ?? null }));
+      return withRl(jsonResponse({ message: 'Link pembayaran tidak tersedia. Hubungi support@gaslamar.com jika sudah melakukan pembayaran.', code: 'PAYMENT_GATEWAY_ERROR' }, 503, request, env));
     }
 
     // Email → session index for access recovery (/resend-access).
@@ -187,12 +293,12 @@ export async function handleCreatePayment(request, env) {
     const isMulti = credits > 1;
     const cookieHeader = makeSessionCookie(sessionId, isMulti);
 
-    return jsonResponseWithCookie({ invoice_url }, 200, cookieHeader, request, env);
+    return withRl(jsonResponseWithCookie({ invoice_url }, 200, cookieHeader, request, env));
   } catch (e) {
     // Release invoice lock only for errors where Mayar never received the request
     // (network failures, validation errors). This allows the user to retry safely.
     await env.GASLAMAR_SESSIONS.delete(invoiceLockKey).catch(() => {});
-    console.error(JSON.stringify({ event: 'create_payment_failed', error: e.message, tier }));
-    return jsonResponse({ message: 'Gagal membuat invoice. Coba lagi atau hubungi support@gaslamar.com.' }, 500, request, env);
+    console.error(JSON.stringify({ event: 'create_payment_failed', error: e.message, tier: validatedTier }));
+    return withRl(jsonResponse({ message: 'Gagal membuat invoice. Coba lagi atau hubungi support@gaslamar.com.' }, 500, request, env));
   }
 }

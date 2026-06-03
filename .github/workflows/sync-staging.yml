@@ -1,0 +1,83 @@
+name: Sync main → staging (daily)
+
+on:
+  schedule:
+    # Runs at 02:00 UTC every day
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force PR creation even if staging is up to date'
+        required: false
+        default: 'false'
+
+jobs:
+  sync:
+    name: Create or update sync PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check for new commits on main not in staging
+        id: diff-check
+        run: |
+          git fetch origin main staging
+          BEHIND=$(git rev-list --count origin/staging..origin/main)
+          echo "commits_behind=$BEHIND" >> $GITHUB_OUTPUT
+          echo "staging is $BEHIND commits behind main"
+
+      - name: Skip if already up to date
+        if: steps.diff-check.outputs.commits_behind == '0' && github.event.inputs.force != 'true'
+        run: |
+          echo "staging is already up to date with main — nothing to do."
+
+      - name: Create or update sync PR
+        if: steps.diff-check.outputs.commits_behind != '0' || github.event.inputs.force == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BEHIND="${{ steps.diff-check.outputs.commits_behind }}"
+          BRANCH="auto/sync-main-to-staging-$(date +%Y%m%d)"
+
+          # Check whether a sync PR already exists for the staging branch
+          EXISTING=$(gh pr list \
+            --base staging \
+            --head main \
+            --state open \
+            --json number,title \
+            --jq '.[0].number' 2>/dev/null || true)
+
+          if [ -n "$EXISTING" ]; then
+            echo "Sync PR #$EXISTING already open — commenting with updated stats."
+            gh pr comment "$EXISTING" \
+              --body "**Auto-sync check ($(date -u '+%Y-%m-%d %H:%M UTC')):** staging is now $BEHIND commits behind main."
+          else
+            echo "Creating new sync PR: main → staging ($BEHIND commits)"
+            gh pr create \
+              --base staging \
+              --head main \
+              --title "chore: sync main → staging ($(date +%Y-%m-%d), $BEHIND commits)" \
+              --body "$(cat <<EOF
+## Automatic daily sync
+
+This PR was created automatically because **staging is $BEHIND commits behind main**.
+
+Merge this PR to bring staging up to date before the next deploy. If staging has
+diverged (merge conflicts), resolve them here.
+
+> ⚠️  If you deploy staging without merging this PR, CI will fail the staleness check
+> after the gap exceeds 24 hours.
+
+**What to do:**
+1. Review the diff — make sure nothing surprising landed on main.
+2. Merge this PR into staging.
+3. CI will run the full staging test suite before deploying.
+EOF
+              )"
+          fi

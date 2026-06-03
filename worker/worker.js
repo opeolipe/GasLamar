@@ -20,7 +20,7 @@
  * KV Binding: GASLAMAR_SESSIONS
  */
 
-import { getCorsHeaders, isOriginAllowed, jsonResponse } from './src/cors.js';
+import { getCorsHeaders, isOriginAllowed, jsonResponse, SECURITY_HEADERS } from './src/cors.js';
 import { route } from './src/router.js';
 
 let coldStart = true;
@@ -40,11 +40,11 @@ export default {
       // Handle CORS preflight. Reject disallowed origins before any route logic runs.
       if (request.method === 'OPTIONS') {
         if (!isOriginAllowed(request, env)) {
-          return new Response(null, { status: 403, headers: { Vary: 'Origin' } });
+          return new Response(null, { status: 403, headers: { ...SECURITY_HEADERS, Vary: 'Origin' } });
         }
         return new Response(null, {
           status: 204,
-          headers: getCorsHeaders(request, env),
+          headers: { ...SECURITY_HEADERS, ...getCorsHeaders(request, env) },
         });
       }
 

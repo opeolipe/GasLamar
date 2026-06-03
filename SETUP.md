@@ -473,7 +473,8 @@ fetchMock.reply(200, MOCK_DIAGNOSE_JSON)
 - [x] Job description max 5.000 karakter
 - [x] Claude API timeout 40 detik
 - [x] **Dual-layer rate limiting pada `/analyze`:** Cloudflare native binding (atomic, no TOCTOU) + KV counter fallback — keduanya harus allow request
-- [x] Rate limiting semua endpoint sensitif (3/min analyze, 5/min payment/generate/fetch)
+- [x] Rate limiting semua endpoint sensitif (5/15min analyze unauthenticated / 10/15min authenticated, 15/60s payment, 10/min generate); semua rate-limited endpoint return `X-RateLimit-*` dan `Retry-After` headers
+- [x] XSS defense-in-depth: backend hard-reject JD dengan `<script>`, `<iframe>`, `<img>`, `onerror=`, `onload=`, `javascript:` (400) sebelum HTML stripping; `X-XSS-Protection: 1; mode=block` di semua responses
 - [x] Schema validation pada semua LLM output (validate.js) — reject + retry jika invalid
 - [x] LLM output dibatasi: extract hanya salin verbatim, diagnose hanya jelaskan (tidak bisa ubah skor)
 - [x] `localStorage` backup untuk session ID di browser

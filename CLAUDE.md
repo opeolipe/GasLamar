@@ -156,6 +156,19 @@ npm start                       # serve frontend locally on :3000
 - Security headers (`CSP`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`) on **all** responses including 404 and webhook.
 - Rate limiting: Cloudflare native binding + KV fallback — **both** must allow.
 
+## Staging Looks Stale — Check Deployment First
+
+Before debugging application code when staging behaves unexpectedly, verify the deployment is actually current:
+
+1. **CI green?** — Check `.github/workflows/deploy-staging.yml` passed the smoke test step.
+2. **Staleness gate** — The CI `check-staleness` job fails if staging is more than 24 hours behind `main`. If you see unexpected payment bugs on staging, this is the first thing to check: a stale staging branch is the root cause of most payment-related issues (orphaned invoices, wrong Mayar URLs, dead-end emails). Run `git log --oneline origin/staging..origin/main` to see what's missing. If you see commits there, merge main into staging before debugging.
+3. **Hard-refresh** — `Ctrl+Shift+R` / `Cmd+Shift+R` bypasses browser cache.
+4. **Compare `?v=` hashes** — View source on `hasil.html` in the browser; compare `?v=` with the latest `hasil.html` in the repo. If they differ, browser served a cached copy.
+5. **`_headers` correct?** — `/*.html` must have `Cache-Control: public, max-age=0, must-revalidate`. Without this, browsers heuristic-cache HTML for minutes to hours.
+6. Full guide: `docs/deployment.md` and `docs/staging-policy.md`.
+
+---
+
 ## Gotchas (common bug sources)
 
 - **Stale cache** — change prompt or scoring formula? Bump version in `cacheVersions.js`. Old key = old result.

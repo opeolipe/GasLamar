@@ -392,7 +392,7 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
     jd_length: jobDesc.length,
   });
 
-  window.location.href = 'analyzing.html';
+  window.location.href = tierParam ? 'analyzing.html?tier=' + encodeURIComponent(tierParam) : 'analyzing.html';
 });
 
 // ---- Helpers ----
@@ -500,7 +500,6 @@ function hideError(id) {
   }
 
   if (VALID_TIERS.includes(tierParam)) {
-    try { sessionStorage.setItem('gaslamar_tier', tierParam); } catch (_) {}
 
     // Show tier indicator pill so the user knows which package they selected
     const TIER_DISPLAY = {

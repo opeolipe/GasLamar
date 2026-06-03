@@ -921,6 +921,30 @@ describe('POST /analyze — validation', () => {
     expect(body.message).toMatch(/job description wajib/i);
   });
 
+  it('rejects job_desc containing <script> tag → 400 unsafe content', async () => {
+    const xssJd = '<script>alert("XSS")</script>' + 'x'.repeat(100);
+    const res = await post('/analyze', { cv: VALID_PDF_CV, job_desc: xssJd }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/unsafe content/i);
+  });
+
+  it('rejects job_desc containing onerror= attribute → 400 unsafe content', async () => {
+    const xssJd = '<img src=x onerror=alert(1)>' + 'x'.repeat(100);
+    const res = await post('/analyze', { cv: VALID_PDF_CV, job_desc: xssJd }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/unsafe content/i);
+  });
+
+  it('rejects job_desc containing javascript: URL → 400 unsafe content', async () => {
+    const xssJd = '<a href="javascript:alert(1)">click</a>' + 'x'.repeat(100);
+    const res = await post('/analyze', { cv: VALID_PDF_CV, job_desc: xssJd }, {}, nextIp());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/unsafe content/i);
+  });
+
   it('rejects cv as a non-string (object) → 400', async () => {
     // Client-side bypass: attacker sends cv as a raw object instead of a JSON string.
     const res = await post('/analyze', { cv: { type: 'pdf', data: makePdfBase64() }, job_desc: JOB_DESC }, {}, nextIp());
@@ -948,6 +972,24 @@ describe('POST /analyze — validation', () => {
     expect(res.status).toBe(422);
     const body = await res.json();
     expect(body.message).toMatch(/minimal 1\.500 karakter/i);
+  });
+
+  it('accepts cv_text as a plain string (auto-wrapped as txt) — short text still rejects with correct error', async () => {
+    // Direct API callers may pass cv_text:"raw text" instead of the internal envelope.
+    // The backend should auto-wrap and return a meaningful error (not "Data CV tidak dapat dibaca").
+    const res = await post('/analyze', { cv_text: 'A'.repeat(1499), job_description: JOB_DESC }, {}, nextIp());
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.message).toMatch(/minimal 1\.500 karakter/i);
+  });
+
+  it('accepts cv_text alias with job_description alias for plain-text CV → passes validation', async () => {
+    // Plain-string cv_text passes all validation when long enough; pipeline will fail at
+    // Claude (no mock here) but must NOT return a parameter-mismatch 400.
+    const longCvText = 'Budi Santoso\nSoftware Engineer\n\nPENGALAMAN\n' + 'Developer PT XYZ — membangun aplikasi web dengan Node.js dan React.\n'.repeat(30);
+    const res = await post('/analyze', { cv_text: longCvText, job_description: JOB_DESC }, {}, nextIp());
+    // Should proceed past parameter validation (not 400); may fail at Claude call (422/500)
+    expect(res.status).not.toBe(400);
   });
 
   it('rejects DOCX CV with extracted text under 1500 chars → 422', async () => {
@@ -1131,11 +1173,47 @@ describe('POST /create-payment — validation', () => {
     expect(body.message).toContain('cv_text_key');
   });
 
-  it('rejects invalid tier → 400', async () => {
+  it('rejects invalid tier → 400 with list of valid tiers', async () => {
     // Seed with default IP (1.2.3.4) — tier is rejected before IP check
     const key = await seedCVTextKey();
     const res = await post('/create-payment', { tier: 'premium', cv_text_key: key });
     expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/coba|single|3pack|jobhunt/i);
+  });
+
+  it('accepts tier with uppercase casing → normalized to lowercase', async () => {
+    // Validation is case-insensitive: 'SINGLE' normalizes to 'single'
+    const key = await seedCVTextKey();
+    const res = await post('/create-payment', { tier: 'SINGLE', cv_text_key: key });
+    const body = await res.json();
+    expect(body.message ?? '').not.toMatch(/tier tidak valid/i);
+  });
+
+  it('accepts each valid tier past tier validation (all 4 tiers)', async () => {
+    for (const tier of ['coba', 'single', '3pack', 'jobhunt']) {
+      const key = await seedCVTextKey();
+      const res = await post('/create-payment', { tier, cv_text_key: key });
+      // Reaches Mayar invoice creation (fails without API key in test env) — not a 400 tier error
+      const body = await res.json();
+      expect(body.message ?? '').not.toMatch(/tier tidak valid/i);
+    }
+  });
+
+  it('accepts tier with surrounding whitespace → trimmed and accepted', async () => {
+    const key = await seedCVTextKey();
+    const res = await post('/create-payment', { tier: '  single  ', cv_text_key: key });
+    // Should pass tier validation — not a 400 tier error
+    const body = await res.json();
+    expect(body.message ?? '').not.toMatch(/tier tidak valid/i);
+  });
+
+  it('accepts "starter" alias → normalized to "coba" (backward compat for stale bundles)', async () => {
+    const key = await seedCVTextKey();
+    const res = await post('/create-payment', { tier: 'starter', cv_text_key: key });
+    // Should pass tier validation — not a 400 tier error
+    const body = await res.json();
+    expect(body.message ?? '').not.toMatch(/tier tidak valid/i);
   });
 
   it('rejects expired / missing cv_text_key in body → 400', async () => {
@@ -1173,6 +1251,25 @@ describe('POST /create-payment — validation', () => {
     expect(res.status).not.toBe(400);
   });
 
+  it('resolves cv_text_key via sessionToken cookie → analysis_session_ KV (cross-origin staging fallback)', async () => {
+    const cvKey = await seedCVTextKey(undefined, '1.2.3.4');
+    const analysisSessionId = crypto.randomUUID();
+    await env.GASLAMAR_SESSIONS.put(
+      `analysis_session_${analysisSessionId}`,
+      JSON.stringify({ sessionId: analysisSessionId, cvKey, createdAt: Date.now(), expiresAt: Date.now() + 86400000 }),
+      { expirationTtl: 86400 },
+    );
+    // No __Host-cv_key cookie, no body key — only sessionToken cookie (cross-origin staging path)
+    const res = await post(
+      '/create-payment',
+      { tier: 'single' },
+      { Cookie: `sessionToken=${analysisSessionId}` },
+      '1.2.3.4',
+    );
+    // Reaches Mayar invoice creation (fails without API key in test env) → not a 400 key error
+    expect(res.status).not.toBe(400);
+  });
+
   it('rejects cv_text_key used from a different IP → 403', async () => {
     // Seed the key bound to IP 10.97.0.1
     const key = await seedCVTextKey(undefined, '10.97.0.1');
@@ -1193,6 +1290,35 @@ describe('POST /create-payment — validation', () => {
     // Reaches tier validation (premium is invalid) → 400, not 403
     expect(res.status).toBe(400);
     expect(res.status).not.toBe(403);
+  });
+
+  it('resumes pending_payment session when cvtext_ already consumed — returns stored invoice_url', async () => {
+    // Simulate the state after a successful /create-payment that the frontend rejected:
+    // cvtext_ is gone, but a pending_payment session with invoice_url exists in KV.
+    const sessionId = `sess_${crypto.randomUUID()}`;
+    const storedInvoiceUrl = 'https://olive-41774.mayar.shop/invoices/resume-test';
+    await env.GASLAMAR_SESSIONS.put(
+      sessionId,
+      JSON.stringify({
+        tier: 'single',
+        status: 'pending_payment',
+        invoice_url: storedInvoiceUrl,
+        credits_remaining: 1,
+        total_credits: 1,
+        mayar_invoice_id: 'inv_resume_test',
+      }),
+      { expirationTtl: 604800 },
+    );
+    // Use a nonexistent cvtext_ (already consumed) — the session cookie should allow resume
+    const nonexistentKey = `cvtext_${cvHexToken()}`;
+    const res = await post(
+      '/create-payment',
+      { tier: 'single', cv_text_key: nonexistentKey },
+      { Cookie: `__Host-session_id=${sessionId}` },
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.invoice_url).toBe(storedInvoiceUrl);
   });
 
   it('releases the invoice lock when the payment API key is missing', async () => {
@@ -1278,6 +1404,91 @@ describe('POST /create-payment — one-time key consumption', () => {
   });
 });
 
+describe('POST /create-payment — Mayar URL field extraction', () => {
+  beforeAll(() => fetchMock.activate());
+  afterAll(() => fetchMock.deactivate());
+
+  const CHECKOUT_DOMAINS = [
+    { field: 'paymentLink', url: 'https://olive-41774.mayar.shop/select-channel/abc123', label: 'mayar.shop (paymentLink)' },
+    { field: 'link',        url: 'https://web.mayar.id/pay/inv_link',                    label: 'mayar.id (link)' },
+    { field: 'url',         url: 'https://sandbox.mayar.co/pay/inv_url',                 label: 'mayar.co (url)' },
+    { field: 'payment_url', url: 'https://olive-41774.myr.id/pay/inv_purl',              label: 'myr.id (payment_url)' },
+  ];
+
+  for (const { field, url, label } of CHECKOUT_DOMAINS) {
+    it(`extracts invoice_url from Mayar response field "${field}" — ${label}`, async () => {
+      const key = await seedCVTextKey(undefined, '10.1.1.1');
+      fetchMock
+        .get('https://api.mayar.club')
+        .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
+        .reply(200, JSON.stringify({ data: { id: `inv_${field}`, [field]: url } }))
+        .times(1);
+
+      const res = await post('/create-payment', { tier: 'single', cv_text_key: key }, {}, '10.1.1.1');
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.invoice_url).toBe(url);
+    });
+  }
+
+  it('stores invoice_url in session so resume logic can return it on retry', async () => {
+    const key = await seedCVTextKey(undefined, '10.1.2.1');
+    const invoiceUrl = 'https://olive-41774.mayar.shop/select-channel/store-test';
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
+      .reply(200, JSON.stringify({ data: { id: 'inv_store_test', paymentLink: invoiceUrl } }))
+      .times(1);
+
+    const res = await post('/create-payment', { tier: 'single', cv_text_key: key }, {}, '10.1.2.1');
+    expect(res.status).toBe(200);
+
+    const sessionId = sessionIdFromSetCookie(res);
+    const session = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
+    expect(session.invoice_url).toBe(invoiceUrl);
+    expect(session.status).toBe('pending_payment');
+  });
+
+  it('resume path returns stored invoice_url without creating a new Mayar invoice', async () => {
+    // Simulate: cvtext_ already consumed, session cookie present with pending_payment + invoice_url.
+    // fetchMock must NOT be called — if it is, a new invoice was created (bug).
+    const sessionId = `sess_${crypto.randomUUID()}`;
+    const existingUrl = 'https://olive-41774.mayar.shop/select-channel/resume-no-dup';
+    await env.GASLAMAR_SESSIONS.put(
+      sessionId,
+      JSON.stringify({
+        tier: 'single',
+        status: 'pending_payment',
+        invoice_url: existingUrl,
+        mayar_invoice_id: 'inv_resume_no_dup',
+        credits_remaining: 1,
+        total_credits: 1,
+      }),
+      { expirationTtl: 604800 },
+    );
+
+    let mayarWasCalled = false;
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
+      .reply(200, () => { mayarWasCalled = true; return JSON.stringify({ data: { id: 'inv_dup', paymentLink: 'https://mayar.shop/dup' } }); })
+      .times(1);
+
+    const nonexistentKey = `cvtext_${cvHexToken()}`;
+    const res = await post(
+      '/create-payment',
+      { tier: 'single', cv_text_key: nonexistentKey },
+      { Cookie: `__Host-session_id=${sessionId}` },
+      '10.1.3.1',
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.invoice_url).toBe(existingUrl);
+    expect(mayarWasCalled).toBe(false);
+  });
+});
+
 describe('API aliases', () => {
   it('accepts POST /api/create-payment as an alias for /create-payment', async () => {
     const key = await seedCVTextKey(undefined, '10.0.0.13');
@@ -1309,7 +1520,7 @@ describe('Rate limiting — Retry-After header', () => {
   const RL_IP = '10.99.0.1';
 
   it('returns 429 with Retry-After: 60 after exhausting /create-payment limit (15/min)', async () => {
-    // Exhaust the 15-req/min limit for RATE_LIMITER_PAYMENT using this IP.
+    // Exhaust the 15-req/min KV limit for this IP.
     // Each call returns 400 (missing body) but still consumes a rate-limit slot.
     for (let i = 0; i < 15; i++) {
       await post('/create-payment', {}, {}, RL_IP);
@@ -1317,9 +1528,39 @@ describe('Rate limiting — Retry-After header', () => {
     // 16th request must be rate-limited
     const res = await post('/create-payment', {}, {}, RL_IP);
     expect(res.status).toBe(429);
-    expect(res.headers.get('Retry-After')).toBe('60');
+    // Retry-After is windowSecs minus elapsed seconds; allow 59 or 60 depending on sub-second timing
+    const retryAfter = Number(res.headers.get('Retry-After'));
+    expect(retryAfter).toBeGreaterThanOrEqual(59);
+    expect(retryAfter).toBeLessThanOrEqual(60);
     const body = await res.json();
     expect(body.message).toContain('Terlalu banyak');
+  });
+
+  it('/create-payment 429 includes X-RateLimit-Remaining: 0 and X-RateLimit-Limit', async () => {
+    const RL_IP_CP = '10.99.0.5';
+    for (let i = 0; i < 15; i++) {
+      await post('/create-payment', {}, {}, RL_IP_CP);
+    }
+    const res = await post('/create-payment', {}, {}, RL_IP_CP);
+    expect(res.status).toBe(429);
+    expect(res.headers.get('X-RateLimit-Remaining')).toBe('0');
+    expect(res.headers.get('X-RateLimit-Limit')).toBeTruthy();
+    expect(Number(res.headers.get('X-RateLimit-Limit'))).toBeGreaterThan(0);
+    expect(res.headers.get('X-RateLimit-Reset')).toBeTruthy();
+    expect(Number(res.headers.get('X-RateLimit-Reset'))).toBeGreaterThan(0);
+    expect(Number(res.headers.get('Retry-After'))).toBeGreaterThan(0);
+    const body = await res.json();
+    expect(body.retryAfter).toBeGreaterThan(0);
+  });
+
+  it('/create-payment success response includes X-RateLimit-* headers', async () => {
+    const RL_IP_CP2 = '10.99.0.6';
+    // Missing tier/cv_text_key → 400, but RL headers should still be present
+    const res = await post('/create-payment', {}, {}, RL_IP_CP2);
+    expect(res.status).toBe(400);
+    expect(res.headers.get('X-RateLimit-Limit')).toBeTruthy();
+    expect(res.headers.get('X-RateLimit-Remaining')).not.toBeNull();
+    expect(res.headers.get('X-RateLimit-Reset')).toBeTruthy();
   });
 });
 
@@ -1364,6 +1605,26 @@ describe('Rate limiting — /analyze (10 req/min per IP)', () => {
     expect(body).toHaveProperty('error');
     expect(body).toHaveProperty('message');
     expect(body).toHaveProperty('retryAfter');
+  });
+});
+
+describe('Rate limiting — /generate X-RateLimit-* headers', () => {
+  it('429 from /generate includes X-RateLimit-Remaining: 0, X-RateLimit-Limit, and Retry-After', async () => {
+    const GEN_RL_IP = '10.99.2.1';
+    // Exhaust the 10-req/min KV limit for /generate
+    for (let i = 0; i < 10; i++) {
+      await post('/generate', {}, {}, GEN_RL_IP);
+    }
+    const blocked = await post('/generate', {}, {}, GEN_RL_IP);
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get('X-RateLimit-Remaining')).toBe('0');
+    expect(blocked.headers.get('X-RateLimit-Limit')).toBeTruthy();
+    expect(Number(blocked.headers.get('X-RateLimit-Limit'))).toBeGreaterThan(0);
+    expect(blocked.headers.get('X-RateLimit-Reset')).toBeTruthy();
+    expect(Number(blocked.headers.get('Retry-After'))).toBeGreaterThan(0);
+    const body = await blocked.json();
+    expect(body.error).toBe('Too many requests');
+    expect(body.retryAfter).toBeGreaterThan(0);
   });
 });
 
@@ -1459,6 +1720,59 @@ describe('Rate limiting — /resend-access', () => {
     expect(Number(res11.headers.get('Retry-After'))).toBeGreaterThan(0);
     const body = await res11.json();
     expect(body.error).toBe('Too many requests');
+  });
+});
+
+describe('Rate limiting — X-RateLimit-* headers', () => {
+  const RL_HDR_IP = '10.99.9.1';
+
+  it('single valid request to /check-session includes X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset', async () => {
+    const res = await get('/check-session', {}, RL_HDR_IP);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('X-RateLimit-Limit')).toBeTruthy();
+    expect(Number(res.headers.get('X-RateLimit-Limit'))).toBeGreaterThan(0);
+    expect(res.headers.get('X-RateLimit-Remaining')).not.toBeNull();
+    expect(Number(res.headers.get('X-RateLimit-Remaining'))).toBeGreaterThanOrEqual(0);
+    expect(res.headers.get('X-RateLimit-Reset')).toBeTruthy();
+    expect(Number(res.headers.get('X-RateLimit-Reset'))).toBeGreaterThan(0);
+  });
+
+  it('X-RateLimit-Remaining decreases on subsequent requests', async () => {
+    const RL_HDR_IP2 = '10.99.9.2';
+    const r1 = await get('/check-session', {}, RL_HDR_IP2);
+    const r2 = await get('/check-session', {}, RL_HDR_IP2);
+    const rem1 = Number(r1.headers.get('X-RateLimit-Remaining'));
+    const rem2 = Number(r2.headers.get('X-RateLimit-Remaining'));
+    expect(rem2).toBeLessThan(rem1);
+  });
+
+  it('429 response includes X-RateLimit-Remaining: 0, X-RateLimit-Limit, X-RateLimit-Reset, and Retry-After', async () => {
+    const RL_HDR_IP3 = '10.99.9.3';
+    // Exhaust the /analyze KV limit (5 req/15min)
+    for (let i = 0; i < 5; i++) {
+      await post('/analyze', {}, {}, RL_HDR_IP3);
+    }
+    const blocked = await post('/analyze', {}, {}, RL_HDR_IP3);
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get('X-RateLimit-Remaining')).toBe('0');
+    expect(blocked.headers.get('X-RateLimit-Limit')).toBeTruthy();
+    expect(Number(blocked.headers.get('X-RateLimit-Limit'))).toBeGreaterThan(0);
+    expect(blocked.headers.get('X-RateLimit-Reset')).toBeTruthy();
+    expect(Number(blocked.headers.get('X-RateLimit-Reset'))).toBeGreaterThan(0);
+    expect(Number(blocked.headers.get('Retry-After'))).toBeGreaterThan(0);
+    // JSON body must remain unchanged
+    const body = await blocked.json();
+    expect(body.error).toBe('Too many requests');
+    expect(body.retryAfter).toBeGreaterThan(0);
+    expect(body.message).toContain('Terlalu banyak');
+  });
+
+  it('X-RateLimit-Reset is a Unix timestamp in the future', async () => {
+    const RL_HDR_IP4 = '10.99.9.4';
+    const res = await get('/check-session', {}, RL_HDR_IP4);
+    const reset = Number(res.headers.get('X-RateLimit-Reset'));
+    const nowSecs = Math.floor(Date.now() / 1000);
+    expect(reset).toBeGreaterThan(nowSecs);
   });
 });
 
@@ -4682,6 +4996,149 @@ describe('Security headers', () => {
   it('404 response returns all four security headers', async () => {
     const res = await get('/nonexistent-endpoint-xyz');
     await assertSecurityHeaders(res);
+  });
+});
+
+describe('POST /admin/cancel-invoice', () => {
+  const ADMIN_SECRET = 'test-admin-secret-abc';
+
+  // Admin endpoint is called server-to-server — no Origin header (CI pipeline curl call).
+  // Requests without Origin are not subject to the CORS origin check (isUnsafeOrigin
+  // only fails when Origin is present but not allowlisted, or Sec-Fetch-Site=cross-site).
+  function adminPost(body, token = ADMIN_SECRET, extraEnv = {}) {
+    return route(new Request('https://gaslamar.com/admin/cancel-invoice', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'CF-Connecting-IP': '1.2.3.4',
+        'X-Admin-Token': token,
+      },
+      body: JSON.stringify(body),
+    }), { ...env, ENVIRONMENT: 'staging', ADMIN_SECRET, ...extraEnv }, {});
+  }
+
+  it('returns 404 in production environment', async () => {
+    const res = await route(new Request('https://gaslamar.com/admin/cancel-invoice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '1.2.3.4', 'X-Admin-Token': ADMIN_SECRET },
+      body: JSON.stringify({ session_id: `sess_${crypto.randomUUID()}` }),
+    }), { ...env, ENVIRONMENT: 'production', ADMIN_SECRET }, {});
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 503 when ADMIN_SECRET is not configured', async () => {
+    const res = await adminPost({ session_id: `sess_${crypto.randomUUID()}` }, ADMIN_SECRET, { ADMIN_SECRET: undefined });
+    expect(res.status).toBe(503);
+  });
+
+  it('returns 401 when X-Admin-Token header is missing', async () => {
+    const res = await route(new Request('https://gaslamar.com/admin/cancel-invoice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '1.2.3.4' },
+      body: JSON.stringify({ session_id: `sess_${crypto.randomUUID()}` }),
+    }), { ...env, ENVIRONMENT: 'staging', ADMIN_SECRET }, {});
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 403 when token is wrong', async () => {
+    const res = await adminPost({ session_id: `sess_${crypto.randomUUID()}` }, 'wrong-token');
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 400 for invalid session_id format', async () => {
+    const res = await adminPost({ session_id: 'not-a-valid-id' });
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 404 when session does not exist', async () => {
+    const res = await adminPost({ session_id: `sess_${crypto.randomUUID()}` });
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 409 when session is not in pending_payment status', async () => {
+    const sessionId = `sess_${crypto.randomUUID()}`;
+    await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
+      status: 'paid',
+      tier: 'single',
+      mayar_invoice_id: 'inv_test',
+    }), { expirationTtl: 604800 });
+
+    const res = await adminPost({ session_id: sessionId });
+    expect(res.status).toBe(409);
+  });
+
+  it('returns 404 when session has no mayar_invoice_id', async () => {
+    const sessionId = `sess_${crypto.randomUUID()}`;
+    await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
+      status: 'pending_payment',
+      tier: 'single',
+    }), { expirationTtl: 604800 });
+
+    const res = await adminPost({ session_id: sessionId });
+    expect(res.status).toBe(404);
+  });
+
+  it('clears session invoice fields and returns 207 when Mayar cancel fails', async () => {
+    const sessionId = `sess_${crypto.randomUUID()}`;
+    await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
+      status: 'pending_payment',
+      tier: 'single',
+      mayar_invoice_id: 'inv_cancel_test',
+      invoice_url: 'https://mayar.shop/test',
+      invoice_created_at: Date.now(),
+    }), { expirationTtl: 604800 });
+
+    fetchMock.activate();
+    // Simulate Mayar returning 404 on all cancel endpoints
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: /\/hl\/v1\/(invoice|payment)\/inv_cancel_test\/(void|cancel)/, method: 'POST' })
+      .reply(404, JSON.stringify({ message: 'Not found' }))
+      .times(3);
+
+    const res = await adminPost({ session_id: sessionId });
+    fetchMock.deactivate();
+
+    // 207 = session cleared locally but Mayar cancel failed
+    expect(res.status).toBe(207);
+    const body = await res.json();
+    expect(body.ok).toBe(false);
+    expect(body.invoice_id).toBe('inv_cancel_test');
+
+    // Session should have invoice fields cleared
+    const updated = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
+    expect(updated.invoice_url).toBeNull();
+    expect(updated.mayar_invoice_id).toBeNull();
+    expect(updated.admin_cancelled_at).toBeTypeOf('number');
+  });
+
+  it('returns 200 when Mayar void succeeds', async () => {
+    const sessionId = `sess_${crypto.randomUUID()}`;
+    await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
+      status: 'pending_payment',
+      tier: 'single',
+      mayar_invoice_id: 'inv_void_ok',
+      invoice_url: 'https://mayar.shop/test2',
+      invoice_created_at: Date.now(),
+    }), { expirationTtl: 604800 });
+
+    fetchMock.activate();
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: '/hl/v1/invoice/inv_void_ok/void', method: 'POST' })
+      .reply(200, JSON.stringify({ data: { id: 'inv_void_ok', status: 'voided' } }));
+
+    const res = await adminPost({ session_id: sessionId });
+    fetchMock.deactivate();
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.invoice_id).toBe('inv_void_ok');
+
+    const updated = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
+    expect(updated.invoice_url).toBeNull();
+    expect(updated.mayar_invoice_id).toBeNull();
   });
 });
 
