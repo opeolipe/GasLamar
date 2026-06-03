@@ -183,7 +183,8 @@ async function runAnalysis() {
     clearInterval(trustInterval);
     finishAnimation();
 
-    setTimeout(() => { window.location.replace('hasil.html'); }, 800);
+    const _tierParam = new URLSearchParams(location.search).get('tier');
+    setTimeout(() => { window.location.replace(_tierParam ? 'hasil.html?tier=' + encodeURIComponent(_tierParam) : 'hasil.html'); }, 800);
 
   } catch (err) {
     clearTimeout(analysisTimeoutId);

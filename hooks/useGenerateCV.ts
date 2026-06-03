@@ -80,9 +80,7 @@ export function useGenerateCV(): UseGenerateCVReturn {
 
     const baseHeaders = { 'Content-Type': 'application/json' };
 
-    ;(window as any).Analytics?.track?.('cv_generation_started', {
-      tier: sessionStorage.getItem('gaslamar_tier') || undefined,
-    });
+    ;(window as any).Analytics?.track?.('cv_generation_started', {});
 
     // ── Step 1: /get-session ─────────────────────────────────────────────────
     const ctrl1   = new AbortController();
@@ -110,10 +108,8 @@ export function useGenerateCV(): UseGenerateCVReturn {
       if (res.status === 404) {
         clearClientSessionData(params.sessionId ?? null);
         const errData  = await res.json().catch(() => ({} as Record<string, unknown>));
-        const t        = sessionStorage.getItem('gaslamar_tier') || '';
-        const validity = (t === '3pack' || t === 'jobhunt') ? '30 hari' : '7 hari';
         const msg      = (errData as any).reason === 'expired'
-          ? `⏰ Sesi kamu sudah berakhir setelah ${validity}. Silakan upload ulang CV untuk analisis baru.`
+          ? '⏰ Sesi kamu sudah berakhir. Silakan upload ulang CV untuk analisis baru.'
           : 'Sesi tidak ditemukan atau sudah berakhir. Upload ulang CV untuk analisis baru.';
         showError('Sesi Berakhir', msg);
         return;
@@ -121,14 +117,7 @@ export function useGenerateCV(): UseGenerateCVReturn {
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
 
       const sessionData      = await res.json() as { tier: string };
-      const confirmedTier    = sessionData.tier || 'single';
-
-      // Sync tier from server — warn if client/server mismatch detected
-      const stored = sessionStorage.getItem('gaslamar_tier');
-      if (stored && stored !== confirmedTier) {
-        console.warn(`[GasLamar] Tier mismatch: ${stored} → ${confirmedTier}. UI corrected.`);
-      }
-      sessionStorage.setItem('gaslamar_tier', confirmedTier);
+      const confirmedTier = sessionData.tier || 'single';
 
       if (!mountedRef.current) return;
       setTier(confirmedTier);

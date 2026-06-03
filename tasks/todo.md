@@ -1,39 +1,52 @@
-# Security: Remove Sensitive Data from sessionStorage
+# Remove gaslamar_tier from sessionStorage
 
-## Status: COMPLETE
+## Status
+The backend HttpOnly cookie implementation is complete and verified (622 tests pass).
+The only remaining sessionStorage item from the security task is `gaslamar_tier`
+(non-sensitive display value: coba/single/3pack/jobhunt).
 
-## Findings
-- Auth tokens (`__Host-cv_key`, `sessionToken`, `__Host-session_id`) are already HttpOnly cookies — not in sessionStorage.
-- `gaslamar_session` and `gaslamar_result_id` are not written anywhere in active code.
-- Legacy JS files (`scoring.js`, `payment.js`, etc.) are NOT loaded by any HTML page (only React bundles are active).
+## Plan
 
-## Actual items fixed
-- [x] `gaslamar_user_id` — `js/analytics.js` uses in-memory `window.__gaslamarEphemeralUserId` only; no storage write.
-- [x] `gaslamar_skor` — `hooks/useResultData.ts` does NOT write `gaslamar_skor`; `scoring.js` writes it but that file is not loaded by any HTML page (dead code). `useGenerateCV.ts` only removes it on cleanup.
-- [x] `gaslamar_pending_invoice` — not written anywhere in `pages/Result.tsx` or any active code.
-- [x] Security test — `tests/e2e/security-invariants.spec.ts` exists with all forbidden keys including `gaslamar_session`, `gaslamar_user_id`, `gaslamar_skor`, `gaslamar_pending_invoice`, `gaslamar_result_id`, `gaslamar_cv_key`, `server_session_id`.
+### 1. Thread tier via URL params through pre-payment flow
+- `js/upload.js`: Pass tier in redirect to analyzing.html (`?tier=<value>`)
+- `js/analyzing-page.js`: Read tier from URL, pass it on redirect to hasil.html
+- `js/hasil-page.js`: Read tier from URL param instead of sessionStorage
 
-## Cookie security model (verified)
-- `/analyze` sets TWO HttpOnly cookies:
-  - `__Host-cv_key` — SameSite=Strict, HttpOnly, Secure, Path=/ (production same-site)
-  - `sessionToken` — SameSite=None; Partitioned, HttpOnly, Secure (cross-origin staging)
-- `/create-payment` sets `__Host-session_id` — SameSite=Strict, HttpOnly, Secure
-- All API calls use `credentials: 'include'`
-- `/get-scoring` returns 401 without a valid sessionToken or cv_key cookie
-- `/check-session` validates via cookies only (no query param fallback)
+### 2. Remove sessionStorage writes for tier
+- `js/payment.js`: Remove `sessionStorage.setItem('gaslamar_tier', tier)` (selectTier fn)
+- `js/download-state.js`: Remove tamper check + setItem; setClientSessionTier removed
+- `hooks/useDownloadSession.ts`: Remove sessionStorage.setItem for tier (use state)
+- `hooks/useGenerateCV.ts`: Remove setItem; 404 error msg hard-code validity text
+- `pages/Result.tsx`: Remove sessionStorage read/write for tier (use state + URL param)
+- `pages/Upload.tsx`: Remove sessionStorage.setItem for tier; pass in redirect
 
-## Steps completed
-- [x] Audit codebase
-- [x] `js/analytics.js` uses in-memory ID only
-- [x] `hooks/useResultData.ts` does not write `gaslamar_skor` (the write is in dead `scoring.js`)
-- [x] `hooks/useGenerateCV.ts` does not read `gaslamar_skor`; only removes it on cleanup
-- [x] `pages/Result.tsx` has no `gaslamar_pending_invoice` write
-- [x] `tests/e2e/security-invariants.spec.ts` covers all 6 forbidden keys
-- [x] 622 worker tests passing (`cd worker && npm test`)
-- [x] Frontend analysis passes (`hooks/useResultData.ts` uses `credentials: 'include'` via WORKER_URL fetches)
+### 3. Update sessionStorage readers to use alternatives
+- `js/download-page.js`: Default to '' during generation; tier shown after cvDataCache loads
+- `js/download-generation.js`: Remove tier from analytics (lines 17, 262)
+- `js/analytics.js`: Remove tier from top-level analytics call
+- `js/session-controller.js`: Remove gaslamar_tier from cleanup comment (already removes it)
 
-## Remaining non-security sessionStorage keys (acceptable)
-- `gaslamar_tier` — pricing tier string ('single', 'coba', etc.); not a credential; needed for tier pre-selection UX before payment session exists
-- `gaslamar_cv_pending` — user's own CV text, held temporarily for upload→analyzing page transition; cleared after analysis
-- `gaslamar_6d_scores`, `gaslamar_skor_sesudah`, `gaslamar_gap` — display values for download page score badge; not credentials
-- `gaslamar_score_displayed_at`, `gaslamar_analyze_time` — timing values for UX countdown; not credentials
+### 4. Update e2e test
+- `tests/e2e/security-invariants.spec.ts`: Remove outdated `gaslamar_scoring` seed
+  (hasil-guard.js no longer reads it; test should use correct mechanism)
+
+### 5. Verify
+- `cd worker && npm test` (all 622 tests must pass)
+- Build frontend: `npm run build`
+
+## Checkboxes
+- [ ] upload.js
+- [ ] analyzing-page.js
+- [ ] hasil-page.js
+- [ ] payment.js
+- [ ] download-state.js
+- [ ] useDownloadSession.ts
+- [ ] useGenerateCV.ts
+- [ ] pages/Result.tsx
+- [ ] pages/Upload.tsx
+- [ ] download-page.js
+- [ ] download-generation.js
+- [ ] analytics.js
+- [ ] e2e test
+- [ ] npm test passes
+- [ ] npm run build passes

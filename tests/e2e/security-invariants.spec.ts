@@ -127,8 +127,9 @@ test.describe('Client-storage security invariants', () => {
     expect(sessionKeys, 'gaslamar_analyze_time must not be written after analysis').not.toContain('gaslamar_analyze_time');
   });
 
-  test('hasil page — no raw auth tokens after scoring data is loaded from sessionStorage', async ({ page }) => {
-    // Seed the minimum sessionStorage state hasil-guard.js requires.
+  test('hasil page — no raw auth tokens after page loads', async ({ page }) => {
+    // hasil-guard.js no longer reads scoring data from sessionStorage.
+    // Auth is enforced server-side via the HttpOnly cv_key cookie.
     await page.goto('/hasil.html');
     await page.evaluate(() => {
       // gaslamar_analyze_time and gaslamar_scoring are no longer written by the app;

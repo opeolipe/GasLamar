@@ -29,7 +29,7 @@
        This guard only rejects forged URL session parameters; sets window.__hasilSessionError
        so the React app can render inline error states without a hard redirect.
        Source of truth: js/hasil-guard.js — keep in sync when editing. -->
-  <script>(function(){var s=new URLSearchParams(location.search),n=s.get("session")||s.get("sessionId");if(n!==null&&!n.startsWith("cvtext_")){sessionStorage.removeItem("gaslamar_cv_key");window.__hasilSessionError="expired";}})();</script>
+  <script>(function(){var s=new URLSearchParams(location.search),e=s.get("session")||s.get("sessionId");e!==null&&!e.startsWith("cvtext_")&&(sessionStorage.removeItem("gaslamar_cv_key"),window.__hasilSessionError="expired")})();</script>
   <!-- Cloudflare Web Analytics -->
   <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "f9c97d82f2a04b9f95e051946eb0525e"}'></script>
   <link rel="stylesheet" href="css/tailwind.css">
@@ -42,9 +42,9 @@
 <body>
   <div id="result-root"></div>
   <!-- Analytics + PostHog init -->
-  <script defer src="js/dist/analytics-init.bundle.js?v=22044686"></script>
+  <script defer src="js/dist/analytics-init.bundle.js?v=61166782"></script>
   <!-- Result React bundle -->
-  <script defer src="js/dist/hasil-react.bundle.js?v=5eb1ef17"></script>
+  <script defer src="js/dist/hasil-react.bundle.js?v=90279db4"></script>
   <!-- PostHog array.js — loaded after init so posthog.init() flags are queued first -->
   <script defer src="https://eu-assets.i.posthog.com/static/array.js" crossorigin="anonymous"></script>
 </body>

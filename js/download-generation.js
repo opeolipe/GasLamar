@@ -13,9 +13,7 @@ async function fetchAndGenerateCV(sessionId) {
   showState('generating-cv');
   setProgress(10);
   setGeneratingText('Mengambil data CV...');
-  if (window.Analytics) Analytics.track('cv_generation_started', {
-    tier: sessionStorage.getItem('gaslamar_tier') || undefined,
-  });
+  if (window.Analytics) Analytics.track('cv_generation_started', {});
 
   const controller = new AbortController();
   const timeout    = setTimeout(function() { controller.abort(); }, 25000);
@@ -258,9 +256,7 @@ async function retryGeneration() {
   retryGenerationInProgress = true;
   const retryBtn = document.getElementById('error-retry-btn');
   if (retryBtn) retryBtn.disabled = true;
-  if (window.Analytics) Analytics.track('cv_generation_retry', {
-    tier: sessionStorage.getItem('gaslamar_tier') || undefined,
-  });
+  if (window.Analytics) Analytics.track('cv_generation_retry', {});
   try {
     await fetchAndGenerateCV(null);
   } finally {
