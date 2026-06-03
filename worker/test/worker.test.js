@@ -1292,6 +1292,35 @@ describe('POST /create-payment — validation', () => {
     expect(res.status).not.toBe(403);
   });
 
+  it('resumes pending_payment session when cvtext_ already consumed — returns stored invoice_url', async () => {
+    // Simulate the state after a successful /create-payment that the frontend rejected:
+    // cvtext_ is gone, but a pending_payment session with invoice_url exists in KV.
+    const sessionId = `sess_${crypto.randomUUID()}`;
+    const storedInvoiceUrl = 'https://olive-41774.mayar.shop/invoices/resume-test';
+    await env.GASLAMAR_SESSIONS.put(
+      sessionId,
+      JSON.stringify({
+        tier: 'single',
+        status: 'pending_payment',
+        invoice_url: storedInvoiceUrl,
+        credits_remaining: 1,
+        total_credits: 1,
+        mayar_invoice_id: 'inv_resume_test',
+      }),
+      { expirationTtl: 604800 },
+    );
+    // Use a nonexistent cvtext_ (already consumed) — the session cookie should allow resume
+    const nonexistentKey = `cvtext_${cvHexToken()}`;
+    const res = await post(
+      '/create-payment',
+      { tier: 'single', cv_text_key: nonexistentKey },
+      { Cookie: `__Host-session_id=${sessionId}` },
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.invoice_url).toBe(storedInvoiceUrl);
+  });
+
   it('releases the invoice lock when the payment API key is missing', async () => {
     const key = await seedCVTextKey(undefined, '10.97.2.1');
     const testEnv = { ...env, MAYAR_API_KEY_SANDBOX: undefined };

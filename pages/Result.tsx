@@ -296,7 +296,10 @@ export default function Result() {
         validUrl = parsed.protocol === 'https:' &&
           ALLOWED_PAYMENT_HOSTS.some(domain => h === domain || h.endsWith('.' + domain));
       } catch (_) {}
-      if (!validUrl) throw new Error('URL pembayaran tidak valid. Coba lagi.');
+      if (!validUrl) {
+        console.error('[GasLamar] payment URL domain not in allowlist:', invoice_url ? new URL(invoice_url).hostname : 'null');
+        throw new Error('Layanan pembayaran tidak tersedia saat ini. Coba lagi atau hubungi support@gaslamar.com.');
+      }
 
       // Set routing flag so download-guard.js lets the user through after the Mayar redirect.
       // The actual session credential is the HttpOnly cookie — this is only a navigation hint.
