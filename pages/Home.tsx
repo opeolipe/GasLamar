@@ -24,6 +24,11 @@ const BENEFITS = [
 export default function Home() {
   const [showStickyBar, setShowStickyBar]     = useState(false);
   const [stickyDismissed, setStickyDismissed] = useState(false);
+  const [showNoSessionBanner, setShowNoSessionBanner] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const reason = new URLSearchParams(window.location.search).get('reason');
+    return reason === 'no_session';
+  });
   const footerRef    = useRef<HTMLElement>(null);
   // Tracks whether the scroll threshold was reached — prevents the observer
   // from prematurely re-showing the bar before the scroll handler fires.
@@ -106,6 +111,34 @@ export default function Home() {
           </a>
         </div>
       </nav>
+
+      {showNoSessionBanner && (
+        <div
+          role="alert"
+          style={{ background: '#fffbeb', borderBottom: '1px solid #fcd34d', padding: '0.75rem 1rem' }}
+        >
+          <div style={{ maxWidth: MAIN_CONTAINER_MAX, margin: '0 auto', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '1.1rem' }}>⚠️</span>
+            <p style={{ margin: 0, flex: 1, fontSize: '0.9rem', color: '#92400e', lineHeight: 1.5 }}>
+              Sesi analisis kamu tidak ditemukan. Silakan upload CV untuk memulai.
+            </p>
+            <a
+              href="upload.html"
+              style={{ flexShrink: 0, background: '#1B4FE8', color: '#fff', fontWeight: 700, fontSize: '0.85rem', borderRadius: 10, padding: '0.45rem 1rem', textDecoration: 'none', whiteSpace: 'nowrap' }}
+            >
+              Upload CV
+            </a>
+            <button
+              type="button"
+              aria-label="Tutup pesan"
+              onClick={() => setShowNoSessionBanner(false)}
+              style={{ flexShrink: 0, minWidth: 36, minHeight: 36, borderRadius: '50%', border: 'none', background: 'rgba(146,64,14,0.1)', color: '#92400e', fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
 
       <main id="main-content" className={MAIN_CONTAINER_CLASS} style={{ maxWidth: MAIN_CONTAINER_MAX }}>
         {/* Hero */}
