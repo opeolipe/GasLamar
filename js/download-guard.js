@@ -28,7 +28,7 @@
   // from a garbage token that would pass the guard but fail server-side.
   var token = params.get('token');
   if (token && /^[0-9a-f]{32}$/.test(token)) return;
-  if (token) { window.location.replace('/'); return; }
+  if (token) { window.location.replace('/?reason=no_session'); return; }
 
   // Path 2: normal flow — presence flag written by payment.js after /create-payment.
   // The actual session_id is never stored client-side; the HttpOnly cookie is the
@@ -40,7 +40,7 @@
     if (localStorage.getItem('gaslamar_session')) return;
   } catch (_) {
     // localStorage blocked (e.g. Safari strict private mode) — fail closed.
-    window.location.replace('/');
+    window.location.replace('/?reason=no_session');
     return;
   }
 
@@ -50,7 +50,7 @@
     var legacySession = localStorage.getItem('gaslamar_session') || sessionStorage.getItem('gaslamar_session');
     if (/^sess_[A-Za-z0-9-]{8,64}$/.test(legacySession || '')) return;
   } catch (_) {
-    window.location.replace('/');
+    window.location.replace('/?reason=no_session');
     return;
   }
 
@@ -59,10 +59,10 @@
     if (localStorage.getItem('gaslamar_delivery')) return;
   } catch (_) {
     // localStorage blocked — fail closed.
-    window.location.replace('/');
+    window.location.replace('/?reason=no_session');
     return;
   }
 
   // No valid entry — redirect before body renders.
-  window.location.replace('/');
+  window.location.replace('/?reason=no_session');
 })();
