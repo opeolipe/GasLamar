@@ -2616,9 +2616,15 @@ describe('POST /webhook/mayar', () => {
     // updateSession returns false when the session doesn't exist; handler should still return 200
     // (so Mayar stops retrying) but must not log payment_confirmed.
     const missingSessionId = `sess_${crypto.randomUUID()}`;
+    const invoiceId = 'inv_missing_session_test';
+    await env.GASLAMAR_SESSIONS.put(
+      `mayar_session_${invoiceId}`,
+      JSON.stringify({ session_id: missingSessionId }),
+      { expirationTtl: 604800 },
+    );
     const payload = JSON.stringify({
       status: 'paid',
-      redirect_url: `https://gaslamar.com/download.html?session=${encodeURIComponent(missingSessionId)}`,
+      id: invoiceId,
     });
 
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
@@ -2650,9 +2656,16 @@ describe('POST /webhook/mayar', () => {
     // Pre-seed the sentinel as the first successful delivery would have written it
     await env.GASLAMAR_SESSIONS.put(`payment_processed_${sessionId}`, '1', { expirationTtl: 172800 });
 
+    const invoiceId = 'inv_duplicate_sentinel_test';
+    await env.GASLAMAR_SESSIONS.put(
+      `mayar_session_${invoiceId}`,
+      JSON.stringify({ session_id: sessionId }),
+      { expirationTtl: 604800 },
+    );
+
     const payload = JSON.stringify({
       status: 'paid',
-      redirect_url: `https://gaslamar.com/download.html?session=${encodeURIComponent(sessionId)}`,
+      id: invoiceId,
     });
 
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
@@ -2673,9 +2686,16 @@ describe('POST /webhook/mayar', () => {
     const sessionId = await seedSession('paid', 'single');
     // No sentinel key — rely on session status check only
 
+    const invoiceId = 'inv_already_paid_check';
+    await env.GASLAMAR_SESSIONS.put(
+      `mayar_session_${invoiceId}`,
+      JSON.stringify({ session_id: sessionId }),
+      { expirationTtl: 604800 },
+    );
+
     const payload = JSON.stringify({
       status: 'paid',
-      redirect_url: `https://gaslamar.com/download.html?session=${encodeURIComponent(sessionId)}`,
+      id: invoiceId,
     });
 
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
@@ -2737,6 +2757,73 @@ describe('POST /webhook/mayar — multi-candidate invoice ID fallback', () => {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    payload,
+    });
+
+    expect(res.status).toBe(200);
+    const updated = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
+    expect(updated?.status).toBe('paid');
+  });
+});
+
+describe('POST /webhook/mayar — missing order_id', () => {
+  it('returns 400 when payload has no identifiable invoice or order ID', async () => {
+    // A webhook with only status and redirect_url (no id/invoice_id/order_id) must return 400
+    // so Mayar retries with a corrected payload rather than silently swallowing the event.
+    const payload = JSON.stringify({ status: 'paid' });
+    const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /webhook/mayar — reference field and result_id_session_ fallback', () => {
+  it('finds session directly when reference field IS the session ID', async () => {
+    // Mayar echoes back the `reference` field we set during invoice creation.
+    // The handler detects `sess_` prefix and uses it directly without a KV lookup.
+    const sessionId = await seedSession('pending', 'single');
+
+    const payload = JSON.stringify({
+      status: 'paid',
+      reference: sessionId,   // echoed back from createMayarInvoice `reference: sessionId`
+    });
+
+    const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
+    });
+
+    expect(res.status).toBe(200);
+    const updated = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
+    expect(updated?.status).toBe('paid');
+  });
+
+  it('finds session via result_id_session_ fallback index when primary KV index is missing', async () => {
+    // Simulates the case where Mayar's webhook ID doesn't match the stored invoice ID,
+    // but we stored a result_id_session_ index at payment creation time.
+    const sessionId = await seedSession('pending', 'single');
+    const resultId = crypto.randomUUID();
+
+    // Store the fallback index (as /create-payment does when result_id is present)
+    await env.GASLAMAR_SESSIONS.put(
+      `result_id_session_${resultId}`,
+      JSON.stringify({ session_id: sessionId }),
+      { expirationTtl: 604800 },
+    );
+
+    // No mayar_session_ index — simulates KV index mismatch
+    const payload = JSON.stringify({
+      id: resultId,   // Mayar sends the result_id as the event ID
+      status: 'paid',
+    });
+
+    const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
     });
 
     expect(res.status).toBe(200);
