@@ -114,6 +114,64 @@ jobs:
             exit 1
           fi
 
+      - name: Payment gateway smoke test
+        run: |
+          set -e
+          WORKER="https://api-staging.gaslamar.com"
+          ORIGIN="https://staging.gaslamar.pages.dev"
+          FAIL=0
+
+          echo "--- [1] GET /payment-health: Mayar sandbox reachable + API key configured ---"
+          HEALTH_BODY=$(curl -s -H "Origin: $ORIGIN" "$WORKER/payment-health")
+          echo "  Response: $HEALTH_BODY"
+          HEALTH_STATUS=$(echo "$HEALTH_BODY" | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4)
+          GW_STATUS=$(echo "$HEALTH_BODY" | grep -o '"gateway_status":"[^"]*"' | head -1 | cut -d'"' -f4)
+          echo "  status=$HEALTH_STATUS  gateway_status=$GW_STATUS"
+          if [ "$HEALTH_STATUS" = "ok" ]; then
+            echo "  PASS: Mayar gateway reachable"
+          else
+            echo "  FAIL: Mayar gateway not reachable (status=$HEALTH_STATUS, gateway_status=$GW_STATUS)"
+            echo "        This means MAYAR_API_KEY_SANDBOX is missing or Mayar sandbox is down."
+            FAIL=1
+          fi
+
+          echo "--- [2] POST /create-payment: endpoint exists and rejects missing cv_text_key with 400 ---"
+          CP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "$WORKER/create-payment" \
+            -H "Content-Type: application/json" \
+            -H "Origin: $ORIGIN" \
+            -d '{"tier":"single","email":"smoke@gaslamar.test"}')
+          echo "  HTTP $CP_STATUS (expected 400 — missing cv_text_key)"
+          if [ "$CP_STATUS" = "400" ]; then
+            echo "  PASS: endpoint live and validating input correctly"
+          else
+            echo "  FAIL: expected 400, got $CP_STATUS — endpoint may not be deployed or is returning an unexpected error"
+            FAIL=1
+          fi
+
+          echo "--- [3] POST /create-payment: rejects unknown tier with 400 + valid_tiers field ---"
+          TIER_BODY=$(curl -s \
+            -X POST "$WORKER/create-payment" \
+            -H "Content-Type: application/json" \
+            -H "Origin: $ORIGIN" \
+            -d '{"tier":"__invalid_tier__","cv_text_key":"cvtext_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}')
+          TIER_STATUS=$(echo "$TIER_BODY" | grep -o '"valid_tiers"')
+          if [ "$TIER_STATUS" = '"valid_tiers"' ]; then
+            echo "  PASS: tier validation present in response"
+          else
+            echo "  WARN: valid_tiers field not in response — check tier validation: $TIER_BODY"
+          fi
+
+          if [ "$FAIL" -ne 0 ]; then
+            echo ""
+            echo "Payment gateway smoke test FAILED — see above."
+            echo "This usually means: (a) MAYAR_API_KEY_SANDBOX secret is missing, or"
+            echo "(b) the staging worker was not deployed correctly."
+            exit 1
+          fi
+          echo ""
+          echo "Payment gateway smoke test passed."
+
       - name: CORS security header check (staging)
         run: |
           set -e

@@ -4999,3 +4999,146 @@ describe('Security headers', () => {
   });
 });
 
+describe('POST /admin/cancel-invoice', () => {
+  const ADMIN_SECRET = 'test-admin-secret-abc';
+
+  // Admin endpoint is called server-to-server — no Origin header (CI pipeline curl call).
+  // Requests without Origin are not subject to the CORS origin check (isUnsafeOrigin
+  // only fails when Origin is present but not allowlisted, or Sec-Fetch-Site=cross-site).
+  function adminPost(body, token = ADMIN_SECRET, extraEnv = {}) {
+    return route(new Request('https://gaslamar.com/admin/cancel-invoice', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'CF-Connecting-IP': '1.2.3.4',
+        'X-Admin-Token': token,
+      },
+      body: JSON.stringify(body),
+    }), { ...env, ENVIRONMENT: 'staging', ADMIN_SECRET, ...extraEnv }, {});
+  }
+
+  it('returns 404 in production environment', async () => {
+    const res = await route(new Request('https://gaslamar.com/admin/cancel-invoice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '1.2.3.4', 'X-Admin-Token': ADMIN_SECRET },
+      body: JSON.stringify({ session_id: `sess_${crypto.randomUUID()}` }),
+    }), { ...env, ENVIRONMENT: 'production', ADMIN_SECRET }, {});
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 503 when ADMIN_SECRET is not configured', async () => {
+    const res = await adminPost({ session_id: `sess_${crypto.randomUUID()}` }, ADMIN_SECRET, { ADMIN_SECRET: undefined });
+    expect(res.status).toBe(503);
+  });
+
+  it('returns 401 when X-Admin-Token header is missing', async () => {
+    const res = await route(new Request('https://gaslamar.com/admin/cancel-invoice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '1.2.3.4' },
+      body: JSON.stringify({ session_id: `sess_${crypto.randomUUID()}` }),
+    }), { ...env, ENVIRONMENT: 'staging', ADMIN_SECRET }, {});
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 403 when token is wrong', async () => {
+    const res = await adminPost({ session_id: `sess_${crypto.randomUUID()}` }, 'wrong-token');
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 400 for invalid session_id format', async () => {
+    const res = await adminPost({ session_id: 'not-a-valid-id' });
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 404 when session does not exist', async () => {
+    const res = await adminPost({ session_id: `sess_${crypto.randomUUID()}` });
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 409 when session is not in pending_payment status', async () => {
+    const sessionId = `sess_${crypto.randomUUID()}`;
+    await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
+      status: 'paid',
+      tier: 'single',
+      mayar_invoice_id: 'inv_test',
+    }), { expirationTtl: 604800 });
+
+    const res = await adminPost({ session_id: sessionId });
+    expect(res.status).toBe(409);
+  });
+
+  it('returns 404 when session has no mayar_invoice_id', async () => {
+    const sessionId = `sess_${crypto.randomUUID()}`;
+    await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
+      status: 'pending_payment',
+      tier: 'single',
+    }), { expirationTtl: 604800 });
+
+    const res = await adminPost({ session_id: sessionId });
+    expect(res.status).toBe(404);
+  });
+
+  it('clears session invoice fields and returns 207 when Mayar cancel fails', async () => {
+    const sessionId = `sess_${crypto.randomUUID()}`;
+    await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
+      status: 'pending_payment',
+      tier: 'single',
+      mayar_invoice_id: 'inv_cancel_test',
+      invoice_url: 'https://mayar.shop/test',
+      invoice_created_at: Date.now(),
+    }), { expirationTtl: 604800 });
+
+    fetchMock.activate();
+    // Simulate Mayar returning 404 on all cancel endpoints
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: /\/hl\/v1\/(invoice|payment)\/inv_cancel_test\/(void|cancel)/, method: 'POST' })
+      .reply(404, JSON.stringify({ message: 'Not found' }))
+      .times(3);
+
+    const res = await adminPost({ session_id: sessionId });
+    fetchMock.deactivate();
+
+    // 207 = session cleared locally but Mayar cancel failed
+    expect(res.status).toBe(207);
+    const body = await res.json();
+    expect(body.ok).toBe(false);
+    expect(body.invoice_id).toBe('inv_cancel_test');
+
+    // Session should have invoice fields cleared
+    const updated = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
+    expect(updated.invoice_url).toBeNull();
+    expect(updated.mayar_invoice_id).toBeNull();
+    expect(updated.admin_cancelled_at).toBeTypeOf('number');
+  });
+
+  it('returns 200 when Mayar void succeeds', async () => {
+    const sessionId = `sess_${crypto.randomUUID()}`;
+    await env.GASLAMAR_SESSIONS.put(sessionId, JSON.stringify({
+      status: 'pending_payment',
+      tier: 'single',
+      mayar_invoice_id: 'inv_void_ok',
+      invoice_url: 'https://mayar.shop/test2',
+      invoice_created_at: Date.now(),
+    }), { expirationTtl: 604800 });
+
+    fetchMock.activate();
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: '/hl/v1/invoice/inv_void_ok/void', method: 'POST' })
+      .reply(200, JSON.stringify({ data: { id: 'inv_void_ok', status: 'voided' } }));
+
+    const res = await adminPost({ session_id: sessionId });
+    fetchMock.deactivate();
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.invoice_id).toBe('inv_void_ok');
+
+    const updated = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
+    expect(updated.invoice_url).toBeNull();
+    expect(updated.mayar_invoice_id).toBeNull();
+  });
+});
+
