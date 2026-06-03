@@ -3,7 +3,6 @@ import {
   WORKER_URL,
   clearClientSessionData,
 } from '@/lib/sessionUtils';
-import { getPrimaryIssue } from '@/lib/resultUtils';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -155,14 +154,6 @@ export function useGenerateCV(): UseGenerateCVReturn {
           }
         } catch (_) {}
 
-        // Pass primary_issue derived from 6D scores (plain numbers, no CV content).
-        try {
-          const raw6d = sessionStorage.getItem('gaslamar_6d_scores');
-          if (raw6d) {
-            const primaryIssue = getPrimaryIssue(JSON.parse(raw6d) as Record<string, number>);
-            if (primaryIssue) reqBody.primary_issue = primaryIssue;
-          }
-        } catch (_) {}
 
         const genRes = await fetch(`${WORKER_URL}/generate`, {
           method:      'POST',

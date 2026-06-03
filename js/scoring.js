@@ -59,9 +59,7 @@
     return;
   }
 
-  // Store minimal derived numbers for Download page score badge (plain numbers, no CV content).
   try {
-    if (scoring.skor_6d) sessionStorage.setItem('gaslamar_6d_scores', JSON.stringify(scoring.skor_6d));
     if (typeof scoring.skor === 'number') sessionStorage.setItem('gaslamar_skor', String(scoring.skor));
     if (typeof scoring.skor_sesudah === 'number') sessionStorage.setItem('gaslamar_skor_sesudah', String(scoring.skor_sesudah));
     if (Array.isArray(scoring.gap) && scoring.gap.length > 0) {
@@ -132,7 +130,6 @@ function renderScore(scoring) {
 
   // Analytics
   if (window.Analytics) {
-    sessionStorage.setItem('gaslamar_score_displayed_at', String(Date.now()));
     Analytics.track('score_displayed', {
       score,
       score_bucket: score >= 70 ? 'high' : score >= 50 ? 'medium' : 'low',

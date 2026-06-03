@@ -17,7 +17,6 @@ import {
   clearClientSessionData,
   WORKER_URL,
 } from '@/lib/sessionUtils';
-import { buildResultData } from '@/lib/resultUtils';
 import { getExperimentVariant, trackExperimentExposure } from '@/lib/experiments';
 import {
   PAGE_BG,
@@ -338,15 +337,7 @@ export default function Download() {
     } catch (_) {}
   }, [effectiveContentCvId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const [resultData] = useState<ResultData | null>(() => {
-    try {
-      const raw6d  = sessionStorage.getItem('gaslamar_6d_scores');
-      if (!raw6d) return null;
-      const skor6d = JSON.parse(raw6d) as Record<string, number>;
-      const cvText = sessionStorage.getItem('gaslamar_cv_pending') || '';
-      return buildResultData({ skor6d, cvText: cvText || undefined });
-    } catch { return null; }
-  });
+  const resultData: ResultData | null = null;
 
   const dimensions = resultData?.scores;
   const creditsRemaining = effectiveContent?.creditsRemaining ?? session.sessionData?.creditsRemaining ?? 1;

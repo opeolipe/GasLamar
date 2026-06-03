@@ -90,7 +90,7 @@ function buildSnippetPreview(raw: string | null | undefined): string | null {
 }
 
 export default function Result() {
-  const { data, analyzeTime, loading, error, noSession } = useResultData();
+  const { data, analyzeTime, scoreDisplayedAt, loading, error, noSession } = useResultData();
   const countdown = useSessionCountdown(analyzeTime);
   // cv_pending is cleared by Analyzing before navigation — read only the pre-extracted
   // sample line (a single bullet/action verb, no raw CV text).
@@ -246,10 +246,7 @@ export default function Result() {
     ;(window as any).Analytics?.track?.('payment_initiated', {
       tier:           selectedTier,
       tier_price_idr: TIER_CONFIG[selectedTier].price,
-      time_ms_since_score: (() => {
-        const t = sessionStorage.getItem('gaslamar_score_displayed_at');
-        return t ? Date.now() - parseInt(t, 10) : undefined;
-      })(),
+      time_ms_since_score: scoreDisplayedAt ? Date.now() - scoreDisplayedAt : undefined,
     });
 
     setPaymentInProgress(true);
