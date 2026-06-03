@@ -61,6 +61,9 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
     mobile: fakeMobile,
     description: `${tierConfig.label} — GasLamar.com`,
     redirectUrl,
+    // reference is echoed back in Mayar webhooks; used as a session-ID fallback
+    // when the primary mayar_session_{invoiceId} KV index is missing.
+    reference: sessionId,
     items: [{
       quantity: 1,
       rate: tierConfig.amount,
@@ -75,6 +78,7 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
     amount: tierConfig.amount,
     description: `${tierConfig.label} — GasLamar.com`,
     redirectUrl,
+    reference: sessionId,
   };
 
   for (const [endpoint, body] of [
