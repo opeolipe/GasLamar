@@ -4,7 +4,7 @@ import { clientIp, sha256Hex, log } from '../utils.js';
 import { checkRateLimit, checkRateLimitKV, rateLimitResponse, addRateLimitHeaders } from '../rateLimit.js';
 import { TIER_CREDITS, SESSION_TTL_MULTI, VALID_TIERS } from '../constants.js';
 import { createMayarInvoice, logMayarEnvironment } from '../mayar.js';
-import { createSession, getSession } from '../sessions.js';
+import { createSession, getSession, updateSession } from '../sessions.js';
 import { makeSessionCookie, getCvKeyFromCookie, getSessionTokenFromCookie, getSessionIdFromCookie } from '../cookies.js';
 import { SESSION_STATES } from '../sessionStates.js';
 
@@ -100,14 +100,64 @@ export async function handleCreatePayment(request, env) {
       const existingSession = await getSession(env, existingSessionId);
       if (
         existingSession?.status === SESSION_STATES.PENDING_PAYMENT &&
-        existingSession?.invoice_url &&
         existingSession?.tier === validatedTier
       ) {
-        log('create_payment_resumed', { ip, sessionId: existingSessionId });
         const credits = TIER_CREDITS[validatedTier] ?? 1;
         const isMulti = credits > 1;
-        const cookieHeader = makeSessionCookie(existingSessionId, isMulti);
-        return withRl(jsonResponseWithCookie({ invoice_url: existingSession.invoice_url }, 200, cookieHeader, request, env));
+
+        // Check whether the stored invoice is still within its validity window.
+        // Sandbox invoices expire quickly (~1h); production invoices last much longer.
+        // If expired, fall through to create a fresh invoice — a new Mayar email will
+        // be sent, which is correct because the old link is dead.
+        const INVOICE_TTL_MS = env.ENVIRONMENT === 'production'
+          ? 23 * 60 * 60 * 1000   // 23h — conservative for production
+          : 50 * 60 * 1000;       // 50min — sandbox invoices expire ~1h after creation
+        // Old sessions may not have invoice_created_at — treat as still valid (backward compat).
+        const invoiceAge = existingSession.invoice_created_at
+          ? Date.now() - existingSession.invoice_created_at
+          : 0;
+        const invoiceValid = existingSession.invoice_url && invoiceAge < INVOICE_TTL_MS;
+
+        if (invoiceValid) {
+          log('create_payment_resumed', { ip, sessionId: existingSessionId });
+          const cookieHeader = makeSessionCookie(existingSessionId, isMulti);
+          return withRl(jsonResponseWithCookie({ invoice_url: existingSession.invoice_url }, 200, cookieHeader, request, env));
+        }
+
+        // Invoice expired or URL missing — create a fresh invoice and update the session.
+        // Session data already has cv_text + job_desc so we can recreate without cvtext_.
+        log('create_payment_invoice_expired_refresh', { ip, sessionId: existingSessionId, invoiceAge });
+        const mayarKeyForRefresh = env.ENVIRONMENT === 'production' ? env.MAYAR_API_KEY : env.MAYAR_API_KEY_SANDBOX;
+        if (mayarKeyForRefresh) {
+          try {
+            const redirectUrl = env.ENVIRONMENT === 'staging'
+              ? 'https://staging.gaslamar.pages.dev/download.html'
+              : 'https://gaslamar.com/download.html';
+            const { invoice_id: newInvoiceId, invoice_url: newInvoiceUrl } = await createMayarInvoice(
+              existingSessionId, validatedTier, env, redirectUrl, existingSession.email ?? null, null
+            );
+            if (newInvoiceUrl) {
+              await updateSession(env, existingSessionId, {
+                mayar_invoice_id: newInvoiceId,
+                invoice_url: newInvoiceUrl,
+                invoice_created_at: Date.now(),
+              });
+              if (newInvoiceId) {
+                await env.GASLAMAR_SESSIONS.put(
+                  `mayar_session_${newInvoiceId}`,
+                  JSON.stringify({ session_id: existingSessionId }),
+                  { expirationTtl: isMulti ? 2592000 : 604800 }
+                );
+              }
+              log('create_payment_invoice_refreshed', { ip, sessionId: existingSessionId });
+              const cookieHeader = makeSessionCookie(existingSessionId, isMulti);
+              return withRl(jsonResponseWithCookie({ invoice_url: newInvoiceUrl }, 200, cookieHeader, request, env));
+            }
+          } catch (refreshErr) {
+            console.error(JSON.stringify({ event: 'create_payment_refresh_failed', error: refreshErr.message }));
+            // Fall through to cv_expired — user may need to re-upload
+          }
+        }
       }
     }
     // M22: Include a stable machine-readable code so the client can branch on it
@@ -174,6 +224,7 @@ export async function handleCreatePayment(request, env) {
         // Store invoice_url so the frontend can resume if the first redirect attempt
         // failed (e.g. allowlist mismatch) and cvtext_ was already consumed.
         ...(invoice_url ? { invoice_url } : {}),
+        invoice_created_at: Date.now(),
         credits_remaining: credits,
         total_credits: credits,
         ip,

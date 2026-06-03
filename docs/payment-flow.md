@@ -65,10 +65,12 @@ Both the legacy page (`js/payment.js`) and the React page (`pages/Result.tsx`) v
 | `mayar.shop` | Sandbox checkout URLs (e.g. `olive-41774.mayar.shop`) |
 | `myr.id` | Sandbox checkout URLs (legacy, e.g. `olive-41774.myr.id`) |
 
-**When Mayar adds a new checkout domain:**
+**When Mayar adds a new checkout domain — update these 3 locations:**
 1. Add it to `ALLOWED_PAYMENT_HOSTS` in `js/payment.js`
 2. Add it to `ALLOWED_PAYMENT_HOSTS` in `pages/Result.tsx`
 3. Add a test in `worker/test/worker.test.js` under `POST /create-payment — Mayar URL field extraction`
+
+The CI step **"Verify payment allowlist contains all required Mayar checkout domains"** in `deploy-staging.yml` will fail if any required domain is missing from the built bundle — this is your canary. If staging CI fails on the allowlist check, a Mayar domain migration is in progress and the allowlist must be updated before deploying.
 
 ---
 
@@ -97,6 +99,28 @@ cv_expired path — check for existing session cookie
       ▼ yes
 Return stored invoice_url  ← no new Mayar API call
 ```
+
+---
+
+## Invoice Expiry and Smart Resume
+
+Mayar sandbox invoices expire approximately 1 hour after creation. Production invoices last much longer but also eventually expire. GasLamar tracks expiry server-side so users never receive a working-looking email that links to a dead checkout page.
+
+### How it works
+
+When an invoice is created, `invoice_created_at` (Unix ms timestamp) is stored in the session alongside `invoice_url`. On resume (user retries after `cvtext_` is already consumed):
+
+| Condition | What happens |
+|---|---|
+| Invoice is still valid (`invoice_created_at + TTL > now`) | Return the stored `invoice_url`. No new invoice, no new email. |
+| Invoice is expired OR `invoice_url` is `null` | Create a fresh Mayar invoice using session data (`cv_text` + `job_desc`). Update session. One new email with a working link. |
+| Invoice refresh fails (Mayar error) | Return `cv_expired` — user must re-upload. |
+
+**TTLs:** 50 minutes (sandbox), 23 hours (production). These are conservative — slightly under Mayar's actual expiry window to avoid serving links that expire between the resume check and the user clicking them.
+
+### Rapid-click cooldown
+
+The `invoice_lock_<cvtext_key>` KV entry (60s TTL) prevents concurrent requests from creating duplicate invoices. Any second click within 60s returns 409 and is debounced client-side. After the first successful invoice creation, `cvtext_` is deleted and subsequent clicks hit the resume path (above), which returns the same URL until it expires.
 
 ---
 
@@ -140,3 +164,39 @@ See `worker/src/sessionStates.js` for canonical state constants. Never hardcode 
 Coupons are managed entirely in Mayar. The worker only validates coupon existence via `GET /coupon/validate` (query params — NOT body, Fetch spec forbids GET bodies). The actual discount is applied on Mayar's checkout page when the user enters the code.
 
 See `CLAUDE.md` → Coupon / Discount Promos for operational controls.
+
+---
+
+## Staging Drift Prevention
+
+Stale staging code is the root cause of most payment bugs (orphaned invoices, broken URLs, dead-end emails). Two CI safeguards prevent this:
+
+### 1. Branch staleness gate (`deploy-staging.yml` → `check-staleness` job)
+
+Every staging deploy fetches `origin/main` and compares the latest commit timestamp against the staging HEAD. If the gap exceeds **24 hours**, the deploy fails immediately:
+
+```
+STAGING IS STALE — merge main into staging before deploying.
+Staging is Xh behind main. Run: git merge origin/main
+```
+
+This job runs in parallel with `test` and `typecheck` and gates `deploy-sandbox-worker`.
+
+### 2. Daily auto-sync PR (`.github/workflows/sync-staging.yml`)
+
+A scheduled job runs at 02:00 UTC each day. If staging has uncommitted drift from main, it opens a PR (`main → staging`). If a sync PR already exists, it posts a comment with updated stats. Merge the PR to keep staging current.
+
+---
+
+## Pre-Release Payment Audit Checklist
+
+Run this checklist before every production release that touches payment code:
+
+- [ ] Run the full payment flow on staging with a real test email address
+- [ ] Confirm exactly **one** "Selesaikan Pembayaran Anda" email is received per payment attempt
+- [ ] Confirm the payment link in the email is valid and loads the Mayar checkout page (not 404)
+- [ ] Click "Bayar" 5 times rapidly — confirm only 1 invoice is created (check Mayar dashboard)
+- [ ] Wait for the sandbox invoice to expire (~1h), then click "Bayar" again — confirm a **new** email arrives with a fresh working link
+- [ ] Simulate a missing `paymentLink` field (set `invoice_url: null` in a test) — confirm worker returns 502, `cvtext_` is NOT deleted, session stores `invoice_id` for recovery
+- [ ] Confirm staging CI payment allowlist check passes — all 5 Mayar domains present
+- [ ] Confirm `docs/payment-flow.md` Mayar domain checklist is current

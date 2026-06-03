@@ -50,10 +50,35 @@ jobs:
       - name: TypeScript type check
         run: npm run typecheck
 
+  check-staleness:
+    name: Check Branch Staleness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fail if staging is more than 24h behind main
+        run: |
+          git fetch origin main --depth=1
+          MAIN_TS=$(git log -1 --format=%ct origin/main)
+          HEAD_TS=$(git log -1 --format=%ct HEAD)
+          DIFF=$(( MAIN_TS - HEAD_TS ))
+          echo "main latest commit: $(date -d @$MAIN_TS --utc '+%Y-%m-%dT%H:%M:%SZ')"
+          echo "staging HEAD commit: $(date -d @$HEAD_TS --utc '+%Y-%m-%dT%H:%M:%SZ')"
+          echo "Difference: ${DIFF}s ($(( DIFF / 3600 ))h $(( (DIFF % 3600) / 60 ))m)"
+          if [ "$DIFF" -gt 86400 ]; then
+            echo ""
+            echo "STAGING IS STALE — merge main into staging before deploying."
+            echo "Staging is $(( DIFF / 3600 ))h behind main. Run: git merge origin/main"
+            exit 1
+          fi
+          echo "Staleness check passed: staging is within 24h of main."
+
   deploy-sandbox-worker:
     name: Deploy Staging Worker
     runs-on: ubuntu-latest
-    needs: [test, typecheck]
+    needs: [test, typecheck, check-staleness]
     defaults:
       run:
         working-directory: worker
