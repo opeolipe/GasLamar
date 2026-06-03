@@ -56,7 +56,7 @@ export async function handleCheckSession(request, env) {
       if (session?.resultId) {
         log('check_session_analysis_valid_token', { ip });
         return withRl(jsonResponse(
-          { valid: true, authenticated: true, type: 'analysis', resultId: session.resultId },
+          { valid: true, status: 'analysis', authenticated: true, type: 'analysis', resultId: session.resultId },
           200,
           request,
           env,
@@ -78,7 +78,7 @@ export async function handleCheckSession(request, env) {
       if (stored?.scoring) {
         log('check_session_analysis_valid', { ip });
         return withRl(jsonResponse(
-          { valid: true, authenticated: true, type: 'analysis', resultId: stored.result_id ?? null },
+          { valid: true, status: 'analysis', authenticated: true, type: 'analysis', resultId: stored.result_id ?? null },
           200,
           request,
           env,
@@ -90,7 +90,7 @@ export async function handleCheckSession(request, env) {
       if (fallback?.scoring) {
         log('check_session_analysis_valid_fallback', { ip });
         return withRl(jsonResponse(
-          { valid: true, authenticated: true, type: 'analysis', resultId: fallback.result_id ?? null },
+          { valid: true, status: 'analysis', authenticated: true, type: 'analysis', resultId: fallback.result_id ?? null },
           200,
           request,
           env,
