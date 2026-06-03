@@ -24,7 +24,6 @@ import {
   MAIN_CONTAINER_CLASS,
   MAIN_CONTAINER_MAX,
 } from '@/lib/pageChrome';
-import type { ResultData } from '@/types/result';
 import SessionError          from '@/components/download/SessionError';
 import WaitingPayment        from '@/components/download/WaitingPayment';
 import GeneratingCV          from '@/components/download/GeneratingCV';
@@ -337,9 +336,6 @@ export default function Download() {
     } catch (_) {}
   }, [effectiveContentCvId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const resultData: ResultData | null = null;
-
-  const dimensions = resultData?.scores;
   const creditsRemaining = effectiveContent?.creditsRemaining ?? session.sessionData?.creditsRemaining ?? 1;
   const totalCredits     = effectiveContent?.totalCredits     ?? session.sessionData?.totalCredits     ?? 1;
   const bilingual        = tier ? isBilingual(tier) : false;
@@ -483,8 +479,7 @@ export default function Download() {
               onUrlFetch={handleUrlFetch}
               showMobileFallback={showMobileFb}
               closureFirst={closureFirst}
-              dimensions={dimensions}
-              primaryIssue={resultData?.primaryIssue ?? null}
+              primaryIssue={null}
               isTrusted={effectiveContent?.isTrusted ?? false}
               interviewKitNode={view === 'ready' ? (
                 <InterviewKit
