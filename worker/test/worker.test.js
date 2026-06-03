@@ -1378,7 +1378,10 @@ describe('Rate limiting — Retry-After header', () => {
     // 16th request must be rate-limited
     const res = await post('/create-payment', {}, {}, RL_IP);
     expect(res.status).toBe(429);
-    expect(res.headers.get('Retry-After')).toBe('60');
+    // Retry-After is windowSecs minus elapsed seconds; allow 59 or 60 depending on sub-second timing
+    const retryAfter = Number(res.headers.get('Retry-After'));
+    expect(retryAfter).toBeGreaterThanOrEqual(59);
+    expect(retryAfter).toBeLessThanOrEqual(60);
     const body = await res.json();
     expect(body.message).toContain('Terlalu banyak');
   });
