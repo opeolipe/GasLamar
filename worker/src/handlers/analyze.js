@@ -5,7 +5,7 @@ import { getSessionIdFromCookie } from '../cookies.js';
 import { checkRateLimit, checkRateLimitKVSession, rateLimitResponse, addRateLimitHeaders } from '../rateLimit.js';
 import { validateFileData, extractCVText } from '../fileExtraction.js';
 import { analyzeCV } from '../analysis.js';
-import { sanitizeForLLM, hasPromptInjection } from '../sanitize.js';
+import { sanitizeForLLM, hasPromptInjection, escapeHtml } from '../sanitize.js';
 
 function extractSampleLineFromText(text) {
   if (!text) return null;
@@ -152,7 +152,7 @@ export async function handleAnalyze(request, env) {
     // cv_text stays server-side and is consumed later by /generate.
     await env.GASLAMAR_SESSIONS.put(cvTextKey, JSON.stringify({
       text: extraction.text,
-      job_desc: job_desc.slice(0, 5000),
+      job_desc: escapeHtml(job_desc.slice(0, 5000)),
       // Carry inferred_role so /create-payment can copy it into the session,
       // enabling /generate to switch between targeted and inferred tailoring mode.
       inferred_role: scoring.inferred_role ?? null,
