@@ -31,7 +31,6 @@ document.addEventListener('DOMContentLoaded', () => {
 function selectTier(tier) {
   if (!TIER_CONFIG[tier]) return;
   selectedTier = tier;
-  sessionStorage.setItem('gaslamar_tier', tier);
   if (window.Analytics) Analytics.track('tier_selected', {
     tier,
     tier_price_idr: TIER_CONFIG[tier].price,

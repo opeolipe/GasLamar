@@ -115,8 +115,8 @@ export default function Result() {
   const blurTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const saved = sessionStorage.getItem('gaslamar_tier') || localStorage.getItem('gaslamar_tier');
-    if (saved && TIER_CONFIG[saved]) setSelectedTier(saved);
+    const urlTier = new URLSearchParams(window.location.search).get('tier');
+    if (urlTier && TIER_CONFIG[urlTier]) setSelectedTier(urlTier);
   }, []);
 
   useEffect(() => {
@@ -155,7 +155,6 @@ export default function Result() {
   function handleTierSelect(tier: string) {
     setSelectedTier(tier);
     setPaymentError(null);
-    sessionStorage.setItem('gaslamar_tier', tier);
     setEmailError('');
     ;(window as any).Analytics?.track?.('tier_selected', { tier, tier_price_idr: TIER_CONFIG[tier].price, tier_label: TIER_CONFIG[tier].label, is_bilingual: TIER_CONFIG[tier].bilingual });
   }

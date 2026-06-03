@@ -44,8 +44,7 @@
   }
 
   function getSessionProps() {
-    var tier = sessionStorage.getItem('gaslamar_tier') || localStorage.getItem('gaslamar_tier') || undefined;
-    return tier ? { tier_intent: tier } : {};
+    return {};
   }
 
   var Analytics = {

@@ -92,15 +92,12 @@ test.describe('Client-storage security invariants', () => {
     expect(sessionKeys).not.toContain('gaslamar_cv_key');
   });
 
-  test('hasil page — no raw auth tokens after scoring data is loaded from sessionStorage', async ({ page }) => {
-    // Seed the minimum sessionStorage state hasil-guard.js requires.
+  test('hasil page — no raw auth tokens after page loads', async ({ page }) => {
+    // hasil-guard.js no longer reads scoring data from sessionStorage.
+    // Auth is enforced server-side via the HttpOnly cv_key cookie.
     await page.goto('/hasil.html');
     await page.evaluate(() => {
       sessionStorage.setItem('gaslamar_analyze_time', String(Date.now()));
-      // Minimal scoring blob so the guard doesn't redirect.
-      sessionStorage.setItem('gaslamar_scoring', JSON.stringify({
-        skor: 72, verdict: 'DO', tier: 'single',
-      }));
     });
     await page.reload();
     await page.waitForLoadState('domcontentloaded');

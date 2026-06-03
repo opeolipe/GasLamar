@@ -250,7 +250,6 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         const tier             = data.tier              ?? 'single';
         const expiresAt        = data.expires_at        ?? null;
 
-        sessionStorage.setItem('gaslamar_tier', tier);
         // Pass null when activeSessionId is unknown (cookie-only) — cleanupStaleSessionSecrets
         // handles null by clearing ALL gaslamar_secret_* entries, removing any stale secrets
         // left over from a previous session stored locally in this browser.
@@ -280,7 +279,6 @@ export function useDownloadSession(): UseDownloadSessionReturn {
         const tier       = data.tier              ?? 'single';
         const totalCreds = data.total_credits     ?? 1;
         const expiresAt  = data.expires_at        ?? null;
-        sessionStorage.setItem('gaslamar_tier', tier);
         cleanupStaleSessionSecrets(activeSessionId);
         setSessionData({ tier, creditsRemaining: 0, totalCredits: totalCreds, expiresAt, sessionId: activeSessionId });
         setPhase('returning');

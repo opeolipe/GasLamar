@@ -31,7 +31,6 @@
  * sessionStorage (tab-scoped, cleared on tab close):
  *   gaslamar_analyze_time    Unix ms timestamp of last /analyze call
  *   gaslamar_score_summary   { skor, gap[], primary_issue } — passed to /generate email
- *   gaslamar_tier            Server-confirmed tier (corrected on poll response)
  *   gaslamar_filename        CV filename for display purposes only
  *   gaslamar_cv_key          LEGACY: cvtext_<token> still present in old sessions
  *                            (analyzed before the HttpOnly cookie migration). Absent for
@@ -113,7 +112,7 @@ function getAnalysisSession() {
 function clearAnalysisSession() {
   try {
     ['gaslamar_cv_key', 'gaslamar_analyze_time', 'gaslamar_score_summary',
-     'gaslamar_scoring', 'gaslamar_tier', 'gaslamar_filename'].forEach(function(k) {
+     'gaslamar_scoring', 'gaslamar_filename'].forEach(function(k) {
       sessionStorage.removeItem(k);
     });
   } catch (_) {}

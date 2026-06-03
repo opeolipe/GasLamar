@@ -64,6 +64,6 @@ document.getElementById('pay-btn').addEventListener('click', proceedToPayment);
 
 // ── Pre-select tier from sessionStorage (set when user came via ?tier= on upload page) ──
 (function preselectTier() {
-  var saved = sessionStorage.getItem('gaslamar_tier') || localStorage.getItem('gaslamar_tier');
+  var saved = new URLSearchParams(location.search).get('tier') || sessionStorage.getItem('gaslamar_tier') || localStorage.getItem('gaslamar_tier');
   if (saved && typeof selectTier === 'function') selectTier(saved);
 })();

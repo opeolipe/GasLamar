@@ -102,12 +102,6 @@ export default function Upload() {
       history.replaceState(null, '', params.toString() ? `${location.pathname}?${params}` : location.pathname);
     } else if ((VALID_TIERS as readonly string[]).includes(tierParam)) {
       setTier(tierParam);
-      try { sessionStorage.setItem('gaslamar_tier', tierParam); } catch (_) {}
-      // Remove tier from URL after reading — the value is saved in sessionStorage.
-      // Keeping it in the address bar allows manipulation that misleads users about
-      // which tier they selected (even though backend enforces the real tier at checkout).
-      params.delete('tier');
-      history.replaceState(null, '', params.toString() ? `${location.pathname}?${params}` : location.pathname);
     }
 
     // new_package=1: user came from download page to buy a new package.
@@ -404,7 +398,7 @@ export default function Upload() {
     (window as any).Analytics?.track?.('upload_submitted', { jd_length: jd.trim().length });
 
     flushSync(() => setSubmitted(true));
-    setTimeout(() => { window.location.href = 'analyzing.html'; }, 1500);
+    setTimeout(() => { window.location.href = tier ? 'analyzing.html?tier=' + encodeURIComponent(tier) : 'analyzing.html'; }, 1500);
   }
 
   const noticeCls: Record<NoticeType, string> = {

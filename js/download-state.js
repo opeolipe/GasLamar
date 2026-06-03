@@ -25,10 +25,8 @@ let sessionIdCache    = null;
 
 // ── clearClientSessionData ────────────────────────────────────────────────────
 // Call whenever the server reports the session is gone (expired / invalid).
-// Removes display-only tier/credit values so stale data is never shown.
-// NOTE: these keys are UI-only; the backend never trusts client-side storage.
+// Removes display-only credit values so stale data is never shown.
 function clearClientSessionData(sessionId) {
-  sessionStorage.removeItem('gaslamar_tier');
   sessionStorage.removeItem('gaslamar_credits');       // defensive — key unused but cleared for hygiene
   sessionStorage.removeItem('gaslamar_score_summary'); // set by scoring.js, consumed by download-generation.js
   sessionStorage.removeItem('gaslamar_session');       // defensive — cleared for hygiene (sessionStorage variant)
@@ -52,14 +50,6 @@ const _TIER_LABELS = {
 
 function syncTierFromServer(tier) {
   if (!tier) return;
-  const stored = sessionStorage.getItem('gaslamar_tier');
-  if (stored && stored !== tier) {
-    console.warn(
-      '[GasLamar] sessionStorage.gaslamar_tier tamper detected (' +
-      stored + ' \u2192 ' + tier + '). Backend enforces correct tier; UI corrected.'
-    );
-    const genTierEl = document.getElementById('gen-tier');
-    if (genTierEl) genTierEl.textContent = 'Paket: ' + (_TIER_LABELS[tier] || tier);
-  }
-  sessionStorage.setItem('gaslamar_tier', tier);
+  const genTierEl = document.getElementById('gen-tier');
+  if (genTierEl) genTierEl.textContent = 'Paket: ' + (_TIER_LABELS[tier] || tier);
 }
