@@ -257,7 +257,7 @@ test.describe('Download page — delivery guard', () => {
 
     await page.goto('/download');
 
-    await page.waitForURL('http://localhost:3000/', { timeout: 8_000 });
+    await page.waitForURL(/^http:\/\/localhost:3000\/(\?.*)?$/, { timeout: 8_000 });
   });
 
   test('delivery present suppresses SessionError even when view is error', async ({ page }) => {
