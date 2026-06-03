@@ -10,13 +10,16 @@
 //     total_credits: number, job_title: string|null, company: string|null }
 
 // ── Polling configuration ─────────────────────────────────────────────────────
-const POLL_INTERVAL      = 3000;            // ms between poll ticks
-const MAX_POLLS          = 100;             // stop auto-polling after this many attempts (100×3s = 5 min for webhook propagation)
+const POLL_INITIAL_DELAY = 2000;            // ms for first poll tick
+const POLL_MAX_DELAY     = 60000;           // ms cap for exponential backoff
+const POLL_TIMEOUT_MS    = 10 * 60 * 1000; // stop polling after 10 minutes
 const HEARTBEAT_INTERVAL = 3 * 60 * 1000;  // ms between session keep-alive pings
 
 // ── Mutable session state ─────────────────────────────────────────────────────
 let pollCount         = 0;
 let notFoundCount     = 0;     // consecutive 404s — tracked separately for fast invalid-session detection
+let pollCurrentDelay  = POLL_INITIAL_DELAY; // current backoff delay (doubles each attempt)
+let pollStartTime     = 0;                  // epoch ms when polling started (for 10-min timeout)
 let pollTimer         = null;
 let heartbeatTimer    = null;
 let countdownInterval = null;
