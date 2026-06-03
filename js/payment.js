@@ -395,17 +395,32 @@ async function proceedToPayment() {
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       const errMsg = err.message || `Server error: ${response.status}`;
+      console.error('[GasLamar] payment error', response.status, err);
       // M22: Check structured error code instead of message substring so renaming
       // the Indonesian message text doesn't silently break this branch.
-      if (err.code === 'cv_expired' || err.code === 'cv_key_missing' || response.status === 403) {
+      if (err.code === 'cv_expired' || err.code === 'cv_key_missing') {
+        showExpiryError();
+        return;
+      }
+      if (response.status === 401) {
+        resetPayBtn(btn, originalText);
+        showPaymentError('Sesi Anda berakhir. Silakan <a href="upload.html" class="underline font-medium">upload CV lagi</a>.', false);
+        return;
+      }
+      if (response.status === 403) {
+        resetPayBtn(btn, originalText);
         showExpiryError();
         return;
       }
       if (response.status === 503 || response.status === 502 || err.code === 'PAYMENT_GATEWAY_ERROR') {
-        throw new Error('Layanan pembayaran sedang tidak tersedia. Tunggu sebentar lalu coba lagi.');
+        resetPayBtn(btn, originalText);
+        showPaymentError('Layanan pembayaran sedang sibuk. Coba lagi dalam beberapa menit.', true);
+        return;
       }
       if (response.status === 409) {
-        throw new Error('Permintaan sedang diproses. Tunggu sebentar lalu coba lagi.');
+        resetPayBtn(btn, originalText);
+        showPaymentError('Permintaan sedang diproses. Tunggu sebentar lalu coba lagi.', true);
+        return;
       }
       throw new Error(errMsg);
     }
@@ -454,9 +469,7 @@ async function proceedToPayment() {
 
   } catch (err) {
     clearTimeout(timeout);
-    paymentInProgress = false;
-    btn.disabled = false;
-    btn.textContent = originalText;
+    resetPayBtn(btn, originalText);
 
     if (window.Analytics) {
       Analytics.trackError('payment_api', {
@@ -470,17 +483,24 @@ async function proceedToPayment() {
       });
     }
 
+    console.error('[GasLamar] payment catch', err);
     let msg = 'Gagal menghubungi server. Coba lagi.';
-    if (err.name === 'AbortError') {
-      msg = 'Koneksi lambat. Periksa internet kamu lalu coba lagi.';
+    let retryable = true;
+    if (err.name === 'AbortError' || err.name === 'TypeError') {
+      msg = 'Koneksi terputus. Periksa internet Anda dan coba lagi.';
     } else if (err.message) {
       msg = err.message;
     }
-    showPaymentError(msg);
+    showPaymentError(msg, retryable);
   }
 }
 
-function showPaymentError(message) {
+function resetPayBtn(btn, originalText) {
+  paymentInProgress = false;
+  if (btn) { btn.disabled = false; btn.textContent = originalText; }
+}
+
+function showPaymentError(message, retryable) {
   const ctaArea = document.getElementById('cta-area');
   // Remove existing error
   const existing = document.getElementById('payment-error');
@@ -489,8 +509,25 @@ function showPaymentError(message) {
   const errDiv = document.createElement('div');
   errDiv.id = 'payment-error';
   errDiv.className = 'mt-3 p-3 bg-red-100 border border-red-300 rounded-xl text-red-800 text-sm text-center';
-  errDiv.textContent = message;
-  ctaArea.after(errDiv);
+  errDiv.setAttribute('role', 'alert');
+
+  const msgP = document.createElement('p');
+  msgP.innerHTML = message;
+  errDiv.appendChild(msgP);
+
+  if (retryable) {
+    const retryBtn = document.createElement('button');
+    retryBtn.type = 'button';
+    retryBtn.textContent = 'Coba Lagi';
+    retryBtn.className = 'mt-2 px-4 py-1 bg-red-700 text-white text-xs rounded-lg hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500';
+    retryBtn.addEventListener('click', function() {
+      const payBtn = document.getElementById('pay-btn');
+      if (payBtn) payBtn.click();
+    });
+    errDiv.appendChild(retryBtn);
+  }
+
+  if (ctaArea) ctaArea.after(errDiv);
 }
 
 function showExpiryError() {
