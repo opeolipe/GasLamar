@@ -295,6 +295,10 @@ export default function Result() {
       } catch (_) {}
       if (!validUrl) throw new Error('URL pembayaran tidak valid. Coba lagi.');
 
+      // Set routing flag so download-guard.js lets the user through after the Mayar redirect.
+      // The actual session credential is the HttpOnly cookie — this is only a navigation hint.
+      try { localStorage.setItem('gaslamar_has_session', '1'); } catch (_) {}
+
       setPayBtnOverride('Mengalihkan ke halaman pembayaran...');
       setTransitionInvoiceUrl(invoice_url);
 
