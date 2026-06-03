@@ -96,7 +96,7 @@ export async function handleCreatePayment(request, env) {
   const mayarKey = env.ENVIRONMENT === 'production' ? env.MAYAR_API_KEY : env.MAYAR_API_KEY_SANDBOX;
   if (!mayarKey) {
     console.error(JSON.stringify({ event: 'create_payment_no_apikey', environment: env.ENVIRONMENT ?? 'sandbox' }));
-    return withRl(jsonResponse({ message: 'Layanan pembayaran sedang tidak tersedia. Hubungi support@gaslamar.com.' }, 503, request, env));
+    return withRl(jsonResponse({ message: 'Layanan pembayaran sedang tidak tersedia. Hubungi support@gaslamar.com.', code: 'PAYMENT_GATEWAY_ERROR' }, 503, request, env));
   }
 
   // Idempotency: prevent duplicate invoices from rapid concurrent requests.
@@ -183,7 +183,7 @@ export async function handleCreatePayment(request, env) {
       // Invoice may or may not have been created — either way, cannot redirect.
       // Do NOT release the invoice lock; do NOT allow retry with the same cv_text_key.
       console.error(JSON.stringify({ event: 'create_payment_no_url', tier, invoice_id: invoice_id ?? null }));
-      return withRl(jsonResponse({ message: 'Link pembayaran tidak tersedia. Hubungi support@gaslamar.com jika sudah melakukan pembayaran.' }, 503, request, env));
+      return withRl(jsonResponse({ message: 'Link pembayaran tidak tersedia. Hubungi support@gaslamar.com jika sudah melakukan pembayaran.', code: 'PAYMENT_GATEWAY_ERROR' }, 503, request, env));
     }
 
     // Email → session index for access recovery (/resend-access).
