@@ -435,8 +435,9 @@ async function proceedToPayment() {
     // Mayar sandbox URLs are also on *.mayar.id / *.mayar.club, so no exceptions needed.
     // mayar.id / mayar.club — production and sandbox API-issued links
     // mayar.co / sandbox.mayar.co — Mayar sandbox checkout URLs (new sandbox domain)
+    // mayar.shop — Mayar sandbox checkout URLs (e.g. olive-41774.mayar.shop)
     // myr.id — Mayar sandbox checkout URLs (legacy, e.g. olive-41774.myr.id)
-    const ALLOWED_PAYMENT_HOSTS = ['mayar.id', 'mayar.club', 'mayar.co', 'myr.id'];
+    const ALLOWED_PAYMENT_HOSTS = ['mayar.id', 'mayar.club', 'mayar.co', 'mayar.shop', 'myr.id'];
     let validInvoiceUrl = false;
     try {
       const parsed = new URL(invoice_url);

@@ -290,8 +290,9 @@ export default function Result() {
         const h = parsed.hostname;
         // mayar.id / mayar.club — production and sandbox API-issued links
         // mayar.co / sandbox.mayar.co — Mayar sandbox checkout URLs (new sandbox domain)
+        // mayar.shop — Mayar sandbox checkout URLs (e.g. olive-41774.mayar.shop)
         // myr.id — Mayar sandbox checkout URLs (legacy, e.g. olive-41774.myr.id)
-        const ALLOWED_PAYMENT_HOSTS = ['mayar.id', 'mayar.club', 'mayar.co', 'myr.id'];
+        const ALLOWED_PAYMENT_HOSTS = ['mayar.id', 'mayar.club', 'mayar.co', 'mayar.shop', 'myr.id'];
         validUrl = parsed.protocol === 'https:' &&
           ALLOWED_PAYMENT_HOSTS.some(domain => h === domain || h.endsWith('.' + domain));
       } catch (_) {}
