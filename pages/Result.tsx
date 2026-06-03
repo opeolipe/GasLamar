@@ -288,10 +288,12 @@ export default function Result() {
       try {
         const parsed = new URL(invoice_url);
         const h = parsed.hostname;
-        validUrl = parsed.protocol === 'https:' && (
-          h === 'mayar.id' || h.endsWith('.mayar.id') ||
-          h === 'mayar.club' || h.endsWith('.mayar.club')
-        );
+        // mayar.id / mayar.club — production and sandbox API-issued links
+        // mayar.co / sandbox.mayar.co — Mayar sandbox checkout URLs (new sandbox domain)
+        // myr.id — Mayar sandbox checkout URLs (legacy, e.g. olive-41774.myr.id)
+        const ALLOWED_PAYMENT_HOSTS = ['mayar.id', 'mayar.club', 'mayar.co', 'myr.id'];
+        validUrl = parsed.protocol === 'https:' &&
+          ALLOWED_PAYMENT_HOSTS.some(domain => h === domain || h.endsWith('.' + domain));
       } catch (_) {}
       if (!validUrl) throw new Error('URL pembayaran tidak valid. Coba lagi.');
 
