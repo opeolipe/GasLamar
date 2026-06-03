@@ -4,8 +4,8 @@ import { clientIp, sha256Hex, log } from '../utils.js';
 import { checkRateLimit, checkRateLimitKV, rateLimitResponse, addRateLimitHeaders } from '../rateLimit.js';
 import { TIER_CREDITS, SESSION_TTL_MULTI, VALID_TIERS } from '../constants.js';
 import { createMayarInvoice, logMayarEnvironment } from '../mayar.js';
-import { createSession } from '../sessions.js';
-import { makeSessionCookie, getCvKeyFromCookie, getSessionTokenFromCookie } from '../cookies.js';
+import { createSession, getSession } from '../sessions.js';
+import { makeSessionCookie, getCvKeyFromCookie, getSessionTokenFromCookie, getSessionIdFromCookie } from '../cookies.js';
 import { SESSION_STATES } from '../sessionStates.js';
 
 export async function handleCreatePayment(request, env) {
@@ -64,7 +64,11 @@ export async function handleCreatePayment(request, env) {
   // whether cv_text_key is also missing, preventing the ambiguous "Data tidak lengkap"
   // response that would otherwise mask an invalid tier name.
   // Trim whitespace defensively so minor formatting differences don't produce silent failures.
-  const normalizedTier = (typeof tier === 'string') ? tier.trim() : tier;
+  // Alias map: "starter" → "coba" for backward compatibility with older frontend bundles
+  // that used the display label as the tier key before the rename.
+  const TIER_ALIASES = { starter: 'coba' };
+  const trimmed = (typeof tier === 'string') ? tier.trim().toLowerCase() : tier;
+  const normalizedTier = TIER_ALIASES[trimmed] ?? trimmed;
   if (!normalizedTier || !VALID_TIERS.includes(normalizedTier)) {
     return withRl(jsonResponse({
       message: `Tier tidak valid. Nilai yang diterima: ${VALID_TIERS.join(', ')}`,
@@ -86,6 +90,26 @@ export async function handleCreatePayment(request, env) {
   }
   const stored = await env.GASLAMAR_SESSIONS.get(cv_text_key, { type: 'json' });
   if (!stored || !stored.text) {
+    // Before giving up with cv_expired, check whether the user already completed a
+    // /create-payment call that succeeded on the backend but failed on the frontend
+    // (e.g. due to an allowlist mismatch). In that case the cvtext_ entry was already
+    // consumed and deleted, but the session cookie was written and the invoice_url was
+    // stored in the session — so we can resume without creating a duplicate invoice.
+    const existingSessionId = getSessionIdFromCookie(request);
+    if (existingSessionId) {
+      const existingSession = await getSession(env, existingSessionId);
+      if (
+        existingSession?.status === SESSION_STATES.PENDING_PAYMENT &&
+        existingSession?.invoice_url &&
+        existingSession?.tier === validatedTier
+      ) {
+        log('create_payment_resumed', { ip, sessionId: existingSessionId });
+        const credits = TIER_CREDITS[validatedTier] ?? 1;
+        const isMulti = credits > 1;
+        const cookieHeader = makeSessionCookie(existingSessionId, isMulti);
+        return withRl(jsonResponseWithCookie({ invoice_url: existingSession.invoice_url }, 200, cookieHeader, request, env));
+      }
+    }
     // M22: Include a stable machine-readable code so the client can branch on it
     // without depending on the Indonesian message text (which can change).
     return withRl(jsonResponse({ message: 'Sesi analisis kedaluwarsa. Ulangi upload CV.', code: 'cv_expired' }, 400, request, env));
@@ -147,6 +171,9 @@ export async function handleCreatePayment(request, env) {
         tier: validatedTier,
         status: SESSION_STATES.PENDING_PAYMENT,
         mayar_invoice_id: invoice_id,
+        // Store invoice_url so the frontend can resume if the first redirect attempt
+        // failed (e.g. allowlist mismatch) and cvtext_ was already consumed.
+        ...(invoice_url ? { invoice_url } : {}),
         credits_remaining: credits,
         total_credits: credits,
         ip,
