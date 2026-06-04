@@ -127,6 +127,11 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
     // Mayar API has returned the invoice ID under different field names across versions;
     // check all known variants so the KV index key matches whatever the webhook sends.
     const invoice_id  = data.data?.id || data.data?.invoice_id || data.id || data.invoice_id;
+    // Mayar's webhook sends data.id = data.transactionId (the payment transaction ID),
+    // which is a DIFFERENT UUID from the invoice ID returned here. Capture it now so
+    // createPayment.js can store a second KV index (mayar_session_{transactionId}) that
+    // the webhook handler will find.
+    const transaction_id = data.data?.transactionId || data.transactionId || null;
     // Mayar API has used several field names across versions; check all known variants.
     // paymentLink is used by Mayar sandbox (myr.id checkout URLs).
     const invoice_url =
@@ -140,10 +145,10 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
       // Return the invoice_id so the caller can consume cv_text_key and prevent duplicate
       // invoices; caller must return an error to the user.
       console.error(JSON.stringify({ event: 'mayar_no_url', endpoint, invoice_id, data_keys: Object.keys(data), data_inner_keys: data.data ? Object.keys(data.data) : [] }));
-      return { invoice_id, invoice_url: null };
+      return { invoice_id, transaction_id, invoice_url: null };
     }
 
-    return { invoice_id, invoice_url };
+    return { invoice_id, transaction_id, invoice_url };
   }
 
   throw new Error('Pembayaran belum tersedia. Hubungi support@gaslamar.com');

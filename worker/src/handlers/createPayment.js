@@ -133,7 +133,7 @@ export async function handleCreatePayment(request, env) {
             const redirectUrl = env.ENVIRONMENT === 'staging'
               ? 'https://staging.gaslamar.pages.dev/download.html'
               : 'https://gaslamar.com/download.html';
-            const { invoice_id: newInvoiceId, invoice_url: newInvoiceUrl } = await createMayarInvoice(
+            const { invoice_id: newInvoiceId, transaction_id: newTransactionId, invoice_url: newInvoiceUrl } = await createMayarInvoice(
               existingSessionId, validatedTier, env, redirectUrl, existingSession.email ?? null, null
             );
             if (newInvoiceUrl) {
@@ -148,6 +148,13 @@ export async function handleCreatePayment(request, env) {
                   JSON.stringify({ session_id: existingSessionId }),
                   { expirationTtl: isMulti ? 2592000 : 604800 }
                 );
+                if (newTransactionId && newTransactionId !== newInvoiceId) {
+                  await env.GASLAMAR_SESSIONS.put(
+                    `mayar_session_${newTransactionId}`,
+                    JSON.stringify({ session_id: existingSessionId }),
+                    { expirationTtl: isMulti ? 2592000 : 604800 }
+                  );
+                }
               }
               log('create_payment_invoice_refreshed', { ip, sessionId: existingSessionId });
               const cookieHeader = makeSessionCookie(existingSessionId, isMulti);
@@ -207,7 +214,7 @@ export async function handleCreatePayment(request, env) {
     console.log(JSON.stringify({ event: 'payment_redirect_url', redirectUrl, environment: env.ENVIRONMENT ?? 'sandbox' }));
 
     // Create Mayar invoice first — if this fails, cv_text_key is still intact and user can retry
-    const { invoice_id, invoice_url } = await createMayarInvoice(sessionId, validatedTier, env, redirectUrl, sessionEmail, couponCode);
+    const { invoice_id, transaction_id, invoice_url } = await createMayarInvoice(sessionId, validatedTier, env, redirectUrl, sessionEmail, couponCode);
 
     if (invoice_id) {
       // Store session so the Mayar webhook can complete it even if we don't redirect now.
@@ -238,13 +245,23 @@ export async function handleCreatePayment(request, env) {
       // TTL matches the session (7d single / 30d multi).
       // IMPORTANT: log the exact KV key so we can compare against candidateInvoiceIds in
       // the webhook logs if a webhook_no_session error appears.
-      console.log(JSON.stringify({ event: 'mayar_session_index_stored', kv_key: `mayar_session_${invoice_id}`, sessionId, invoice_id }));
+      console.log(JSON.stringify({ event: 'mayar_session_index_stored', kv_key: `mayar_session_${invoice_id}`, sessionId, invoice_id, transaction_id: transaction_id ?? null }));
       const indexTtl = credits > 1 ? 2592000 : 604800;
       await env.GASLAMAR_SESSIONS.put(
         `mayar_session_${invoice_id}`,
         JSON.stringify({ session_id: sessionId }),
         { expirationTtl: indexTtl }
       );
+      // Mayar's webhook sends data.id = the payment transaction ID, which is a different
+      // UUID from the invoice ID above. Store a second index so the webhook handler finds
+      // the session regardless of which ID Mayar echoes back.
+      if (transaction_id && transaction_id !== invoice_id) {
+        await env.GASLAMAR_SESSIONS.put(
+          `mayar_session_${transaction_id}`,
+          JSON.stringify({ session_id: sessionId }),
+          { expirationTtl: indexTtl }
+        );
+      }
 
       // Fallback index: keyed by result_id (the analytics UUID stored in cvtext_).
       // Used by the webhook handler when the primary invoice-ID index is missing
