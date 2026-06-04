@@ -11,7 +11,7 @@ import { route } from '../src/router.js';
 import { verifyMayarWebhook } from '../src/mayar.js';
 import { GEN_KEY_PREFIX_ID, GEN_KEY_PREFIX_EN } from '../src/cacheVersions.js';
 import { handleResendAccess } from '../src/handlers/resendAccess.js';
-import { makeCvKeyCookie } from '../src/cookies.js';
+import { makeCvKeyCookie, makeSessionTokenCookie, makeSessionCookie } from '../src/cookies.js';
 
 // ---- Test helpers ----
 
@@ -378,6 +378,63 @@ describe('makeCvKeyCookie — cookie format', () => {
   it('Max-Age is 86400 (24h)', () => {
     const cookie = makeCvKeyCookie(TOKEN, { ENVIRONMENT: 'production' });
     expect(cookie).toContain('Max-Age=86400');
+  });
+});
+
+describe('makeSessionTokenCookie — cookie format', () => {
+  const UUID = '00000000-0000-0000-0000-000000000001';
+
+  it('production: cookie name sessionToken, SameSite=Strict, no Partitioned', () => {
+    const cookie = makeSessionTokenCookie(UUID, { ENVIRONMENT: 'production' });
+    expect(cookie).toMatch(/^sessionToken=/);
+    expect(cookie).not.toContain('__Host-');
+    expect(cookie).toContain('SameSite=Strict');
+    expect(cookie).not.toContain('Partitioned');
+    expect(cookie).not.toContain('SameSite=None');
+  });
+
+  it('staging: cookie name __Host-sessionToken, SameSite=None; Partitioned (CHIPS)', () => {
+    const cookie = makeSessionTokenCookie(UUID, { ENVIRONMENT: 'staging' });
+    expect(cookie).toContain('__Host-sessionToken=' + UUID);
+    expect(cookie).toContain('SameSite=None');
+    expect(cookie).toContain('Partitioned');
+    expect(cookie).not.toContain('SameSite=Strict');
+  });
+
+  it('sandbox: same as staging (CHIPS)', () => {
+    const cookie = makeSessionTokenCookie(UUID, { ENVIRONMENT: 'sandbox' });
+    expect(cookie).toContain('__Host-sessionToken=' + UUID);
+    expect(cookie).toContain('SameSite=None');
+    expect(cookie).toContain('Partitioned');
+  });
+});
+
+describe('makeSessionCookie — cookie format', () => {
+  const SESSION_ID = 'sess_00000000-0000-0000-0000-000000000001';
+
+  it('production: __Host-session_id, SameSite=Strict', () => {
+    const cookie = makeSessionCookie(SESSION_ID, false, { ENVIRONMENT: 'production' });
+    expect(cookie).toContain('__Host-session_id=' + SESSION_ID);
+    expect(cookie).toContain('SameSite=Strict');
+    expect(cookie).not.toContain('Partitioned');
+  });
+
+  it('staging: __Host-session_id, SameSite=None; Partitioned (CHIPS)', () => {
+    const cookie = makeSessionCookie(SESSION_ID, false, { ENVIRONMENT: 'staging' });
+    expect(cookie).toContain('__Host-session_id=' + SESSION_ID);
+    expect(cookie).toContain('SameSite=None');
+    expect(cookie).toContain('Partitioned');
+    expect(cookie).not.toContain('SameSite=Strict');
+  });
+
+  it('single-credit Max-Age is 604800 (7 days)', () => {
+    const cookie = makeSessionCookie(SESSION_ID, false, { ENVIRONMENT: 'production' });
+    expect(cookie).toContain('Max-Age=604800');
+  });
+
+  it('multi-credit Max-Age is 2592000 (30 days)', () => {
+    const cookie = makeSessionCookie(SESSION_ID, true, { ENVIRONMENT: 'production' });
+    expect(cookie).toContain('Max-Age=2592000');
   });
 });
 

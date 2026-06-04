@@ -7,26 +7,30 @@
  *     - Path=/ (no subpath scope creep)
  *     - No Domain attribute (host-only; not shared with subdomains)
  *
- *   SameSite=Strict prevents cross-site request forgery at the cookie layer.
- *   The Worker and frontend share the gaslamar.com domain via Cloudflare routes,
- *   so same-site restrictions are satisfied in production. Staging environments
- *   that cross origins must use token-based flows (e.g. exchangeToken.js) rather
- *   than relying on automatic cookie attachment.
+ *   SameSite strategy varies by environment:
+ *     Production  — SameSite=Strict. Frontend and Worker share gaslamar.com via
+ *                   Cloudflare routes, so all requests are same-site. Strict is
+ *                   the strongest CSRF protection available.
+ *     Staging/sandbox — SameSite=None; Partitioned (CHIPS). The frontend lives on
+ *                   staging.gaslamar.pages.dev (eTLD+1: pages.dev) while the Worker
+ *                   is on api-staging.gaslamar.com (eTLD+1: gaslamar.com). These are
+ *                   cross-site, so SameSite=Strict cookies would never be sent.
+ *                   Chrome requires the __Host- prefix on Partitioned cookies; without
+ *                   it Chrome ignores Partitioned, leaving an unpartitioned third-party
+ *                   cookie that Chrome's deprecation blocks entirely.
  *
  * CSRF SECURITY ASSESSMENT:
  *
+ *   Production:
  *   1. SameSite=Strict: cookies are never attached to cross-site requests.
- *
- *   2. Origin enforcement: router.js rejects unsafe methods from unlisted
- *      browser Origins before handlers read request bodies or mutate data.
- *
- *   3. JSON-only API: All state-changing POST bodies use Content-Type:application/json.
- *      Browsers require a CORS pre-flight for non-simple content types.
- *
+ *   2. Origin enforcement: router.js rejects unsafe methods from unlisted browser Origins.
+ *   3. JSON-only API: Content-Type:application/json triggers CORS pre-flight for all POSTs.
  *   4. HttpOnly: JavaScript cannot read these cookies, blocking XSS exfiltration.
  *
- *   Conclusion: __Host- prefix + SameSite=Strict + HttpOnly + Origin enforcement +
- *   JSON bodies form a defence-in-depth CSRF/XSS control stack.
+ *   Staging/sandbox (SameSite=None; Partitioned):
+ *   SameSite=Strict is not possible cross-origin, so defence-in-depth relies on:
+ *   2–4 above plus the Partitioned attribute (cookies isolated per top-level site).
+ *   CSRF risk on staging is accepted as a known trade-off for cross-origin testability.
  */
 
 /** Parse a Cookie header string into a key→value plain object. */
