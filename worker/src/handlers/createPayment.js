@@ -246,10 +246,11 @@ export async function handleCreatePayment(request, env) {
       // IMPORTANT: log the exact KV key so we can compare against candidateInvoiceIds in
       // the webhook logs if a webhook_no_session error appears.
       console.log(JSON.stringify({ event: 'mayar_session_index_stored', kv_key: `mayar_session_${invoice_id}`, sessionId, invoice_id, transaction_id: transaction_id ?? null }));
+      const indexTtl = credits > 1 ? 2592000 : 604800;
       await env.GASLAMAR_SESSIONS.put(
         `mayar_session_${invoice_id}`,
         JSON.stringify({ session_id: sessionId }),
-        { expirationTtl: credits > 1 ? 2592000 : 604800 }
+        { expirationTtl: indexTtl }
       );
       // Mayar's webhook sends data.id = the payment transaction ID, which is a different
       // UUID from the invoice ID above. Store a second index so the webhook handler finds
@@ -258,7 +259,19 @@ export async function handleCreatePayment(request, env) {
         await env.GASLAMAR_SESSIONS.put(
           `mayar_session_${transaction_id}`,
           JSON.stringify({ session_id: sessionId }),
-          { expirationTtl: credits > 1 ? 2592000 : 604800 }
+          { expirationTtl: indexTtl }
+        );
+      }
+
+      // Fallback index: keyed by result_id (the analytics UUID stored in cvtext_).
+      // Used by the webhook handler when the primary invoice-ID index is missing
+      // (e.g. Mayar sends a transaction ID we didn't store) and Mayar echoes back
+      // our `reference` field instead of the original invoice ID.
+      if (stored.result_id && typeof stored.result_id === 'string') {
+        await env.GASLAMAR_SESSIONS.put(
+          `result_id_session_${stored.result_id}`,
+          JSON.stringify({ session_id: sessionId }),
+          { expirationTtl: indexTtl }
         );
       }
 
