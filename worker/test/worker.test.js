@@ -1449,6 +1449,28 @@ describe('POST /create-payment — Mayar URL field extraction', () => {
     expect(session.status).toBe('pending_payment');
   });
 
+  it('stores mayar_session_{transaction_id} KV index alongside mayar_session_{invoice_id}', async () => {
+    const key = await seedCVTextKey(undefined, '10.1.4.1');
+    const invoiceId     = 'inv_dual_index_test';
+    const transactionId = 'txn_dual_index_test';
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
+      .reply(200, JSON.stringify({
+        data: { id: invoiceId, transactionId, link: 'https://olive-41774.mayar.shop/tx/dual' },
+      }))
+      .times(1);
+
+    const res = await post('/create-payment', { tier: 'single', cv_text_key: key }, {}, '10.1.4.1');
+    expect(res.status).toBe(200);
+
+    // Both KV indexes must exist after invoice creation
+    const byInvoice = await env.GASLAMAR_SESSIONS.get(`mayar_session_${invoiceId}`, { type: 'json' });
+    const byTxn     = await env.GASLAMAR_SESSIONS.get(`mayar_session_${transactionId}`, { type: 'json' });
+    expect(byInvoice?.session_id).toMatch(/^sess_[0-9a-f-]{36}$/i);
+    expect(byTxn?.session_id).toBe(byInvoice?.session_id);
+  });
+
   it('resume path returns stored invoice_url without creating a new Mayar invoice', async () => {
     // Simulate: cvtext_ already consumed, session cookie present with pending_payment + invoice_url.
     // fetchMock must NOT be called — if it is, a new invoice was created (bug).
@@ -1486,6 +1508,78 @@ describe('POST /create-payment — Mayar URL field extraction', () => {
     const body = await res.json();
     expect(body.invoice_url).toBe(existingUrl);
     expect(mayarWasCalled).toBe(false);
+  });
+
+  it('invoice-refresh path stores mayar_session_{transaction_id} for refreshed invoice — skipped here; see dedicated describe block below', () => {
+    // Tested in 'POST /create-payment — invoice refresh dual KV index' below,
+    // isolated from this suite's unconsumed fetchMock interceptors.
+  });
+});
+
+describe('POST /create-payment — invoice refresh dual KV index', () => {
+  beforeAll(() => {
+    fetchMock.activate();
+    // Clear any stale interceptors left by previous describe blocks (e.g. the resume-no-dup
+    // test which registers a mock but intentionally never consumes it). undici stores
+    // interceptors on the MockPool under a local Symbol('dispatches'); find and drain it.
+    const pool = fetchMock.get('https://api.mayar.club');
+    const kDispatches = Object.getOwnPropertySymbols(pool)
+      .find(s => s.toString() === 'Symbol(dispatches)');
+    if (kDispatches) pool[kDispatches] = [];
+  });
+  afterAll(() => fetchMock.deactivate());
+
+  it('invoice-refresh path stores mayar_session_{transaction_id} for refreshed invoice', async () => {
+    // When a sandbox invoice expires (<50min TTL), createPayment creates a fresh invoice.
+    // The refresh path must also store the transaction_id index so the new webhook finds the session.
+    const sessionId    = `sess_${crypto.randomUUID()}`;
+    const oldInvoiceId = 'inv_expired_old';
+    const newInvoiceId = 'inv_refreshed_new';
+    const newTxnId     = 'txn_refreshed_new';
+
+    // Seed a pending_payment session with an expired invoice (created 2h ago in sandbox)
+    await env.GASLAMAR_SESSIONS.put(
+      sessionId,
+      JSON.stringify({
+        tier:               'single',
+        status:             'pending_payment',
+        invoice_url:        'https://olive-41774.mayar.shop/old',
+        mayar_invoice_id:   oldInvoiceId,
+        invoice_created_at: Date.now() - 2 * 60 * 60 * 1000, // 2h ago — past 50min sandbox TTL
+        credits_remaining:  1,
+        total_credits:      1,
+        cv_text:            'CV text here',
+        job_desc:           'JD here',
+        ip:                 '10.1.5.1',
+      }),
+      { expirationTtl: 604800 },
+    );
+
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
+      .reply(200, JSON.stringify({
+        data: { id: newInvoiceId, transactionId: newTxnId, link: 'https://olive-41774.mayar.shop/new' },
+      }))
+      .times(1);
+
+    const nonexistentKey = `cvtext_${cvHexToken()}`;
+    const res = await post(
+      '/create-payment',
+      { tier: 'single', cv_text_key: nonexistentKey },
+      { Cookie: `__Host-session_id=${sessionId}` },
+      '10.1.5.1',
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.invoice_url).toBe('https://olive-41774.mayar.shop/new');
+
+    // Both indexes for the NEW invoice must exist
+    const byNewInvoice = await env.GASLAMAR_SESSIONS.get(`mayar_session_${newInvoiceId}`, { type: 'json' });
+    const byNewTxn     = await env.GASLAMAR_SESSIONS.get(`mayar_session_${newTxnId}`, { type: 'json' });
+    expect(byNewInvoice?.session_id).toBe(sessionId);
+    expect(byNewTxn?.session_id).toBe(sessionId);
   });
 });
 
@@ -2708,6 +2802,71 @@ describe('POST /webhook/mayar — multi-candidate invoice ID fallback', () => {
       id:     eventId,            // top-level id is the WEBHOOK EVENT id — won't match KV
       status: 'paid',
       data:   { id: invoiceId },  // invoice id is nested under data — this one matches
+    });
+
+    const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    payload,
+    });
+
+    expect(res.status).toBe(200);
+    const updated = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
+    expect(updated?.status).toBe('paid');
+  });
+
+  it('finds session via data.transactionId — the real Mayar webhook shape (data.id = txn UUID)', async () => {
+    // Regression guard for the confirmed production bug:
+    // Mayar's webhook sets data.id = data.transactionId (payment transaction UUID).
+    // This is a DIFFERENT UUID from the invoice ID returned by /invoice/create (data.id there).
+    // The fix stores mayar_session_{transactionId} at creation so this lookup succeeds.
+    const sessionId     = await seedSession('pending', 'single');
+    const transactionId = 'txn_real_mayar_shape_001';
+
+    // Simulate what createPayment.js now stores
+    await env.GASLAMAR_SESSIONS.put(
+      `mayar_session_${transactionId}`,
+      JSON.stringify({ session_id: sessionId }),
+      { expirationTtl: 604800 },
+    );
+
+    // Exact shape Mayar sandbox sends (confirmed from production logs)
+    const payload = JSON.stringify({
+      event: 'payment.received',
+      data: {
+        id:            transactionId,  // ← transaction ID, NOT invoice ID
+        transactionId: transactionId,
+        status:        'SUCCESS',
+        productId:     'some-mayar-product-uuid',
+      },
+    });
+
+    const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    payload,
+    });
+
+    expect(res.status).toBe(200);
+    const updated = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
+    expect(updated?.status).toBe('paid');
+  });
+
+  it('finds session when only transaction_id index exists (no invoice_id index in KV)', async () => {
+    // Edge case: invoice_id index was never written (e.g. KV write failed) but
+    // transaction_id index succeeded — webhook must still find the session.
+    const sessionId     = await seedSession('pending', 'single');
+    const transactionId = 'txn_only_no_invoice_idx';
+
+    await env.GASLAMAR_SESSIONS.put(
+      `mayar_session_${transactionId}`,
+      JSON.stringify({ session_id: sessionId }),
+      { expirationTtl: 604800 },
+    );
+    // Deliberately do NOT store mayar_session_{invoiceId}
+
+    const payload = JSON.stringify({
+      data: { id: transactionId, transactionId, status: 'paid' },
     });
 
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {

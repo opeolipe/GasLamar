@@ -154,6 +154,7 @@ See `worker/src/sessionStates.js` for canonical state constants. Never hardcode 
 | `invoice_lock_<cvtext_key>` | Idempotency lock — prevents concurrent duplicate invoices | 60s |
 | `sess_<uuid>` | Session data including `invoice_url`, `status`, `tier` | 7d (single) / 30d (multi) |
 | `mayar_session_<invoice_id>` | Invoice ID → session ID index for webhook correlation | 7d / 30d |
+| `mayar_session_<transaction_id>` | Transaction ID → session ID index (second index, same session). Mayar's webhook sends `data.id = transactionId` — a **different UUID** from the invoice ID. Both indexes are stored at payment creation so the webhook finds the session regardless of which ID Mayar includes. | 7d / 30d |
 | `scoring_<hash>` | Scoring snapshot for `/get-scoring` after cvtext_ is deleted | 24h |
 | `email_session_<sha256>` | Email → session IDs for `/resend-access` | 30d |
 
