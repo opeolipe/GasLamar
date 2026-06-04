@@ -194,7 +194,9 @@ export async function handleAnalyze(request, env) {
     responseHeaders.append('Set-Cookie', makeCvKeyCookie(cvTextKey, env));
     responseHeaders.append('Set-Cookie', makeSessionTokenCookie(analysisSessionId, env));
     const sampleLine = extractSampleLineFromText(extraction.text);
-    return new Response(JSON.stringify({ ...scoring, result_id: resultId, ...(sampleLine ? { sample_line: sampleLine } : {}) }), { status: 200, headers: responseHeaders });
+    // analysis_session_id is returned so browsers that block cross-site cookies (e.g. Safari ITP)
+    // can store it in sessionStorage and pass it via X-Analysis-Session header as a fallback.
+    return new Response(JSON.stringify({ ...scoring, result_id: resultId, analysis_session_id: analysisSessionId, ...(sampleLine ? { sample_line: sampleLine } : {}) }), { status: 200, headers: responseHeaders });
   } catch (e) {
     logError('analyze_failed', {
       reason: e.message,

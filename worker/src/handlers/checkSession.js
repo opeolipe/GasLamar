@@ -100,6 +100,35 @@ export async function handleCheckSession(request, env) {
       // cv_key cookie exists but data is gone — expired
       return withRl(jsonResponse({ valid: false, authenticated: false, reason: 'expired', message: 'Sesi analisis sudah kedaluwarsa.' }, 200, request, env));
     }
+    // Header fallback for browsers that block cross-site cookies (e.g. Safari ITP).
+    // The frontend stores the analysisSessionId in sessionStorage after /analyze and
+    // resends it as X-Analysis-Session when cookies are absent. Only used for analysis
+    // sessions — payment sessions use the exchangeToken flow for cross-device recovery.
+    const headerSessionId = request.headers.get('X-Analysis-Session');
+    if (headerSessionId) {
+      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (UUID_RE.test(headerSessionId)) {
+        const session = await env.GASLAMAR_SESSIONS.get(
+          `analysis_session_${headerSessionId}`,
+          { type: 'json' },
+        );
+        if (session?.resultId) {
+          log('check_session_analysis_valid_header', { ip });
+          return withRl(jsonResponse(
+            { valid: true, status: 'analysis', authenticated: true, type: 'analysis', resultId: session.resultId },
+            200,
+            request,
+            env,
+          ));
+        }
+      }
+      return withRl(jsonResponse(
+        { valid: false, authenticated: false, reason: 'expired', message: 'Sesi analisis sudah kedaluwarsa.' },
+        401,
+        request,
+        env,
+      ));
+    }
     // Return 200 (not 401) so browsers don't log a console error on pages where an
     // unauthenticated check is expected (upload, hasil, analyzing). 401 is reserved
     // for requests that supply a token that is invalid or expired.

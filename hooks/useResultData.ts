@@ -36,14 +36,21 @@ export function useResultData(): ResultDataState {
     // Reject foreign URL session parameters
     if (urlSession !== null && !urlSession.startsWith('cvtext_')) { fail('expired'); return; }
 
+    // Safari/ITP fallback: if cross-site cookies were blocked, useAnalysisPolling stored
+    // the analysisSessionId in sessionStorage. Pass it as X-Analysis-Session header.
+    const sessionFallback = (() => {
+      try { return sessionStorage.getItem('gaslamar_analysis_session'); } catch { return null; }
+    })();
+
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
-    // Step 1: validate the analysis session cookie via /check-session.
-    // Accepts both sessionToken (new) and cv_key (legacy) cookies.
-    // Returns { valid: true, resultId } on success; 401 / valid:false on failure.
-    const fetchScoring = () =>
-      fetch(`${WORKER_URL}/check-session`, { credentials: 'include' })
+    // Step 1: validate the analysis session via /check-session.
+    // Primary: HttpOnly cookie (Chrome, Firefox).
+    // Fallback: X-Analysis-Session header when cookies are blocked (Safari ITP).
+    // extraHeaders is empty on first attempt; populated with the fallback on retry.
+    const fetchScoring = (extraHeaders: Record<string, string> = {}) =>
+      fetch(`${WORKER_URL}/check-session`, { credentials: 'include', headers: extraHeaders })
         .then(async checkRes => {
           if (cancelled) return;
 
@@ -64,14 +71,18 @@ export function useResultData(): ResultDataState {
           if (checkBody?.valid && checkBody?.type !== 'analysis') return;
 
           if (!checkBody?.valid && !checkBody?.authenticated) {
+            // Cookies returned no_session and we haven't tried the header yet — retry once.
+            if (!extraHeaders['X-Analysis-Session'] && sessionFallback) {
+              return fetchScoring({ 'X-Analysis-Session': sessionFallback });
+            }
             try { sessionStorage.removeItem('gaslamar_analyze_time'); } catch (_) {}
             const reason = checkBody?.reason;
             fail(reason === 'expired' ? 'expired' : 'missing');
             return;
           }
 
-          // Step 2: fetch the scoring data using the same cookie.
-          return fetch(`${WORKER_URL}/get-scoring`, { credentials: 'include' })
+          // Step 2: fetch the scoring data, forwarding the same auth headers.
+          return fetch(`${WORKER_URL}/get-scoring`, { credentials: 'include', headers: extraHeaders })
             .then(async r => {
               if (cancelled) return;
               if (r.status === 404) {

@@ -35,17 +35,26 @@ export async function handleGetScoring(request, env) {
   if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60, kvResult);
   const withRl = res => addRateLimitHeaders(res, kvResult);
 
-  if (!sessionToken && !cvKeyCookie) {
+  // Header fallback for browsers that block cross-site cookies (e.g. Safari ITP).
+  // Mirrors the check-session fallback — uses the same analysis_session_ KV lookup.
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const headerSessionId = (() => {
+    const h = request.headers.get('X-Analysis-Session');
+    return (h && UUID_RE.test(h)) ? h : null;
+  })();
+  const effectiveSessionId = sessionToken ?? headerSessionId;
+
+  if (!effectiveSessionId && !cvKeyCookie) {
     return withRl(jsonResponse({ valid: false }, 401, request, env));
   }
 
-  // Resolve the cvtext_ KV key from whichever cookie is present.
-  // New path: sessionToken → analysis_session_ → cvKey
+  // Resolve the cvtext_ KV key from whichever auth is present.
+  // New path: sessionToken (cookie or header) → analysis_session_ → cvKey
   // Legacy path: cv_key cookie contains the cvtext_ key directly.
   let key;
-  if (sessionToken) {
+  if (effectiveSessionId) {
     const session = await env.GASLAMAR_SESSIONS.get(
-      `analysis_session_${sessionToken}`,
+      `analysis_session_${effectiveSessionId}`,
       { type: 'json' },
     );
     if (!session?.cvKey) {

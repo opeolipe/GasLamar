@@ -36,7 +36,7 @@ export function forbiddenOriginResponse(request, env) {
 export function getCorsHeaders(request, env) {
   const headers = {
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, X-Session-Id',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, X-Session-Id, X-Analysis-Session',
     'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Expose-Headers': 'X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, Retry-After',
     'Access-Control-Max-Age': '86400',

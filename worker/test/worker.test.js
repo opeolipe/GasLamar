@@ -2190,6 +2190,37 @@ describe('GET /check-session', () => {
     expect(body.resultId).toBe(resultId);
   });
 
+  it('X-Analysis-Session header returns valid:true when no cookie present (Safari/ITP fallback)', async () => {
+    const sessionId = crypto.randomUUID();
+    const resultId  = crypto.randomUUID();
+    const cvKey     = `cvtext_${cvHexToken()}`;
+    await env.GASLAMAR_SESSIONS.put(`analysis_session_${sessionId}`, JSON.stringify({
+      sessionId, resultId, cvKey, createdAt: Date.now(), expiresAt: Date.now() + 86400000,
+    }), { expirationTtl: 86400 });
+    const res = await get('/check-session', { 'X-Analysis-Session': sessionId });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.authenticated).toBe(true);
+    expect(body.type).toBe('analysis');
+    expect(body.resultId).toBe(resultId);
+  });
+
+  it('X-Analysis-Session header with invalid UUID → 401 expired (not no_session)', async () => {
+    const res = await get('/check-session', { 'X-Analysis-Session': 'not-a-uuid' });
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+  });
+
+  it('X-Analysis-Session header with unknown UUID → 401 expired', async () => {
+    const res = await get('/check-session', { 'X-Analysis-Session': crypto.randomUUID() });
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+    expect(body.reason).toBe('expired');
+  });
+
 });
 
 describe('POST /exchange-token — abuse regression', () => {
@@ -5012,6 +5043,31 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
     // Must never expose raw fields
     expect(body.text).toBeUndefined();
     expect(body.cv_text).toBeUndefined();
+  });
+
+  it('X-Analysis-Session header returns scoring when no cookie present (Safari/ITP fallback)', async () => {
+    const sessionId   = crypto.randomUUID();
+    const cvKeyToken  = 'd'.repeat(64);
+    const mockScoring = { skor: 88, verdict: 'DO', skor_6d: {} };
+    await env.GASLAMAR_SESSIONS.put(`cvtext_${cvKeyToken}`, JSON.stringify({
+      text: 'raw cv', job_desc: 'raw jd', ip: nextScoringIp(), scoring: mockScoring,
+    }), { expirationTtl: 86400 });
+    await env.GASLAMAR_SESSIONS.put(`analysis_session_${sessionId}`, JSON.stringify({
+      sessionId, resultId: crypto.randomUUID(), cvKey: `cvtext_${cvKeyToken}`,
+      createdAt: Date.now(), expiresAt: Date.now() + 86400000,
+    }), { expirationTtl: 86400 });
+
+    const res = await get('/get-scoring', { 'X-Analysis-Session': sessionId }, nextScoringIp());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.scoring.skor).toBe(88);
+    expect(body.text).toBeUndefined();
+  });
+
+  it('X-Analysis-Session header with unknown UUID → 401', async () => {
+    const res = await get('/get-scoring', { 'X-Analysis-Session': crypto.randomUUID() }, nextScoringIp());
+    expect(res.status).toBe(401);
   });
 
   it('cookie takes precedence over query param', async () => {

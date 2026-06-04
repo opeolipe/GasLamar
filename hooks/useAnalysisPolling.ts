@@ -158,6 +158,16 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
 
       // cv_key is now an HttpOnly cookie set by /analyze — not readable from JS.
 
+      // analysis_session_id: store in sessionStorage so browsers that block cross-site
+      // cookies (Safari ITP) can fall back to X-Analysis-Session header auth on hasil.html.
+      // It maps to an analysis_session_ KV entry (not the raw cv_text) so exposure is limited
+      // to the scoring result the user already sees.
+      const analysisSessionId = (result.analysis_session_id && typeof result.analysis_session_id === 'string')
+        ? result.analysis_session_id : undefined;
+      if (analysisSessionId) {
+        try { sessionStorage.setItem('gaslamar_analysis_session', analysisSessionId); } catch (_) {}
+      }
+
       // result_id is used inline for analytics only — never written to sessionStorage.
       const resultId = (result.result_id && typeof result.result_id === 'string')
         ? result.result_id : undefined;
