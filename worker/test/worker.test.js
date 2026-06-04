@@ -355,8 +355,8 @@ const MOCK_CV_EN = { content: [{ text: 'PROFESSIONAL SUMMARY\nExperienced develo
 describe('makeCvKeyCookie — cookie format', () => {
   const TOKEN = `cvtext_${'a'.repeat(64)}`;
 
-  it('uses __Host- prefix, SameSite=Strict, HttpOnly, Secure', () => {
-    const cookie = makeCvKeyCookie(TOKEN);
+  it('production: uses __Host- prefix, SameSite=Strict, HttpOnly, Secure', () => {
+    const cookie = makeCvKeyCookie(TOKEN, { ENVIRONMENT: 'production' });
     expect(cookie).toContain('__Host-cv_key=' + TOKEN);
     expect(cookie).toContain('HttpOnly');
     expect(cookie).toContain('Secure');
@@ -365,8 +365,18 @@ describe('makeCvKeyCookie — cookie format', () => {
     expect(cookie).not.toContain('SameSite=None');
   });
 
+  it('staging: uses __Host- prefix, SameSite=None; Partitioned (CHIPS)', () => {
+    const cookie = makeCvKeyCookie(TOKEN, { ENVIRONMENT: 'staging' });
+    expect(cookie).toContain('__Host-cv_key=' + TOKEN);
+    expect(cookie).toContain('HttpOnly');
+    expect(cookie).toContain('Secure');
+    expect(cookie).toContain('SameSite=None');
+    expect(cookie).toContain('Partitioned');
+    expect(cookie).not.toContain('SameSite=Strict');
+  });
+
   it('Max-Age is 86400 (24h)', () => {
-    const cookie = makeCvKeyCookie(TOKEN);
+    const cookie = makeCvKeyCookie(TOKEN, { ENVIRONMENT: 'production' });
     expect(cookie).toContain('Max-Age=86400');
   });
 });

@@ -77,13 +77,22 @@ export function getCvTextKeyFromCookie(request) {
  * Max-Age matches the session KV TTL: 7 days (single/coba) or 30 days (multi-credit).
  *
  * __Host- prefix enforces: Secure, Path=/, no Domain — host-only binding.
- * SameSite=Strict prevents cross-site cookie attachment (CSRF defence layer 1).
+ *
+ * SameSite strategy:
+ *   - Production: SameSite=Strict. Frontend and API share gaslamar.com, so same-site.
+ *   - Staging/sandbox: SameSite=None; Partitioned (CHIPS). Frontend is on
+ *     staging.gaslamar.pages.dev (different eTLD+1 from api-staging.gaslamar.com).
+ *     __Host- satisfies Chrome's requirement that Partitioned cookies use the __Host- prefix.
  *
  * @param {string}  sessionId
  * @param {boolean} isMulti  — true for 3-Pack / Job Hunt Pack
+ * @param {object}  [env]    — Worker env bindings; used to detect production vs. staging
  */
-export function makeSessionCookie(sessionId, isMulti = false) {
+export function makeSessionCookie(sessionId, isMulti = false, env) {
   const maxAge = isMulti ? 2592000 : 604800;
+  if (env?.ENVIRONMENT !== 'production') {
+    return `__Host-session_id=${sessionId}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${maxAge}; Partitioned`;
+  }
   return `__Host-session_id=${sessionId}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${maxAge}`;
 }
 
@@ -113,12 +122,16 @@ export function clearSessionCookie() {
  *     choice and removes any ambiguity around the Partitioned attribute in same-site contexts.
  *   - Staging/sandbox: SameSite=None; Partitioned (CHIPS). The frontend lives on
  *     staging.gaslamar.pages.dev (different eTLD+1 from api-staging.gaslamar.com),
- *     so cross-site credential passing is required. Partitioned is mandatory for
- *     cross-site cookies in Chrome 120+ to avoid the third-party cookie block.
+ *     so cross-site credential passing is required. __Host- satisfies Chrome's requirement
+ *     that Partitioned cookies use the __Host- prefix.
  *
  * @param {string} cvKey — the cvtext_<64-hex> token returned by /analyze
+ * @param {object} [env] — Worker env bindings; used to detect production vs. staging
  */
-export function makeCvKeyCookie(cvKey) {
+export function makeCvKeyCookie(cvKey, env) {
+  if (env?.ENVIRONMENT !== 'production') {
+    return `__Host-cv_key=${cvKey}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=86400; Partitioned`;
+  }
   return `__Host-cv_key=${cvKey}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=86400`;
 }
 
@@ -139,11 +152,12 @@ export function getCvKeyFromCookie(request) {
  * Max-Age matches the analysis session KV TTL (24h).
  *
  * SameSite strategy (mirrors makeCvKeyCookie):
- *   - Production: SameSite=Strict. Frontend and worker share gaslamar.com, so the
- *     cookie is always same-site. Strict adds an explicit CSRF defence layer.
- *   - Staging/sandbox: SameSite=None; Partitioned (CHIPS). The frontend lives on
- *     staging.gaslamar.pages.dev (different eTLD+1 from api-staging.gaslamar.com),
- *     so cross-site credential passing is required.
+ *   - Production: SameSite=Strict (cookie name: sessionToken). Frontend and worker share
+ *     gaslamar.com, so the cookie is always same-site.
+ *   - Staging/sandbox: SameSite=None; Partitioned (CHIPS), cookie name __Host-sessionToken.
+ *     Chrome requires the __Host- prefix on Partitioned cookies; without it Chrome ignores
+ *     the Partitioned attribute and the cookie becomes an unpartitioned third-party cookie
+ *     that Chrome's deprecation blocks.
  *
  * @param {string} sessionId
  * @param {object} [env]  — Worker env bindings; used to detect production vs. staging
@@ -152,16 +166,19 @@ export function makeSessionTokenCookie(sessionId, env) {
   if (env?.ENVIRONMENT === 'production') {
     return `sessionToken=${sessionId}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=86400`;
   }
-  return `sessionToken=${sessionId}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=86400; Partitioned`;
+  return `__Host-sessionToken=${sessionId}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=86400; Partitioned`;
 }
 
 /**
  * Extract and validate the sessionToken cookie from a request.
  * Returns the session ID string (UUID format) or null.
+ *
+ * Checks __Host-sessionToken first (non-production CHIPS cookie, requires __Host- prefix
+ * for Chrome to apply the Partitioned attribute), then falls back to sessionToken (production).
  */
 export function getSessionTokenFromCookie(request) {
   const cookies = parseCookies(request.headers.get('Cookie'));
-  const id = cookies.sessionToken;
+  const id = cookies['__Host-sessionToken'] ?? cookies.sessionToken;
   // UUID v4: 8-4-4-4-12 hex groups — max 36 chars
   if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) return id;
   return null;

@@ -102,7 +102,7 @@ export async function handleExchangeToken(request, env) {
     return withRl(jsonResponseWithCookie(
       { ok: true },
       200,
-      makeSessionCookie(stored.session_id, isMulti),
+      makeSessionCookie(stored.session_id, isMulti, env),
       request,
       env
     ));
@@ -111,7 +111,7 @@ export async function handleExchangeToken(request, env) {
   log('exchange_token_success', { session_id: stored.session_id, ip });
 
   const isMulti = (session.total_credits ?? 1) > 1;
-  const cookieHeader = makeSessionCookie(stored.session_id, isMulti);
+  const cookieHeader = makeSessionCookie(stored.session_id, isMulti, env);
 
   return withRl(jsonResponseWithCookie(
     { ok: true },
