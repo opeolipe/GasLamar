@@ -3,7 +3,7 @@ import { jsonResponse } from '../cors.js';
 import { clientIp, sha256Hex, log } from '../utils.js';
 import { checkRateLimit, checkRateLimitKV, rateLimitResponse, addRateLimitHeaders } from '../rateLimit.js';
 import { TIER_CREDITS, SESSION_TTL_MULTI, VALID_TIERS } from '../constants.js';
-import { createMayarInvoice, logMayarEnvironment } from '../mayar.js';
+import { createMayarInvoice, logMayarEnvironment, MayarError } from '../mayar.js';
 import { createSession, getSession, updateSession } from '../sessions.js';
 import { makeSessionCookie, getCvKeyFromCookie, getSessionTokenFromCookie, getSessionIdFromCookie } from '../cookies.js';
 import { SESSION_STATES } from '../sessionStates.js';
@@ -31,11 +31,10 @@ export async function handleCreatePayment(request, env) {
   const { tier, cv_text_key: cv_text_key_body, email: rawEmail, coupon_code: rawCoupon } = body;
 
   // Resolution order for cv_text_key:
-  // 1. __Host-cv_key HttpOnly cookie (new sessions, same-origin production).
+  // 1. __Host-cv_key HttpOnly cookie (all environments — uses SameSite=None; Partitioned on
+  //    staging so it survives the cross-origin request from staging.gaslamar.pages.dev).
   // 2. cv_text_key in request body (legacy sessions that stored it in sessionStorage).
-  // 3. sessionToken cookie → analysis_session_ KV (cross-origin staging: __Host-cv_key is
-  //    SameSite=Strict so it is blocked on staging.gaslamar.pages.dev → api-staging.gaslamar.com,
-  //    but sessionToken uses SameSite=None; Partitioned and survives the cross-site fetch).
+  // 3. sessionToken cookie → analysis_session_ KV (belt-and-suspenders fallback).
   let cv_text_key = getCvKeyFromCookie(request) || cv_text_key_body || null;
 
   if (!cv_text_key) {
@@ -161,7 +160,7 @@ export async function handleCreatePayment(request, env) {
               return withRl(jsonResponseWithCookie({ invoice_url: newInvoiceUrl }, 200, cookieHeader, request, env));
             }
           } catch (refreshErr) {
-            console.error(JSON.stringify({ event: 'create_payment_refresh_failed', error: refreshErr.message }));
+            console.error(JSON.stringify({ event: 'create_payment_refresh_failed', error: refreshErr.message, type: refreshErr instanceof MayarError ? 'gateway' : 'internal' }));
             // Fall through to cv_expired — user may need to re-upload
           }
         }
@@ -325,10 +324,24 @@ export async function handleCreatePayment(request, env) {
 
     return withRl(jsonResponseWithCookie({ invoice_url }, 200, cookieHeader, request, env));
   } catch (e) {
-    // Release invoice lock only for errors where Mayar never received the request
-    // (network failures, validation errors). This allows the user to retry safely.
+    // Release invoice lock — Mayar never received a valid request, so the user can retry.
     await env.GASLAMAR_SESSIONS.delete(invoiceLockKey).catch(() => {});
-    console.error(JSON.stringify({ event: 'create_payment_failed', error: e.message, tier: validatedTier }));
+    const isMayarError = e instanceof MayarError;
+    console.error(JSON.stringify({
+      event: 'create_payment_failed',
+      error: e.message,
+      tier: validatedTier,
+      mayar_status: isMayarError ? (e.mayarStatus ?? 'all_404') : null,
+      type: isMayarError ? 'gateway' : 'internal',
+    }));
+    if (isMayarError) {
+      // Mayar gateway failure — surface a 502 so clients/monitors can distinguish
+      // payment-gateway outages from Worker bugs.
+      return withRl(jsonResponse({
+        message: 'Layanan pembayaran sedang tidak tersedia. Coba lagi beberapa saat atau hubungi support@gaslamar.com.',
+        code: 'PAYMENT_GATEWAY_ERROR',
+      }, 502, request, env));
+    }
     return withRl(jsonResponse({ message: 'Gagal membuat invoice. Coba lagi atau hubungi support@gaslamar.com.' }, 500, request, env));
   }
 }
