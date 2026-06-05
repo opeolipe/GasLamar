@@ -1240,6 +1240,9 @@ describe('POST /analyze — DOCX data descriptor (mocked Claude)', () => {
 });
 
 describe('POST /create-payment — validation', () => {
+  beforeAll(() => fetchMock.activate());
+  afterAll(() => fetchMock.deactivate());
+
   it('rejects missing cv_text_key (no cookie, no body) → 400', async () => {
     const res = await post('/create-payment', { tier: 'single' });
     expect(res.status).toBe(400);
@@ -1266,6 +1269,11 @@ describe('POST /create-payment — validation', () => {
 
   it('accepts tier with uppercase casing → normalized to lowercase', async () => {
     // Validation is case-insensitive: 'SINGLE' normalizes to 'single'
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
+      .reply(200, JSON.stringify({ data: { id: 'inv_uppercase', link: 'https://web.mayar.club/pay/inv_uppercase' } }))
+      .times(1);
     const key = await seedCVTextKey();
     const res = await post('/create-payment', { tier: 'SINGLE', cv_text_key: key });
     const body = await res.json();
@@ -1273,6 +1281,11 @@ describe('POST /create-payment — validation', () => {
   });
 
   it('accepts each valid tier past tier validation (all 4 tiers)', async () => {
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
+      .reply(200, JSON.stringify({ data: { id: 'inv_tiers', link: 'https://web.mayar.club/pay/inv_tiers' } }))
+      .times(4);
     for (const tier of ['coba', 'single', '3pack', 'jobhunt']) {
       const key = await seedCVTextKey();
       const res = await post('/create-payment', { tier, cv_text_key: key });
@@ -1283,6 +1296,11 @@ describe('POST /create-payment — validation', () => {
   });
 
   it('accepts tier with surrounding whitespace → trimmed and accepted', async () => {
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
+      .reply(200, JSON.stringify({ data: { id: 'inv_whitespace', link: 'https://web.mayar.club/pay/inv_whitespace' } }))
+      .times(1);
     const key = await seedCVTextKey();
     const res = await post('/create-payment', { tier: '  single  ', cv_text_key: key });
     // Should pass tier validation — not a 400 tier error
@@ -1291,6 +1309,11 @@ describe('POST /create-payment — validation', () => {
   });
 
   it('accepts "starter" alias → normalized to "coba" (backward compat for stale bundles)', async () => {
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
+      .reply(200, JSON.stringify({ data: { id: 'inv_starter', link: 'https://web.mayar.club/pay/inv_starter' } }))
+      .times(1);
     const key = await seedCVTextKey();
     const res = await post('/create-payment', { tier: 'starter', cv_text_key: key });
     // Should pass tier validation — not a 400 tier error
@@ -1311,6 +1334,11 @@ describe('POST /create-payment — validation', () => {
   });
 
   it('accepts cv_text_key from cv_key cookie (new session flow) → proceeds past key check', async () => {
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
+      .reply(200, JSON.stringify({ data: { id: 'inv_cvkey_cookie', link: 'https://web.mayar.club/pay/inv_cvkey_cookie' } }))
+      .times(1);
     // Seed a valid key bound to the default IP (1.2.3.4)
     const key = await seedCVTextKey(undefined, '1.2.3.4');
     // Pass the key only via cookie — body has no cv_text_key
@@ -1320,6 +1348,11 @@ describe('POST /create-payment — validation', () => {
   });
 
   it('cookie cv_key takes precedence over body cv_text_key', async () => {
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
+      .reply(200, JSON.stringify({ data: { id: 'inv_cookie_precedence', link: 'https://web.mayar.club/pay/inv_cookie_precedence' } }))
+      .times(1);
     const cookieKey = await seedCVTextKey(undefined, '1.2.3.4');
     // Provide a valid but nonexistent key in the body; the cookie key should win
     const bodyKey = `cvtext_${cvHexToken()}`;
@@ -1334,6 +1367,11 @@ describe('POST /create-payment — validation', () => {
   });
 
   it('resolves cv_text_key via sessionToken cookie → analysis_session_ KV (cross-origin staging fallback)', async () => {
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
+      .reply(200, JSON.stringify({ data: { id: 'inv_session_token', link: 'https://web.mayar.club/pay/inv_session_token' } }))
+      .times(1);
     const cvKey = await seedCVTextKey(undefined, '1.2.3.4');
     const analysisSessionId = crypto.randomUUID();
     await env.GASLAMAR_SESSIONS.put(
