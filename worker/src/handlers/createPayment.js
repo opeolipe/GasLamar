@@ -335,7 +335,14 @@ export async function handleCreatePayment(request, env) {
       type: isMayarError ? 'gateway' : 'internal',
     }));
     if (isMayarError) {
-      // Mayar gateway failure — surface a 502 so clients/monitors can distinguish
+      if (e.mayarStatus === 404) {
+        // Endpoint not found — this is a misconfiguration, not a transient outage.
+        return withRl(jsonResponse({
+          message: 'Integrasi pembayaran belum dikonfigurasi. Hubungi support@gaslamar.com.',
+          code: 'PAYMENT_MISCONFIGURED',
+        }, 503, request, env));
+      }
+      // Other Mayar gateway failure — surface a 502 so clients/monitors can distinguish
       // payment-gateway outages from Worker bugs.
       return withRl(jsonResponse({
         message: 'Layanan pembayaran sedang tidak tersedia. Coba lagi beberapa saat atau hubungi support@gaslamar.com.',
