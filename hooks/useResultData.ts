@@ -49,9 +49,9 @@ export function useResultData(): ResultDataState {
     // Primary: HttpOnly cookie (Chrome, Firefox).
     // Fallback: X-Analysis-Session header when cookies are blocked (Safari ITP).
     // extraHeaders is empty on first attempt; populated with the fallback on retry.
-    const fetchScoring = (extraHeaders: Record<string, string> = {}) =>
+    const fetchScoring = (extraHeaders: Record<string, string> = {}): Promise<void> =>
       fetch(`${WORKER_URL}/check-session`, { credentials: 'include', headers: extraHeaders })
-        .then(async checkRes => {
+        .then(async (checkRes): Promise<void> => {
           if (cancelled) return;
 
           if (checkRes.status === 401) {
@@ -83,7 +83,7 @@ export function useResultData(): ResultDataState {
 
           // Step 2: fetch the scoring data, forwarding the same auth headers.
           return fetch(`${WORKER_URL}/get-scoring`, { credentials: 'include', headers: extraHeaders })
-            .then(async r => {
+            .then(async (r): Promise<void> => {
               if (cancelled) return;
               if (r.status === 404) {
                 try { sessionStorage.removeItem('gaslamar_analyze_time'); } catch (_) {}
