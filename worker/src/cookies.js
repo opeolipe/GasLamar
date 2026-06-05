@@ -118,8 +118,13 @@ export function clearSessionCookie() {
  *
  * @param {string} cvKey — the cvtext_<64-hex> token returned by /analyze
  */
-export function makeCvKeyCookie(cvKey) {
-  return `__Host-cv_key=${cvKey}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=86400`;
+export function makeCvKeyCookie(cvKey, env) {
+  if (env?.ENVIRONMENT === 'production') {
+    return `__Host-cv_key=${cvKey}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=86400`;
+  }
+  // Staging frontend (staging.gaslamar.pages.dev) calls the worker cross-origin;
+  // SameSite=Strict blocks the cookie from being sent. Use CHIPS (Partitioned) instead.
+  return `__Host-cv_key=${cvKey}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=86400; Partitioned`;
 }
 
 /**
