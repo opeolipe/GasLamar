@@ -108,7 +108,13 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
 
     if (res.status === 404) {
       const errBody = await res.text().catch(() => '');
-      console.log(JSON.stringify({ event: 'mayar_404', endpoint, body: errBody.substring(0, 300) }));
+      // Include key_prefix so logs reveal immediately whether the wrong key was used.
+      console.log(JSON.stringify({
+        event: 'mayar_404',
+        endpoint,
+        key_prefix: apiKey ? apiKey.substring(0, 6) + '…' : null,
+        body: errBody.substring(0, 300),
+      }));
       continue;
     }
 
@@ -121,7 +127,7 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
       } catch {
         errMsg = `Mayar error: ${res.status}`;
       }
-      console.error(JSON.stringify({ event: 'mayar_error', endpoint, status: res.status, body: errBody.substring(0, 500) }));
+      console.error(JSON.stringify({ event: 'mayar_error', endpoint, status: res.status, key_prefix: apiKey ? apiKey.substring(0, 6) + '…' : null, body: errBody.substring(0, 500) }));
       throw new MayarError(errMsg, res.status);
     }
 
