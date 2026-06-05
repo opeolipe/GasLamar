@@ -11,7 +11,7 @@ import { route } from '../src/router.js';
 import { verifyMayarWebhook } from '../src/mayar.js';
 import { GEN_KEY_PREFIX_ID, GEN_KEY_PREFIX_EN } from '../src/cacheVersions.js';
 import { handleResendAccess } from '../src/handlers/resendAccess.js';
-import { makeCvKeyCookie } from '../src/cookies.js';
+import { makeCvKeyCookie, makeSessionTokenCookie, makeSessionCookie } from '../src/cookies.js';
 
 // ---- Test helpers ----
 
@@ -365,7 +365,7 @@ describe('makeCvKeyCookie — cookie format', () => {
     expect(cookie).not.toContain('SameSite=None');
   });
 
-  it('staging: uses SameSite=None; Partitioned for cross-origin cookie', () => {
+  it('staging: uses __Host- prefix, SameSite=None; Partitioned (CHIPS)', () => {
     const cookie = makeCvKeyCookie(TOKEN, { ENVIRONMENT: 'staging' });
     expect(cookie).toContain('__Host-cv_key=' + TOKEN);
     expect(cookie).toContain('HttpOnly');
@@ -389,9 +389,67 @@ describe('makeCvKeyCookie — cookie format', () => {
     expect(cookie).not.toContain('SameSite=Strict');
   });
 
+
   it('Max-Age is 86400 (24h)', () => {
     const cookie = makeCvKeyCookie(TOKEN, { ENVIRONMENT: 'production' });
     expect(cookie).toContain('Max-Age=86400');
+  });
+});
+
+describe('makeSessionTokenCookie — cookie format', () => {
+  const UUID = '00000000-0000-0000-0000-000000000001';
+
+  it('production: cookie name sessionToken, SameSite=Strict, no Partitioned', () => {
+    const cookie = makeSessionTokenCookie(UUID, { ENVIRONMENT: 'production' });
+    expect(cookie).toMatch(/^sessionToken=/);
+    expect(cookie).not.toContain('__Host-');
+    expect(cookie).toContain('SameSite=Strict');
+    expect(cookie).not.toContain('Partitioned');
+    expect(cookie).not.toContain('SameSite=None');
+  });
+
+  it('staging: cookie name __Host-sessionToken, SameSite=None; Partitioned (CHIPS)', () => {
+    const cookie = makeSessionTokenCookie(UUID, { ENVIRONMENT: 'staging' });
+    expect(cookie).toContain('__Host-sessionToken=' + UUID);
+    expect(cookie).toContain('SameSite=None');
+    expect(cookie).toContain('Partitioned');
+    expect(cookie).not.toContain('SameSite=Strict');
+  });
+
+  it('sandbox: same as staging (CHIPS)', () => {
+    const cookie = makeSessionTokenCookie(UUID, { ENVIRONMENT: 'sandbox' });
+    expect(cookie).toContain('__Host-sessionToken=' + UUID);
+    expect(cookie).toContain('SameSite=None');
+    expect(cookie).toContain('Partitioned');
+  });
+});
+
+describe('makeSessionCookie — cookie format', () => {
+  const SESSION_ID = 'sess_00000000-0000-0000-0000-000000000001';
+
+  it('production: __Host-session_id, SameSite=Strict', () => {
+    const cookie = makeSessionCookie(SESSION_ID, false, { ENVIRONMENT: 'production' });
+    expect(cookie).toContain('__Host-session_id=' + SESSION_ID);
+    expect(cookie).toContain('SameSite=Strict');
+    expect(cookie).not.toContain('Partitioned');
+  });
+
+  it('staging: __Host-session_id, SameSite=None; Partitioned (CHIPS)', () => {
+    const cookie = makeSessionCookie(SESSION_ID, false, { ENVIRONMENT: 'staging' });
+    expect(cookie).toContain('__Host-session_id=' + SESSION_ID);
+    expect(cookie).toContain('SameSite=None');
+    expect(cookie).toContain('Partitioned');
+    expect(cookie).not.toContain('SameSite=Strict');
+  });
+
+  it('single-credit Max-Age is 604800 (7 days)', () => {
+    const cookie = makeSessionCookie(SESSION_ID, false, { ENVIRONMENT: 'production' });
+    expect(cookie).toContain('Max-Age=604800');
+  });
+
+  it('multi-credit Max-Age is 2592000 (30 days)', () => {
+    const cookie = makeSessionCookie(SESSION_ID, true, { ENVIRONMENT: 'production' });
+    expect(cookie).toContain('Max-Age=2592000');
   });
 });
 
@@ -2145,6 +2203,37 @@ describe('GET /check-session', () => {
     const body = await res.json();
     expect(body.valid).toBe(true);
     expect(body.resultId).toBe(resultId);
+  });
+
+  it('X-Analysis-Session header returns valid:true when no cookie present (Safari/ITP fallback)', async () => {
+    const sessionId = crypto.randomUUID();
+    const resultId  = crypto.randomUUID();
+    const cvKey     = `cvtext_${cvHexToken()}`;
+    await env.GASLAMAR_SESSIONS.put(`analysis_session_${sessionId}`, JSON.stringify({
+      sessionId, resultId, cvKey, createdAt: Date.now(), expiresAt: Date.now() + 86400000,
+    }), { expirationTtl: 86400 });
+    const res = await get('/check-session', { 'X-Analysis-Session': sessionId });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.authenticated).toBe(true);
+    expect(body.type).toBe('analysis');
+    expect(body.resultId).toBe(resultId);
+  });
+
+  it('X-Analysis-Session header with invalid UUID → 401 expired (not no_session)', async () => {
+    const res = await get('/check-session', { 'X-Analysis-Session': 'not-a-uuid' });
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+  });
+
+  it('X-Analysis-Session header with unknown UUID → 401 expired', async () => {
+    const res = await get('/check-session', { 'X-Analysis-Session': crypto.randomUUID() });
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+    expect(body.reason).toBe('expired');
   });
 
 });
@@ -4969,6 +5058,31 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
     // Must never expose raw fields
     expect(body.text).toBeUndefined();
     expect(body.cv_text).toBeUndefined();
+  });
+
+  it('X-Analysis-Session header returns scoring when no cookie present (Safari/ITP fallback)', async () => {
+    const sessionId   = crypto.randomUUID();
+    const cvKeyToken  = 'd'.repeat(64);
+    const mockScoring = { skor: 88, verdict: 'DO', skor_6d: {} };
+    await env.GASLAMAR_SESSIONS.put(`cvtext_${cvKeyToken}`, JSON.stringify({
+      text: 'raw cv', job_desc: 'raw jd', ip: nextScoringIp(), scoring: mockScoring,
+    }), { expirationTtl: 86400 });
+    await env.GASLAMAR_SESSIONS.put(`analysis_session_${sessionId}`, JSON.stringify({
+      sessionId, resultId: crypto.randomUUID(), cvKey: `cvtext_${cvKeyToken}`,
+      createdAt: Date.now(), expiresAt: Date.now() + 86400000,
+    }), { expirationTtl: 86400 });
+
+    const res = await get('/get-scoring', { 'X-Analysis-Session': sessionId }, nextScoringIp());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.scoring.skor).toBe(88);
+    expect(body.text).toBeUndefined();
+  });
+
+  it('X-Analysis-Session header with unknown UUID → 401', async () => {
+    const res = await get('/get-scoring', { 'X-Analysis-Session': crypto.randomUUID() }, nextScoringIp());
+    expect(res.status).toBe(401);
   });
 
   it('cookie takes precedence over query param', async () => {

@@ -7,26 +7,30 @@
  *     - Path=/ (no subpath scope creep)
  *     - No Domain attribute (host-only; not shared with subdomains)
  *
- *   SameSite=Strict prevents cross-site request forgery at the cookie layer.
- *   The Worker and frontend share the gaslamar.com domain via Cloudflare routes,
- *   so same-site restrictions are satisfied in production. Staging environments
- *   that cross origins must use token-based flows (e.g. exchangeToken.js) rather
- *   than relying on automatic cookie attachment.
+ *   SameSite strategy varies by environment:
+ *     Production  — SameSite=Strict. Frontend and Worker share gaslamar.com via
+ *                   Cloudflare routes, so all requests are same-site. Strict is
+ *                   the strongest CSRF protection available.
+ *     Staging/sandbox — SameSite=None; Partitioned (CHIPS). The frontend lives on
+ *                   staging.gaslamar.pages.dev (eTLD+1: pages.dev) while the Worker
+ *                   is on api-staging.gaslamar.com (eTLD+1: gaslamar.com). These are
+ *                   cross-site, so SameSite=Strict cookies would never be sent.
+ *                   Chrome requires the __Host- prefix on Partitioned cookies; without
+ *                   it Chrome ignores Partitioned, leaving an unpartitioned third-party
+ *                   cookie that Chrome's deprecation blocks entirely.
  *
  * CSRF SECURITY ASSESSMENT:
  *
+ *   Production:
  *   1. SameSite=Strict: cookies are never attached to cross-site requests.
- *
- *   2. Origin enforcement: router.js rejects unsafe methods from unlisted
- *      browser Origins before handlers read request bodies or mutate data.
- *
- *   3. JSON-only API: All state-changing POST bodies use Content-Type:application/json.
- *      Browsers require a CORS pre-flight for non-simple content types.
- *
+ *   2. Origin enforcement: router.js rejects unsafe methods from unlisted browser Origins.
+ *   3. JSON-only API: Content-Type:application/json triggers CORS pre-flight for all POSTs.
  *   4. HttpOnly: JavaScript cannot read these cookies, blocking XSS exfiltration.
  *
- *   Conclusion: __Host- prefix + SameSite=Strict + HttpOnly + Origin enforcement +
- *   JSON bodies form a defence-in-depth CSRF/XSS control stack.
+ *   Staging/sandbox (SameSite=None; Partitioned):
+ *   SameSite=Strict is not possible cross-origin, so defence-in-depth relies on:
+ *   2–4 above plus the Partitioned attribute (cookies isolated per top-level site).
+ *   CSRF risk on staging is accepted as a known trade-off for cross-origin testability.
  */
 
 /** Parse a Cookie header string into a key→value plain object. */
@@ -77,13 +81,22 @@ export function getCvTextKeyFromCookie(request) {
  * Max-Age matches the session KV TTL: 7 days (single/coba) or 30 days (multi-credit).
  *
  * __Host- prefix enforces: Secure, Path=/, no Domain — host-only binding.
- * SameSite=Strict prevents cross-site cookie attachment (CSRF defence layer 1).
+ *
+ * SameSite strategy:
+ *   - Production: SameSite=Strict. Frontend and API share gaslamar.com, so same-site.
+ *   - Staging/sandbox: SameSite=None; Partitioned (CHIPS). Frontend is on
+ *     staging.gaslamar.pages.dev (different eTLD+1 from api-staging.gaslamar.com).
+ *     __Host- satisfies Chrome's requirement that Partitioned cookies use the __Host- prefix.
  *
  * @param {string}  sessionId
  * @param {boolean} isMulti  — true for 3-Pack / Job Hunt Pack
+ * @param {object}  [env]    — Worker env bindings; used to detect production vs. staging
  */
-export function makeSessionCookie(sessionId, isMulti = false) {
+export function makeSessionCookie(sessionId, isMulti = false, env) {
   const maxAge = isMulti ? 2592000 : 604800;
+  if (env?.ENVIRONMENT !== 'production') {
+    return `__Host-session_id=${sessionId}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${maxAge}; Partitioned`;
+  }
   return `__Host-session_id=${sessionId}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${maxAge}`;
 }
 
@@ -113,18 +126,17 @@ export function clearSessionCookie() {
  *     choice and removes any ambiguity around the Partitioned attribute in same-site contexts.
  *   - Staging/sandbox: SameSite=None; Partitioned (CHIPS). The frontend lives on
  *     staging.gaslamar.pages.dev (different eTLD+1 from api-staging.gaslamar.com),
- *     so cross-site credential passing is required. Partitioned is mandatory for
- *     cross-site cookies in Chrome 120+ to avoid the third-party cookie block.
+ *     so cross-site credential passing is required. __Host- satisfies Chrome's requirement
+ *     that Partitioned cookies use the __Host- prefix.
  *
  * @param {string} cvKey — the cvtext_<64-hex> token returned by /analyze
+ * @param {object} [env] — Worker env bindings; used to detect production vs. staging
  */
 export function makeCvKeyCookie(cvKey, env) {
-  if (env?.ENVIRONMENT === 'production') {
-    return `__Host-cv_key=${cvKey}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=86400`;
+  if (env?.ENVIRONMENT !== 'production') {
+    return `__Host-cv_key=${cvKey}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=86400; Partitioned`;
   }
-  // Staging frontend (staging.gaslamar.pages.dev) calls the worker cross-origin;
-  // SameSite=Strict blocks the cookie from being sent. Use CHIPS (Partitioned) instead.
-  return `__Host-cv_key=${cvKey}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=86400; Partitioned`;
+  return `__Host-cv_key=${cvKey}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=86400`;
 }
 
 /**
@@ -144,11 +156,12 @@ export function getCvKeyFromCookie(request) {
  * Max-Age matches the analysis session KV TTL (24h).
  *
  * SameSite strategy (mirrors makeCvKeyCookie):
- *   - Production: SameSite=Strict. Frontend and worker share gaslamar.com, so the
- *     cookie is always same-site. Strict adds an explicit CSRF defence layer.
- *   - Staging/sandbox: SameSite=None; Partitioned (CHIPS). The frontend lives on
- *     staging.gaslamar.pages.dev (different eTLD+1 from api-staging.gaslamar.com),
- *     so cross-site credential passing is required.
+ *   - Production: SameSite=Strict (cookie name: sessionToken). Frontend and worker share
+ *     gaslamar.com, so the cookie is always same-site.
+ *   - Staging/sandbox: SameSite=None; Partitioned (CHIPS), cookie name __Host-sessionToken.
+ *     Chrome requires the __Host- prefix on Partitioned cookies; without it Chrome ignores
+ *     the Partitioned attribute and the cookie becomes an unpartitioned third-party cookie
+ *     that Chrome's deprecation blocks.
  *
  * @param {string} sessionId
  * @param {object} [env]  — Worker env bindings; used to detect production vs. staging
@@ -157,16 +170,19 @@ export function makeSessionTokenCookie(sessionId, env) {
   if (env?.ENVIRONMENT === 'production') {
     return `sessionToken=${sessionId}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=86400`;
   }
-  return `sessionToken=${sessionId}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=86400; Partitioned`;
+  return `__Host-sessionToken=${sessionId}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=86400; Partitioned`;
 }
 
 /**
  * Extract and validate the sessionToken cookie from a request.
  * Returns the session ID string (UUID format) or null.
+ *
+ * Checks __Host-sessionToken first (non-production CHIPS cookie, requires __Host- prefix
+ * for Chrome to apply the Partitioned attribute), then falls back to sessionToken (production).
  */
 export function getSessionTokenFromCookie(request) {
   const cookies = parseCookies(request.headers.get('Cookie'));
-  const id = cookies.sessionToken;
+  const id = cookies['__Host-sessionToken'] ?? cookies.sessionToken;
   // UUID v4: 8-4-4-4-12 hex groups — max 36 chars
   if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) return id;
   return null;

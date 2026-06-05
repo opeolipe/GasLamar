@@ -119,7 +119,7 @@ export async function handleCreatePayment(request, env) {
 
         if (invoiceValid) {
           log('create_payment_resumed', { ip, sessionId: existingSessionId });
-          const cookieHeader = makeSessionCookie(existingSessionId, isMulti);
+          const cookieHeader = makeSessionCookie(existingSessionId, isMulti, env);
           return withRl(jsonResponseWithCookie({ invoice_url: existingSession.invoice_url }, 200, cookieHeader, request, env));
         }
 
@@ -156,7 +156,7 @@ export async function handleCreatePayment(request, env) {
                 }
               }
               log('create_payment_invoice_refreshed', { ip, sessionId: existingSessionId });
-              const cookieHeader = makeSessionCookie(existingSessionId, isMulti);
+              const cookieHeader = makeSessionCookie(existingSessionId, isMulti, env);
               return withRl(jsonResponseWithCookie({ invoice_url: newInvoiceUrl }, 200, cookieHeader, request, env));
             }
           } catch (refreshErr) {
@@ -320,7 +320,7 @@ export async function handleCreatePayment(request, env) {
     // Referer headers, server logs). Cookie travels automatically with all credentialed
     // requests to this Worker origin.
     const isMulti = credits > 1;
-    const cookieHeader = makeSessionCookie(sessionId, isMulti);
+    const cookieHeader = makeSessionCookie(sessionId, isMulti, env);
 
     return withRl(jsonResponseWithCookie({ invoice_url }, 200, cookieHeader, request, env));
   } catch (e) {

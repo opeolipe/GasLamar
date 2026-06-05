@@ -584,3 +584,41 @@ for cross-origin) and look up the `analysis_session_` KV entry to retrieve `cvKe
 Return a structured error code (`cv_key_missing` vs `cv_expired`) so the frontend can show the
 correct UX rather than a generic "Data tidak lengkap" message.
 
+---
+
+## Cross-origin staging CHIPS: `__Host-` prefix required; Safari ITP needs a non-cookie fallback (2026-06-05)
+
+**Root cause:** Chrome 114+ requires the `__Host-` cookie name prefix for any cookie that uses the
+`Partitioned` attribute (CHIPS). Without `__Host-`, Chrome ignores `Partitioned` and treats the
+cookie as an unpartitioned `SameSite=None` third-party cookie — which its third-party-cookie
+deprecation then blocks entirely. The staging `sessionToken` cookie was missing the prefix, so
+Chrome never received it and `/check-session` always returned `no_session`.
+
+**Fix for Chrome/Firefox (CHIPS):**
+- Non-production environments: use `__Host-<name>=...; SameSite=None; Partitioned; Secure; Path=/`
+- Production (same-site): use `<name>=...; SameSite=Strict; Secure; HttpOnly; Path=/`
+- `__Host-` enforces `Secure`, `Path=/`, and no `Domain` attribute automatically — do not duplicate them
+- The cookie reader must check `cookies['__Host-name'] ?? cookies['name']` to handle both envs
+
+**Fix for Safari ITP (blocks ALL cross-site cookies):**
+- After `/analyze`, store the `analysis_session_id` UUID from the response in `sessionStorage` under `gaslamar_analysis_session`
+- On `/check-session` → `no_session`, retry once with `{ 'X-Analysis-Session': sessionFallback }` header
+- Pass the same header to `/get-scoring` in the same request chain
+- Register `X-Analysis-Session` in `Access-Control-Allow-Headers` in `cors.js`
+- Worker handlers read the header only if cookie auth returns nothing; UUID is validated against `^[0-9a-f]{8}-...-[0-9a-f]{12}$` before any KV lookup
+
+**Rate-limit fairness:** include `headerSessionId` in the `authToken` assignment so header-based sessions get the authenticated rate limit (20/min) instead of the unauthenticated limit (10/min):
+```javascript
+const authToken = sessionToken ?? cvKeyCookie ?? headerSessionId;
+```
+This must be placed AFTER `headerSessionId` is computed.
+
+**Affected browsers by mechanism:**
+| Browser | Mechanism | Fix |
+|---|---|---|
+| Chrome 114+ (cross-site staging) | Ignores `Partitioned` without `__Host-` prefix | `__Host-` prefix on non-prod cookies |
+| Firefox (cross-site staging) | Supports `__Host-` + CHIPS | Same as Chrome |
+| Safari / iOS WebView | Blocks all cross-site cookies | `X-Analysis-Session` header fallback |
+| Android Chrome | Same as desktop Chrome | `__Host-` prefix |
+| Android Samsung Internet | May block `SameSite=None` | Header fallback catches it |
+
