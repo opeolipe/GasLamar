@@ -22,8 +22,19 @@ export async function handleGetScoring(request, env) {
   const ip             = clientIp(request);
   const sessionToken   = getSessionTokenFromCookie(request);
   const cvKeyCookie    = getCvKeyFromCookie(request);
-  // Use either token for the rate-limit bucket (authenticated callers get higher limit).
-  const authToken      = sessionToken ?? cvKeyCookie;
+
+  // Header fallback for browsers that block cross-site cookies (e.g. Safari ITP).
+  // Mirrors the check-session fallback — uses the same analysis_session_ KV lookup.
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const headerSessionId = (() => {
+    const h = request.headers.get('X-Analysis-Session');
+    return (h && UUID_RE.test(h)) ? h : null;
+  })();
+  const effectiveSessionId = sessionToken ?? headerSessionId;
+
+  // Use whichever auth token is present for the rate-limit bucket (authenticated callers get higher limit).
+  // headerSessionId is included so Safari/ITP users on the header fallback get the same 20 req/min limit.
+  const authToken      = sessionToken ?? cvKeyCookie ?? headerSessionId;
 
   // Atomic burst guard — CF native binding has no TOCTOU race, catches parallel floods.
   if (!await checkRateLimit(env, env.RATE_LIMITER_GET_SCORING, ip)) {
@@ -34,15 +45,6 @@ export async function handleGetScoring(request, env) {
   const kvResult = await checkRateLimitKVSession(env, ip, authToken, 10, 20, 60, 'get_scoring');
   if (!kvResult.allowed) return rateLimitResponse(request, env, kvResult.retryAfter ?? 60, kvResult);
   const withRl = res => addRateLimitHeaders(res, kvResult);
-
-  // Header fallback for browsers that block cross-site cookies (e.g. Safari ITP).
-  // Mirrors the check-session fallback — uses the same analysis_session_ KV lookup.
-  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const headerSessionId = (() => {
-    const h = request.headers.get('X-Analysis-Session');
-    return (h && UUID_RE.test(h)) ? h : null;
-  })();
-  const effectiveSessionId = sessionToken ?? headerSessionId;
 
   if (!effectiveSessionId && !cvKeyCookie) {
     return withRl(jsonResponse({ valid: false }, 401, request, env));
