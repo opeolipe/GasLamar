@@ -19,14 +19,17 @@ function webhookResponse(body, status) {
 export async function handleMayarWebhook(request, env, ctx) {
   const { valid, body } = await verifyMayarWebhook(request, env);
 
+  console.log(JSON.stringify({
+    event: 'webhook_verification',
+    valid,
+    environment: env.ENVIRONMENT ?? 'sandbox',
+    has_signature: !!request.headers.get('x-mayar-signature'),
+    has_callback_token: !!request.headers.get('x-callback-token'),
+    has_secret: !!env.MAYAR_WEBHOOK_SECRET,
+    body_preview: typeof body === 'string' ? body.slice(0, 500) : null,
+  }));
+
   if (!valid) {
-    console.error(JSON.stringify({
-      event: 'webhook_unauthorized',
-      environment: env.ENVIRONMENT ?? 'sandbox',
-      has_signature: !!request.headers.get('x-mayar-signature'),
-      has_callback_token: !!request.headers.get('x-callback-token'),
-      has_secret: !!env.MAYAR_WEBHOOK_SECRET,
-    }));
     return webhookResponse('Unauthorized', 401);
   }
 
@@ -51,11 +54,16 @@ export async function handleMayarWebhook(request, env, ctx) {
   // We must try both so the KV secondary index (keyed by payment-link ID) is found.
   const candidateInvoiceIds = [
     payload.id,
+    payload.order_id,           // explicit order_id field used by some Mayar API versions
     payload.invoice_id,
+    payload.reference,          // echoed back from our reference field set at invoice creation
     payload.data?.id,
     payload.data?.productId,    // payment-link ID — matches the index set by /create-payment
     payload.data?.invoice_id,   // alternate field name used in some API versions
     payload.data?.transactionId, // belt-and-suspenders for reverse mapping
+    payload.data?.order_id,
+    payload.data?.reference,    // echoed back from our `reference: sessionId` at invoice creation
+    payload.data?.externalId,
   ].filter((id, i, arr) => id && typeof id === 'string' && id.length <= 200 && arr.indexOf(id) === i); // dedupe + KV key length guard
 
   const redirectUrl = payload.redirect_url || payload.data?.redirect_url || '';
@@ -69,16 +77,14 @@ export async function handleMayarWebhook(request, env, ctx) {
     dataKeys: payload.data ? Object.keys(payload.data) : null,
   }));
 
-  if (!candidateInvoiceIds.length && !redirectUrl) {
-    // C4 FIX: Return 400 so Mayar retries and the operator can see the drop.
-    // A silent 200 here permanently swallows the webhook with no telemetry.
+  if (!candidateInvoiceIds.length) {
     console.error(JSON.stringify({
-      event: 'webhook_unresolvable_payload',
-      reason: 'missing_invoiceId_and_redirectUrl',
+      event: 'webhook_missing_order_id',
+      reason: 'no_identifiable_invoice_or_order_id',
       topLevelKeys: Object.keys(payload),
       dataKeys: payload.data ? Object.keys(payload.data) : null,
     }));
-    return webhookResponse('Bad Request: missing invoiceId and redirectUrl', 400);
+    return webhookResponse('Bad Request: missing order_id', 400);
   }
 
   // Primary: KV secondary index (set by /create-payment).
@@ -87,18 +93,48 @@ export async function handleMayarWebhook(request, env, ctx) {
   // invoice ID is at payload.data.id.
   let sessionId = null;
   let invoiceId = candidateInvoiceIds[0] ?? null; // best candidate for logging
+  const SESSION_ID_RE = /^sess_[0-9a-f-]{36}$/i;
+
+  // Step 1: Check if any candidate IS a session ID (echoed back via our `reference` field).
   for (const candidateId of candidateInvoiceIds) {
-    const mapping = await env.GASLAMAR_SESSIONS.get(`mayar_session_${candidateId}`, { type: 'json' });
-    const sid = mapping?.session_id;
-    // Validate that the KV-stored session_id has the expected format before using it.
-    // Full format: "sess_" + 36-char lowercase UUID (e.g. sess_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
-    if (typeof sid === 'string' && /^sess_[0-9a-f-]{36}$/.test(sid.toLowerCase())) {
-      sessionId = sid;
-      invoiceId = candidateId; // use the ID that found the session for downstream logging
+    if (SESSION_ID_RE.test(candidateId)) {
+      sessionId = candidateId.toLowerCase();
+      invoiceId = candidateId;
+      console.log(JSON.stringify({ event: 'webhook_session_id_from_reference', sessionId, candidateId }));
       break;
     }
-    if (sid !== undefined) {
-      console.error(JSON.stringify({ event: 'webhook_invalid_session_id_format', candidateId, sid: String(sid).slice(0, 20) }));
+  }
+
+  // Step 2: Primary lookup — KV secondary index set by /create-payment.
+  if (!sessionId) {
+    for (const candidateId of candidateInvoiceIds) {
+      const mapping = await env.GASLAMAR_SESSIONS.get(`mayar_session_${candidateId}`, { type: 'json' });
+      const sid = mapping?.session_id;
+      // Validate that the KV-stored session_id has the expected format before using it.
+      // Full format: "sess_" + 36-char lowercase UUID (e.g. sess_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+      if (typeof sid === 'string' && SESSION_ID_RE.test(sid)) {
+        sessionId = sid;
+        invoiceId = candidateId; // use the ID that found the session for downstream logging
+        break;
+      }
+      if (sid !== undefined) {
+        console.error(JSON.stringify({ event: 'webhook_invalid_session_id_format', candidateId, sid: String(sid).slice(0, 20) }));
+      }
+    }
+  }
+
+  // Step 3: Fallback — result_id index set by /create-payment alongside the invoice index.
+  // Activated when Mayar sends a transaction ID we didn't store under mayar_session_.
+  if (!sessionId) {
+    for (const candidateId of candidateInvoiceIds) {
+      const mapping = await env.GASLAMAR_SESSIONS.get(`result_id_session_${candidateId}`, { type: 'json' });
+      const sid = mapping?.session_id;
+      if (typeof sid === 'string' && SESSION_ID_RE.test(sid)) {
+        sessionId = sid;
+        invoiceId = candidateId;
+        console.log(JSON.stringify({ event: 'webhook_session_found_via_result_id_index', sessionId, candidateId }));
+        break;
+      }
     }
   }
 

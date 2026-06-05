@@ -1,6 +1,17 @@
 import { TIER_PRICES } from './constants.js';
 import { log, logError } from './utils.js';
 
+// Tagged error for upstream Mayar gateway failures.
+// Lets callers distinguish "Mayar is down/misconfigured" (→ 502) from
+// internal Worker bugs (→ 500) without parsing error messages.
+export class MayarError extends Error {
+  constructor(message, status = null) {
+    super(message);
+    this.name = 'MayarError';
+    this.mayarStatus = status; // HTTP status Mayar returned, if known
+  }
+}
+
 export function getMayarApiUrl(env) {
   return env.ENVIRONMENT === 'production'
     ? 'https://api.mayar.id/hl/v1'
@@ -49,100 +60,105 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
     ? customerEmail
     : `user+${shortId}@gaslamar.com`;
 
-  // Try /invoice/create first (line items), fall back to /payment/create (flat amount)
-  // Correct Mayar endpoint paths per Postman collection: /invoice/create and /payment/create
   // Use a per-session fake mobile derived from the session shortId to avoid all
   // invoices sharing a single phone number (which could trigger Mayar fraud detection).
   const fakeMobile = '0800' + shortId.replace(/[^0-9]/g, '0').slice(0, 7).padStart(7, '0');
 
-  const invoiceBody = {
-    name: `GasLamar User ${shortId}`,
-    email,
-    mobile: fakeMobile,
-    description: `${tierConfig.label} — GasLamar.com`,
-    redirectUrl,
-    items: [{
-      quantity: 1,
-      rate: tierConfig.amount,
-      description: tierConfig.label,
-    }],
-  };
+  // Invoice expires 7 days from now — gives users time to complete payment without
+  // leaving stale open invoices in Mayar indefinitely.
+  const expiredAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  const paymentBody = {
+  // Mayar's /invoice/create accepts a flat `amount` field (not an `items` array).
+  // reference is echoed back in Mayar webhooks; used as a session-ID fallback
+  // when the primary mayar_session_{invoiceId} KV index is missing.
+  const invoiceBody = {
     name: `GasLamar User ${shortId}`,
     email,
     mobile: fakeMobile,
     amount: tierConfig.amount,
     description: `${tierConfig.label} — GasLamar.com`,
     redirectUrl,
+    expiredAt,
+    reference: sessionId,
   };
 
-  for (const [endpoint, body] of [
-    [`${apiUrl}/invoice/create`, invoiceBody],
-    [`${apiUrl}/payment/create`, paymentBody],
-  ]) {
-    console.log(JSON.stringify({ event: 'mayar_request', endpoint, tier, amount: tierConfig.amount }));
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(body),
-    });
+  const endpoint = `${apiUrl}/invoice/create`;
+  console.log(JSON.stringify({ event: 'mayar_request', endpoint, tier, amount: tierConfig.amount }));
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(invoiceBody),
+  });
 
-    if (res.status === 404) {
-      const errBody = await res.text().catch(() => '');
-      console.log(JSON.stringify({ event: 'mayar_404', endpoint, body: errBody.substring(0, 200) }));
-      continue;
-    }
-
-    if (!res.ok) {
-      const errBody = await res.text().catch(() => '');
-      let errMsg;
-      try {
-        const errJson = JSON.parse(errBody);
-        errMsg = (typeof errJson.messages === 'string' ? errJson.messages : errJson.messages?.[0]) || errJson.message || `Mayar error: ${res.status}`;
-      } catch {
-        errMsg = `Mayar error: ${res.status}`;
-      }
-      console.error(JSON.stringify({ event: 'mayar_error', endpoint, status: res.status, body: errBody.substring(0, 500) }));
-      throw new Error(errMsg);
-    }
-
-    const data = await res.json();
-    // Log full response (inner data object) so we can diagnose missing URL fields.
-    console.log(JSON.stringify({
-      event: 'mayar_success',
+  if (res.status === 404) {
+    const errBody = await res.text().catch(() => '');
+    console.error(JSON.stringify({
+      event: 'MAYAR_ENDPOINT_NOT_FOUND',
       endpoint,
-      data_keys: Object.keys(data),
-      data_inner_keys: data.data ? Object.keys(data.data) : null,
-      data_inner: data.data ?? null,
+      diagnosis: 'Mayar returned 404 — verify MAYAR_API_KEY_SANDBOX at web.mayar.club/api-keys and confirm the base URL is correct.',
+      key_prefix: apiKey ? apiKey.substring(0, 6) + '…' : null,
+      body: errBody.substring(0, 300),
     }));
-
-    // Mayar API has returned the invoice ID under different field names across versions;
-    // check all known variants so the KV index key matches whatever the webhook sends.
-    const invoice_id  = data.data?.id || data.data?.invoice_id || data.id || data.invoice_id;
-    // Mayar API has used several field names across versions; check all known variants.
-    // paymentLink is used by Mayar sandbox (myr.id checkout URLs).
-    const invoice_url =
-      data.data?.link         || data.data?.url          || data.data?.payment_url  ||
-      data.data?.checkout_url || data.data?.invoice_url  || data.data?.paymentLink  ||
-      data.link               || data.url                || data.payment_url        ||
-      data.checkout_url       || data.invoice_url        || data.paymentLink;
-
-    if (!invoice_url) {
-      // Invoice was created on Mayar (we got an invoice_id) but no payment URL was returned.
-      // Return the invoice_id so the caller can consume cv_text_key and prevent duplicate
-      // invoices; caller must return an error to the user.
-      console.error(JSON.stringify({ event: 'mayar_no_url', endpoint, invoice_id, data_keys: Object.keys(data), data_inner_keys: data.data ? Object.keys(data.data) : [] }));
-      return { invoice_id, invoice_url: null };
-    }
-
-    return { invoice_id, invoice_url };
+    throw new MayarError('Integrasi pembayaran belum dikonfigurasi. Hubungi support@gaslamar.com', 404);
   }
 
-  throw new Error('Pembayaran belum tersedia. Hubungi support@gaslamar.com');
+  if (res.status === 401) {
+    const errBody = await res.text().catch(() => '');
+    console.error(JSON.stringify({ event: 'MAYAR_INVALID_API_KEY', endpoint, key_prefix: apiKey ? apiKey.substring(0, 6) + '…' : null, body: errBody.substring(0, 300) }));
+    throw new MayarError('API key Mayar tidak valid. Hubungi support@gaslamar.com', 401);
+  }
+
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    let errMsg;
+    try {
+      const errJson = JSON.parse(errBody);
+      errMsg = (typeof errJson.messages === 'string' ? errJson.messages : errJson.messages?.[0]) || errJson.message || `Mayar error: ${res.status}`;
+    } catch {
+      errMsg = `Mayar error: ${res.status}`;
+    }
+    console.error(JSON.stringify({ event: 'mayar_error', endpoint, status: res.status, key_prefix: apiKey ? apiKey.substring(0, 6) + '…' : null, body: errBody.substring(0, 500) }));
+    throw new MayarError(errMsg, res.status);
+  }
+
+  const data = await res.json();
+  // Log full response (inner data object) so we can diagnose missing URL fields.
+  console.log(JSON.stringify({
+    event: 'mayar_success',
+    endpoint,
+    data_keys: Object.keys(data),
+    data_inner_keys: data.data ? Object.keys(data.data) : null,
+    data_inner: data.data ?? null,
+  }));
+
+  // Mayar API has returned the invoice ID under different field names across versions;
+  // check all known variants so the KV index key matches whatever the webhook sends.
+  const invoice_id  = data.data?.id || data.data?.invoice_id || data.id || data.invoice_id;
+  // Mayar's webhook sends data.id = data.transactionId (the payment transaction ID),
+  // which is a DIFFERENT UUID from the invoice ID returned here. Capture it now so
+  // createPayment.js can store a second KV index (mayar_session_{transactionId}) that
+  // the webhook handler will find.
+  const transaction_id = data.data?.transactionId || data.transactionId || null;
+  // Mayar API has used several field names across versions; check all known variants.
+  // paymentLink is used by Mayar sandbox (myr.id checkout URLs).
+  const invoice_url =
+    data.data?.link         || data.data?.url          || data.data?.payment_url  ||
+    data.data?.checkout_url || data.data?.invoice_url  || data.data?.paymentLink  ||
+    data.link               || data.url                || data.payment_url        ||
+    data.checkout_url       || data.invoice_url        || data.paymentLink;
+
+  if (!invoice_url) {
+    // Invoice was created on Mayar (we got an invoice_id) but no payment URL was returned.
+    // Return the invoice_id so the caller can consume cv_text_key and prevent duplicate
+    // invoices; caller must return an error to the user.
+    console.error(JSON.stringify({ event: 'mayar_no_url', endpoint, invoice_id, data_keys: Object.keys(data), data_inner_keys: data.data ? Object.keys(data.data) : [] }));
+    return { invoice_id, transaction_id, invoice_url: null };
+  }
+
+  return { invoice_id, transaction_id, invoice_url };
 }
 
 // Validate a coupon code against a tier's price.

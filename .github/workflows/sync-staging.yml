@@ -10,10 +10,17 @@ on:
         description: 'Force PR creation even if staging is up to date'
         required: false
         default: 'false'
+  # push is listed so GitHub doesn't create phantom "failure" run records
+  # on branches that contain this file. The job condition below skips all
+  # work when triggered by push — only schedule and workflow_dispatch do anything.
+  push:
+    branches:
+      - '**'
 
 jobs:
   sync:
     name: Create or update sync PR
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: write

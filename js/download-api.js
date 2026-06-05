@@ -6,16 +6,19 @@
 // fetchAndGenerateCV from download-generation.js (hoisted — defined later).
 
 // ── startPolling ──────────────────────────────────────────────────────────────
-// Resets counters and fires the first poll after a 2-second delay.
+// Resets counters and fires the first poll after POLL_INITIAL_DELAY (2 s).
 // The delay absorbs Cloudflare KV eventual-consistency lag after /create-payment.
 function startPolling(sessionId) {
-  pollCount    = 0;
-  notFoundCount = 0;
-  setTimeout(function() { poll(sessionId); }, 2000);
+  pollCount        = 0;
+  notFoundCount    = 0;
+  pollCurrentDelay = POLL_INITIAL_DELAY;
+  pollStartTime    = Date.now();
+  clearTimeout(pollTimer);
+  pollTimer = setTimeout(function() { poll(sessionId); }, POLL_INITIAL_DELAY);
 }
 
 // ── restartPolling ────────────────────────────────────────────────────────────
-// Called by the "Check Again" button after auto-polling has exhausted MAX_POLLS.
+// Called by the "Check Again" button. Resets backoff and restarts the loop.
 function restartPolling() {
   document.getElementById('check-btn').classList.add('hidden');
   document.getElementById('contact-btn').classList.add('hidden');
@@ -69,6 +72,16 @@ async function poll(sessionId) {
       credentials: 'include',
     });
 
+    if (res.status === 429) {
+      // Rate limited — respect Retry-After before scheduling next poll.
+      const retryAfter = parseInt(res.headers.get('Retry-After') || '60', 10);
+      const waitMs = Math.min(retryAfter * 1000, 120000); // cap at 2 min
+      if (pollCount < MAX_POLLS) {
+        pollTimer = setTimeout(function() { poll(sessionId); }, waitMs);
+      }
+      return;
+    }
+
     if (res.status === 400) {
       showSessionError(
         'Link Tidak Valid',
@@ -110,6 +123,13 @@ async function poll(sessionId) {
     }
     notFoundCount = 0; // reset on any non-404 response
 
+    if (res.status === 429) {
+      const retryAfterSec = parseInt(res.headers.get('Retry-After') || '0', 10);
+      const retryMs = retryAfterSec > 0 ? retryAfterSec * 1000 : pollCurrentDelay;
+      scheduleNextPoll(sessionId, retryMs);
+      return;
+    }
+
     if (!res.ok) {
       scheduleNextPoll(sessionId);
       return;
@@ -122,6 +142,12 @@ async function poll(sessionId) {
     if (data.authenticated === false && data.reason === 'no_session') {
       clearClientSessionData(sessionId);
       window.location.replace('access.html?expired=1&source=download');
+      return;
+    }
+
+    // 'analysis'   — analysis done but no payment session; redirect to hasil page
+    if (status === 'analysis') {
+      window.location.replace('hasil.html');
       return;
     }
 
@@ -154,34 +180,49 @@ async function poll(sessionId) {
         false
       );
     } else if (status === 'pending' || status === 'pending_payment') {
-      // Awaiting payment confirmation from Mayar webhook — keep polling
-      if (pollCount >= MAX_POLLS) {
-        if (window.Analytics) Analytics.track('payment_timeout', { poll_attempts: pollCount });
-        document.getElementById('check-btn').classList.remove('hidden');
-        document.getElementById('poll-count-text').textContent = 'Klik tombol di bawah untuk cek ulang.';
-        setTimeout(function() {
-          document.getElementById('contact-btn').classList.remove('hidden');
-        }, 60000); // show contact support link 1 min after polling stops
-      } else {
-        scheduleNextPoll(sessionId);
-      }
+      // Awaiting payment confirmation from Mayar webhook — keep polling with backoff
+      scheduleNextPoll(sessionId);
     } else {
-      // Unknown status — keep polling up to MAX_POLLS, then show manual check
-      if (pollCount < MAX_POLLS) {
-        scheduleNextPoll(sessionId);
-      } else {
-        document.getElementById('check-btn').classList.remove('hidden');
-        document.getElementById('poll-count-text').textContent = 'Klik tombol di bawah untuk cek ulang.';
-      }
+      // Unknown status — keep polling with backoff
+      scheduleNextPoll(sessionId);
     }
   } catch (_) {
-    if (pollCount < MAX_POLLS) scheduleNextPoll(sessionId);
+    scheduleNextPoll(sessionId);
   }
 }
 
 // ── scheduleNextPoll ──────────────────────────────────────────────────────────
-function scheduleNextPoll(sessionId) {
-  pollTimer = setTimeout(function() { poll(sessionId); }, POLL_INTERVAL);
+// Schedules the next poll using exponential backoff (doubles each call, capped
+// at POLL_MAX_DELAY). Pass retryAfterMs to override with a server-supplied delay.
+function scheduleNextPoll(sessionId, retryAfterMs) {
+  const elapsed = Date.now() - pollStartTime;
+  if (elapsed >= POLL_TIMEOUT_MS) {
+    showPollTimeout();
+    return;
+  }
+  const delay = retryAfterMs != null
+    ? Math.min(retryAfterMs, POLL_MAX_DELAY)
+    : pollCurrentDelay;
+  // Advance backoff for next tick (only when we're not using a server-supplied delay)
+  if (retryAfterMs == null) {
+    pollCurrentDelay = Math.min(pollCurrentDelay * 2, POLL_MAX_DELAY);
+  }
+  pollTimer = setTimeout(function() { poll(sessionId); }, delay);
+}
+
+// ── showPollTimeout ───────────────────────────────────────────────────────────
+function showPollTimeout() {
+  if (window.Analytics) Analytics.track('payment_timeout', { poll_attempts: pollCount });
+  const el = document.getElementById('poll-count-text');
+  if (el) {
+    el.textContent = 'Konfirmasi pembayaran memakan waktu lebih lama. Kami akan memberitahu Anda melalui email.';
+  }
+  const checkBtn = document.getElementById('check-btn');
+  if (checkBtn) checkBtn.classList.remove('hidden');
+  setTimeout(function() {
+    const contactBtn = document.getElementById('contact-btn');
+    if (contactBtn) contactBtn.classList.remove('hidden');
+  }, 60000);
 }
 
 // ── startSessionHeartbeat ─────────────────────────────────────────────────────

@@ -11,7 +11,7 @@ import { route } from '../src/router.js';
 import { verifyMayarWebhook } from '../src/mayar.js';
 import { GEN_KEY_PREFIX_ID, GEN_KEY_PREFIX_EN } from '../src/cacheVersions.js';
 import { handleResendAccess } from '../src/handlers/resendAccess.js';
-import { makeCvKeyCookie } from '../src/cookies.js';
+import { makeCvKeyCookie, makeSessionTokenCookie, makeSessionCookie } from '../src/cookies.js';
 
 // ---- Test helpers ----
 
@@ -355,8 +355,8 @@ const MOCK_CV_EN = { content: [{ text: 'PROFESSIONAL SUMMARY\nExperienced develo
 describe('makeCvKeyCookie — cookie format', () => {
   const TOKEN = `cvtext_${'a'.repeat(64)}`;
 
-  it('uses __Host- prefix, SameSite=Strict, HttpOnly, Secure', () => {
-    const cookie = makeCvKeyCookie(TOKEN);
+  it('production: uses __Host- prefix, SameSite=Strict, HttpOnly, Secure', () => {
+    const cookie = makeCvKeyCookie(TOKEN, { ENVIRONMENT: 'production' });
     expect(cookie).toContain('__Host-cv_key=' + TOKEN);
     expect(cookie).toContain('HttpOnly');
     expect(cookie).toContain('Secure');
@@ -365,9 +365,91 @@ describe('makeCvKeyCookie — cookie format', () => {
     expect(cookie).not.toContain('SameSite=None');
   });
 
+  it('staging: uses __Host- prefix, SameSite=None; Partitioned (CHIPS)', () => {
+    const cookie = makeCvKeyCookie(TOKEN, { ENVIRONMENT: 'staging' });
+    expect(cookie).toContain('__Host-cv_key=' + TOKEN);
+    expect(cookie).toContain('HttpOnly');
+    expect(cookie).toContain('Secure');
+    expect(cookie).toContain('SameSite=None');
+    expect(cookie).toContain('Partitioned');
+    expect(cookie).not.toContain('SameSite=Strict');
+  });
+
+  it('sandbox: uses SameSite=None; Partitioned (same as staging)', () => {
+    const cookie = makeCvKeyCookie(TOKEN, { ENVIRONMENT: 'sandbox' });
+    expect(cookie).toContain('SameSite=None');
+    expect(cookie).toContain('Partitioned');
+    expect(cookie).not.toContain('SameSite=Strict');
+  });
+
+  it('undefined env: defaults to SameSite=None; Partitioned (fail-safe)', () => {
+    const cookie = makeCvKeyCookie(TOKEN, undefined);
+    expect(cookie).toContain('SameSite=None');
+    expect(cookie).toContain('Partitioned');
+    expect(cookie).not.toContain('SameSite=Strict');
+  });
+
+
   it('Max-Age is 86400 (24h)', () => {
-    const cookie = makeCvKeyCookie(TOKEN);
+    const cookie = makeCvKeyCookie(TOKEN, { ENVIRONMENT: 'production' });
     expect(cookie).toContain('Max-Age=86400');
+  });
+});
+
+describe('makeSessionTokenCookie — cookie format', () => {
+  const UUID = '00000000-0000-0000-0000-000000000001';
+
+  it('production: cookie name sessionToken, SameSite=Strict, no Partitioned', () => {
+    const cookie = makeSessionTokenCookie(UUID, { ENVIRONMENT: 'production' });
+    expect(cookie).toMatch(/^sessionToken=/);
+    expect(cookie).not.toContain('__Host-');
+    expect(cookie).toContain('SameSite=Strict');
+    expect(cookie).not.toContain('Partitioned');
+    expect(cookie).not.toContain('SameSite=None');
+  });
+
+  it('staging: cookie name __Host-sessionToken, SameSite=None; Partitioned (CHIPS)', () => {
+    const cookie = makeSessionTokenCookie(UUID, { ENVIRONMENT: 'staging' });
+    expect(cookie).toContain('__Host-sessionToken=' + UUID);
+    expect(cookie).toContain('SameSite=None');
+    expect(cookie).toContain('Partitioned');
+    expect(cookie).not.toContain('SameSite=Strict');
+  });
+
+  it('sandbox: same as staging (CHIPS)', () => {
+    const cookie = makeSessionTokenCookie(UUID, { ENVIRONMENT: 'sandbox' });
+    expect(cookie).toContain('__Host-sessionToken=' + UUID);
+    expect(cookie).toContain('SameSite=None');
+    expect(cookie).toContain('Partitioned');
+  });
+});
+
+describe('makeSessionCookie — cookie format', () => {
+  const SESSION_ID = 'sess_00000000-0000-0000-0000-000000000001';
+
+  it('production: __Host-session_id, SameSite=Strict', () => {
+    const cookie = makeSessionCookie(SESSION_ID, false, { ENVIRONMENT: 'production' });
+    expect(cookie).toContain('__Host-session_id=' + SESSION_ID);
+    expect(cookie).toContain('SameSite=Strict');
+    expect(cookie).not.toContain('Partitioned');
+  });
+
+  it('staging: __Host-session_id, SameSite=None; Partitioned (CHIPS)', () => {
+    const cookie = makeSessionCookie(SESSION_ID, false, { ENVIRONMENT: 'staging' });
+    expect(cookie).toContain('__Host-session_id=' + SESSION_ID);
+    expect(cookie).toContain('SameSite=None');
+    expect(cookie).toContain('Partitioned');
+    expect(cookie).not.toContain('SameSite=Strict');
+  });
+
+  it('single-credit Max-Age is 604800 (7 days)', () => {
+    const cookie = makeSessionCookie(SESSION_ID, false, { ENVIRONMENT: 'production' });
+    expect(cookie).toContain('Max-Age=604800');
+  });
+
+  it('multi-credit Max-Age is 2592000 (30 days)', () => {
+    const cookie = makeSessionCookie(SESSION_ID, true, { ENVIRONMENT: 'production' });
+    expect(cookie).toContain('Max-Age=2592000');
   });
 });
 
@@ -1449,6 +1531,28 @@ describe('POST /create-payment — Mayar URL field extraction', () => {
     expect(session.status).toBe('pending_payment');
   });
 
+  it('stores mayar_session_{transaction_id} KV index alongside mayar_session_{invoice_id}', async () => {
+    const key = await seedCVTextKey(undefined, '10.1.4.1');
+    const invoiceId     = 'inv_dual_index_test';
+    const transactionId = 'txn_dual_index_test';
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
+      .reply(200, JSON.stringify({
+        data: { id: invoiceId, transactionId, link: 'https://olive-41774.mayar.shop/tx/dual' },
+      }))
+      .times(1);
+
+    const res = await post('/create-payment', { tier: 'single', cv_text_key: key }, {}, '10.1.4.1');
+    expect(res.status).toBe(200);
+
+    // Both KV indexes must exist after invoice creation
+    const byInvoice = await env.GASLAMAR_SESSIONS.get(`mayar_session_${invoiceId}`, { type: 'json' });
+    const byTxn     = await env.GASLAMAR_SESSIONS.get(`mayar_session_${transactionId}`, { type: 'json' });
+    expect(byInvoice?.session_id).toMatch(/^sess_[0-9a-f-]{36}$/i);
+    expect(byTxn?.session_id).toBe(byInvoice?.session_id);
+  });
+
   it('resume path returns stored invoice_url without creating a new Mayar invoice', async () => {
     // Simulate: cvtext_ already consumed, session cookie present with pending_payment + invoice_url.
     // fetchMock must NOT be called — if it is, a new invoice was created (bug).
@@ -1486,6 +1590,78 @@ describe('POST /create-payment — Mayar URL field extraction', () => {
     const body = await res.json();
     expect(body.invoice_url).toBe(existingUrl);
     expect(mayarWasCalled).toBe(false);
+  });
+
+  it('invoice-refresh path stores mayar_session_{transaction_id} for refreshed invoice — skipped here; see dedicated describe block below', () => {
+    // Tested in 'POST /create-payment — invoice refresh dual KV index' below,
+    // isolated from this suite's unconsumed fetchMock interceptors.
+  });
+});
+
+describe('POST /create-payment — invoice refresh dual KV index', () => {
+  beforeAll(() => {
+    fetchMock.activate();
+    // Clear any stale interceptors left by previous describe blocks (e.g. the resume-no-dup
+    // test which registers a mock but intentionally never consumes it). undici stores
+    // interceptors on the MockPool under a local Symbol('dispatches'); find and drain it.
+    const pool = fetchMock.get('https://api.mayar.club');
+    const kDispatches = Object.getOwnPropertySymbols(pool)
+      .find(s => s.toString() === 'Symbol(dispatches)');
+    if (kDispatches) pool[kDispatches] = [];
+  });
+  afterAll(() => fetchMock.deactivate());
+
+  it('invoice-refresh path stores mayar_session_{transaction_id} for refreshed invoice', async () => {
+    // When a sandbox invoice expires (<50min TTL), createPayment creates a fresh invoice.
+    // The refresh path must also store the transaction_id index so the new webhook finds the session.
+    const sessionId    = `sess_${crypto.randomUUID()}`;
+    const oldInvoiceId = 'inv_expired_old';
+    const newInvoiceId = 'inv_refreshed_new';
+    const newTxnId     = 'txn_refreshed_new';
+
+    // Seed a pending_payment session with an expired invoice (created 2h ago in sandbox)
+    await env.GASLAMAR_SESSIONS.put(
+      sessionId,
+      JSON.stringify({
+        tier:               'single',
+        status:             'pending_payment',
+        invoice_url:        'https://olive-41774.mayar.shop/old',
+        mayar_invoice_id:   oldInvoiceId,
+        invoice_created_at: Date.now() - 2 * 60 * 60 * 1000, // 2h ago — past 50min sandbox TTL
+        credits_remaining:  1,
+        total_credits:      1,
+        cv_text:            'CV text here',
+        job_desc:           'JD here',
+        ip:                 '10.1.5.1',
+      }),
+      { expirationTtl: 604800 },
+    );
+
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
+      .reply(200, JSON.stringify({
+        data: { id: newInvoiceId, transactionId: newTxnId, link: 'https://olive-41774.mayar.shop/new' },
+      }))
+      .times(1);
+
+    const nonexistentKey = `cvtext_${cvHexToken()}`;
+    const res = await post(
+      '/create-payment',
+      { tier: 'single', cv_text_key: nonexistentKey },
+      { Cookie: `__Host-session_id=${sessionId}` },
+      '10.1.5.1',
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.invoice_url).toBe('https://olive-41774.mayar.shop/new');
+
+    // Both indexes for the NEW invoice must exist
+    const byNewInvoice = await env.GASLAMAR_SESSIONS.get(`mayar_session_${newInvoiceId}`, { type: 'json' });
+    const byNewTxn     = await env.GASLAMAR_SESSIONS.get(`mayar_session_${newTxnId}`, { type: 'json' });
+    expect(byNewInvoice?.session_id).toBe(sessionId);
+    expect(byNewTxn?.session_id).toBe(sessionId);
   });
 });
 
@@ -1913,16 +2089,16 @@ describe('GET /check-session', () => {
     }
   });
 
-  it('rate-limits unauthenticated burst attempts (10/min per IP — no session cookie)', async () => {
+  it('rate-limits unauthenticated burst attempts (30/5min per IP — no session cookie)', async () => {
     const ip = '10.88.0.99';
 
-    // First 10 unauthenticated requests are allowed — no session cookie → IP bucket.
-    for (let i = 0; i < 10; i++) {
+    // First 30 unauthenticated requests are allowed — no session cookie → IP bucket.
+    for (let i = 0; i < 30; i++) {
       const res = await get('/check-session', {}, ip);
       expect(res.status).toBe(200); // no cookie → 200+authenticated:false, not 429
     }
 
-    // 11th request is blocked by the rate limiter.
+    // 31st request is blocked by the rate limiter.
     const blocked = await get('/check-session', {}, ip);
     expect(blocked.status).toBe(429);
     expect(blocked.headers.get('Retry-After')).toBeTruthy();
@@ -2027,6 +2203,37 @@ describe('GET /check-session', () => {
     const body = await res.json();
     expect(body.valid).toBe(true);
     expect(body.resultId).toBe(resultId);
+  });
+
+  it('X-Analysis-Session header returns valid:true when no cookie present (Safari/ITP fallback)', async () => {
+    const sessionId = crypto.randomUUID();
+    const resultId  = crypto.randomUUID();
+    const cvKey     = `cvtext_${cvHexToken()}`;
+    await env.GASLAMAR_SESSIONS.put(`analysis_session_${sessionId}`, JSON.stringify({
+      sessionId, resultId, cvKey, createdAt: Date.now(), expiresAt: Date.now() + 86400000,
+    }), { expirationTtl: 86400 });
+    const res = await get('/check-session', { 'X-Analysis-Session': sessionId });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.authenticated).toBe(true);
+    expect(body.type).toBe('analysis');
+    expect(body.resultId).toBe(resultId);
+  });
+
+  it('X-Analysis-Session header with invalid UUID → 401 expired (not no_session)', async () => {
+    const res = await get('/check-session', { 'X-Analysis-Session': 'not-a-uuid' });
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+  });
+
+  it('X-Analysis-Session header with unknown UUID → 401 expired', async () => {
+    const res = await get('/check-session', { 'X-Analysis-Session': crypto.randomUUID() });
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+    expect(body.reason).toBe('expired');
   });
 
 });
@@ -2616,9 +2823,15 @@ describe('POST /webhook/mayar', () => {
     // updateSession returns false when the session doesn't exist; handler should still return 200
     // (so Mayar stops retrying) but must not log payment_confirmed.
     const missingSessionId = `sess_${crypto.randomUUID()}`;
+    const invoiceId = 'inv_missing_session_test';
+    await env.GASLAMAR_SESSIONS.put(
+      `mayar_session_${invoiceId}`,
+      JSON.stringify({ session_id: missingSessionId }),
+      { expirationTtl: 604800 },
+    );
     const payload = JSON.stringify({
       status: 'paid',
-      redirect_url: `https://gaslamar.com/download.html?session=${encodeURIComponent(missingSessionId)}`,
+      id: invoiceId,
     });
 
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
@@ -2650,9 +2863,16 @@ describe('POST /webhook/mayar', () => {
     // Pre-seed the sentinel as the first successful delivery would have written it
     await env.GASLAMAR_SESSIONS.put(`payment_processed_${sessionId}`, '1', { expirationTtl: 172800 });
 
+    const invoiceId = 'inv_duplicate_sentinel_test';
+    await env.GASLAMAR_SESSIONS.put(
+      `mayar_session_${invoiceId}`,
+      JSON.stringify({ session_id: sessionId }),
+      { expirationTtl: 604800 },
+    );
+
     const payload = JSON.stringify({
       status: 'paid',
-      redirect_url: `https://gaslamar.com/download.html?session=${encodeURIComponent(sessionId)}`,
+      id: invoiceId,
     });
 
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
@@ -2673,9 +2893,16 @@ describe('POST /webhook/mayar', () => {
     const sessionId = await seedSession('paid', 'single');
     // No sentinel key — rely on session status check only
 
+    const invoiceId = 'inv_already_paid_check';
+    await env.GASLAMAR_SESSIONS.put(
+      `mayar_session_${invoiceId}`,
+      JSON.stringify({ session_id: sessionId }),
+      { expirationTtl: 604800 },
+    );
+
     const payload = JSON.stringify({
       status: 'paid',
-      redirect_url: `https://gaslamar.com/download.html?session=${encodeURIComponent(sessionId)}`,
+      id: invoiceId,
     });
 
     const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
@@ -2721,6 +2948,71 @@ describe('POST /webhook/mayar — multi-candidate invoice ID fallback', () => {
     expect(updated?.status).toBe('paid');
   });
 
+  it('finds session via data.transactionId — the real Mayar webhook shape (data.id = txn UUID)', async () => {
+    // Regression guard for the confirmed production bug:
+    // Mayar's webhook sets data.id = data.transactionId (payment transaction UUID).
+    // This is a DIFFERENT UUID from the invoice ID returned by /invoice/create (data.id there).
+    // The fix stores mayar_session_{transactionId} at creation so this lookup succeeds.
+    const sessionId     = await seedSession('pending', 'single');
+    const transactionId = 'txn_real_mayar_shape_001';
+
+    // Simulate what createPayment.js now stores
+    await env.GASLAMAR_SESSIONS.put(
+      `mayar_session_${transactionId}`,
+      JSON.stringify({ session_id: sessionId }),
+      { expirationTtl: 604800 },
+    );
+
+    // Exact shape Mayar sandbox sends (confirmed from production logs)
+    const payload = JSON.stringify({
+      event: 'payment.received',
+      data: {
+        id:            transactionId,  // ← transaction ID, NOT invoice ID
+        transactionId: transactionId,
+        status:        'SUCCESS',
+        productId:     'some-mayar-product-uuid',
+      },
+    });
+
+    const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    payload,
+    });
+
+    expect(res.status).toBe(200);
+    const updated = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
+    expect(updated?.status).toBe('paid');
+  });
+
+  it('finds session when only transaction_id index exists (no invoice_id index in KV)', async () => {
+    // Edge case: invoice_id index was never written (e.g. KV write failed) but
+    // transaction_id index succeeded — webhook must still find the session.
+    const sessionId     = await seedSession('pending', 'single');
+    const transactionId = 'txn_only_no_invoice_idx';
+
+    await env.GASLAMAR_SESSIONS.put(
+      `mayar_session_${transactionId}`,
+      JSON.stringify({ session_id: sessionId }),
+      { expirationTtl: 604800 },
+    );
+    // Deliberately do NOT store mayar_session_{invoiceId}
+
+    const payload = JSON.stringify({
+      data: { id: transactionId, transactionId, status: 'paid' },
+    });
+
+    const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    payload,
+    });
+
+    expect(res.status).toBe(200);
+    const updated = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
+    expect(updated?.status).toBe('paid');
+  });
+
   it('finds session via invoice_id field when id and data.id are absent', async () => {
     const sessionId = await seedSession('pending', 'single');
     const invoiceId = 'inv_via_invoice_id_field';
@@ -2737,6 +3029,73 @@ describe('POST /webhook/mayar — multi-candidate invoice ID fallback', () => {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    payload,
+    });
+
+    expect(res.status).toBe(200);
+    const updated = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
+    expect(updated?.status).toBe('paid');
+  });
+});
+
+describe('POST /webhook/mayar — missing order_id', () => {
+  it('returns 400 when payload has no identifiable invoice or order ID', async () => {
+    // A webhook with only status and redirect_url (no id/invoice_id/order_id) must return 400
+    // so Mayar retries with a corrected payload rather than silently swallowing the event.
+    const payload = JSON.stringify({ status: 'paid' });
+    const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /webhook/mayar — reference field and result_id_session_ fallback', () => {
+  it('finds session directly when reference field IS the session ID', async () => {
+    // Mayar echoes back the `reference` field we set during invoice creation.
+    // The handler detects `sess_` prefix and uses it directly without a KV lookup.
+    const sessionId = await seedSession('pending', 'single');
+
+    const payload = JSON.stringify({
+      status: 'paid',
+      reference: sessionId,   // echoed back from createMayarInvoice `reference: sessionId`
+    });
+
+    const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
+    });
+
+    expect(res.status).toBe(200);
+    const updated = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
+    expect(updated?.status).toBe('paid');
+  });
+
+  it('finds session via result_id_session_ fallback index when primary KV index is missing', async () => {
+    // Simulates the case where Mayar's webhook ID doesn't match the stored invoice ID,
+    // but we stored a result_id_session_ index at payment creation time.
+    const sessionId = await seedSession('pending', 'single');
+    const resultId = crypto.randomUUID();
+
+    // Store the fallback index (as /create-payment does when result_id is present)
+    await env.GASLAMAR_SESSIONS.put(
+      `result_id_session_${resultId}`,
+      JSON.stringify({ session_id: sessionId }),
+      { expirationTtl: 604800 },
+    );
+
+    // No mayar_session_ index — simulates KV index mismatch
+    const payload = JSON.stringify({
+      id: resultId,   // Mayar sends the result_id as the event ID
+      status: 'paid',
+    });
+
+    const res = await SELF.fetch('https://gaslamar.com/webhook/mayar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
     });
 
     expect(res.status).toBe(200);
@@ -4699,6 +5058,31 @@ describe('GET /get-scoring — fallback to scoring_ snapshot after payment', () 
     // Must never expose raw fields
     expect(body.text).toBeUndefined();
     expect(body.cv_text).toBeUndefined();
+  });
+
+  it('X-Analysis-Session header returns scoring when no cookie present (Safari/ITP fallback)', async () => {
+    const sessionId   = crypto.randomUUID();
+    const cvKeyToken  = 'd'.repeat(64);
+    const mockScoring = { skor: 88, verdict: 'DO', skor_6d: {} };
+    await env.GASLAMAR_SESSIONS.put(`cvtext_${cvKeyToken}`, JSON.stringify({
+      text: 'raw cv', job_desc: 'raw jd', ip: nextScoringIp(), scoring: mockScoring,
+    }), { expirationTtl: 86400 });
+    await env.GASLAMAR_SESSIONS.put(`analysis_session_${sessionId}`, JSON.stringify({
+      sessionId, resultId: crypto.randomUUID(), cvKey: `cvtext_${cvKeyToken}`,
+      createdAt: Date.now(), expiresAt: Date.now() + 86400000,
+    }), { expirationTtl: 86400 });
+
+    const res = await get('/get-scoring', { 'X-Analysis-Session': sessionId }, nextScoringIp());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.scoring.skor).toBe(88);
+    expect(body.text).toBeUndefined();
+  });
+
+  it('X-Analysis-Session header with unknown UUID → 401', async () => {
+    const res = await get('/get-scoring', { 'X-Analysis-Session': crypto.randomUUID() }, nextScoringIp());
+    expect(res.status).toBe(401);
   });
 
   it('cookie takes precedence over query param', async () => {

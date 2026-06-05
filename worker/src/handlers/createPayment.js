@@ -3,7 +3,7 @@ import { jsonResponse } from '../cors.js';
 import { clientIp, sha256Hex, log } from '../utils.js';
 import { checkRateLimit, checkRateLimitKV, rateLimitResponse, addRateLimitHeaders } from '../rateLimit.js';
 import { TIER_CREDITS, SESSION_TTL_MULTI, VALID_TIERS } from '../constants.js';
-import { createMayarInvoice, logMayarEnvironment } from '../mayar.js';
+import { createMayarInvoice, logMayarEnvironment, MayarError } from '../mayar.js';
 import { createSession, getSession, updateSession } from '../sessions.js';
 import { makeSessionCookie, getCvKeyFromCookie, getSessionTokenFromCookie, getSessionIdFromCookie } from '../cookies.js';
 import { SESSION_STATES } from '../sessionStates.js';
@@ -31,11 +31,10 @@ export async function handleCreatePayment(request, env) {
   const { tier, cv_text_key: cv_text_key_body, email: rawEmail, coupon_code: rawCoupon } = body;
 
   // Resolution order for cv_text_key:
-  // 1. __Host-cv_key HttpOnly cookie (new sessions, same-origin production).
+  // 1. __Host-cv_key HttpOnly cookie (all environments — uses SameSite=None; Partitioned on
+  //    staging so it survives the cross-origin request from staging.gaslamar.pages.dev).
   // 2. cv_text_key in request body (legacy sessions that stored it in sessionStorage).
-  // 3. sessionToken cookie → analysis_session_ KV (cross-origin staging: __Host-cv_key is
-  //    SameSite=Strict so it is blocked on staging.gaslamar.pages.dev → api-staging.gaslamar.com,
-  //    but sessionToken uses SameSite=None; Partitioned and survives the cross-site fetch).
+  // 3. sessionToken cookie → analysis_session_ KV (belt-and-suspenders fallback).
   let cv_text_key = getCvKeyFromCookie(request) || cv_text_key_body || null;
 
   if (!cv_text_key) {
@@ -120,7 +119,7 @@ export async function handleCreatePayment(request, env) {
 
         if (invoiceValid) {
           log('create_payment_resumed', { ip, sessionId: existingSessionId });
-          const cookieHeader = makeSessionCookie(existingSessionId, isMulti);
+          const cookieHeader = makeSessionCookie(existingSessionId, isMulti, env);
           return withRl(jsonResponseWithCookie({ invoice_url: existingSession.invoice_url }, 200, cookieHeader, request, env));
         }
 
@@ -133,7 +132,7 @@ export async function handleCreatePayment(request, env) {
             const redirectUrl = env.ENVIRONMENT === 'staging'
               ? 'https://staging.gaslamar.pages.dev/download.html'
               : 'https://gaslamar.com/download.html';
-            const { invoice_id: newInvoiceId, invoice_url: newInvoiceUrl } = await createMayarInvoice(
+            const { invoice_id: newInvoiceId, transaction_id: newTransactionId, invoice_url: newInvoiceUrl } = await createMayarInvoice(
               existingSessionId, validatedTier, env, redirectUrl, existingSession.email ?? null, null
             );
             if (newInvoiceUrl) {
@@ -148,13 +147,20 @@ export async function handleCreatePayment(request, env) {
                   JSON.stringify({ session_id: existingSessionId }),
                   { expirationTtl: isMulti ? 2592000 : 604800 }
                 );
+                if (newTransactionId && newTransactionId !== newInvoiceId) {
+                  await env.GASLAMAR_SESSIONS.put(
+                    `mayar_session_${newTransactionId}`,
+                    JSON.stringify({ session_id: existingSessionId }),
+                    { expirationTtl: isMulti ? 2592000 : 604800 }
+                  );
+                }
               }
               log('create_payment_invoice_refreshed', { ip, sessionId: existingSessionId });
-              const cookieHeader = makeSessionCookie(existingSessionId, isMulti);
+              const cookieHeader = makeSessionCookie(existingSessionId, isMulti, env);
               return withRl(jsonResponseWithCookie({ invoice_url: newInvoiceUrl }, 200, cookieHeader, request, env));
             }
           } catch (refreshErr) {
-            console.error(JSON.stringify({ event: 'create_payment_refresh_failed', error: refreshErr.message }));
+            console.error(JSON.stringify({ event: 'create_payment_refresh_failed', error: refreshErr.message, type: refreshErr instanceof MayarError ? 'gateway' : 'internal' }));
             // Fall through to cv_expired — user may need to re-upload
           }
         }
@@ -207,7 +213,7 @@ export async function handleCreatePayment(request, env) {
     console.log(JSON.stringify({ event: 'payment_redirect_url', redirectUrl, environment: env.ENVIRONMENT ?? 'sandbox' }));
 
     // Create Mayar invoice first — if this fails, cv_text_key is still intact and user can retry
-    const { invoice_id, invoice_url } = await createMayarInvoice(sessionId, validatedTier, env, redirectUrl, sessionEmail, couponCode);
+    const { invoice_id, transaction_id, invoice_url } = await createMayarInvoice(sessionId, validatedTier, env, redirectUrl, sessionEmail, couponCode);
 
     if (invoice_id) {
       // Store session so the Mayar webhook can complete it even if we don't redirect now.
@@ -238,12 +244,35 @@ export async function handleCreatePayment(request, env) {
       // TTL matches the session (7d single / 30d multi).
       // IMPORTANT: log the exact KV key so we can compare against candidateInvoiceIds in
       // the webhook logs if a webhook_no_session error appears.
-      console.log(JSON.stringify({ event: 'mayar_session_index_stored', kv_key: `mayar_session_${invoice_id}`, sessionId, invoice_id }));
+      console.log(JSON.stringify({ event: 'mayar_session_index_stored', kv_key: `mayar_session_${invoice_id}`, sessionId, invoice_id, transaction_id: transaction_id ?? null }));
+      const indexTtl = credits > 1 ? 2592000 : 604800;
       await env.GASLAMAR_SESSIONS.put(
         `mayar_session_${invoice_id}`,
         JSON.stringify({ session_id: sessionId }),
-        { expirationTtl: credits > 1 ? 2592000 : 604800 }
+        { expirationTtl: indexTtl }
       );
+      // Mayar's webhook sends data.id = the payment transaction ID, which is a different
+      // UUID from the invoice ID above. Store a second index so the webhook handler finds
+      // the session regardless of which ID Mayar echoes back.
+      if (transaction_id && transaction_id !== invoice_id) {
+        await env.GASLAMAR_SESSIONS.put(
+          `mayar_session_${transaction_id}`,
+          JSON.stringify({ session_id: sessionId }),
+          { expirationTtl: indexTtl }
+        );
+      }
+
+      // Fallback index: keyed by result_id (the analytics UUID stored in cvtext_).
+      // Used by the webhook handler when the primary invoice-ID index is missing
+      // (e.g. Mayar sends a transaction ID we didn't store) and Mayar echoes back
+      // our `reference` field instead of the original invoice ID.
+      if (stored.result_id && typeof stored.result_id === 'string') {
+        await env.GASLAMAR_SESSIONS.put(
+          `result_id_session_${stored.result_id}`,
+          JSON.stringify({ session_id: sessionId }),
+          { expirationTtl: indexTtl }
+        );
+      }
 
       // Preserve scoring snapshot so /get-scoring can still serve hasil.html if the user
       // returns to /hasil after the payment redirect (e.g. cancellation or back-navigation).
@@ -291,14 +320,35 @@ export async function handleCreatePayment(request, env) {
     // Referer headers, server logs). Cookie travels automatically with all credentialed
     // requests to this Worker origin.
     const isMulti = credits > 1;
-    const cookieHeader = makeSessionCookie(sessionId, isMulti);
+    const cookieHeader = makeSessionCookie(sessionId, isMulti, env);
 
     return withRl(jsonResponseWithCookie({ invoice_url }, 200, cookieHeader, request, env));
   } catch (e) {
-    // Release invoice lock only for errors where Mayar never received the request
-    // (network failures, validation errors). This allows the user to retry safely.
+    // Release invoice lock — Mayar never received a valid request, so the user can retry.
     await env.GASLAMAR_SESSIONS.delete(invoiceLockKey).catch(() => {});
-    console.error(JSON.stringify({ event: 'create_payment_failed', error: e.message, tier: validatedTier }));
+    const isMayarError = e instanceof MayarError;
+    console.error(JSON.stringify({
+      event: 'create_payment_failed',
+      error: e.message,
+      tier: validatedTier,
+      mayar_status: isMayarError ? (e.mayarStatus ?? 'all_404') : null,
+      type: isMayarError ? 'gateway' : 'internal',
+    }));
+    if (isMayarError) {
+      if (e.mayarStatus === 404) {
+        // Endpoint not found — this is a misconfiguration, not a transient outage.
+        return withRl(jsonResponse({
+          message: 'Integrasi pembayaran belum dikonfigurasi. Hubungi support@gaslamar.com.',
+          code: 'PAYMENT_MISCONFIGURED',
+        }, 503, request, env));
+      }
+      // Other Mayar gateway failure — surface a 502 so clients/monitors can distinguish
+      // payment-gateway outages from Worker bugs.
+      return withRl(jsonResponse({
+        message: 'Layanan pembayaran sedang tidak tersedia. Coba lagi beberapa saat atau hubungi support@gaslamar.com.',
+        code: 'PAYMENT_GATEWAY_ERROR',
+      }, 502, request, env));
+    }
     return withRl(jsonResponse({ message: 'Gagal membuat invoice. Coba lagi atau hubungi support@gaslamar.com.' }, 500, request, env));
   }
 }

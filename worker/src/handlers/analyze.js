@@ -5,7 +5,7 @@ import { getSessionIdFromCookie } from '../cookies.js';
 import { checkRateLimit, checkRateLimitKVSession, rateLimitResponse, addRateLimitHeaders } from '../rateLimit.js';
 import { validateFileData, extractCVText } from '../fileExtraction.js';
 import { analyzeCV } from '../analysis.js';
-import { sanitizeForLLM, hasPromptInjection } from '../sanitize.js';
+import { sanitizeForLLM, hasPromptInjection, escapeHtml } from '../sanitize.js';
 
 function extractSampleLineFromText(text) {
   if (!text) return null;
@@ -152,7 +152,7 @@ export async function handleAnalyze(request, env) {
     // cv_text stays server-side and is consumed later by /generate.
     await env.GASLAMAR_SESSIONS.put(cvTextKey, JSON.stringify({
       text: extraction.text,
-      job_desc: job_desc.slice(0, 5000),
+      job_desc: escapeHtml(job_desc.slice(0, 5000)),
       // Carry inferred_role so /create-payment can copy it into the session,
       // enabling /generate to switch between targeted and inferred tailoring mode.
       inferred_role: scoring.inferred_role ?? null,
@@ -191,10 +191,12 @@ export async function handleAnalyze(request, env) {
       'Content-Type': 'application/json',
       ...rlHeaders,
     });
-    responseHeaders.append('Set-Cookie', makeCvKeyCookie(cvTextKey));
-    responseHeaders.append('Set-Cookie', makeSessionTokenCookie(analysisSessionId));
+    responseHeaders.append('Set-Cookie', makeCvKeyCookie(cvTextKey, env));
+    responseHeaders.append('Set-Cookie', makeSessionTokenCookie(analysisSessionId, env));
     const sampleLine = extractSampleLineFromText(extraction.text);
-    return new Response(JSON.stringify({ ...scoring, result_id: resultId, ...(sampleLine ? { sample_line: sampleLine } : {}) }), { status: 200, headers: responseHeaders });
+    // analysis_session_id is returned so browsers that block cross-site cookies (e.g. Safari ITP)
+    // can store it in sessionStorage and pass it via X-Analysis-Session header as a fallback.
+    return new Response(JSON.stringify({ ...scoring, result_id: resultId, analysis_session_id: analysisSessionId, ...(sampleLine ? { sample_line: sampleLine } : {}) }), { status: 200, headers: responseHeaders });
   } catch (e) {
     logError('analyze_failed', {
       reason: e.message,

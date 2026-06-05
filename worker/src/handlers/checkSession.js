@@ -21,10 +21,11 @@ export async function handleCheckSession(request, env) {
         : 'other';
 
   // Primary: CF native binding (atomic, no TOCTOU). Secondary: KV sliding window.
-  // Authenticated callers (valid session cookie) get 30 req/min; IP-only get 10 req/min.
+  // Authenticated callers (valid session cookie) get 60 req/5 min; IP-only get 30 req/5 min.
+  // Window is 5 minutes to accommodate payment-confirmation polling (every 3 s, up to 5 min).
   const [cfAllowed, kvResult] = await Promise.all([
     checkRateLimit(env, env.RATE_LIMITER_CHECK_SESSION, ip),
-    checkRateLimitKVSession(env, ip, cookieSessionId, 10, 30, 60, 'check_session'),
+    checkRateLimitKVSession(env, ip, cookieSessionId, 30, 60, 300, 'check_session'),
   ]);
   if (!cfAllowed || !kvResult.allowed) {
     const retryAfter = !kvResult.allowed ? (kvResult.retryAfter ?? 60) : 60;
@@ -56,7 +57,7 @@ export async function handleCheckSession(request, env) {
       if (session?.resultId) {
         log('check_session_analysis_valid_token', { ip });
         return withRl(jsonResponse(
-          { valid: true, authenticated: true, type: 'analysis', resultId: session.resultId },
+          { valid: true, status: 'analysis', authenticated: true, type: 'analysis', resultId: session.resultId },
           200,
           request,
           env,
@@ -78,7 +79,7 @@ export async function handleCheckSession(request, env) {
       if (stored?.scoring) {
         log('check_session_analysis_valid', { ip });
         return withRl(jsonResponse(
-          { valid: true, authenticated: true, type: 'analysis', resultId: stored.result_id ?? null },
+          { valid: true, status: 'analysis', authenticated: true, type: 'analysis', resultId: stored.result_id ?? null },
           200,
           request,
           env,
@@ -90,7 +91,7 @@ export async function handleCheckSession(request, env) {
       if (fallback?.scoring) {
         log('check_session_analysis_valid_fallback', { ip });
         return withRl(jsonResponse(
-          { valid: true, authenticated: true, type: 'analysis', resultId: fallback.result_id ?? null },
+          { valid: true, status: 'analysis', authenticated: true, type: 'analysis', resultId: fallback.result_id ?? null },
           200,
           request,
           env,
@@ -98,6 +99,35 @@ export async function handleCheckSession(request, env) {
       }
       // cv_key cookie exists but data is gone — expired
       return withRl(jsonResponse({ valid: false, authenticated: false, reason: 'expired', message: 'Sesi analisis sudah kedaluwarsa.' }, 200, request, env));
+    }
+    // Header fallback for browsers that block cross-site cookies (e.g. Safari ITP).
+    // The frontend stores the analysisSessionId in sessionStorage after /analyze and
+    // resends it as X-Analysis-Session when cookies are absent. Only used for analysis
+    // sessions — payment sessions use the exchangeToken flow for cross-device recovery.
+    const headerSessionId = request.headers.get('X-Analysis-Session');
+    if (headerSessionId) {
+      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (UUID_RE.test(headerSessionId)) {
+        const session = await env.GASLAMAR_SESSIONS.get(
+          `analysis_session_${headerSessionId}`,
+          { type: 'json' },
+        );
+        if (session?.resultId) {
+          log('check_session_analysis_valid_header', { ip });
+          return withRl(jsonResponse(
+            { valid: true, status: 'analysis', authenticated: true, type: 'analysis', resultId: session.resultId },
+            200,
+            request,
+            env,
+          ));
+        }
+      }
+      return withRl(jsonResponse(
+        { valid: false, authenticated: false, reason: 'expired', message: 'Sesi analisis sudah kedaluwarsa.' },
+        401,
+        request,
+        env,
+      ));
     }
     // Return 200 (not 401) so browsers don't log a console error on pages where an
     // unauthenticated check is expected (upload, hasil, analyzing). 401 is reserved

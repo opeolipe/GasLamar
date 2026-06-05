@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import DOMPurify from 'dompurify';
 import {
   WORKER_URL,
   ESTIMATED_MS,
@@ -116,9 +117,9 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
         has_jd: !!(jobDesc?.trim().length >= 50),
       });
 
-      // Strip HTML tags from the job description before sending — defense-in-depth
-      // alongside server-side validation. Equivalent to DOMPurify with ALLOWED_TAGS:[].
-      const sanitizedJobDesc = jobDesc.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      // Strip all HTML from the job description before sending (DOMPurify, ALLOWED_TAGS:[]).
+      // The server rejects any surviving HTML/script patterns as a second layer of defense.
+      const sanitizedJobDesc = DOMPurify.sanitize(jobDesc, { ALLOWED_TAGS: [] }).replace(/\s+/g, ' ').trim();
 
       const res = await fetch(`${WORKER_URL}/analyze`, {
         method:      'POST',
@@ -156,6 +157,16 @@ export function useAnalysis(cvData: string, jobDesc: string): UseAnalysisResult 
       const { ...scoringOnly } = result;
 
       // cv_key is now an HttpOnly cookie set by /analyze — not readable from JS.
+
+      // analysis_session_id: store in sessionStorage so browsers that block cross-site
+      // cookies (Safari ITP) can fall back to X-Analysis-Session header auth on hasil.html.
+      // It maps to an analysis_session_ KV entry (not the raw cv_text) so exposure is limited
+      // to the scoring result the user already sees.
+      const analysisSessionId = (result.analysis_session_id && typeof result.analysis_session_id === 'string')
+        ? result.analysis_session_id : undefined;
+      if (analysisSessionId) {
+        try { sessionStorage.setItem('gaslamar_analysis_session', analysisSessionId); } catch (_) {}
+      }
 
       // result_id is used inline for analytics only — never written to sessionStorage.
       const resultId = (result.result_id && typeof result.result_id === 'string')

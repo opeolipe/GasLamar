@@ -60,7 +60,7 @@ simple = { limit = 10, period = 60 }
 name = "RATE_LIMITER_CHECK_SESSION"
 type = "ratelimit"
 namespace_id = "1006"
-simple = { limit = 30, period = 60 }
+simple = { limit = 60, period = 60 }
 
 [[unsafe.bindings]]
 name = "RATE_LIMITER_GET_SCORING"
@@ -138,7 +138,7 @@ simple = { limit = 10, period = 60 }
 name = "RATE_LIMITER_CHECK_SESSION"
 type = "ratelimit"
 namespace_id = "2006"
-simple = { limit = 30, period = 60 }
+simple = { limit = 60, period = 60 }
 
 [[env.staging.unsafe.bindings]]
 name = "RATE_LIMITER_GET_SCORING"
@@ -205,7 +205,7 @@ simple = { limit = 10, period = 60 }
 name = "RATE_LIMITER_CHECK_SESSION"
 type = "ratelimit"
 namespace_id = "3006"
-simple = { limit = 30, period = 60 }
+simple = { limit = 60, period = 60 }
 
 [[env.production.unsafe.bindings]]
 name = "RATE_LIMITER_GET_SCORING"

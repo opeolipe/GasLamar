@@ -213,6 +213,24 @@ export function sanitizeForLLM(text) {
 }
 
 /**
+ * Escapes HTML special characters so user-supplied text stored in KV cannot
+ * be interpreted as HTML if it is ever reflected into a rendered context.
+ * Covers the five characters that form HTML injection primitives.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+export function escapeHtml(text) {
+  if (typeof text !== 'string') return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/**
  * Sanitizes a scalar value for safe inclusion in structured log entries.
  * Removes control characters and enforces a maximum length.
  *
