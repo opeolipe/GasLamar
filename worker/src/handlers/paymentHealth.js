@@ -14,9 +14,10 @@ export async function handlePaymentHealth(request, env) {
     }, 503, request, env);
   }
 
-  // Probe Mayar with a lightweight coupon-validate call (invalid code → 4xx but proves reachability).
-  // Using invoice/create would create a real invoice, so we use a known-invalid probe instead.
-  const probe = `${apiUrl}/coupon/validate?couponCode=__health_probe__&finalAmount=1`;
+  // Probe the exact payment route with an intentionally invalid empty body.
+  // A 400/401 response proves the API route exists without creating a payment request;
+  // 404 means the configured gateway/path is wrong, and 5xx means upstream is unhealthy.
+  const probe = `${apiUrl}/payment/create`;
   let mayarStatus = 'unknown';
   let mayarLatencyMs = null;
   let reachable = false;
@@ -24,13 +25,15 @@ export async function handlePaymentHealth(request, env) {
   try {
     const t0 = Date.now();
     const res = await fetch(probe, {
-      method: 'GET',
-      headers: { 'Authorization': `Bearer ${apiKey}` },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({}),
       signal: AbortSignal.timeout(5000),
     });
     mayarLatencyMs = Date.now() - t0;
-    // Any response (including 4xx for invalid coupon) means Mayar is reachable.
-    reachable = true;
+    // 400/401/422 prove the route is live and rejecting the intentionally invalid probe.
+    // 404 is a bad gateway/path config; 5xx is an upstream outage.
+    reachable = res.ok || [400, 401, 422].includes(res.status);
     mayarStatus = res.ok ? 'ok' : `http_${res.status}`;
   } catch (e) {
     mayarStatus = e.name === 'TimeoutError' ? 'timeout' : 'unreachable';
