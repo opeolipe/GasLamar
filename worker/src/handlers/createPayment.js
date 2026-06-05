@@ -31,11 +31,10 @@ export async function handleCreatePayment(request, env) {
   const { tier, cv_text_key: cv_text_key_body, email: rawEmail, coupon_code: rawCoupon } = body;
 
   // Resolution order for cv_text_key:
-  // 1. __Host-cv_key HttpOnly cookie (new sessions, same-origin production).
+  // 1. __Host-cv_key HttpOnly cookie (all environments — uses SameSite=None; Partitioned on
+  //    staging so it survives the cross-origin request from staging.gaslamar.pages.dev).
   // 2. cv_text_key in request body (legacy sessions that stored it in sessionStorage).
-  // 3. sessionToken cookie → analysis_session_ KV (cross-origin staging: __Host-cv_key is
-  //    SameSite=Strict so it is blocked on staging.gaslamar.pages.dev → api-staging.gaslamar.com,
-  //    but sessionToken uses SameSite=None; Partitioned and survives the cross-site fetch).
+  // 3. sessionToken cookie → analysis_session_ KV (belt-and-suspenders fallback).
   let cv_text_key = getCvKeyFromCookie(request) || cv_text_key_body || null;
 
   if (!cv_text_key) {

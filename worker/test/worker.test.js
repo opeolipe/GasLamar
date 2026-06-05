@@ -372,6 +372,21 @@ describe('makeCvKeyCookie — cookie format', () => {
     expect(cookie).toContain('Secure');
     expect(cookie).toContain('SameSite=None');
     expect(cookie).toContain('Partitioned');
+    expect(cookie).not.toContain('SameSite=Strict');
+  });
+
+  it('sandbox: uses SameSite=None; Partitioned (same as staging)', () => {
+    const cookie = makeCvKeyCookie(TOKEN, { ENVIRONMENT: 'sandbox' });
+    expect(cookie).toContain('SameSite=None');
+    expect(cookie).toContain('Partitioned');
+    expect(cookie).not.toContain('SameSite=Strict');
+  });
+
+  it('undefined env: defaults to SameSite=None; Partitioned (fail-safe)', () => {
+    const cookie = makeCvKeyCookie(TOKEN, undefined);
+    expect(cookie).toContain('SameSite=None');
+    expect(cookie).toContain('Partitioned');
+    expect(cookie).not.toContain('SameSite=Strict');
   });
 
   it('Max-Age is 86400 (24h)', () => {
