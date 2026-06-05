@@ -53,6 +53,12 @@ export function getCorsHeaders(request, env) {
   return headers;
 }
 
+// Security headers applied to all Worker API responses (JSON, errors, redirects).
+// "default-src 'none'" here is intentional and CORRECT for API responses — it tells
+// the browser not to treat these JSON payloads as embeddable resources (scripts, iframes,
+// stylesheets). It does NOT affect the browser's fetch/XHR decisions, which are governed
+// by the CSP on the PAGE being viewed (sourced from _headers in the Pages deployment).
+// The page CSP lives in _headers and explicitly sets connect-src — see _headers line 35.
 export const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
