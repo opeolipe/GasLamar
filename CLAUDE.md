@@ -191,6 +191,7 @@ Before debugging application code when staging behaves unexpectedly, verify the 
 - **Coupon GET with body forbidden** — Mayar's docs show `GET /coupon/validate` with a JSON body (curl `--data`), but the Fetch API spec forbids GET bodies (throws TypeError). Always use query string params for this endpoint. Using `method:'GET'` + `body:` will silently return `valid:false` in production.
 - **`result_id` is server-generated** — `/analyze` returns a `crypto.randomUUID()` that the frontend stores as `gaslamar_result_id`. `/generate` validates this against the value stored in the `cvtext_` KV entry (403 on mismatch). Do not generate `result_id` client-side. Old sessions without the field are allowed through for backward compat.
 - **Coupon discount is UX-only** — GasLamar shows a projected discounted price but Mayar is authoritative. The actual discount is applied on Mayar's checkout page when the user enters the code. A coupon that passes our validation may still be rejected at Mayar checkout if it expires between validation and payment.
+- **New cookies must be environment-aware** — staging (`staging.gaslamar.pages.dev`) calls the worker cross-origin (`api-staging.gaslamar.com`). `SameSite=Strict` silently blocks cookies on cross-origin requests. Always mirror the `makeSessionTokenCookie` pattern: production → `SameSite=Strict`, all other environments → `SameSite=None; Partitioned` (CHIPS). Never hardcode `SameSite=Strict` in a cookie factory without an `env` check. See `worker/src/cookies.js` and `docs/session-cookies.md`.
 
 ---
 

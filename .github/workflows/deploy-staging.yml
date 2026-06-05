@@ -485,3 +485,64 @@ jobs:
             exit 1
           fi
           echo "All structural smoke checks passed."
+
+      # Verify the live staging frontend is serving the correct Content-Security-Policy
+      # from _headers. This catches two failure modes:
+      #   (a) _headers missing from the deployed artifact (Pages would serve no CSP)
+      #   (b) connect-src accidentally removed or narrowed, blocking API calls in-browser
+      #
+      # The API endpoint CSP (default-src 'none'; frame-ancestors 'none') is intentionally
+      # different from the PAGE CSP — that's checked by "Security headers check" above.
+      # This step checks the PAGE CSP specifically.
+      - name: Verify frontend pages serve correct CSP from _headers
+        run: |
+          set -e
+          BASE="${{ steps.pages.outputs.staging_url }}"
+          FAIL=0
+
+          check_page_csp() {
+            local LABEL="$1"
+            local URL="$2"
+            local CSP
+            CSP=$(curl -s -I "$URL" | grep -i '^content-security-policy:' | tr -d '\r' | sed 's/^[^:]*: //')
+            echo ""
+            echo "=== $LABEL ==="
+            echo "  CSP: ${CSP:0:120}…"
+
+            # Must have connect-src (not fall back to default-src 'none')
+            if echo "$CSP" | grep -q 'connect-src'; then
+              echo "  PASS: connect-src present"
+            else
+              echo "  FAIL: connect-src missing — API calls will be blocked by browser CSP"
+              FAIL=1
+            fi
+
+            # Must include the staging API origin so fetch calls can reach it
+            if echo "$CSP" | grep -q 'api-staging.gaslamar.com'; then
+              echo "  PASS: api-staging.gaslamar.com in connect-src"
+            else
+              echo "  FAIL: api-staging.gaslamar.com missing from connect-src"
+              FAIL=1
+            fi
+
+            # default-src must NOT be 'none' on page responses (that would block everything)
+            if echo "$CSP" | grep -qE "default-src '?none'?"; then
+              echo "  FAIL: default-src 'none' on page response — blocks all resources"
+              FAIL=1
+            else
+              echo "  PASS: default-src is not 'none'"
+            fi
+          }
+
+          check_page_csp "index (home)"  "$BASE/"
+          check_page_csp "upload.html"   "$BASE/upload"
+          check_page_csp "analyzing.html" "$BASE/analyzing.html"
+
+          echo ""
+          if [ "$FAIL" -ne 0 ]; then
+            echo "Frontend CSP check FAILED — _headers may not be deployed or connect-src is misconfigured."
+            echo "The page CSP (from _headers) controls what the browser allows to fetch."
+            echo "The API CSP (default-src 'none') is intentionally different and is for API responses only."
+            exit 1
+          fi
+          echo "Frontend CSP checks passed."

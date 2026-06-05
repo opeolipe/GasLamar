@@ -1,6 +1,17 @@
 import { TIER_PRICES } from './constants.js';
 import { log, logError } from './utils.js';
 
+// Tagged error for upstream Mayar gateway failures.
+// Lets callers distinguish "Mayar is down/misconfigured" (→ 502) from
+// internal Worker bugs (→ 500) without parsing error messages.
+export class MayarError extends Error {
+  constructor(message, status = null) {
+    super(message);
+    this.name = 'MayarError';
+    this.mayarStatus = status; // HTTP status Mayar returned, if known
+  }
+}
+
 export function getMayarApiUrl(env) {
   return env.ENVIRONMENT === 'production'
     ? 'https://api.mayar.id/hl/v1'
@@ -97,7 +108,13 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
 
     if (res.status === 404) {
       const errBody = await res.text().catch(() => '');
-      console.log(JSON.stringify({ event: 'mayar_404', endpoint, body: errBody.substring(0, 200) }));
+      // Include key_prefix so logs reveal immediately whether the wrong key was used.
+      console.log(JSON.stringify({
+        event: 'mayar_404',
+        endpoint,
+        key_prefix: apiKey ? apiKey.substring(0, 6) + '…' : null,
+        body: errBody.substring(0, 300),
+      }));
       continue;
     }
 
@@ -110,8 +127,8 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
       } catch {
         errMsg = `Mayar error: ${res.status}`;
       }
-      console.error(JSON.stringify({ event: 'mayar_error', endpoint, status: res.status, body: errBody.substring(0, 500) }));
-      throw new Error(errMsg);
+      console.error(JSON.stringify({ event: 'mayar_error', endpoint, status: res.status, key_prefix: apiKey ? apiKey.substring(0, 6) + '…' : null, body: errBody.substring(0, 500) }));
+      throw new MayarError(errMsg, res.status);
     }
 
     const data = await res.json();
@@ -151,7 +168,13 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
     return { invoice_id, transaction_id, invoice_url };
   }
 
-  throw new Error('Pembayaran belum tersedia. Hubungi support@gaslamar.com');
+  // Both /invoice/create and /payment/create returned 404 from Mayar.
+  // Log the URL that was attempted so this is diagnosable from logs.
+  console.error(JSON.stringify({
+    event: 'mayar_all_endpoints_404',
+    tried: [`${apiUrl}/invoice/create`, `${apiUrl}/payment/create`],
+  }));
+  throw new MayarError('Pembayaran belum tersedia. Hubungi support@gaslamar.com');
 }
 
 // Validate a coupon code against a tier's price.
