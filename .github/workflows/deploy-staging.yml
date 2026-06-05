@@ -121,17 +121,21 @@ jobs:
           ORIGIN="https://staging.gaslamar.pages.dev"
           FAIL=0
 
-          echo "--- [1] GET /payment-health: Mayar sandbox reachable + API key configured ---"
+          echo "--- [1] GET /payment-health: worker has Mayar sandbox config ---"
           HEALTH_BODY=$(curl -s -H "Origin: $ORIGIN" "$WORKER/payment-health")
           echo "  Response: $HEALTH_BODY"
           HEALTH_STATUS=$(echo "$HEALTH_BODY" | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4)
           GW_STATUS=$(echo "$HEALTH_BODY" | grep -o '"gateway_status":"[^"]*"' | head -1 | cut -d'"' -f4)
           echo "  status=$HEALTH_STATUS  gateway_status=$GW_STATUS"
           if [ "$HEALTH_STATUS" = "ok" ]; then
-            echo "  PASS: Mayar gateway reachable"
+            echo "  PASS: Mayar config present and gateway probe accepted"
+          elif [ "$HEALTH_STATUS" = "degraded" ]; then
+            echo "  WARN: Mayar sandbox probe is degraded (gateway_status=$GW_STATUS)"
+            echo "        Continuing deploy because this check depends on an external sandbox gateway."
+            echo "        Real payment creation is covered by the staging smoke test after deploy."
           else
-            echo "  FAIL: Mayar gateway not reachable (status=$HEALTH_STATUS, gateway_status=$GW_STATUS)"
-            echo "        This means MAYAR_API_KEY_SANDBOX is missing or Mayar sandbox is down."
+            echo "  FAIL: Mayar payment health returned an error (status=$HEALTH_STATUS, gateway_status=$GW_STATUS)"
+            echo "        This usually means MAYAR_API_KEY_SANDBOX is missing or the worker is misconfigured."
             FAIL=1
           fi
 
@@ -165,8 +169,8 @@ jobs:
           if [ "$FAIL" -ne 0 ]; then
             echo ""
             echo "Payment gateway smoke test FAILED — see above."
-            echo "This usually means: (a) MAYAR_API_KEY_SANDBOX secret is missing, or"
-            echo "(b) the staging worker was not deployed correctly."
+            echo "This usually means the staging worker was not deployed correctly or"
+            echo "MAYAR_API_KEY_SANDBOX is missing from the Cloudflare Worker environment."
             exit 1
           fi
           echo ""
