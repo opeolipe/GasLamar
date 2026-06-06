@@ -14,10 +14,10 @@ export async function handlePaymentHealth(request, env) {
     }, 503, request, env);
   }
 
-  // Probe the exact payment route with an intentionally invalid empty body.
-  // A 400/401 response proves the API route exists without creating a payment request;
+  // Probe the exact invoice route with an intentionally invalid empty body.
+  // A 400/401 response proves the API route exists without creating an invoice;
   // 404 means the configured gateway/path is wrong, and 5xx means upstream is unhealthy.
-  const probe = `${apiUrl}/payment/create`;
+  const probe = `${apiUrl}/invoice/create`;
   let mayarStatus = 'unknown';
   let mayarLatencyMs = null;
   let reachable = false;
