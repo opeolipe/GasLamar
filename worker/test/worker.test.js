@@ -1280,7 +1280,7 @@ describe('POST /create-payment — validation', () => {
     // Validation is case-insensitive: 'SINGLE' normalizes to 'single'
     fetchMock
       .get('https://api.mayar.club')
-      .intercept({ path: '/hl/v1/payment/create', method: 'POST' })
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
       .reply(200, JSON.stringify({ data: { id: 'inv_uppercase', link: 'https://web.mayar.club/pay/inv_uppercase' } }))
       .times(1);
     const key = await seedCVTextKey();
@@ -1292,7 +1292,7 @@ describe('POST /create-payment — validation', () => {
   it('accepts each valid tier past tier validation (all 4 tiers)', async () => {
     fetchMock
       .get('https://api.mayar.club')
-      .intercept({ path: '/hl/v1/payment/create', method: 'POST' })
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
       .reply(200, JSON.stringify({ data: { id: 'inv_tiers', link: 'https://web.mayar.club/pay/inv_tiers' } }))
       .times(4);
     for (const tier of ['coba', 'single', '3pack', 'jobhunt']) {
@@ -1307,7 +1307,7 @@ describe('POST /create-payment — validation', () => {
   it('accepts tier with surrounding whitespace → trimmed and accepted', async () => {
     fetchMock
       .get('https://api.mayar.club')
-      .intercept({ path: '/hl/v1/payment/create', method: 'POST' })
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
       .reply(200, JSON.stringify({ data: { id: 'inv_whitespace', link: 'https://web.mayar.club/pay/inv_whitespace' } }))
       .times(1);
     const key = await seedCVTextKey();
@@ -1320,7 +1320,7 @@ describe('POST /create-payment — validation', () => {
   it('accepts "starter" alias → normalized to "coba" (backward compat for stale bundles)', async () => {
     fetchMock
       .get('https://api.mayar.club')
-      .intercept({ path: '/hl/v1/payment/create', method: 'POST' })
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
       .reply(200, JSON.stringify({ data: { id: 'inv_starter', link: 'https://web.mayar.club/pay/inv_starter' } }))
       .times(1);
     const key = await seedCVTextKey();
@@ -1345,7 +1345,7 @@ describe('POST /create-payment — validation', () => {
   it('accepts cv_text_key from cv_key cookie (new session flow) → proceeds past key check', async () => {
     fetchMock
       .get('https://api.mayar.club')
-      .intercept({ path: '/hl/v1/payment/create', method: 'POST' })
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
       .reply(200, JSON.stringify({ data: { id: 'inv_cvkey_cookie', link: 'https://web.mayar.club/pay/inv_cvkey_cookie' } }))
       .times(1);
     // Seed a valid key bound to the default IP (1.2.3.4)
@@ -1359,7 +1359,7 @@ describe('POST /create-payment — validation', () => {
   it('cookie cv_key takes precedence over body cv_text_key', async () => {
     fetchMock
       .get('https://api.mayar.club')
-      .intercept({ path: '/hl/v1/payment/create', method: 'POST' })
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
       .reply(200, JSON.stringify({ data: { id: 'inv_cookie_precedence', link: 'https://web.mayar.club/pay/inv_cookie_precedence' } }))
       .times(1);
     const cookieKey = await seedCVTextKey(undefined, '1.2.3.4');
@@ -1378,7 +1378,7 @@ describe('POST /create-payment — validation', () => {
   it('resolves cv_text_key via sessionToken cookie → analysis_session_ KV (cross-origin staging fallback)', async () => {
     fetchMock
       .get('https://api.mayar.club')
-      .intercept({ path: '/hl/v1/payment/create', method: 'POST' })
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
       .reply(200, JSON.stringify({ data: { id: 'inv_session_token', link: 'https://web.mayar.club/pay/inv_session_token' } }))
       .times(1);
     const cvKey = await seedCVTextKey(undefined, '1.2.3.4');
@@ -1479,7 +1479,7 @@ describe('POST /create-payment — one-time key consumption', () => {
 
     fetchMock
       .get('https://api.mayar.club')
-      .intercept({ path: '/hl/v1/payment/create', method: 'POST' })
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
       .reply(200, ({ body }) => {
         mayarPayload = JSON.parse(body);
         return JSON.stringify({
@@ -1500,12 +1500,20 @@ describe('POST /create-payment — one-time key consumption', () => {
       name: expect.any(String),
       email: expect.any(String),
       mobile: expect.any(String),
-      amount: 59000,
       redirectUrl: expect.any(String),
       description: expect.stringContaining('GasLamar.com'),
       expiredAt: expect.any(String),
+      items: [{
+        quantity: 1,
+        rate: 59000,
+        description: expect.any(String),
+      }],
+      extraData: {
+        noCustomer: expect.stringMatching(/^sess_[0-9a-f-]{36}$/i),
+        idProd: 'single',
+      },
     });
-    expect(mayarPayload).not.toHaveProperty('items');
+    expect(mayarPayload).not.toHaveProperty('amount');
     expect(mayarPayload).not.toHaveProperty('reference');
 
     const sessionId = sessionIdFromSetCookie(res);
@@ -1521,7 +1529,7 @@ describe('POST /create-payment — one-time key consumption', () => {
     // Mock Mayar sandbox invoice creation
     fetchMock
       .get('https://api.mayar.club')
-      .intercept({ path: '/hl/v1/payment/create', method: 'POST' })
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
       .reply(200, JSON.stringify({
         data: { id: 'inv_test_001', link: 'https://web.mayar.club/pay/inv_test_001' }
       }))
@@ -1564,7 +1572,7 @@ describe('POST /create-payment — Mayar URL field extraction', () => {
       const key = await seedCVTextKey(undefined, '10.1.1.1');
       fetchMock
         .get('https://api.mayar.club')
-        .intercept({ path: '/hl/v1/payment/create', method: 'POST' })
+        .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
         .reply(200, JSON.stringify({ data: { id: `inv_${field}`, [field]: url } }))
         .times(1);
 
@@ -1580,7 +1588,7 @@ describe('POST /create-payment — Mayar URL field extraction', () => {
     const invoiceUrl = 'https://olive-41774.mayar.shop/select-channel/store-test';
     fetchMock
       .get('https://api.mayar.club')
-      .intercept({ path: '/hl/v1/payment/create', method: 'POST' })
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
       .reply(200, JSON.stringify({ data: { id: 'inv_store_test', paymentLink: invoiceUrl } }))
       .times(1);
 
@@ -1599,7 +1607,7 @@ describe('POST /create-payment — Mayar URL field extraction', () => {
     const transactionId = 'txn_dual_index_test';
     fetchMock
       .get('https://api.mayar.club')
-      .intercept({ path: '/hl/v1/payment/create', method: 'POST' })
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
       .reply(200, JSON.stringify({
         data: { id: invoiceId, transactionId, link: 'https://olive-41774.mayar.shop/tx/dual' },
       }))
@@ -1615,13 +1623,13 @@ describe('POST /create-payment — Mayar URL field extraction', () => {
     expect(byTxn?.session_id).toBe(byInvoice?.session_id);
   });
 
-  it('uses production Mayar payment/create endpoint when ENVIRONMENT=production', async () => {
+  it('uses production Mayar invoice/create endpoint when ENVIRONMENT=production', async () => {
     const key = await seedCVTextKey(undefined, '10.1.6.1');
     let mayarPayload = null;
 
     fetchMock
       .get('https://api.mayar.id')
-      .intercept({ path: '/hl/v1/payment/create', method: 'POST' })
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
       .reply(200, ({ body }) => {
         mayarPayload = JSON.parse(body);
         return JSON.stringify({
@@ -1643,8 +1651,20 @@ describe('POST /create-payment — Mayar URL field extraction', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.invoice_url).toBe('https://web.mayar.id/pay/prod_payment_id');
-    expect(mayarPayload).toMatchObject({ amount: 59000, redirectUrl: 'https://gaslamar.com/download.html' });
-    expect(mayarPayload).not.toHaveProperty('items');
+    expect(mayarPayload).toMatchObject({
+      redirectUrl: 'https://gaslamar.com/download.html',
+      items: [{
+        quantity: 1,
+        rate: 59000,
+        description: expect.any(String),
+      }],
+      extraData: {
+        noCustomer: expect.stringMatching(/^sess_[0-9a-f-]{36}$/i),
+        idProd: 'single',
+      },
+    });
+    expect(mayarPayload).not.toHaveProperty('amount');
+    expect(mayarPayload).not.toHaveProperty('reference');
   });
 
   it('resume path returns stored invoice_url without creating a new Mayar invoice', async () => {
@@ -1668,7 +1688,7 @@ describe('POST /create-payment — Mayar URL field extraction', () => {
     let mayarWasCalled = false;
     fetchMock
       .get('https://api.mayar.club')
-      .intercept({ path: '/hl/v1/payment/create', method: 'POST' })
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
       .reply(200, () => { mayarWasCalled = true; return JSON.stringify({ data: { id: 'inv_dup', paymentLink: 'https://mayar.shop/dup' } }); })
       .times(1);
 
@@ -1733,7 +1753,7 @@ describe('POST /create-payment — invoice refresh dual KV index', () => {
 
     fetchMock
       .get('https://api.mayar.club')
-      .intercept({ path: '/hl/v1/payment/create', method: 'POST' })
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
       .reply(200, JSON.stringify({
         data: { id: newInvoiceId, transactionId: newTxnId, link: 'https://olive-41774.mayar.shop/new' },
       }))
@@ -1766,7 +1786,7 @@ describe('API aliases', () => {
     fetchMock.activate();
     fetchMock
       .get('https://api.mayar.club')
-      .intercept({ path: '/hl/v1/payment/create', method: 'POST' })
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
       .reply(200, JSON.stringify({
         data: { id: 'inv_test_api_alias', link: 'https://web.mayar.club/pay/inv_test_api_alias' }
       }))
@@ -1789,10 +1809,10 @@ describe('GET /payment-health', () => {
   beforeAll(() => fetchMock.activate());
   afterAll(() => fetchMock.deactivate());
 
-  it('reports degraded when Mayar payment/create route returns 404', async () => {
+  it('reports degraded when Mayar invoice/create route returns 404', async () => {
     fetchMock
       .get('https://api.mayar.club')
-      .intercept({ path: '/hl/v1/payment/create', method: 'POST' })
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
       .reply(404, '404 page not found\n')
       .times(1);
 
@@ -1804,10 +1824,10 @@ describe('GET /payment-health', () => {
     expect(body.gateway_status).toBe('http_404');
   });
 
-  it('reports ok when Mayar payment/create route rejects an empty probe with validation/auth status', async () => {
+  it('reports ok when Mayar invoice/create route rejects an empty probe with validation/auth status', async () => {
     fetchMock
       .get('https://api.mayar.club')
-      .intercept({ path: '/hl/v1/payment/create', method: 'POST' })
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
       .reply(400, JSON.stringify({ statusCode: 400, messages: 'Validation Error' }))
       .times(1);
 
@@ -4980,7 +5000,7 @@ describe('POST /create-payment — scoring snapshot preservation', () => {
 
     fetchMock
       .get('https://api.mayar.club')
-      .intercept({ path: '/hl/v1/payment/create', method: 'POST' })
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
       .reply(200, JSON.stringify({
         data: { id: 'inv_scoring_snap', link: 'https://web.mayar.club/pay/inv_scoring_snap' }
       }))
@@ -5011,7 +5031,7 @@ describe('POST /create-payment — scoring snapshot preservation', () => {
 
     fetchMock
       .get('https://api.mayar.club')
-      .intercept({ path: '/hl/v1/payment/create', method: 'POST' })
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
       .reply(200, JSON.stringify({
         data: { id: 'inv_no_scoring', link: 'https://web.mayar.club/pay/inv_no_scoring' }
       }))

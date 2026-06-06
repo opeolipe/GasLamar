@@ -64,6 +64,7 @@ export async function handleMayarWebhook(request, env, ctx) {
     payload.data?.order_id,
     payload.data?.reference,    // echoed back from our `reference: sessionId` at invoice creation
     payload.data?.externalId,
+    payload.data?.extraData?.noCustomer, // our documented invoice extraData session reference
   ].filter((id, i, arr) => id && typeof id === 'string' && id.length <= 200 && arr.indexOf(id) === i); // dedupe + KV key length guard
 
   const redirectUrl = payload.redirect_url || payload.data?.redirect_url || '';
