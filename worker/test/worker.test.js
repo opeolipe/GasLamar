@@ -1488,11 +1488,16 @@ describe('POST /create-payment — one-time key consumption', () => {
     expect(body).not.toHaveProperty('session_id');
     expect(res.headers.get('set-cookie')).toContain('HttpOnly');
     expect(mayarPayload).toMatchObject({
+      name: expect.any(String),
+      email: expect.any(String),
+      mobile: expect.any(String),
       amount: 59000,
       redirectUrl: expect.any(String),
       description: expect.stringContaining('GasLamar.com'),
+      expiredAt: expect.any(String),
     });
     expect(mayarPayload).not.toHaveProperty('items');
+    expect(mayarPayload).not.toHaveProperty('reference');
 
     const sessionId = sessionIdFromSetCookie(res);
     const session = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
