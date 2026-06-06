@@ -78,9 +78,6 @@ export async function createMayarInvoice(sessionId, tier, env, redirectUrl, cust
     description: `${tierConfig.label} — GasLamar.com`,
     redirectUrl,
     expiredAt,
-    // reference is echoed back in Mayar webhooks when available; used as a session-ID
-    // fallback when the primary mayar_session_{invoiceId} KV index is missing.
-    reference: sessionId,
   };
 
   const endpoint = `${apiUrl}/payment/create`;
