@@ -19,9 +19,11 @@ export function getMayarApiUrl(env) {
 }
 
 export function getMayarApiKey(env) {
-  return env.ENVIRONMENT === 'production'
+  const rawKey = env.ENVIRONMENT === 'production'
     ? env.MAYAR_API_KEY
     : env.MAYAR_API_KEY_SANDBOX;
+  if (typeof rawKey !== 'string') return rawKey;
+  return rawKey.trim().replace(/^Bearer\s+/i, '').trim();
 }
 
 // Call once per request to confirm which Mayar gateway is active.

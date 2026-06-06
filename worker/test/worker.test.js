@@ -8,7 +8,7 @@ import { SELF, env, fetchMock } from 'cloudflare:test';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { getCorsHeaders, isOriginAllowed } from '../src/cors.js';
 import { route } from '../src/router.js';
-import { verifyMayarWebhook } from '../src/mayar.js';
+import { getMayarApiKey, verifyMayarWebhook } from '../src/mayar.js';
 import { GEN_KEY_PREFIX_ID, GEN_KEY_PREFIX_EN } from '../src/cacheVersions.js';
 import { handleResendAccess } from '../src/handlers/resendAccess.js';
 import { makeCvKeyCookie, makeSessionTokenCookie, makeSessionCookie } from '../src/cookies.js';
@@ -450,6 +450,15 @@ describe('makeSessionCookie — cookie format', () => {
   it('multi-credit Max-Age is 2592000 (30 days)', () => {
     const cookie = makeSessionCookie(SESSION_ID, true, { ENVIRONMENT: 'production' });
     expect(cookie).toContain('Max-Age=2592000');
+  });
+});
+
+describe('getMayarApiKey — secret normalization', () => {
+  it('strips a pasted Bearer prefix so Authorization is not doubled', () => {
+    expect(getMayarApiKey({
+      ENVIRONMENT: 'staging',
+      MAYAR_API_KEY_SANDBOX: 'Bearer eyJhbGciOiJIUzI1NiJ9.sandbox',
+    })).toBe('eyJhbGciOiJIUzI1NiJ9.sandbox');
   });
 });
 
