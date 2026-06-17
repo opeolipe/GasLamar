@@ -8,6 +8,13 @@ import { createSession, getSession, updateSession } from '../sessions.js';
 import { makeSessionCookie, getCvKeyFromCookie, getSessionTokenFromCookie, getSessionIdFromCookie } from '../cookies.js';
 import { SESSION_STATES } from '../sessionStates.js';
 
+function paymentReturnUrl(env) {
+  const baseUrl = env.ENVIRONMENT === 'staging'
+    ? 'https://staging.gaslamar.pages.dev/download.html'
+    : 'https://gaslamar.com/download.html';
+  return `${baseUrl}?payment_return=1`;
+}
+
 export async function handleCreatePayment(request, env) {
   const ip = clientIp(request);
 
@@ -129,9 +136,7 @@ export async function handleCreatePayment(request, env) {
         const mayarKeyForRefresh = env.ENVIRONMENT === 'production' ? env.MAYAR_API_KEY : env.MAYAR_API_KEY_SANDBOX;
         if (mayarKeyForRefresh) {
           try {
-            const redirectUrl = env.ENVIRONMENT === 'staging'
-              ? 'https://staging.gaslamar.pages.dev/download.html'
-              : 'https://gaslamar.com/download.html';
+            const redirectUrl = paymentReturnUrl(env);
             const { invoice_id: newInvoiceId, transaction_id: newTransactionId, invoice_url: newInvoiceUrl } = await createMayarInvoice(
               existingSessionId, validatedTier, env, redirectUrl, existingSession.email ?? null, null
             );
@@ -205,9 +210,7 @@ export async function handleCreatePayment(request, env) {
     // Redirect after payment completes — points to the right frontend per environment.
     // ENVIRONMENT = "staging"    → staging.gaslamar.pages.dev
     // ENVIRONMENT = "production" → gaslamar.com  (and everything else)
-    const redirectUrl = env.ENVIRONMENT === 'staging'
-      ? 'https://staging.gaslamar.pages.dev/download.html'
-      : 'https://gaslamar.com/download.html';
+    const redirectUrl = paymentReturnUrl(env);
 
     logMayarEnvironment(env);
     console.log(JSON.stringify({ event: 'payment_redirect_url', redirectUrl, environment: env.ENVIRONMENT ?? 'sandbox' }));

@@ -1500,7 +1500,7 @@ describe('POST /create-payment — one-time key consumption', () => {
       name: expect.any(String),
       email: expect.any(String),
       mobile: expect.any(String),
-      redirectUrl: expect.any(String),
+      redirectUrl: 'https://gaslamar.com/download.html?payment_return=1',
       description: expect.stringContaining('GasLamar.com'),
       expiredAt: expect.any(String),
       items: [{
@@ -1520,6 +1520,41 @@ describe('POST /create-payment — one-time key consumption', () => {
     const session = await env.GASLAMAR_SESSIONS.get(sessionId, { type: 'json' });
     expect(session).not.toBeNull();
     expect(session.session_secret_hash).toBeUndefined();
+  });
+
+  it('uses staging frontend return URL with payment marker when ENVIRONMENT=staging', async () => {
+    const key = await seedCVTextKey(undefined, '10.0.0.13');
+    let mayarPayload = null;
+
+    fetchMock
+      .get('https://api.mayar.club')
+      .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
+      .reply(200, ({ body }) => {
+        mayarPayload = JSON.parse(body);
+        return JSON.stringify({
+          data: { id: 'inv_test_staging_return', link: 'https://web.mayar.club/pay/inv_test_staging_return' }
+        });
+      })
+      .times(1);
+
+    const res = await route(new Request('https://api-staging.gaslamar.com/create-payment', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Origin: 'https://staging.gaslamar.pages.dev',
+        'CF-Connecting-IP': '10.0.0.13',
+      },
+      body: JSON.stringify({ tier: 'single', cv_text_key: key }),
+    }), { ...env, ENVIRONMENT: 'staging' }, {});
+
+    expect(res.status).toBe(200);
+    expect(mayarPayload).toMatchObject({
+      redirectUrl: 'https://staging.gaslamar.pages.dev/download.html?payment_return=1',
+      extraData: {
+        noCustomer: expect.stringMatching(/^sess_[0-9a-f-]{36}$/i),
+        idProd: 'single',
+      },
+    });
   });
 
   it('consumes cv_text_key — second call returns 400', async () => {
@@ -1652,7 +1687,7 @@ describe('POST /create-payment — Mayar URL field extraction', () => {
     const body = await res.json();
     expect(body.invoice_url).toBe('https://web.mayar.id/pay/prod_payment_id');
     expect(mayarPayload).toMatchObject({
-      redirectUrl: 'https://gaslamar.com/download.html',
+      redirectUrl: 'https://gaslamar.com/download.html?payment_return=1',
       items: [{
         quantity: 1,
         rate: 59000,

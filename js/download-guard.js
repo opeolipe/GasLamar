@@ -13,9 +13,10 @@
  *
  * Valid entry paths — guard allows these through:
  *   1. ?token=<hex>           — email link; download.js will call /exchange-token
- *   2. gaslamar_has_session=1 — non-sensitive routing flag set by payment.js (session_id itself is never stored client-side)
- *   3. gaslamar_session       — legacy routing hint for users who paid before cookie-only auth
- *   4. gaslamar_delivery      — email delivery confirmed; React handles session state
+ *   2. ?payment_return=1    — Mayar return URL; React validates the HttpOnly cookie via /check-session
+ *   3. gaslamar_has_session=1 — non-sensitive routing flag set by payment.js (session_id itself is never stored client-side)
+ *   4. gaslamar_session       — legacy routing hint for users who paid before cookie-only auth
+ *   5. gaslamar_delivery      — email delivery confirmed; React handles session state
  *
  * All other cases → immediate replace-redirect to /
  * (window.location.replace so the download page is not added to browser history).
@@ -30,7 +31,13 @@
   if (token && /^[0-9a-f]{32}$/.test(token)) return;
   if (token) { window.location.replace('/?reason=no_session'); return; }
 
-  // Path 2: normal flow — presence flag written by payment.js after /create-payment.
+  // Path 2: Mayar return flow. This marker is not an auth credential; it only lets
+  // the React app load so it can validate the HttpOnly session cookie with the API.
+  // This keeps the payment return robust when localStorage is unavailable or missing
+  // after a cross-site redirect/manual Mayar "next page" click.
+  if (params.get('payment_return') === '1') return;
+
+  // Path 3: normal flow — presence flag written by payment.js after /create-payment.
   // The actual session_id is never stored client-side; the HttpOnly cookie is the
   // authoritative credential. This flag is only a routing hint for this guard.
   // gaslamar_session (legacy key) is also accepted for backward compatibility with
@@ -44,7 +51,7 @@
     return;
   }
 
-  // Path 3: legacy normal flow. Do not send this ID to the Worker; it is only
+  // Path 4: legacy normal flow. Do not send this ID to the Worker; it is only
   // a routing hint so pre-cookie sessions reach React and fail/recover cleanly.
   try {
     var legacySession = localStorage.getItem('gaslamar_session') || sessionStorage.getItem('gaslamar_session');
@@ -54,7 +61,7 @@
     return;
   }
 
-  // Path 4: delivery flow — email was sent; React renders the delivery section.
+  // Path 5: delivery flow — email was sent; React renders the delivery section.
   try {
     if (localStorage.getItem('gaslamar_delivery')) return;
   } catch (_) {
