@@ -216,6 +216,13 @@ async function seedCVTextKey(
   return key;
 }
 
+/** Seed a CSRF token for a given cv_text_key and return the token string. */
+async function seedCsrf(cvKey) {
+  const token = crypto.randomUUID();
+  await env.GASLAMAR_SESSIONS.put(`csrf_${cvKey}`, token, { expirationTtl: 3600 });
+  return token;
+}
+
 // Historical fixed secret retained for legacy-hash fixtures. Session-protected
 // endpoints now authenticate with the HttpOnly session cookie alone.
 const FIXED_TEST_SECRET = 'fixed-test-session-secret-for-vitest';
@@ -1284,7 +1291,8 @@ describe('POST /create-payment — validation', () => {
       .reply(200, JSON.stringify({ data: { id: 'inv_uppercase', link: 'https://web.mayar.club/pay/inv_uppercase' } }))
       .times(1);
     const key = await seedCVTextKey();
-    const res = await post('/create-payment', { tier: 'SINGLE', cv_text_key: key });
+    const csrf = await seedCsrf(key);
+    const res = await post('/create-payment', { tier: 'SINGLE', cv_text_key: key }, { 'X-CSRF-Token': csrf });
     const body = await res.json();
     expect(body.message ?? '').not.toMatch(/tier tidak valid/i);
   });
@@ -1297,7 +1305,8 @@ describe('POST /create-payment — validation', () => {
       .times(4);
     for (const tier of ['coba', 'single', '3pack', 'jobhunt']) {
       const key = await seedCVTextKey();
-      const res = await post('/create-payment', { tier, cv_text_key: key });
+      const csrf = await seedCsrf(key);
+      const res = await post('/create-payment', { tier, cv_text_key: key }, { 'X-CSRF-Token': csrf });
       // Reaches Mayar invoice creation (fails without API key in test env) — not a 400 tier error
       const body = await res.json();
       expect(body.message ?? '').not.toMatch(/tier tidak valid/i);
@@ -1311,7 +1320,8 @@ describe('POST /create-payment — validation', () => {
       .reply(200, JSON.stringify({ data: { id: 'inv_whitespace', link: 'https://web.mayar.club/pay/inv_whitespace' } }))
       .times(1);
     const key = await seedCVTextKey();
-    const res = await post('/create-payment', { tier: '  single  ', cv_text_key: key });
+    const csrf = await seedCsrf(key);
+    const res = await post('/create-payment', { tier: '  single  ', cv_text_key: key }, { 'X-CSRF-Token': csrf });
     // Should pass tier validation — not a 400 tier error
     const body = await res.json();
     expect(body.message ?? '').not.toMatch(/tier tidak valid/i);
@@ -1324,7 +1334,8 @@ describe('POST /create-payment — validation', () => {
       .reply(200, JSON.stringify({ data: { id: 'inv_starter', link: 'https://web.mayar.club/pay/inv_starter' } }))
       .times(1);
     const key = await seedCVTextKey();
-    const res = await post('/create-payment', { tier: 'starter', cv_text_key: key });
+    const csrf = await seedCsrf(key);
+    const res = await post('/create-payment', { tier: 'starter', cv_text_key: key }, { 'X-CSRF-Token': csrf });
     // Should pass tier validation — not a 400 tier error
     const body = await res.json();
     expect(body.message ?? '').not.toMatch(/tier tidak valid/i);
@@ -1350,8 +1361,9 @@ describe('POST /create-payment — validation', () => {
       .times(1);
     // Seed a valid key bound to the default IP (1.2.3.4)
     const key = await seedCVTextKey(undefined, '1.2.3.4');
+    const csrf = await seedCsrf(key);
     // Pass the key only via cookie — body has no cv_text_key
-    const res = await post('/create-payment', { tier: 'single' }, { Cookie: `__Host-cv_key=${key}` }, '1.2.3.4');
+    const res = await post('/create-payment', { tier: 'single' }, { Cookie: `__Host-cv_key=${key}`, 'X-CSRF-Token': csrf }, '1.2.3.4');
     // Reaches Mayar invoice creation (which fails without API key in test env) → not a 400 key error
     expect(res.status).not.toBe(400);
   });
@@ -1363,12 +1375,13 @@ describe('POST /create-payment — validation', () => {
       .reply(200, JSON.stringify({ data: { id: 'inv_cookie_precedence', link: 'https://web.mayar.club/pay/inv_cookie_precedence' } }))
       .times(1);
     const cookieKey = await seedCVTextKey(undefined, '1.2.3.4');
+    const csrf = await seedCsrf(cookieKey);
     // Provide a valid but nonexistent key in the body; the cookie key should win
     const bodyKey = `cvtext_${cvHexToken()}`;
     const res = await post(
       '/create-payment',
       { tier: 'single', cv_text_key: bodyKey },
-      { Cookie: `__Host-cv_key=${cookieKey}` },
+      { Cookie: `__Host-cv_key=${cookieKey}`, 'X-CSRF-Token': csrf },
       '1.2.3.4',
     );
     // Cookie key is valid and found in KV — should not return 400 for missing/expired key
@@ -1382,6 +1395,7 @@ describe('POST /create-payment — validation', () => {
       .reply(200, JSON.stringify({ data: { id: 'inv_session_token', link: 'https://web.mayar.club/pay/inv_session_token' } }))
       .times(1);
     const cvKey = await seedCVTextKey(undefined, '1.2.3.4');
+    const csrf = await seedCsrf(cvKey);
     const analysisSessionId = crypto.randomUUID();
     await env.GASLAMAR_SESSIONS.put(
       `analysis_session_${analysisSessionId}`,
@@ -1392,7 +1406,7 @@ describe('POST /create-payment — validation', () => {
     const res = await post(
       '/create-payment',
       { tier: 'single' },
-      { Cookie: `sessionToken=${analysisSessionId}` },
+      { Cookie: `sessionToken=${analysisSessionId}`, 'X-CSRF-Token': csrf },
       '1.2.3.4',
     );
     // Reaches Mayar invoice creation (fails without API key in test env) → not a 400 key error
@@ -1452,6 +1466,7 @@ describe('POST /create-payment — validation', () => {
 
   it('releases the invoice lock when the payment API key is missing', async () => {
     const key = await seedCVTextKey(undefined, '10.97.2.1');
+    const csrf = await seedCsrf(key);
     const testEnv = { ...env, MAYAR_API_KEY_SANDBOX: undefined };
 
     const res = await route(new Request('https://gaslamar.com/create-payment', {
@@ -1460,6 +1475,7 @@ describe('POST /create-payment — validation', () => {
         'Content-Type': 'application/json',
         Origin: GASLAMAR_ORIGIN,
         'CF-Connecting-IP': '10.97.2.1',
+        'X-CSRF-Token': csrf,
       },
       body: JSON.stringify({ tier: 'single', cv_text_key: key }),
     }), testEnv, {});
@@ -1475,6 +1491,7 @@ describe('POST /create-payment — one-time key consumption', () => {
 
   it('creates a payment session without requiring a client-readable session secret', async () => {
     const key = await seedCVTextKey(undefined, '10.0.0.12');
+    const csrf = await seedCsrf(key);
     let mayarPayload = null;
 
     fetchMock
@@ -1491,7 +1508,7 @@ describe('POST /create-payment — one-time key consumption', () => {
     const res = await post('/create-payment', {
       tier: 'single',
       cv_text_key: key,
-    }, {}, '10.0.0.12');
+    }, { 'X-CSRF-Token': csrf }, '10.0.0.12');
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).not.toHaveProperty('session_id');
@@ -1524,6 +1541,7 @@ describe('POST /create-payment — one-time key consumption', () => {
 
   it('uses staging frontend return URL with payment marker when ENVIRONMENT=staging', async () => {
     const key = await seedCVTextKey(undefined, '10.0.0.13');
+    const csrf = await seedCsrf(key);
     let mayarPayload = null;
 
     fetchMock
@@ -1543,6 +1561,7 @@ describe('POST /create-payment — one-time key consumption', () => {
         'Content-Type': 'application/json',
         Origin: 'https://staging.gaslamar.pages.dev',
         'CF-Connecting-IP': '10.0.0.13',
+        'X-CSRF-Token': csrf,
       },
       body: JSON.stringify({ tier: 'single', cv_text_key: key }),
     }), { ...env, ENVIRONMENT: 'staging' }, {});
@@ -1560,6 +1579,7 @@ describe('POST /create-payment — one-time key consumption', () => {
   it('consumes cv_text_key — second call returns 400', async () => {
     // Seed with same IP as the request so IP-binding check passes
     const key = await seedCVTextKey(undefined, '10.0.0.2');
+    const csrf = await seedCsrf(key);
 
     // Mock Mayar sandbox invoice creation
     fetchMock
@@ -1574,7 +1594,7 @@ describe('POST /create-payment — one-time key consumption', () => {
     const res1 = await post('/create-payment', {
       tier: 'single',
       cv_text_key: key,
-    }, {}, '10.0.0.2');
+    }, { 'X-CSRF-Token': csrf }, '10.0.0.2');
     expect(res1.status).toBe(200);
     const body1 = await res1.json();
     expect(body1).not.toHaveProperty('session_id');
@@ -1605,13 +1625,14 @@ describe('POST /create-payment — Mayar URL field extraction', () => {
   for (const { field, url, label } of CHECKOUT_DOMAINS) {
     it(`extracts invoice_url from Mayar response field "${field}" — ${label}`, async () => {
       const key = await seedCVTextKey(undefined, '10.1.1.1');
+      const csrf = await seedCsrf(key);
       fetchMock
         .get('https://api.mayar.club')
         .intercept({ path: '/hl/v1/invoice/create', method: 'POST' })
         .reply(200, JSON.stringify({ data: { id: `inv_${field}`, [field]: url } }))
         .times(1);
 
-      const res = await post('/create-payment', { tier: 'single', cv_text_key: key }, {}, '10.1.1.1');
+      const res = await post('/create-payment', { tier: 'single', cv_text_key: key }, { 'X-CSRF-Token': csrf }, '10.1.1.1');
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.invoice_url).toBe(url);
@@ -1620,6 +1641,7 @@ describe('POST /create-payment — Mayar URL field extraction', () => {
 
   it('stores invoice_url in session so resume logic can return it on retry', async () => {
     const key = await seedCVTextKey(undefined, '10.1.2.1');
+    const csrf = await seedCsrf(key);
     const invoiceUrl = 'https://olive-41774.mayar.shop/select-channel/store-test';
     fetchMock
       .get('https://api.mayar.club')
@@ -1627,7 +1649,7 @@ describe('POST /create-payment — Mayar URL field extraction', () => {
       .reply(200, JSON.stringify({ data: { id: 'inv_store_test', paymentLink: invoiceUrl } }))
       .times(1);
 
-    const res = await post('/create-payment', { tier: 'single', cv_text_key: key }, {}, '10.1.2.1');
+    const res = await post('/create-payment', { tier: 'single', cv_text_key: key }, { 'X-CSRF-Token': csrf }, '10.1.2.1');
     expect(res.status).toBe(200);
 
     const sessionId = sessionIdFromSetCookie(res);
@@ -1638,6 +1660,7 @@ describe('POST /create-payment — Mayar URL field extraction', () => {
 
   it('stores mayar_session_{transaction_id} KV index alongside mayar_session_{invoice_id}', async () => {
     const key = await seedCVTextKey(undefined, '10.1.4.1');
+    const csrf = await seedCsrf(key);
     const invoiceId     = 'inv_dual_index_test';
     const transactionId = 'txn_dual_index_test';
     fetchMock
@@ -1648,7 +1671,7 @@ describe('POST /create-payment — Mayar URL field extraction', () => {
       }))
       .times(1);
 
-    const res = await post('/create-payment', { tier: 'single', cv_text_key: key }, {}, '10.1.4.1');
+    const res = await post('/create-payment', { tier: 'single', cv_text_key: key }, { 'X-CSRF-Token': csrf }, '10.1.4.1');
     expect(res.status).toBe(200);
 
     // Both KV indexes must exist after invoice creation
@@ -1660,6 +1683,7 @@ describe('POST /create-payment — Mayar URL field extraction', () => {
 
   it('uses production Mayar invoice/create endpoint when ENVIRONMENT=production', async () => {
     const key = await seedCVTextKey(undefined, '10.1.6.1');
+    const csrf = await seedCsrf(key);
     let mayarPayload = null;
 
     fetchMock
@@ -1679,6 +1703,7 @@ describe('POST /create-payment — Mayar URL field extraction', () => {
         'Content-Type': 'application/json',
         Origin: GASLAMAR_ORIGIN,
         'CF-Connecting-IP': '10.1.6.1',
+        'X-CSRF-Token': csrf,
       },
       body: JSON.stringify({ tier: 'single', cv_text_key: key }),
     }), { ...env, ENVIRONMENT: 'production' }, {});
@@ -1817,6 +1842,7 @@ describe('POST /create-payment — invoice refresh dual KV index', () => {
 describe('API aliases', () => {
   it('accepts POST /api/create-payment as an alias for /create-payment', async () => {
     const key = await seedCVTextKey(undefined, '10.0.0.13');
+    const csrf = await seedCsrf(key);
 
     fetchMock.activate();
     fetchMock
@@ -1830,7 +1856,7 @@ describe('API aliases', () => {
     const res = await post('/api/create-payment', {
       tier: 'single',
       cv_text_key: key,
-    }, {}, '10.0.0.13');
+    }, { 'X-CSRF-Token': csrf }, '10.0.0.13');
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).not.toHaveProperty('session_id');
@@ -5041,10 +5067,11 @@ describe('POST /create-payment — scoring snapshot preservation', () => {
       }))
       .times(1);
 
+    const csrf1 = await seedCsrf(cvTextKey);
     const res = await post('/create-payment', {
       tier: 'single',
       cv_text_key: cvTextKey,
-    }, {}, '10.1.1.1');
+    }, { 'X-CSRF-Token': csrf1 }, '10.1.1.1');
     expect(res.status).toBe(200);
 
     // cvtext_ entry must be deleted (consumed)
@@ -5063,6 +5090,7 @@ describe('POST /create-payment — scoring snapshot preservation', () => {
     // seedCVTextKey omits scoring — verifies graceful no-op when scoring is absent
     const key = await seedCVTextKey(undefined, '10.1.1.2');
     const token = key.slice('cvtext_'.length);
+    const csrf2 = await seedCsrf(key);
 
     fetchMock
       .get('https://api.mayar.club')
@@ -5075,7 +5103,7 @@ describe('POST /create-payment — scoring snapshot preservation', () => {
     const res = await post('/create-payment', {
       tier: 'single',
       cv_text_key: key,
-    }, {}, '10.1.1.2');
+    }, { 'X-CSRF-Token': csrf2 }, '10.1.1.2');
     expect(res.status).toBe(200);
 
     // scoring_ key should not exist (nothing to preserve)

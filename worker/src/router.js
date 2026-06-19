@@ -19,6 +19,7 @@ import { handleInterviewKit }  from './handlers/interviewKit.js';
 import { handleGetResult } from './handlers/getResult.js';
 import { handleValidateCoupon } from './handlers/validateCoupon.js';
 import { handleGetScoring } from './handlers/getScoring.js';
+import { handleCsrfToken } from './handlers/csrfToken.js';
 import { handlePaymentHealth } from './handlers/paymentHealth.js';
 import { handleAdminCancelInvoice } from './handlers/adminCancelInvoice.js';
 import { getSession } from './sessions.js';
@@ -87,6 +88,7 @@ const API_METHODS = new Map([
   ['/check-session', ['GET']],
   ['/validate-session', ['GET']],
   ['/get-scoring', ['GET']],
+  ['/csrf-token', ['GET']],
   ['/get-session', ['POST']],
   ['/generate', ['POST']],
   ['/get-result', ['POST']],
@@ -209,6 +211,10 @@ export async function route(request, env, ctx) {
 
   if (method === 'GET' && apiPath === '/get-scoring') {
     return handleGetScoring(request, env);
+  }
+
+  if (method === 'GET' && apiPath === '/csrf-token') {
+    return handleCsrfToken(request, env);
   }
 
   if (method === 'POST' && apiPath === '/get-session') {

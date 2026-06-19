@@ -373,12 +373,27 @@ async function proceedToPayment() {
   const timeout = setTimeout(() => controller.abort(), 25000);
 
   try {
+    // Fetch a single-use CSRF token before submitting payment — held in memory only,
+    // never written to storage. The backend validates and deletes it on use.
+    const csrfRes = await fetch(`${WORKER_URL}/csrf-token`, {
+      method: 'GET',
+      credentials: 'include',
+      signal: controller.signal,
+    });
+    if (!csrfRes.ok) {
+      clearTimeout(timeout);
+      resetPayBtn(btn, originalText);
+      showPaymentError('Sesi analisis tidak ditemukan. Silakan <a href="upload.html" class="underline font-medium">upload CV lagi</a>.', false);
+      return;
+    }
+    const { csrfToken } = await csrfRes.json();
+
     // credentials:'include' is required so the browser accepts the session_id
     // HttpOnly cookie returned in the Set-Cookie header of the response.
     // Without this, the cross-origin cookie is silently discarded.
     const response = await fetch(`${WORKER_URL}/create-payment`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
       credentials: 'include',
       body: JSON.stringify({
         tier: selectedTier,
