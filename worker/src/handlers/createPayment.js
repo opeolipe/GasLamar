@@ -94,6 +94,7 @@ export async function handleCreatePayment(request, env) {
   if (!/^cvtext_[0-9a-f]{64}$/.test(cv_text_key)) {
     return withRl(jsonResponse({ message: 'cv_text_key tidak valid' }, 400, request, env));
   }
+
   const stored = await env.GASLAMAR_SESSIONS.get(cv_text_key, { type: 'json' });
   if (!stored || !stored.text) {
     // Before giving up with cv_expired, check whether the user already completed a
@@ -182,6 +183,20 @@ export async function handleCreatePayment(request, env) {
     log('cvtext_ip_mismatch', { ip, stored_ip: stored.ip });
     return withRl(jsonResponse({ message: 'Sesi tidak valid dari jaringan ini. Ulangi upload CV.' }, 403, request, env));
   }
+
+  // CSRF token validation — single-use token issued by GET /csrf-token.
+  // Placed here (after IP + session checks) so earlier validation errors keep their
+  // own status codes. SameSite=None (staging) makes the cookie-only defence insufficient.
+  const csrfHeader = request.headers.get('X-CSRF-Token');
+  if (!csrfHeader) {
+    return withRl(jsonResponse({ message: 'CSRF token diperlukan', code: 'csrf_missing' }, 403, request, env));
+  }
+  const storedCsrf = await env.GASLAMAR_SESSIONS.get(`csrf_${cv_text_key}`);
+  if (!storedCsrf || storedCsrf !== csrfHeader) {
+    return withRl(jsonResponse({ message: 'CSRF token tidak valid atau sudah kadaluarsa', code: 'csrf_invalid' }, 403, request, env));
+  }
+  // Delete immediately — single-use to prevent replay attacks.
+  await env.GASLAMAR_SESSIONS.delete(`csrf_${cv_text_key}`);
 
   // Validate Mayar API key before creating an invoice lock (gives a clear 503
   // without blocking retries for 60s when staging/sandbox config is missing).
